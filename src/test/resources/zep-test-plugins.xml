@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+    
+    <bean id="testPluginProperties"
+        class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="locations">
+            <array>
+                <value>classpath:test-zenoss-zep-plugins.properties</value>
+            </array>
+        </property>
+    </bean>
+    
+    <bean id="pluginService" class="org.zenoss.zep.impl.PluginServiceImpl">
+        <property name="pluginProperties" ref="testPluginProperties" />
+    </bean>
+
+    <bean id="myPrePlugin1" class="org.zenoss.zep.impl.PluginServiceImplTest$MyPrePlugin1">
+    </bean>
+    
+    <bean id="myPrePlugin2" class="org.zenoss.zep.impl.PluginServiceImplTest$MyPrePlugin2">
+    </bean>
+    
+    <bean id="myPrePlugin3" class="org.zenoss.zep.impl.PluginServiceImplTest$MyPrePlugin3">
+    </bean>
+    
+    <bean id="myPostPlugin1" class="org.zenoss.zep.impl.PluginServiceImplTest$MyPostPlugin1">
+    </bean>
+    
+    <bean id="myPostPlugin2" class="org.zenoss.zep.impl.PluginServiceImplTest$MyPostPlugin2">
+    </bean>
+
+</beans>

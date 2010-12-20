@@ -1,0 +1,115 @@
+#!/usr/bin/env python
+
+import optparse
+import os
+import re
+import sys
+import tempfile
+
+PROPERTY_DELIM = re.compile(r'(?:\s*[=:])')
+def zenPath(*args):
+    return os.path.abspath(os.path.join(os.environ['ZENHOME'], *args))
+
+def parse_properties(conf_file):
+    if not os.path.isfile(conf_file):
+        return
+    with open(conf_file) as global_conf:
+        for line in global_conf:
+            name = None
+            if not line.startswith('#'):
+                fields = re.split(PROPERTY_DELIM, line, 1)
+                if len(fields) > 1:
+                    name = fields[0]
+            # Strip trailing whitespace and ensure each line has a trailing
+            # newline (fixes issues with noeol).
+            yield (line.rstrip() + '\n', name)
+
+def create_tmpfile(path):
+    statinfo = os.stat(path)
+    (tmpfd,tmpname) = tempfile.mkstemp(suffix='.properties',dir=os.path.dirname(path),text=True)
+    # Clone permissions from original file
+    os.chmod(tmpname, statinfo.st_mode)
+    os.chown(tmpname, statinfo.st_uid, statinfo.st_gid)
+    return (tmpfd,tmpname)
+
+def remove_properties(properties_to_remove):
+    filename = zenPath('etc', 'zenoss-zep.properties')
+    (tmpfd,tmpname) = create_tmpfile(filename)
+    output_file = os.fdopen(tmpfd, 'wb')
+    found_properties = set()
+    try:
+        for line, name in parse_properties(filename):
+            if name is None or name not in properties_to_remove:
+                output_file.write(line)
+            else:
+                found_properties.add(name)
+        output_file.close()
+        if len(found_properties) > 0:
+            os.rename(tmpname, filename)
+    finally:
+        try:
+            os.remove(tmpname)
+        except OSError:
+            pass
+
+def update_properties(properties_dict):
+    filename = zenPath('etc', 'zenoss-zep.properties')
+    (tmpfd,tmpname) = create_tmpfile(filename)
+    output_file = os.fdopen(tmpfd, 'wb')
+    found_properties = set()
+    try:
+        for line, name in parse_properties(filename):
+            if name is None or not name in properties_dict:
+                output_file.write(line)
+            elif name not in found_properties:
+                newval = properties_dict.get(name)
+                output_file.write("%s=%s\n" % (name, newval))
+                found_properties.add(name)
+
+        for name, val in properties_dict.iteritems():
+            if not name in found_properties:
+                output_file.write("%s=%s\n" % (name, val))
+
+        output_file.close()
+        os.rename(tmpname, filename)
+    finally:
+        try:
+            os.remove(tmpname)
+        except OSError:
+            pass
+
+def main():
+    if 'ZENHOME' not in os.environ:
+        print >> sys.stderr, (
+            "ZENHOME not set. You must run this script as the zenoss user.")
+        sys.exit(1)
+    parser = optparse.OptionParser(usage='%prog <-r|-u> prop_name[=prop_val] [...]')
+    parser.add_option('-r', '--remove', dest='remove', action='store_true',
+            help='Removes properties from the configuration file')
+    parser.add_option('-u', '--update', dest='update', action='store_true',
+            help='Adds or updates properties in the configuration file')
+    (options, args) = parser.parse_args(args=sys.argv[1:])
+
+    if len(args) == 0:
+        parser.error('required property names not provided')
+
+    if options.remove and options.update:
+        parser.error('options -u and -u are mutually exclusive')
+
+    if options.remove:
+        remove_properties(args)
+    else:
+        argsdict = {}
+        for arg in args:
+            splitargs = arg.split('=', 1)
+            if len(splitargs) != 2:
+                parser.error('invalid argument: %s' % arg)
+            name = splitargs[0].strip()
+            value = splitargs[1].strip()
+            if len(name) == 0 or len(value) == 0:
+                parser.error('invalid argument: %s' % arg)
+            argsdict[name] = value
+        update_properties(argsdict)
+
+if __name__ == '__main__':
+    main()

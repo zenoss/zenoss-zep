@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:p="http://www.springframework.org/schema/p" xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+                        http://www.springframework.org/schema/context
+                        http://www.springframework.org/schema/context/spring-context-3.0.xsd
+                        http://www.springframework.org/schema/tx
+                        http://www.springframework.org/schema/tx/spring-tx-3.0.xsd">
+
+    <!-- SOLR Datasource -->
+    <bean id="solrServerClient" class="org.apache.solr.client.solrj.impl.CommonsHttpSolrServer" lazy-init="true">
+        <constructor-arg>
+            <value>${zep.solr.uri:http://localhost:8983}/event_summary</value>
+        </constructor-arg>
+        <property name="connectionTimeout" value="100"/>
+        <property name="defaultMaxConnectionsPerHost" value="100"/>
+        <property name="maxTotalConnections" value="100"/>
+    </bean>
+
+    <bean id="solrArchiveServerClient" class="org.apache.solr.client.solrj.impl.CommonsHttpSolrServer" lazy-init="true">
+        <constructor-arg>
+            <value>${zep.solr.uri:http://localhost:8983}/event_archive</value>
+        </constructor-arg>
+        <property name="connectionTimeout" value="100"/>
+        <property name="defaultMaxConnectionsPerHost" value="100"/>
+        <property name="maxTotalConnections" value="100"/>
+    </bean>
+
+    <bean id="solrCoreContainer" class="org.apache.solr.core.CoreContainer" lazy-init="true" destroy-method="shutdown">
+        <constructor-arg value="${zep.solr.home:var/opt/zenoss-zep/solr}"/>
+        <constructor-arg value="classpath:solr/core-config.xml"/>
+    </bean>
+
+    <bean id="solrServerEmbedded"
+          class="org.apache.solr.client.solrj.embedded.EmbeddedSolrServer" lazy-init="true">
+        <constructor-arg ref="solrCoreContainer"/>
+        <constructor-arg value="event_summary"/>
+    </bean>
+
+    <bean id="solrArchiveServerEmbedded"
+          class="org.apache.solr.client.solrj.embedded.EmbeddedSolrServer" lazy-init="true">
+        <constructor-arg ref="solrCoreContainer"/>
+        <constructor-arg value="event_archive"/>
+    </bean>
+</beans>

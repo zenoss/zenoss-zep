@@ -1,0 +1,6 @@
+<solr persistent="true" sharedLib="lib">
+ <cores adminPath="/admin/cores">
+  <core name="event_summary" instanceDir="event_summary" config="solr/solrconfig.xml" schema="solr/schema.xml"/>
+  <core name="event_archive" instanceDir="event_archive" config="solr/solrconfig.xml" schema="solr/schema.xml"/>
+ </cores>
+</solr>

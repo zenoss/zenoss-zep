@@ -1,0 +1,65 @@
+==== Zenoss Event Processor (ZEP) README ====
+
+=== Development Configuration ===
+
+Prerequisites:
+ * MySQL client/server.
+ * RabbitMQ v2.x
+
+== Configuration ==
+
+1) Create a database for use by ZEP and import the database schema. There is
+a script named 'populate_schema.sh' in this directory which can be used to
+initialize the database. It assumes the following default settings:
+
+    * DBNAME: 'zenoss_zep'
+    * DBUSER: 'root'
+    * DBHOST: 'localhost'
+
+To override the default values, run 'populate_schema.sh --help' for usage
+information.
+
+== Running ZEP from Maven ==
+
+$ mvn jetty:run
+
+This will assume some default settings for the database connection. To
+override the default settings, you will need to set system properties from
+the Maven command-line. The available configuration properties and their
+default values are:
+
+    * zep.jdbc.hostname: localhost
+    * zep.jdbc.dbname: zenoss_zep
+    * zep.jdbc.username: root
+    * zep.jdbc.password: <BLANK>
+    * zep.amqp.uri: amqp://guest:guest@localhost:5672
+    * zep.amqp.retry: 300000
+    * zep.query.limit: 100
+
+To specify a system property from the Maven command-line, run:
+
+$ mvn jetty:run -D<propname>=<propval> [...]
+
+i.e.
+
+$ mvn jetty:run -Dzep.jdbc.hostname=myhost.zenoss.loc -Dzep.jdbc.username=zenoss
+
+== Running ZEP from a standalone build ==
+
+$ mvn assembly:assembly
+$ mkdir -p ~/zep
+$ tar zxvf target/zenoss-zep-*-webapp.tar.gz --strip-components=1 -C ~/zep
+$ cd ~/zep
+--> Edit 'etc/zenoss-zep.properties' and 'etc/zenoss-zep-plugins.properties' as
+    needed to configure ZEP.
+$ ./bin/zenoss-zep-create-db
+$ ./bin/zenoss-zep start
+
+ZEP will log any problems in 'log/zenoss-zep-<N>.log' where '<N>' is the
+number of the log file (the most recent log will be written to the
+zenoss-zep-0.log file). To update the logging configuration, edit the
+'etc/logging.properties' file and restart the ZEP daemon.
+
+== Running ZEP Unit and Integration Tests ==
+
+$ mvn verify

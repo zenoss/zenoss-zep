@@ -1,0 +1,79 @@
+#!/bin/bash
+
+BASEDIR=`dirname "$0"`
+BASEDIR=`cd "$BASEDIR/.." && pwd`
+
+DBNAME=${DBNAME:-"zenoss_zep"}
+DBHOST=${DBHOST:-"localhost"}
+DBUSER=${DBUSER:-"root"}
+DBPASS=${DBPASS:-""}
+PROMPTPASS=0
+FORCE=0
+
+usage() {
+    echo "Usage: $(basename "$0") [...]"
+    echo ""
+    echo "  --dbhost <dbhost> (default '$DBHOST')"
+    echo "  --dbname <dbname> (default '$DBNAME')"
+    echo "  --dbuser <dbuser> (default '$DBUSER')"
+    echo "  --dbpass <dbpass> (default '')"
+    echo "  --promptpass      (prompts for database password)"
+    echo "  --force           (overwrites existing database)"
+    echo ""
+    exit 0
+}
+
+while [ $# -gt 0 ]; do
+    ARG=$1
+    shift
+    case "$ARG" in
+        '--dbname')
+            DBNAME="$1"
+            shift
+            ;;
+        '--dbhost')
+            DBHOST="$1"
+            shift
+            ;;
+        '--dbuser')
+            DBUSER="$1"
+            shift
+            ;;
+        '--dbpass')
+            DBPASS="$1"
+            shift
+            ;;
+        '--promptpass')
+            PROMPTPASS=1
+            ;;
+        '--force')
+            FORCE=1
+            ;;
+        *)
+            usage
+    esac
+done
+
+if [ -n "$DBPASS" ] && [ $PROMPTPASS -gt 0 ]; then
+    echo "--dbpass and --promptpass are mutually exclusive"
+    usage
+fi
+
+if [ $PROMPTPASS -gt 0 ]; then
+    set -- mysql --host="$DBHOST" --user="$DBUSER" --password
+else
+    set -- mysql --host="$DBHOST" --user="$DBUSER" --password="$DBPASS"
+fi
+
+if [ $FORCE -gt 0 ]; then
+    DROP_DB="drop database if exists $DBNAME;"
+fi
+
+exec "$@" <<EOF
+$DROP_DB create database $DBNAME;
+use $DBNAME;
+source $BASEDIR/share/zenoss-zep/sql/event_schema.sql
+EOF
+RC=$?
+
+exit $RC

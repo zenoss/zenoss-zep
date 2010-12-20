@@ -1,0 +1,295 @@
+Event Lifetime
+==============
+
+SendEvent()
+-----------
+
+Get the event, do a bunch of magic to it like mappings and transforms, then store it.
+
+1. If event.eventClass == Heartbeat: return SendHeartbeat() (MySqlSendEvent.py:81)
+2. Check for required fields ('device', 'summary', 'severity'), ignore event if they are missing (MySqlSendEvent.py:88)
+3. Coerce event.severity into an int or use 1 (MySqlSendEvent.py:100)
+4. If event._action, make sure it is an allowed action ('history', 'drop', 'status', 'heartbeat', 'alert_state', 'log', 'detail') otherwise use 'status' (MySqlSendEvent.py:105)
+5. Copy event.summary to event.message if event.message is blank (MySqlSendEvent.py:113)
+6. Copy event.message to event.summary if event.summary is blank (MySqlSendEvent.py:115)
+7. Truncate event.summary to 128 (MySqlSendEvent.py:115)
+8. EventDataMaps(), data is not used just logged (MySqlSendEvent.py:117)
+9. event = EventContext() (MySqlSendEvent.py:124)
+10. If EventContext() changed event to a Heartbeat, return SendHeartbeat() (MySqlSendEvent.py:135)
+11. If not event.dedupid: (MySqlSendEvent.py:139)
+    1. Create one either using fun monkey patching of event.getDedupFields() or by using the default event fields of ('device', 'component', 'eventClass', 'eventKey', 'severity')
+    2. If there is no event.eventKey, add 'summary' into the mix for good measure
+    3. Join the fields by '|'
+12. DoSendEvent() (MySqlSendEvent.py:158)
+    
+DoSendEvent()
+-------------
+
+Actually write the event to the database.
+
+(MySqlSendEvent.py:174)
+
+1. statusdata, detailsdata = EventDataMaps() (MySqlSendEvent.py:184)
+2. if event.severity == 0: Clear() (MySqlSendEvent.py:200)
+3. Insert the event into the database: (MySqlSendEvent.py:217)
+    1. Uses event._action for the table name [1] (MySqlSendEvent.py:404)
+    2. If event._action == 'history': InsertIntoHistory()
+    3. If event._action == 'status': InsertIntoStatus()
+4. If it's a new event (exactly one updated row) and there's details, insert the details into `events`.`detail`: (MySqlSendEvent.py:220)
+
+    INSERT INTO detail (evid, name, value) values (
+        [(${event.evid}, ${key}, ${value}) for key, value in ${detailsdata}], (MySqlSendEvent.py:434)
+    )
+    
+5. If there was no update (0 updated rows or by a bug anything but 1 row), get the event matching the event.dedupid and use that event id instead:
+    
+    SELECT evid FROM ${event._action} where dedupid="${event.dedupid}" [2]
+    
+6. Return the event id (could be the id of the original event if there was a dedup)
+
+**NOTES:**
+
+* [1] This means that we effectively can only have an _action of 'history' or 'status'. There are alert_state, heartbeat, log, and detail tables, but you can't really insert an event into them. We try to, but the query would fail because it contains all the status data.
+* [2] There should be a `LIMIT 1` here since history allows dedupid duplicates
+* Several things use zdecode (Utils.py:742) to use zCollectorDecoding (default: 'latin-1') for decoding text like dedupid, summary, and message. Seems like we should just use unicode everywhere.
+
+InsertIntoHistory()
+-------------------
+(MySqlSendEvent.py:406)
+
+1. Execute query:
+
+    INSERT INTO history SET 
+        [${key} = ${value} for key, value in ${statusdata}], (MySqlSendEvent.py:436)
+        deleteTime = null, (MySqlSendEvent.py:407)
+        evid = ${event.evid}
+    
+InsertIntoStatus()
+------------------
+
+(MySqlSendEvent.py:410)
+
+1. Execute query:
+
+    INSERT INTO status SET 
+        [${key} = ${value} for key, value in ${statusdata}], (MySqlSendEvent.py:436)
+        evid = ${event.evid}
+        ON DUPLICATE KEY UPDATE
+            prodState = ${statusdata.prodState},
+            summary = ${statusdata.summary},
+            message = ${statusdata.message},
+            count = count + 1,
+            lastTime = ${statusdata.lastTime} # Should be the event's timestamp
+        
+**NOTES:**
+
+* Only prodState, summary, message, count, and lastTime are updated in status, however I think we want to update all fields in ZEP
+
+EventContext()
+--------------
+
+(MySqlSendEvent.py:277)
+
+1. If event.monitor, only look up devices for that collector otherwise, scope to all devices (MySqlSendEvent.py:293)
+2. Find device by event.device then event.ipAddress, searches Device.id, Device.ip, and Device.title and ranks id or ip matches above title matches. (MySqlSendEvent.py:302-305) (DeviceClass.py:460)
+3. If no device found, find an ip by looking up event.device in the Networks catalog and get its device. (MySqlSendEvent.py:306) 
+4. If no device found, find an ip by looking up event.ipAddress in the Networks catalog and get its device. (MySqlSendEvent.py:308) 
+5. If device found, map device context on to event (MySqlSendEvent.py:315):
+    if not hasattr(event, 'ipAddress'): event.ipAddress = device.manageIp
+    event.prodState = device.productionState
+    event.Location = device.getLocationName()
+    event.DeviceClass  = device.getDeviceClassName()
+    event.DeviceGroups = "|"+"|".join(device.getDeviceGroupNames())
+    event.Systems = "|"+"|".join(device.getSystemNames())
+    event.DevicePriority = device.getPriority()
+6. EventClassMapping() (MySqlSendEvent.py:317)
+7. If event class:
+    1. Extract event fields from event.message using EventClass.regex (EventClassInst.py:318)
+    2. event = EventApplyValues() (MySqlSendEvent.py:320)
+    3. event = EventTransform() (MySqlSendEvent.py:321)
+8. If a mapping or transform changed event._action to 'drop', ignore the event
+9. Return the modified event, if it wasn't dropped
+
+**NOTES:**
+
+* Device context info will just be stored in the new event index, not on the event, however this mapping on event will still need to be available to transforms
+
+EventTransform()
+----------------
+
+Apply transforms on an event from the top level of the Event Class Tree
+down to the actual Event Rules
+
+@see EventClassInst.applyTransform(self, evt, device) (EventClassInst.py:133) 
+
+Uses context: {
+    'evt':event, 'device':device, 'dev':device,
+    'convToUnits':convToUnits(), 'zdecode':zdecode(),
+    'txnCommit':transaction.commit(), 'dmd':self.dmd.,
+    'log':log(),
+}
+
+1. For each EventClass in the event's mapped EventClass's tree, starting from the first element:
+    1. if transform: exec(transform, context) (EventClassInst.py:150) 
+    2. If there was an exception, create a new event with: (EventClassInst.py:89) 
+        dedupid='|'.join([transformName, self.getDmd().ZenEventManager.host]),
+        eventClass='/',
+        device=zem.host,
+        component=transformName,
+        summary=summary,
+        severity=4,
+        message = "Problem with line %s: %s" % (badLineNo, 
+                  transformLines[badLineNo]),
+        transform=transformFormatted,
+        exception=exceptionText,
+
+2. Return the transformed event
+
+**NOTES:**
+
+* Execution continues event if the transform caused an exception, seems like it should halt
+* There's additional transforms ran if a EventClass mapping occurred, consult with JP and update docs
+
+EventApplyValues()    
+------------------
+
+@see EventClassInst.applyValues(self, evt) (EventClassInst.py:328) 
+@see EventClassPropertyMixin.applyValues(self, evt) (EventClassInst.py:57)
+
+1. Set the event.eventClass to the mapped EventClass and set the event.eventClassMapping to EventClassOrganizer/EventClass.id (EventClassInst.py:332)
+2. Set event._clearClasses to the EventClassOrganizer.zEventClearClasses (EventClassInst.py:61)
+3. Set the event._action to EventClassOrganizer.zEventAction, default to 'status' (EventClassInst.py:62)
+4. Set event.severity to EventClassOrganizer.zEventSeverity only if the event.severity is not 0 (a clear event) (EventClassInst.py:63)
+5. Add event.resolution and event.explanation from EventClassOrganizer to the event (EventClassInst.py:70)
+6. Return the modified event
+
+EventClassMapping()
+-------------------
+
+1. If event.eventClass, use it to lookup EventClass, if that class exists, return it (EventClass.py:194)
+2. Otherwise use event.eventClassKey (default: "defaultmapping") to find EventClasses (looks in catalog for EventClass with eventClassKey (EventClass.py:163)) (EventClass.py:208)
+3. For all found EventClasses, see if the device matches them (EventClass.py:212)
+    1. If EventClass.rule, eval() the rule using context {'evt':event, 'dev':device, 'device': device} (EventClassInst.py:360)
+    2. Otherwise use EventClass.regex (re.I) against event.message (EventClassInst.py:367)
+    3. If #1 or #2 matches, use that EventClass
+4. If no EventClass found, use the Unknown EventClass (EventClass.py:220)
+5. Return the modified event
+    
+**NOTES:**
+
+* It is assumed to be an Unknown EventClass if either the event.eventClass is empty or if no EventClass was found with normal lookup
+
+EventDataMaps()
+---------------
+
+(MySqlSendEvent.py:498)
+
+1. If field is private (startswith "_") or == dedupfields, ignore
+2. If field is in (describe `events`.`status` (EventManagerBase.py:1637)) add to status data
+3. Otherwise add to detail data
+
+SendHeartbeat()
+---------------
+
+1. Checks for event.device, skips if none (MySqlSendEvent.py:359)
+2. Checks for event.timeout, skips if none (MySqlSendEvent.py:364)
+3. Adds event.component if there is a component (MySqlSendEvent.py:369)
+4. Updates `events`.`heartbeat`.`lastTime` (MySqlSendEvent.py:373)
+
+Clear()
+-------
+
+1. Lookup event.clearClasses() (MySqlSendEvent.py:202)
+2. Set the event._action = "history", effectively sending it to the archive (MySqlSendEvent.py:201)
+3. Update existing events with: (MySqlSendEvent.py:206) (MySqlSendEvent.py:469)
+
+    update status set clearid = ${event.evid} where 
+        device = ${event.device}
+        AND component = ${event.component[:255]}
+        AND eventKey = ${event.eventKey[:128]}
+        AND eventClass IN (${event.clearClasses()})
+        
+4. Log that we cleared the events: (MySqlSendEvent.py:210)
+
+    INSERT INTO log (evid, userName, text) SELECT evid, "admin", "auto cleared" FROM status WHERE clearid = ${event.evid}
+    
+5. Delete all the newly cleared events, effectively moving them to `events`.`history` via status.status_delete trigger: (MySqlSendEvent.py:215)
+    
+    DELETE FROM status WHERE clearid IS NOT NULL;
+
+**NOTES:**
+
+* If there are no event.clearClasses() then nothing is cleared
+* This is clearing events with the new event before it is even put in the database, we should insert the new event first
+
+event.clearClasses()
+--------------------
+
+Code: Return a list of classes that this event clears. if we have specified clearClasses always return them
+if we have a 0 severity return ourself as well.
+
+_clearClasses is set from zEventClearClasses, a user configurable value.
+
+
+status.status_delete trigger
+----------------------------
+
+    CREATE TRIGGER status_delete BEFORE DELETE ON status
+        FOR EACH ROW INSERT INTO history SET
+                dedupid=OLD.dedupid,
+                evid=OLD.evid,
+                device=OLD.device,
+                component=OLD.component,
+                eventClass=OLD.eventClass,
+                eventKey=OLD.eventKey,
+                summary=OLD.summary,
+                message=OLD.message,
+                severity=OLD.severity,
+                eventState=OLD.eventState,
+                eventClassKey=OLD.eventClassKey,
+                eventGroup=OLD.eventGroup,
+                stateChange=OLD.stateChange,
+                firstTime=OLD.firstTime,
+                lastTime=OLD.lastTime,
+                count=OLD.count,
+                prodState=OLD.prodState,
+                suppid=OLD.suppid,
+                manager=OLD.manager,
+                agent=OLD.agent,
+                DeviceCLass=OLD.DeviceClass,
+                Location=OLD.Location,
+                Systems=OLD.Systems,
+                DeviceGroups=OLD.DeviceGroups,
+                ipAddress=OLD.ipAddress,
+                facility=OLD.facility,
+                priority=OLD.priority,
+                ntevid=OLD.ntevid,
+                ownerid=OLD.ownerid,
+                deletedTime=NULL,
+                clearid=OLD.clearid,
+                DevicePriority=OLD.DevicePriority,
+                eventClassMapping=OLD.eventClassMapping,
+                monitor=OLD.monitor
+                ;
+
+Suppression
+-----------
+
+Suppression occurs within Level 3 Topology. If a device is down between Zenoss
+and the target device we automatically suppress events until the middle device is up.
+
+Suppressed events are active events and belong in the status tables, not the archive.
+
+See diagram:
+
+    zenoss ---- router ---- device
+
+    router down
+
+    device ping down -> suppressed
+
+    router up
+
+    device ping up -> clear suppressed
+    vs.
+    device ping down -> open event

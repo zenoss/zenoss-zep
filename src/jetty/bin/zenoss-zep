@@ -1,0 +1,44 @@
+#!/bin/bash
+
+#
+# Copyright (c) 2010 Zenoss, Inc. All Rights Reserved.
+#
+
+#get path to this script
+RELDIR=`dirname $0`
+cd $RELDIR
+
+#get absolute path to script
+JETTY_BIN="`pwd`"
+JETTY_HOME="`dirname ${JETTY_BIN}`"
+#start app from jetty_home
+cd $JETTY_HOME
+
+JVM_ARGS="$JVM_ARGS -DZENHOME=${JETTY_HOME}"
+JVM_ARGS="$JVM_ARGS -Djetty.logs=${JETTY_HOME}/log"
+
+JETTY_ARGS="--ini=$JETTY_HOME/etc/jetty.ini"
+
+VAR=${JETTY_HOME}/var
+mkdir -p ${VAR}/run
+
+PIDFILE=${VAR}/run/zenoss-zep.pid
+CMD=$1
+
+JAVAEXE="java"
+
+. ${JETTY_BIN}/zenoss-zep-functions.sh
+
+# Check for java
+JVERSION=`$JAVAEXE -version 2>&1 | grep "java version" | awk '{print $3}' | cut -d'"' -f2`
+case "$JVERSION" in
+    1.[6789].*)
+        ;;
+    *)
+        echo "Java >= 1.6 is required."
+        exit 1
+esac
+
+# RUN the command
+generic "$@"
+
