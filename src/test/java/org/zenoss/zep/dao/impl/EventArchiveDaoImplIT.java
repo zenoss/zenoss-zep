@@ -147,9 +147,10 @@ public class EventArchiveDaoImplIT extends
         assertEquals(1, eventArchiveDao.addNote(summary.getUuid(), note2));
         summary = eventArchiveDao.findByUuid(summary.getUuid());
         assertEquals(2, summary.getNotesCount());
-        assertEquals("My Note", summary.getNotes(0).getMessage());
-        assertEquals("pkw", summary.getNotes(0).getUserName());
-        assertEquals("My Note 2", summary.getNotes(1).getMessage());
-        assertEquals("kww", summary.getNotes(1).getUserName());
+        // Notes returned in descending order to match previous behavior
+        assertEquals("My Note 2", summary.getNotes(0).getMessage());
+        assertEquals("kww", summary.getNotes(0).getUserName());
+        assertEquals("My Note", summary.getNotes(1).getMessage());
+        assertEquals("pkw", summary.getNotes(1).getUserName());
     }
 }

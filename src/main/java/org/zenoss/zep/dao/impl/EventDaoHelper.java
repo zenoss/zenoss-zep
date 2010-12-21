@@ -469,8 +469,9 @@ public class EventDaoHelper {
         }
         builder.setCreatedTime(System.currentTimeMillis());
         try {
+            // Notes are expected to be returned in reverse order
             final String sql = String
-                    .format("UPDATE %s SET notes_json=CONCAT_WS(',\n',notes_json,?) WHERE uuid=?",
+                    .format("UPDATE %s SET notes_json=CONCAT_WS(',\n',?,notes_json) WHERE uuid=?",
                             tableName);
             return template.update(sql,
                     JsonFormat.writeAsString(builder.build()),

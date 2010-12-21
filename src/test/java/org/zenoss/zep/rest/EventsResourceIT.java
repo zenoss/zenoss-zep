@@ -123,8 +123,9 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         EventSummary summary = (EventSummary) client.getJson(
                 EVENTS_URI + "/" + summaryEvent.getUuid()).getMessage();
         assertEquals(2, summary.getNotesCount());
-        assertEquals("My Message", summary.getNotes(0).getMessage());
-        assertEquals("My Message 2", summary.getNotes(1).getMessage());
+        // Notes returned in reverse order to match previous behavior
+        assertEquals("My Message 2", summary.getNotes(0).getMessage());
+        assertEquals("My Message", summary.getNotes(1).getMessage());
 
         note = EventNote.newBuilder(note).setMessage("My Message 3").build();
         client.postJson(EVENTS_URI + "/" + archiveEvent.getUuid() + "/notes",
@@ -135,8 +136,9 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         EventSummary archive = (EventSummary) client.getProtobuf(
                 EVENTS_URI + "/" + archiveEvent.getUuid()).getMessage();
         assertEquals(2, archive.getNotesCount());
-        assertEquals("My Message 3", archive.getNotes(0).getMessage());
-        assertEquals("My Message 4", archive.getNotes(1).getMessage());
+        // Notes returned in reverse order to match previous behavior
+        assertEquals("My Message 4", archive.getNotes(0).getMessage());
+        assertEquals("My Message 3", archive.getNotes(1).getMessage());
     }
 
     @Test
