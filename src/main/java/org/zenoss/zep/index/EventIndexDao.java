@@ -30,6 +30,7 @@ public interface EventIndexDao extends Purgable {
      * @return String name of the index
      */
     public String getName();
+
     /**
      * Add an event to the index, replaces existing event with the same UUID.
      * 
@@ -52,6 +53,13 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException
      */
     public void commit() throws ZepException;
+
+    /**
+     * Commits any staged changes to the index and optionally optimizes the index.
+     *
+     * @param forceOptimize If true, the index is optimized after committing the changes.
+     * @throws ZepException If an error occurs.
+     */
     public void commit(boolean forceOptimize) throws ZepException;
 
     /**

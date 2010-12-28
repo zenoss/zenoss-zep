@@ -20,10 +20,11 @@
         <zep.jdbc.dbname>zenoss_zep</zep.jdbc.dbname>
         <!-- This database is used for integration tests (dropped/added each time). -->
         <zep.test.jdbc.dbname>${zep.jdbc.dbname}_test</zep.test.jdbc.dbname>
-        <zep.test.solr.home>${project.build.directory}/solr-dev</zep.test.solr.home>
+        <zep.test.index.dir>${project.build.directory}/index</zep.test.index.dir>
         <zep.test.amqp.uri>amqp://zenoss:zenoss@localhost:5672/zenoss-test</zep.test.amqp.uri>
         <!-- Dependency Versions -->
         <version.jackson>1.6.3</version.jackson>
+        <version.mysql>5.1.14</version.mysql>
         <version.resteasy>2.0.1.GA</version.resteasy>
         <version.slf4j>1.6.1</version.slf4j>
         <version.spring>3.0.5.RELEASE</version.spring>
@@ -34,6 +35,11 @@
         <url>http://dev.zenoss.org/trac/browser/zep</url>
     </scm>
     <dependencies>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-core</artifactId>
+            <version>3.0.3</version>
+        </dependency>
         <dependency>
             <groupId>org.zenoss</groupId>
             <artifactId>amqp-api</artifactId>
@@ -52,27 +58,6 @@
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <artifactId>solr-solrj</artifactId>
-            <groupId>org.apache.solr</groupId>
-            <version>1.4.1</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <artifactId>solr-core</artifactId>
-            <groupId>org.apache.solr</groupId>
-            <version>1.4.1</version>
-            <type>jar</type>
-            <scope>compile</scope>
-            <!-- solr-solrj already pulls in this dependency (from right location) -->
-            <exclusions>
-                <exclusion>
-                    <groupId>woodstox</groupId>
-                    <artifactId>wstx-asl</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -218,7 +203,7 @@
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-            <version>5.1.14</version>
+            <version>${version.mysql}</version>
             <type>jar</type>
             <scope>runtime</scope>
         </dependency>
@@ -293,7 +278,7 @@
                     <dependency>
                         <groupId>mysql</groupId>
                         <artifactId>mysql-connector-java</artifactId>
-                        <version>5.1.13</version>
+                        <version>${version.mysql}</version>
                         <type>jar</type>
                         <scope>runtime</scope>
                     </dependency>
@@ -389,8 +374,8 @@
                                     <value>${zep.test.jdbc.dbname}</value>
                                 </systemProperty>
                                 <systemProperty>
-                                    <name>zep.solr.home</name>
-                                    <value>${zep.test.solr.home}</value>
+                                    <name>zep.index.dir</name>
+                                    <value>${zep.test.index.dir}</value>
                                 </systemProperty>
                                 <systemProperty>
                                     <name>zep.amqp.uri</name>
@@ -433,7 +418,7 @@
                                 <zep.jdbc.dbname>${zep.test.jdbc.dbname}</zep.jdbc.dbname>
                                 <zep.jdbc.username>${zep.jdbc.username}</zep.jdbc.username>
                                 <zep.jdbc.password>${zep.jdbc.password}</zep.jdbc.password>
-                                <zep.solr.home>${zep.test.solr.home}</zep.solr.home>
+                                <zep.index.dir>${zep.test.index.dir}_it</zep.index.dir>
                                 <zep.amqp.uri>${zep.test.amqp.uri}</zep.amqp.uri>
                             </systemPropertyVariables>
                         </configuration>

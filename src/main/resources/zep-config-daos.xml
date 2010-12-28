@@ -9,8 +9,6 @@
                         http://www.springframework.org/schema/context/spring-context-3.0.xsd
                         http://www.springframework.org/schema/tx
                         http://www.springframework.org/schema/tx/spring-tx-3.0.xsd">
-                        
-    <import resource="classpath:zep-config-solr.xml" />
 
     <!-- Transaction Support -->
     <tx:annotation-driven/>
@@ -80,16 +78,50 @@
     </bean>
 
     <!-- Indexing DAO -->
-    <bean id="eventSummaryIndexDao" class="org.zenoss.zep.index.impl.SolrEventIndexDaoImpl">
-        <qualifier value="summary"/>
-        <constructor-arg value="solr_event_summary"/>
-        <constructor-arg ref="#{ systemProperties['zep.solr.uri'] != null ? 'solrServerClient' : 'solrServerEmbedded'}"/>
+    <bean id="luceneMaxFieldLength" class="org.apache.lucene.index.IndexWriter$MaxFieldLength">
+        <constructor-arg index="0" value="${zep.index.maximum_field_length}" />
     </bean>
 
-    <bean id="eventArchiveIndexDao" class="org.zenoss.zep.index.impl.SolrEventIndexDaoImpl">
+    <bean id="luceneSummaryDir" class="org.apache.lucene.store.FSDirectory"
+            factory-method="open" destroy-method="close">
+        <constructor-arg value="${zep.index.dir}/summary" />
+    </bean>
+
+    <bean id="luceneSummaryAnalyzer" class="org.zenoss.zep.index.impl.EventIndexMapper"
+          factory-method="createAnalyzer" destroy-method="close">
+    </bean>
+
+    <bean id="luceneSummaryIndexWriter" class="org.apache.lucene.index.IndexWriter" destroy-method="close">
+        <constructor-arg index="0" ref="luceneSummaryDir"/>
+        <constructor-arg index="1" ref="luceneSummaryAnalyzer"/>
+        <constructor-arg index="2" ref="luceneMaxFieldLength"/>
+    </bean>
+
+    <bean id="eventSummaryIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl">
+        <qualifier value="summary"/>
+        <constructor-arg value="event_summary"/>
+        <constructor-arg ref="luceneSummaryIndexWriter"/>
+    </bean>
+
+    <bean id="luceneArchiveDir" class="org.apache.lucene.store.FSDirectory"
+            factory-method="open" destroy-method="close">
+        <constructor-arg value="${zep.index.dir}/archive" />
+    </bean>
+
+    <bean id="luceneArchiveAnalyzer" class="org.zenoss.zep.index.impl.EventIndexMapper"
+          factory-method="createAnalyzer" destroy-method="close">
+    </bean>
+
+    <bean id="luceneArchiveIndexWriter" class="org.apache.lucene.index.IndexWriter" destroy-method="close">
+        <constructor-arg index="0" ref="luceneArchiveDir"/>
+        <constructor-arg index="1" ref="luceneArchiveAnalyzer"/>
+        <constructor-arg index="2" ref="luceneMaxFieldLength"/>
+    </bean>
+
+    <bean id="eventArchiveIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl">
         <qualifier value="archive"/>
-        <constructor-arg value="solr_event_archive"/>
-        <constructor-arg ref="#{ systemProperties['zep.solr.uri'] != null ? 'solrArchiveServerClient' : 'solrArchiveServerEmbedded'}"/>
+        <constructor-arg value="event_archive"/>
+        <constructor-arg ref="luceneArchiveIndexWriter"/>
     </bean>
 
     <bean id="eventStoreDao" class="org.zenoss.zep.dao.impl.EventStoreDaoImpl">

@@ -27,6 +27,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.zenoss.protobufs.model.Model;
+import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -170,14 +172,11 @@ public class EventIndexDaoImplIT extends
         String tag3 = UUID.randomUUID().toString();
 
         /* Create error severity with two tags */
-        createEventWithSeverity(EventSeverity.SEVERITY_WARNING,
-                EventStatus.STATUS_NEW, tag1, tag2);
+        createEventWithSeverity(EventSeverity.SEVERITY_WARNING, EventStatus.STATUS_NEW, tag1, tag2);
         /* Create critical severity with one tag */
-        createEventWithSeverity(EventSeverity.SEVERITY_ERROR,
-                EventStatus.STATUS_NEW, tag2);
+        createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW, tag2);
         /* Create closed event with all three tags */
-        createEventWithSeverity(EventSeverity.SEVERITY_CRITICAL,
-                EventStatus.STATUS_CLOSED, tag1, tag2, tag3);
+        createEventWithSeverity(EventSeverity.SEVERITY_CRITICAL, EventStatus.STATUS_CLOSED, tag1, tag2, tag3);
 
         Set<String> tags = new HashSet<String>();
         tags.add(tag1);
@@ -273,5 +272,37 @@ public class EventIndexDaoImplIT extends
         assertEquals(1, result.getEventsCount());
         assertEquals(eventBothTags.getUuid(), result.getEventsList().get(0)
                 .getUuid());
+    }
+
+    public static Zep.EventActor createSampleActor(String elementId, String elementSubId) {
+        Zep.EventActor.Builder actorBuilder = Zep.EventActor.newBuilder();
+        actorBuilder.setElementIdentifier(elementId);
+        actorBuilder.setElementTypeId(Model.ModelElementType.DEVICE);
+        actorBuilder.setElementUuid(UUID.randomUUID().toString());
+        actorBuilder.setElementSubIdentifier(elementSubId);
+        actorBuilder.setElementSubTypeId(Model.ModelElementType.COMPONENT);
+        actorBuilder.setElementSubUuid(UUID.randomUUID().toString());
+        return actorBuilder.build();
+    }
+
+    @Test
+    public void testIdentifierInsensitive() throws ZepException {
+        EventSummary summary = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+        Event occurrence = Event.newBuilder(summary.getOccurrence(0)).setActor(createSampleActor("MyHostName.zenoss.loc", "myCompName")).build();
+        summary = EventSummary.newBuilder(summary).clearOccurrence().addOccurrence(occurrence).build();
+        eventIndexDao.index(summary);
+
+        List<String> queries = Arrays.asList("myhostname", "ZENOSS", "loc");
+        for (String query : queries) {
+            EventSummaryFilter.Builder filterBuilder = EventSummaryFilter.newBuilder();
+            filterBuilder.setElementIdentifier(query);
+            final EventSummaryFilter filter = filterBuilder.build();
+            EventSummaryRequest.Builder reqBuilder = EventSummaryRequest.newBuilder();
+            reqBuilder.setFilter(filter);
+            final EventSummaryRequest req = reqBuilder.build();
+            EventSummaryResult result = eventIndexDao.list(req);
+            assertEquals(1, result.getEventsCount());
+            assertEquals(summary, result.getEvents(0));
+        }
     }
 }

@@ -10,23 +10,6 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import static org.zenoss.zep.dao.impl.EventConstants.*;
-
-import java.io.IOException;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-
-import javax.sql.DataSource;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -45,6 +28,22 @@ import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.DaoCache;
+
+import javax.sql.DataSource;
+import java.io.IOException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 public class EventDaoHelper {
 
@@ -169,32 +168,11 @@ public class EventDaoHelper {
      */
     private static List<EventTag> buildTags(Event event) {
         final List<EventTag> tags = new ArrayList<EventTag>(
-                event.getTagsCount() + 2);
+                event.getTagsCount());
         Set<String> uuids = new HashSet<String>();
         for (EventTag tag : event.getTagsList()) {
             if (uuids.add(tag.getUuid())) {
                 tags.add(tag);
-            }
-        }
-        EventActor actor = event.getActor();
-        if (actor != null) {
-            {
-                String uuid = actor.getElementUuid();
-                ModelElementType type = actor.getElementTypeId();
-                if (!uuid.isEmpty() && uuids.add(uuid)) {
-                    EventTag tag = EventTag.newBuilder().setUuid(uuid)
-                            .setType(getTagType(type)).build();
-                    tags.add(tag);
-                }
-            }
-            {
-                String uuid = actor.getElementSubUuid();
-                ModelElementType type = actor.getElementSubTypeId();
-                if (!uuid.isEmpty() && uuids.add(uuid)) {
-                    EventTag tag = EventTag.newBuilder().setUuid(uuid)
-                            .setType(getTagType(type)).build();
-                    tags.add(tag);
-                }
             }
         }
         return tags;
