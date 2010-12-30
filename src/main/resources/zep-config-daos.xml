@@ -132,7 +132,8 @@
         <property name="eventIndexer" ref="eventIndexer" />
     </bean>
 
-    <bean id="eventIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl">
+    <bean id="eventIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl"
+            init-method="init">
         <constructor-arg index="0" ref="jdbcTemplate"/>
         <constructor-arg index="1" ref="zepInstance"/>
         <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao" />

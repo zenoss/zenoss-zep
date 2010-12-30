@@ -32,6 +32,14 @@ public interface EventIndexDao extends Purgable {
     public String getName();
 
     /**
+     * Returns the number of indexed documents in this index.
+     *
+     * @return The number of indexed documents in the index.
+     * @throws ZepException If the number of documents can't be retrieved.
+     */
+    public int getNumDocs() throws ZepException;
+
+    /**
      * Add an event to the index, replaces existing event with the same UUID.
      * 
      * @param event Event to index.

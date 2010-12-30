@@ -11,25 +11,24 @@
 
 package org.zenoss.zep.index.impl;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-
 import com.google.protobuf.ProtocolMessageEnum;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.WildcardQuery;
 import org.zenoss.protobufs.util.Util.TimestampRange;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
-import org.zenoss.protobufs.zep.Zep.NumberCondition;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
 import org.zenoss.zep.ZepException;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 
 public class QueryBuilder {
     private List<Query> queries = new ArrayList<Query>();
@@ -75,9 +74,23 @@ public class QueryBuilder {
             final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
             final BooleanQuery booleanQuery = new BooleanQuery();
 
-            for (int value : values) {
-                booleanQuery.add(NumericRangeQuery.newIntRange(key, value, value, true, true), occur);
+            // Condense adjacent values into one range
+            Collections.sort(values);
+            Iterator<Integer> it = values.iterator();
+            int from = it.next();
+            int to = from;
+            while (it.hasNext()) {
+                int value = it.next();
+                if (value == to + 1) {
+                    to = value;
+                }
+                else {
+                    booleanQuery.add(NumericRangeQuery.newIntRange(key, from, to, true, true), occur);
+                    from = to = value;
+                }
             }
+            booleanQuery.add(NumericRangeQuery.newIntRange(key, from, to, true, true), occur);
+
             queries.add(booleanQuery);
         }
         return this;

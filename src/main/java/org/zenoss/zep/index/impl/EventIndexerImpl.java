@@ -11,25 +11,13 @@
 
 package org.zenoss.zep.index.impl;
 
-import static org.zenoss.zep.dao.impl.EventConstants.*;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -44,11 +32,22 @@ import org.zenoss.zep.dao.impl.EventSummaryRowMapper;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
 
-// TODO Rebuild index if SOLR dir is missing/empty (solr detects this so we may have to just
-// see if the index is empty)
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static org.zenoss.zep.dao.impl.EventConstants.*;
+
 public class EventIndexerImpl implements EventIndexer {
-    private static final Logger logger = LoggerFactory
-            .getLogger(EventIndexerImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
     
     private final NamedParameterJdbcTemplate template;
     private final byte[] zepInstanceIdBytes;
@@ -98,6 +97,62 @@ public class EventIndexerImpl implements EventIndexer {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public void init() throws ZepException {
+        rebuildIndex(this.eventSummaryIndexDao, TABLE_EVENT_SUMMARY);
+        rebuildIndex(this.eventArchiveIndexDao, TABLE_EVENT_ARCHIVE);
+    }
+
+    private void rebuildIndex(final EventIndexDao dao, final String tableName) throws ZepException {
+        long lastIndexTime = getNextIndexTime(dao);
+        int numDocs = dao.getNumDocs();
+
+        /*
+         * Check if we have never indexed according to database but have documents in the index. This could
+         * occur if someone wiped the database but left the previous index behind.
+         */
+        if (lastIndexTime == 0) {
+            if (numDocs > 0) {
+                logger.info("Inconsistent state between index and database. Clearing index.");
+                dao.clear();
+            }
+            return;
+        }
+
+        /*
+         * If we have indexed before according to the database and we have documents in our index, assume
+         * that the index is in sync with the database.
+         */
+        if (numDocs > 0) {
+            logger.debug("Rebuilding index not required for: {}", dao.getName());
+            return;
+        }
+        
+        logger.info("Rebuilding index on table {} through {}", tableName, new Date(lastIndexTime));
+        final EventSummaryRowMapper mapper = new EventSummaryRowMapper(eventDaoHelper);
+        final Map<String,?> fields = Collections.singletonMap("max_update_time", lastIndexTime);
+        final String sql = String.format("SELECT * FROM %s WHERE update_time <= :max_update_time", tableName);
+        final int[] numRows = new int[1];
+        this.template.query(sql, fields, new RowCallbackHandler() {
+            @Override
+            public void processRow(ResultSet rs) throws SQLException {
+                final EventSummary summary = mapper.mapRow(rs, rs.getRow());
+                try {
+                    dao.stage(summary);
+                } catch (ZepException e) {
+                    throw new SQLException(e.getLocalizedMessage(), e);
+                }
+                ++numRows[0];
+            }
+        });
+        if (numRows[0] > 0) {
+            logger.info("Committing changes to index on table: {}", tableName);
+            dao.commit(true);
+        }
+        logger.info("Successfully rebuilt index for {} events on table {}", numRows[0], tableName);
+    }
+
+    @Override
     public void markSummaryDirty() {
         summaryDirty.set(true);
     }
@@ -109,8 +164,7 @@ public class EventIndexerImpl implements EventIndexer {
 
     private long getNextIndexTime(EventIndexDao dao) {
         // Get the first ID that we haven't finished indexing
-        String sql = String.format("SELECT last_index_time FROM %s WHERE zep_instance = :zep_instance AND index_name = :index_name LIMIT 1",
-                        TABLE_INDEX_VERSION);
+        String sql = "SELECT last_index_time FROM index_version WHERE zep_instance = :zep_instance AND index_name = :index_name";
 
         Map<String, Object> fields = new HashMap<String, Object>();
 
@@ -128,13 +182,11 @@ public class EventIndexerImpl implements EventIndexer {
     private void setNextIndexTime(EventIndexDao dao, long time) {
         Map<String, Object> fields = new HashMap<String, Object>();
         fields.put("last_index_time", time);
-        // FIXME Use different IDs for different zeps
         fields.put("zep_instance", zepInstanceIdBytes);
         fields.put("index_name", dao.getName());
 
-        this.template.update(
-                String.format("REPLACE INTO %s (zep_instance, index_name, last_index_time) VALUES (:zep_instance, :index_name, :last_index_time)",
-                    TABLE_INDEX_VERSION), fields);
+        this.template.update("REPLACE INTO index_version (zep_instance, index_name, last_index_time) VALUES (:zep_instance, :index_name, :last_index_time)",
+                fields);
     }
     
     @Override
@@ -166,11 +218,6 @@ public class EventIndexerImpl implements EventIndexer {
      */
     private synchronized void doIndex(EventIndexDao dao, EventIndexDao deleteFromDao, String sql) throws ZepException {
         long since = getNextIndexTime(dao);
-        if ( since == 0 ) {
-            // We've never indexed or the DB is out of sync, let's start over
-            logger.info("Index {} out of sync with DB, clearing index and re-indexing", dao.getName());
-            dao.clear();
-        }
 
         logger.debug("Indexing {} events since {}", dao.getName(), new Date(since));
 
@@ -199,7 +246,6 @@ public class EventIndexerImpl implements EventIndexer {
 
         if ( indexResults.lastUpdateTime > 0 ) {
             setNextIndexTime(dao, indexResults.lastUpdateTime);
-
             logger.debug("Done indexing {}", dao.getName());
         }
         else {

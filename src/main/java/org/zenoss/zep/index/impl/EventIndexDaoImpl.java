@@ -83,6 +83,15 @@ public class EventIndexDaoImpl implements EventIndexDao {
     }
 
     @Override
+    public int getNumDocs() throws ZepException {
+        try {
+            return this.writer.numDocs();
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        }
+    }
+
+    @Override
     public void index(EventSummary event) throws ZepException {
         stage(event);
         commit();
@@ -169,9 +178,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
         IndexSearcher searcher = null;
         try {
             searcher = getSearcher();
-            logger.info("Querying for events matching: {}", query);
+            logger.debug("Querying for events matching: {}", query);
             TopDocs docs = searcher.search(query, null, limit + offset, sort);
-            logger.info("Found {} results", docs.totalHits);
+            logger.debug("Found {} results", docs.totalHits);
 
             EventSummaryResult.Builder result = EventSummaryResult.newBuilder();
             result.setTotal(docs.totalHits);

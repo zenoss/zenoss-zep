@@ -18,6 +18,15 @@ import org.zenoss.zep.ZepException;
  */
 public interface EventIndexer {
     /**
+     * Initializes the event indexer. This will rebuild the index if it has been
+     * deleted.
+     *
+     * @throws ZepException
+     *             If an exception occurs.
+     */
+    public void init() throws ZepException;
+
+    /**
      * Performs an index if either the summary or archive is out of date.
      * 
      * @throws ZepException
