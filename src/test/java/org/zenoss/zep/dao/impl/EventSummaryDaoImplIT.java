@@ -105,6 +105,7 @@ public class EventSummaryDaoImplIT extends
         assertEquals(eventFromSummary.getCreatedTime(),
                 eventSummaryFromDb.getLastSeenTime());
         assertFalse(eventSummaryFromDb.hasAcknowledgedByUserUuid());
+        assertFalse(eventSummaryFromDb.hasAcknowledgedByUserName());
         assertFalse(eventSummaryFromDb.hasClearedByEventUuid());
 
         /*
@@ -202,16 +203,12 @@ public class EventSummaryDaoImplIT extends
     public void testSummaryMaxInsert() throws ZepException,
             InterruptedException {
         Event.Builder eventBuilder = Event.newBuilder(createUniqueEvent());
-        EventActor.Builder actorBuilder = EventActor.newBuilder(eventBuilder
-                .getActor());
+        EventActor.Builder actorBuilder = EventActor.newBuilder(eventBuilder.getActor());
         eventBuilder.setFingerprint(createRandomMaxString(MAX_FINGERPRINT + 1));
-        actorBuilder
-                .setElementIdentifier(createRandomMaxString(MAX_ELEMENT_IDENTIFIER + 1));
-        actorBuilder
-                .setElementSubIdentifier(createRandomMaxString(MAX_ELEMENT_SUB_IDENTIFIER + 1));
+        actorBuilder.setElementIdentifier(createRandomMaxString(MAX_ELEMENT_IDENTIFIER + 1));
+        actorBuilder.setElementSubIdentifier(createRandomMaxString(MAX_ELEMENT_SUB_IDENTIFIER + 1));
         eventBuilder.setEventClass(createRandomMaxString(MAX_EVENT_CLASS + 1));
-        eventBuilder
-                .setEventClassKey(createRandomMaxString(MAX_EVENT_CLASS_KEY + 1));
+        eventBuilder.setEventClassKey(createRandomMaxString(MAX_EVENT_CLASS_KEY + 1));
         eventBuilder.setEventKey(createRandomMaxString(MAX_EVENT_KEY + 1));
         eventBuilder.setMonitor(createRandomMaxString(MAX_MONITOR + 1));
         eventBuilder.setAgent(createRandomMaxString(MAX_AGENT + 1));
@@ -222,20 +219,23 @@ public class EventSummaryDaoImplIT extends
         final Event event = eventBuilder.build();
         final EventSummary summary = createSummaryNew(event);
         final Event eventFromDb = summary.getOccurrence(0);
+        final EventActor actorFromDb = eventFromDb.getActor();
         assertEquals(MAX_FINGERPRINT, eventFromDb.getFingerprint().length());
-        assertEquals(MAX_ELEMENT_IDENTIFIER, eventFromDb.getActor()
-                .getElementIdentifier().length());
-        assertEquals(MAX_ELEMENT_SUB_IDENTIFIER, eventFromDb.getActor()
-                .getElementSubIdentifier().length());
+        assertEquals(MAX_ELEMENT_IDENTIFIER, actorFromDb.getElementIdentifier().length());
+        assertEquals(MAX_ELEMENT_SUB_IDENTIFIER, actorFromDb.getElementSubIdentifier().length());
         assertEquals(MAX_EVENT_CLASS, eventFromDb.getEventClass().length());
-        assertEquals(MAX_EVENT_CLASS_KEY, eventFromDb.getEventClassKey()
-                .length());
+        assertEquals(MAX_EVENT_CLASS_KEY, eventFromDb.getEventClassKey().length());
         assertEquals(MAX_EVENT_KEY, eventFromDb.getEventKey().length());
         assertEquals(MAX_MONITOR, eventFromDb.getMonitor().length());
         assertEquals(MAX_AGENT, eventFromDb.getAgent().length());
         assertEquals(MAX_EVENT_GROUP, eventFromDb.getEventGroup().length());
         assertEquals(MAX_SUMMARY, eventFromDb.getSummary().length());
         assertEquals(MAX_MESSAGE, eventFromDb.getMessage().length());
+
+        this.eventSummaryDao.acknowledge(Collections.singletonList(summary.getUuid()), UUID.randomUUID().toString(),
+                createRandomMaxString(MAX_ACKNOWLEDGED_BY_USER_NAME + 1));
+        final EventSummary summaryFromDb = this.eventSummaryDao.findByUuid(summary.getUuid());
+        assertEquals(MAX_ACKNOWLEDGED_BY_USER_NAME, summaryFromDb.getAcknowledgedByUserName().length());
     }
 
     public static Event createUniqueEvent() {
@@ -292,13 +292,16 @@ public class EventSummaryDaoImplIT extends
         long origUpdateTime = summary.getUpdateTime();
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
         assertFalse(summary.hasAcknowledgedByUserUuid());
+        assertFalse(summary.hasAcknowledgedByUserName());
 
         String userUuid = UUID.randomUUID().toString();
+        String userName = "user" + random.nextInt(500);
         int numUpdated = eventSummaryDao.acknowledge(
-                Collections.singletonList(summary.getUuid()), userUuid);
+                Collections.singletonList(summary.getUuid()), userUuid, userName);
         assertEquals(1, numUpdated);
         summary = eventSummaryDao.findByUuid(summary.getUuid());
         assertEquals(userUuid, summary.getAcknowledgedByUserUuid());
+        assertEquals(userName, summary.getAcknowledgedByUserName());
         assertEquals(EventStatus.STATUS_ACKNOWLEDGED, summary.getStatus());
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
@@ -312,14 +315,11 @@ public class EventSummaryDaoImplIT extends
         EventSummary origSummary = summary;
         summary = eventSummaryDao.findByUuid(summary.getUuid());
         assertFalse(summary.hasAcknowledgedByUserUuid());
+        assertFalse(summary.hasAcknowledgedByUserName());
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
 
-        /*
-         * Compare events for all fields except status change time, status, and
-         * acknowledged by user
-         */
         compareSummary(origSummary, summary);
     }
 
@@ -330,22 +330,21 @@ public class EventSummaryDaoImplIT extends
         long origUpdateTime = summary.getUpdateTime();
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
         assertFalse(summary.hasAcknowledgedByUserUuid());
+        assertFalse(summary.hasAcknowledgedByUserName());
 
         String userUuid = UUID.randomUUID().toString();
+        String userName = "user" + random.nextInt(500);
         EventSummary origSummary = summary;
         int numUpdated = eventSummaryDao.acknowledge(
-                Collections.singletonList(summary.getUuid()), userUuid);
+                Collections.singletonList(summary.getUuid()), userUuid, userName);
         assertEquals(1, numUpdated);
         summary = eventSummaryDao.findByUuid(summary.getUuid());
         assertEquals(userUuid, summary.getAcknowledgedByUserUuid());
+        assertEquals(userName, summary.getAcknowledgedByUserName());
         assertEquals(EventStatus.STATUS_ACKNOWLEDGED, summary.getStatus());
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
 
-        /*
-         * Compare events for all fields except status change time, status, and
-         * acknowledged by user.
-         */
         compareSummary(origSummary, summary);
     }
 
@@ -356,6 +355,7 @@ public class EventSummaryDaoImplIT extends
         long origUpdateTime = summary.getUpdateTime();
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
         assertFalse(summary.hasAcknowledgedByUserUuid());
+        assertFalse(summary.hasAcknowledgedByUserName());
 
         EventSummary origSummary = summary;
         int numUpdated = eventSummaryDao.suppress(Collections
@@ -366,10 +366,6 @@ public class EventSummaryDaoImplIT extends
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
 
-        /*
-         * Compare events for all fields except status change time, status, and
-         * suppressed by event uuid.
-         */
         compareSummary(origSummary, summary);
     }
 
@@ -380,6 +376,7 @@ public class EventSummaryDaoImplIT extends
         long origUpdateTime = summary.getUpdateTime();
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
         assertFalse(summary.hasAcknowledgedByUserUuid());
+        assertFalse(summary.hasAcknowledgedByUserName());
 
         EventSummary origSummary = summary;
         int numUpdated = eventSummaryDao.close(Collections
@@ -390,7 +387,6 @@ public class EventSummaryDaoImplIT extends
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
 
-        /* Compare events for all fields except status change time and status */
         compareSummary(origSummary, summary);
     }
 

@@ -10,16 +10,6 @@
  */
 package org.zenoss.zep.index.impl;
 
-import static org.junit.Assert.*;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -30,18 +20,30 @@ import org.springframework.test.context.junit4.AbstractTransactionalJUnit4Spring
 import org.zenoss.protobufs.model.Model;
 import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.protobufs.zep.Zep.EventSummaryFilter;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
 import org.zenoss.protobufs.zep.Zep.EventTag;
+import org.zenoss.protobufs.zep.Zep.EventTagFilter;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.EventDaoImplIT;
 import org.zenoss.zep.index.EventIndexDao;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.junit.Assert.*;
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
 public class EventIndexDaoImplIT extends
@@ -233,13 +235,15 @@ public class EventIndexDaoImplIT extends
 
     private EventSummaryRequest createTagRequest(FilterOperator op,
             String... tags) {
-        EventSummaryRequest.Builder reqBuilder = EventSummaryRequest
-                .newBuilder();
-        EventSummaryFilter.Builder filterBuilder = EventSummaryFilter
-                .newBuilder();
-        filterBuilder.addAllTagUuids(Arrays.asList(tags));
-        filterBuilder.setTagUuidsOp(op);
-        reqBuilder.setFilter(filterBuilder.build());
+        EventTagFilter.Builder tagBuilder = EventTagFilter.newBuilder();
+        tagBuilder.addAllTagUuids(Arrays.asList(tags));
+        tagBuilder.setOp(op);
+
+        EventFilter.Builder filterBuilder = EventFilter.newBuilder();
+        filterBuilder.addTagFilter(tagBuilder.build());
+
+        EventSummaryRequest.Builder reqBuilder = EventSummaryRequest.newBuilder();
+        reqBuilder.setEventFilter(filterBuilder.build());
         return reqBuilder.build();
     }
 
@@ -259,10 +263,7 @@ public class EventIndexDaoImplIT extends
         EventSummaryResult result = this.eventIndexDao.list(createTagRequest(
                 FilterOperator.OR, tag1, tag2));
         assertEquals(3, result.getEventsCount());
-        Set<String> foundUuids = new HashSet<String>();
-        for (EventSummary summary : result.getEventsList()) {
-            foundUuids.add(summary.getUuid());
-        }
+        Set<String> foundUuids = getUuidsFromResult(result);
         assertTrue(foundUuids.contains(eventBothTags.getUuid()));
         assertTrue(foundUuids.contains(eventTag1.getUuid()));
         assertTrue(foundUuids.contains(eventTag2.getUuid()));
@@ -294,15 +295,83 @@ public class EventIndexDaoImplIT extends
 
         List<String> queries = Arrays.asList("myhostname", "ZENOSS", "loc");
         for (String query : queries) {
-            EventSummaryFilter.Builder filterBuilder = EventSummaryFilter.newBuilder();
-            filterBuilder.setElementIdentifier(query);
-            final EventSummaryFilter filter = filterBuilder.build();
+            EventFilter.Builder filterBuilder = EventFilter.newBuilder();
+            filterBuilder.addElementIdentifier(query);
+            final EventFilter filter = filterBuilder.build();
             EventSummaryRequest.Builder reqBuilder = EventSummaryRequest.newBuilder();
-            reqBuilder.setFilter(filter);
+            reqBuilder.setEventFilter(filter);
             final EventSummaryRequest req = reqBuilder.build();
             EventSummaryResult result = eventIndexDao.list(req);
             assertEquals(1, result.getEventsCount());
             assertEquals(summary, result.getEvents(0));
         }
+    }
+
+    private static EventSummaryRequest createUuidRequest(Set<String> include, Set<String> exclude) {
+        EventSummaryRequest.Builder reqBuilder = EventSummaryRequest.newBuilder();
+
+        if (!include.isEmpty()) {
+            EventFilter.Builder filterBuilder = EventFilter.newBuilder().addAllUuid(include);
+            reqBuilder.setEventFilter(filterBuilder.build());
+        }
+
+        if (!exclude.isEmpty()) {
+            EventFilter.Builder filterBuilder = EventFilter.newBuilder().addAllUuid(exclude);
+            reqBuilder.setExclusionFilter(filterBuilder.build());
+        }
+
+        return reqBuilder.build();
+    }
+
+    private static Set<String> getUuidsFromResult(EventSummaryResult result) {
+        Set<String> uuids = new HashSet<String>(result.getEventsCount());
+        for (EventSummary summary : result.getEventsList()) {
+            uuids.add(summary.getUuid());
+        }
+        return uuids;
+    }
+
+    @Test
+    public void testExcludeUuids() throws ZepException {
+        EventSummary event1 = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+        EventSummary event2 = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+        EventSummary event3 = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+
+        Set<String> include = new HashSet<String>();
+        Set<String> exclude = new HashSet<String>();
+
+        // No filters should return all three events
+        Set<String> foundUuids = getUuidsFromResult(this.eventIndexDao.list(createUuidRequest(include, exclude)));
+        assertEquals(3, foundUuids.size());
+        assertTrue(foundUuids.contains(event1.getUuid()));
+        assertTrue(foundUuids.contains(event2.getUuid()));
+        assertTrue(foundUuids.contains(event3.getUuid()));
+
+        // Test filter excluding all events
+        exclude.add(event1.getUuid());
+        exclude.add(event2.getUuid());
+        exclude.add(event3.getUuid());
+        foundUuids = getUuidsFromResult(this.eventIndexDao.list(createUuidRequest(include, exclude)));
+        assertEquals(0, foundUuids.size());
+
+        // Test filter including 2 events
+        include.clear();
+        exclude.clear();
+        include.add(event1.getUuid());
+        include.add(event3.getUuid());
+        foundUuids = getUuidsFromResult(this.eventIndexDao.list(createUuidRequest(include, exclude)));
+        assertEquals(2, foundUuids.size());
+        assertTrue(foundUuids.contains(event1.getUuid()));
+        assertTrue(foundUuids.contains(event3.getUuid()));
+
+        // Test filter including all events of SEVERITY_ERROR but excluding a UUID
+        EventFilter filter = EventFilter.newBuilder().addSeverity(EventSeverity.SEVERITY_ERROR).build();
+        EventFilter exclusion = EventFilter.newBuilder().addUuid(event1.getUuid()).build();
+        EventSummaryRequest req = EventSummaryRequest.newBuilder().setEventFilter(filter)
+                .setExclusionFilter(exclusion).build();
+        foundUuids = getUuidsFromResult(this.eventIndexDao.list(req));
+        assertEquals(2, foundUuids.size());
+        assertTrue(foundUuids.contains(event2.getUuid()));
+        assertTrue(foundUuids.contains(event3.getUuid()));
     }
 }

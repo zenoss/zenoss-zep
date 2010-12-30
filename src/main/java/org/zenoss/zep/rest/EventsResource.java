@@ -10,17 +10,30 @@
  */
 package org.zenoss.zep.rest;
 
-import java.io.IOException;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TimeZone;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.zenoss.protobufs.ProtobufConstants;
+import org.zenoss.protobufs.util.Util.TimestampRange;
+import org.zenoss.protobufs.zep.Zep.EventFilter;
+import org.zenoss.protobufs.zep.Zep.EventNote;
+import org.zenoss.protobufs.zep.Zep.EventSeverity;
+import org.zenoss.protobufs.zep.Zep.EventSort;
+import org.zenoss.protobufs.zep.Zep.EventStatus;
+import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
+import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
+import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
+import org.zenoss.protobufs.zep.Zep.EventSummaryUpdateRequest;
+import org.zenoss.protobufs.zep.Zep.EventSummaryUpdateResponse;
+import org.zenoss.protobufs.zep.Zep.EventTagFilter;
+import org.zenoss.protobufs.zep.Zep.EventTagSeverities;
+import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
+import org.zenoss.protobufs.zep.Zep.EventTagSeverity;
+import org.zenoss.protobufs.zep.Zep.FilterOperator;
+import org.zenoss.protobufs.zep.Zep.NumberRange;
+import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.EventStoreDao;
+import org.zenoss.zep.index.EventIndexer;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.GET;
@@ -35,41 +48,24 @@ import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
-
-import org.codehaus.jackson.JsonGenerationException;
-import org.codehaus.jackson.map.JsonMappingException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.zenoss.protobufs.ProtobufConstants;
-import org.zenoss.protobufs.util.Util.TimestampRange;
-import org.zenoss.protobufs.zep.Zep.EventFilter;
-import org.zenoss.protobufs.zep.Zep.EventNote;
-import org.zenoss.protobufs.zep.Zep.EventSeverity;
-import org.zenoss.protobufs.zep.Zep.EventSort;
-import org.zenoss.protobufs.zep.Zep.EventStatus;
-import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.protobufs.zep.Zep.EventSummaryFilter;
-import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
-import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
-import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
-import org.zenoss.protobufs.zep.Zep.EventSummaryUpdateRequest;
-import org.zenoss.protobufs.zep.Zep.EventSummaryUpdateResponse;
-import org.zenoss.protobufs.zep.Zep.EventTagSeverities;
-import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
-import org.zenoss.protobufs.zep.Zep.EventTagSeverity;
-import org.zenoss.protobufs.zep.Zep.FilterOperator;
-import org.zenoss.protobufs.zep.Zep.NumberCondition;
-import org.zenoss.protobufs.zep.Zep.NumberCondition.Operation;
-import org.zenoss.zep.ZepException;
-import org.zenoss.zep.dao.EventStoreDao;
-import org.zenoss.zep.index.EventIndexer;
+import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TimeZone;
 
 @Path("1.0/events")
 public class EventsResource {
     private static final Logger logger = LoggerFactory
             .getLogger(EventsResource.class);
 
-    private Integer defaultQueryLimit = Integer.valueOf(100);
+    private Integer defaultQueryLimit = 100;
     private EventIndexer eventIndexer;
 
     public void setDefaultQueryLimit(Integer limit) {
@@ -139,7 +135,7 @@ public class EventsResource {
     }
 
     @PUT
-    @Path("")
+    @Path("/")
     @Consumes({ MediaType.APPLICATION_JSON,
             ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @Produces({ MediaType.APPLICATION_JSON,
@@ -242,8 +238,7 @@ public class EventsResource {
     @Produces({ MediaType.APPLICATION_JSON,
             ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventSummaryResult listEventIndex(@Context UriInfo ui)
-            throws ParseException, JsonGenerationException,
-            JsonMappingException, IOException, ZepException {
+            throws ParseException, IOException, ZepException {
         return eventStoreDao.list(eventSummaryRequestFromUriInfo(ui));
     }
 
@@ -252,8 +247,7 @@ public class EventsResource {
     @Produces({ MediaType.APPLICATION_JSON,
             ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventSummaryResult listEventIndexArchive(@Context UriInfo ui)
-            throws ParseException, JsonGenerationException,
-            JsonMappingException, IOException, ZepException {
+            throws ParseException, IOException, ZepException {
         return eventStoreDao.listArchive(eventSummaryRequestFromUriInfo(ui));
     }
 
@@ -326,66 +320,62 @@ public class EventsResource {
                 "severity", EventSeverity.class, "SEVERITY_");
         final EnumSet<EventStatus> status = getQueryEnumSet(queryParams,
                 "status", EventStatus.class, "STATUS_");
-        final String eventClass = queryParams.getFirst("event_class");
-        final TimestampRange firstSeen = parseRange(queryParams
-                .getFirst("first_seen"));
-        final TimestampRange lastSeen = parseRange(queryParams
-                .getFirst("last_seen"));
-        final TimestampRange statusChange = parseRange(queryParams
-                .getFirst("status_change"));
-        final NumberCondition count = convertCount(queryParams
-                .getFirst("count"));
+        final Set<String> eventClass = getQuerySet(queryParams, "event_class");
+        final TimestampRange firstSeen = parseRange(queryParams.getFirst("first_seen"));
+        final TimestampRange lastSeen = parseRange(queryParams.getFirst("last_seen"));
+        final TimestampRange statusChange = parseRange(queryParams.getFirst("status_change"));
+        final NumberRange count = convertCount(queryParams.getFirst("count"));
         final Set<String> tagUuids = getQuerySet(queryParams, "tag_uuids");
-        final String summary = queryParams.getFirst("event_summary");
-        final String element_identifier = queryParams
-                .getFirst("element_identifier");
-        final String element_sub_identifier = queryParams
-                .getFirst("element_sub_identifier");
+        final Set<String> summary = getQuerySet(queryParams, "event_summary");
+        final Set<String> element_identifier = getQuerySet(queryParams, "element_identifier");
+        final Set<String> element_sub_identifier = getQuerySet(queryParams, "element_sub_identifier");
         final Set<String> sorts = getQuerySet(queryParams, "sort");
         final String tagUuidsOp = queryParams.getFirst("tag_uuids_op");
 
         /* Build event filter */
-        final EventSummaryFilter.Builder filterBuilder = EventSummaryFilter
-                .newBuilder();
+        final EventFilter.Builder filterBuilder = EventFilter.newBuilder();
         filterBuilder.addAllSeverity(severities);
         filterBuilder.addAllStatus(status);
-        filterBuilder.addAllTagUuids(tagUuids);
-
-        if (eventClass != null) {
-            filterBuilder.setEventClass(eventClass);
-        }
+        filterBuilder.addAllEventClass(eventClass);
+        
         if (firstSeen != null) {
-            filterBuilder.setFirstSeen(firstSeen);
+            filterBuilder.addFirstSeen(firstSeen);
         }
         if (lastSeen != null) {
-            filterBuilder.setLastSeen(lastSeen);
+            filterBuilder.addLastSeen(lastSeen);
         }
         if (statusChange != null) {
-            filterBuilder.setStatusChange(statusChange);
+            filterBuilder.addStatusChange(statusChange);
         }
         if (count != null) {
-            filterBuilder.setCount(count);
+            filterBuilder.addCountRange(count);
         }
         if (summary != null) {
-            filterBuilder.setEventSummary(summary);
+            filterBuilder.addAllEventSummary(summary);
         }
         if (element_identifier != null) {
-            filterBuilder.setElementIdentifier(element_identifier);
+            filterBuilder.addAllElementIdentifier(element_identifier);
         }
         if (element_sub_identifier != null) {
-            filterBuilder.setElementSubIdentifier(element_sub_identifier);
+            filterBuilder.addAllElementSubIdentifier(element_sub_identifier);
         }
-        if (tagUuidsOp != null) {
-            filterBuilder.setTagUuidsOp(FilterOperator.valueOf(tagUuidsOp
-                    .toUpperCase()));
+        if (!tagUuids.isEmpty()) {
+            FilterOperator op = FilterOperator.OR;
+            if (tagUuidsOp != null) {
+                op = FilterOperator.valueOf(tagUuidsOp.toUpperCase());
+            }
+            EventTagFilter.Builder tagFilterBuilder = EventTagFilter.newBuilder();
+            tagFilterBuilder.addAllTagUuids(tagUuids);
+            tagFilterBuilder.setOp(op);
+            filterBuilder.addTagFilter(tagFilterBuilder.build());
         }
 
-        final EventSummaryFilter filter = filterBuilder.build();
+        final EventFilter filter = filterBuilder.build();
 
         /* Build event request */
         final EventSummaryRequest.Builder reqBuilder = EventSummaryRequest
                 .newBuilder();
-        reqBuilder.setFilter(filter);
+        reqBuilder.setEventFilter(filter);
         reqBuilder.addAllKeys(keys);
 
         if (limit < 0) {
@@ -448,45 +438,69 @@ public class EventsResource {
         return fmt.parse(str).getTime();
     }
 
-    static NumberCondition convertCount(String count) {
-        if (count == null) {
+    static NumberRange convertCount(String count) {
+        if (count == null || count.isEmpty()) {
             return null;
         }
-        final Operation op;
-        final String strNum;
-        switch (count.charAt(0)) {
-        case '>':
-            if (count.charAt(1) == '=') {
-                op = Operation.GTEQ;
-                strNum = count.substring(2);
-            } else {
-                op = Operation.GT;
-                strNum = count.substring(1);
+        Integer from = null, to = null;
+        final int colon = count.indexOf(':');
+        // RANGE in form of FROM:TO
+        if (colon != -1) {
+            String strFrom = count.substring(0, colon);
+            String strTo = count.substring(colon+1);
+            if (!strFrom.isEmpty()) {
+                from = Integer.parseInt(strFrom);
             }
-            break;
-        case '<':
-            if (count.charAt(1) == '=') {
-                op = Operation.LTEQ;
-                strNum = count.substring(2);
-            } else {
-                op = Operation.LT;
-                strNum = count.substring(1);
+            if (!strTo.isEmpty()) {
+                to = Integer.parseInt(strTo);
             }
-            break;
-        case '=':
-            op = Operation.EQ;
-            strNum = count.substring(1);
-            break;
-        default:
-            op = Operation.EQ;
-            strNum = count;
-            break;
         }
-        final int val = Integer.parseInt(strNum);
-        if (val < 0) {
-            throw new IllegalArgumentException("Invalid value - must be >= 0: "
-                    + val);
+        // [GT|GTEQ|LT|LTEQ|EQ]NUM
+        else {
+            switch (count.charAt(0)) {
+                case '>':
+                    if (count.charAt(1) == '=') {
+                        from = Integer.parseInt(count.substring(2));
+                    } else {
+                        from = Integer.parseInt(count.substring(1)) + 1;
+                    }
+                    break;
+                case '<':
+                    if (count.charAt(1) == '=') {
+                        to = Integer.parseInt(count.substring(2));
+                    } else {
+                        to = Integer.parseInt(count.substring(1)) - 1;
+                    }
+                    break;
+                case '=':
+                    from = to = Integer.parseInt(count.substring(1));
+                    break;
+                default:
+                    from = to = Integer.parseInt(count);
+                    break;
+            }
         }
-        return NumberCondition.newBuilder().setOp(op).setValue(val).build();
+
+        if (from == null && to == null) {
+            return null;
+        }
+        if (from != null && to != null && from > to) {
+            throw new IllegalArgumentException("Count from > to: " + from + "," + to);
+        }
+
+        final NumberRange.Builder rangeBuilder = NumberRange.newBuilder();
+        if (from != null) {
+            if (from < 0) {
+                throw new IllegalArgumentException("Count number out of range: " + from);
+            }
+            rangeBuilder.setFrom(from);
+        }
+        if (to != null) {
+            if (to < 0) {
+                throw new IllegalArgumentException("Count number out of range: " + to);
+            }
+            rangeBuilder.setTo(to);
+        }
+        return rangeBuilder.build();
     }
 }

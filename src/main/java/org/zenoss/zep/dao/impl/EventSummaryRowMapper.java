@@ -71,6 +71,12 @@ public class EventSummaryRowMapper implements RowMapper<EventSummary> {
                         .uuidFromBytes(acknowledgedByUserUuid));
             }
         }
+        if (fields.contains(COLUMN_ACKNOWLEDGED_BY_USER_NAME)) {
+            String acknowledgedByUserName = rs.getString(COLUMN_ACKNOWLEDGED_BY_USER_NAME);
+            if (acknowledgedByUserName != null) {
+                summaryBuilder.setAcknowledgedByUserName(acknowledgedByUserName);
+            }
+        }
         if (fields.contains(COLUMN_CLEARED_BY_EVENT_UUID)) {
             byte[] clearedByEventUuid = rs
                     .getBytes(COLUMN_CLEARED_BY_EVENT_UUID);

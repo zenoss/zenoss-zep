@@ -16,7 +16,10 @@ import org.apache.lucene.document.FieldSelectorResult;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause.Occur;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.Sort;
@@ -26,15 +29,15 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopFieldDocs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zenoss.protobufs.util.Util.TimestampRange;
+import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSort;
 import org.zenoss.protobufs.zep.Zep.EventSort.Field;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.protobufs.zep.Zep.EventSummaryFilter;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
+import org.zenoss.protobufs.zep.Zep.EventTagFilter;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
@@ -151,7 +154,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     
     @Override
     public EventSummaryResult list(EventSummaryRequest request) throws ZepException {
-        Query query = buildQuery(request.getFilter());
+        Query query = buildQuery(request.getEventFilter(), request.getExclusionFilter());
         Sort sort = buildSort(request.getSortList());
 
         int limit = request.getLimit();
@@ -250,7 +253,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void delete(EventSummaryRequest request) throws ZepException {
-        Query query = buildQuery(request.getFilter());
+        Query query = buildQuery(request.getEventFilter(), request.getExclusionFilter());
 
         logger.info("Deleting events matching: {}", query);
 
@@ -278,18 +281,6 @@ public class EventIndexDaoImpl implements EventIndexDao {
             commit(true);
         } catch (IOException e) {
             throw new ZepException(e);
-        }
-    }
-
-    private void buildDateRange(QueryBuilder builder, String key, TimestampRange range) {
-        if ( range.hasStartTime() && range.hasEndTime() ) {
-            builder.addRange(key, range.getStartTime(), range.getEndTime());
-        }
-        else if ( range.hasStartTime() ) {
-            builder.addRange(key, range.getStartTime(), null);
-        }
-        else if ( range.hasEndTime() ) {
-            builder.addRange(key, null, range.getEndTime());
         }
     }
 
@@ -332,81 +323,74 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 return new SortField(FIELD_STATUS_CHANGE_TIME, SortField.LONG, reverse);
             case UPDATE_TIME:
                 return new SortField(FIELD_UPDATE_TIME, SortField.LONG, reverse);
+            case ACKNOWLEDGED_BY_USER_NAME:
+                return new SortField(FIELD_ACKNOWLEDGED_BY_USER_NAME, SortField.STRING, reverse);
         }
         throw new IllegalArgumentException("Unsupported sort field: " + sort.getField());
     }
 
-    private Query buildQuery(EventSummaryFilter filter) throws ZepException {
+    private Query buildQuery(EventFilter filter, EventFilter exclusionFilter) throws ZepException {
+        final BooleanQuery filterQuery = buildQueryFromFilter(filter);
+        final BooleanQuery exclusionQuery = buildQueryFromFilter(exclusionFilter);
+        final Query query;
+
+        if (filterQuery == null && exclusionQuery == null) {
+            query = new MatchAllDocsQuery();
+        }
+        else if (filterQuery != null) {
+            if (exclusionQuery != null) {
+                filterQuery.add(exclusionQuery, Occur.MUST_NOT);
+            }
+            query = filterQuery;
+        }
+        else {
+            BooleanQuery bq = new BooleanQuery();
+            bq.add(exclusionQuery, Occur.MUST_NOT);
+            query = bq;
+        }
+        logger.debug("Filter: {}, Exclusion filter: {}, Query: {}", new Object[] { filter, exclusionFilter, query });
+        
+        return query;
+    }
+
+    private BooleanQuery buildQueryFromFilter(EventFilter filter) throws ZepException {
+        if (filter == null) {
+            return null;
+        }
+        
         QueryBuilder qb = new QueryBuilder();
 
-        if ( filter.hasCount() ) {
-            qb.addField(IndexConstants.FIELD_COUNT, filter.getCount());
-        }
+        qb.addRanges(FIELD_COUNT, filter.getCountRangeList());
+        qb.addWildcardFields(FIELD_ACKNOWLEDGED_BY_USER_NAME, filter.getAcknowledgedByUserNameList());
+        qb.addWildcardFields(FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER, filter.getElementIdentifierList());
+        qb.addWildcardFields(FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER, filter.getElementSubIdentifierList());
+        qb.addWildcardFields(FIELD_EVENT_SUMMARY, filter.getEventSummaryList());
+        qb.addTimestampRanges(FIELD_FIRST_SEEN_TIME, filter.getFirstSeenList());
+        qb.addTimestampRanges(FIELD_LAST_SEEN_TIME, filter.getLastSeenList());
+        qb.addTimestampRanges(FIELD_STATUS_CHANGE_TIME, filter.getStatusChangeList());
+        qb.addTimestampRanges(FIELD_UPDATE_TIME, filter.getUpdateTimeList());
+        qb.addFieldOfEnumNumbers(FIELD_STATUS, filter.getStatusList());
+        qb.addFieldOfEnumNumbers(FIELD_EVENT_SEVERITY, filter.getSeverityList());
 
-        if ( filter.hasElementIdentifier() ) {
-            qb.addWildcardField(IndexConstants.FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER,
-                    filter.getElementIdentifier().toLowerCase());
-        }
-
-        if ( filter.hasElementSubIdentifier() ) {
-            qb.addWildcardField(IndexConstants.FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER,
-                    filter.getElementSubIdentifier().toLowerCase());
-        }
-
-        if ( filter.hasEventSummary() ) {
-            qb.addWildcardField(IndexConstants.FIELD_EVENT_SUMMARY, filter.getEventSummary());
-        }
-
-        if ( filter.hasFirstSeen() ) {
-            buildDateRange(qb, IndexConstants.FIELD_FIRST_SEEN_TIME, filter.getFirstSeen());
-        }
-
-        if ( filter.hasLastSeen() ) {
-            buildDateRange(qb, IndexConstants.FIELD_LAST_SEEN_TIME, filter.getLastSeen());
-        }
-        
-        if ( filter.hasStatusChange() ) {
-            buildDateRange(qb, IndexConstants.FIELD_STATUS_CHANGE_TIME, filter.getStatusChange());
-        }
-        
-        if ( filter.hasUpdateTime() ) {
-            buildDateRange(qb, IndexConstants.FIELD_UPDATE_TIME, filter.getUpdateTime());
-        }
-
-        if ( filter.getStatusCount() > 0 ) {
-            qb.addFieldOfEnumNumbers(IndexConstants.FIELD_STATUS, filter.getStatusList());
-        }
-
-        if ( filter.getSeverityCount() > 0 ) {
-            qb.addFieldOfEnumNumbers(IndexConstants.FIELD_EVENT_SEVERITY, filter.getSeverityList());
-        }
-
-        if ( filter.hasEventClass() ) {
-            String eventClass = filter.getEventClass();
-            if ( eventClass.endsWith("/") ) {
+        List<String> eventClasses = new ArrayList<String>(filter.getEventClassCount());
+        for (String ec : filter.getEventClassList()) {
+            if ( ec.endsWith("/") ) {
                 // This is a "startswith" search
-                eventClass += '*';
+                ec += '*';
             }       
-            else if ( !eventClass.endsWith("*") ) {
+            else if ( !ec.endsWith("*") ) {
                 // This is an exact match
-                eventClass += '/';
+                ec += '/';
             }
+            eventClasses.add(ec);
+        }
+        qb.addWildcardFields(FIELD_EVENT_EVENT_CLASS, eventClasses);
 
-            qb.addWildcardField(IndexConstants.FIELD_EVENT_EVENT_CLASS, eventClass);
+        for (EventTagFilter tagFilter : filter.getTagFilterList()) {
+            qb.addField(FIELD_TAGS, tagFilter.getTagUuidsList(), tagFilter.getOp());
         }
 
-        if ( filter.getTagUuidsCount() > 0 ) {
-            List<String> tags = new ArrayList<String>(filter.getTagUuidsCount());
-            for ( String t : filter.getTagUuidsList() ) {
-                tags.add(t);
-            }
-
-            qb.addField(IndexConstants.FIELD_TAGS, tags, filter.getTagUuidsOp());
-        }
-
-        if ( filter.getUuidCount() > 0 ) {
-            qb.addField(IndexConstants.FIELD_UUID, filter.getUuidList(), FilterOperator.OR);
-        }
+        qb.addField(FIELD_UUID, filter.getUuidList(), FilterOperator.OR);
 
         return qb.build();
     }

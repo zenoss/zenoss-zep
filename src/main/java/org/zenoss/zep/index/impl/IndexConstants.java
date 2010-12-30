@@ -29,11 +29,12 @@ public class IndexConstants {
     public static final String FIELD_EVENT_EVENT_CLASS = "event_event_class";
     public static final String FIELD_TAGS = "tag";
     public static final String FIELD_UPDATE_TIME = "update_time";
+    // TODO: Index device priority and production state from event details
     public static final String FIELD_DEVICE_PRIORITY = "device_priority";
     public static final String FIELD_PRODUCTION_STATE = "production_state";
-    public static final String FIELD_ACKNOWLEDGED_BY_USER = "acknowledged_by_user";
-    public static final String FIELD_AGENT = "agent";
-    public static final String FIELD_MONITOR = "monitor";
+    public static final String FIELD_ACKNOWLEDGED_BY_USER_NAME = "acknowledged_by_user_name";
+    public static final String FIELD_EVENT_AGENT = "event_agent";
+    public static final String FIELD_EVENT_MONITOR = "event_monitor";
     public static final String FIELD_PROTOBUF = "protobuf";
 }
 

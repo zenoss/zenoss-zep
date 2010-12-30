@@ -131,7 +131,7 @@ public class EventStoreDaoImpl implements EventStoreDao {
     public int update(List<String> uuids, EventSummaryUpdate update)
             throws ZepException {
 
-        int numUpdatedEvents = 0;
+        final int numUpdatedEvents;
 
         EventStatus newStatus = update.getStatus();
         if (newStatus == null) {
@@ -143,7 +143,7 @@ public class EventStoreDaoImpl implements EventStoreDao {
             break;
         case STATUS_ACKNOWLEDGED:
             numUpdatedEvents = eventSummaryDao.acknowledge(uuids,
-                    update.getAcknowledgedByUserUuid());
+                    update.getAcknowledgedByUserUuid(), update.getAcknowledgedByUserName());
             break;
         case STATUS_CLOSED:
             numUpdatedEvents = eventSummaryDao.close(uuids);
@@ -164,9 +164,9 @@ public class EventStoreDaoImpl implements EventStoreDao {
 
     @Override
     @Transactional
-    public int ageEvents(long agingInverval, TimeUnit unit,
+    public int ageEvents(long agingInterval, TimeUnit unit,
             EventSeverity maxSeverity, int limit) throws ZepException {
-        int numAged = eventSummaryDao.ageEvents(agingInverval, unit,
+        int numAged = eventSummaryDao.ageEvents(agingInterval, unit,
                 maxSeverity, limit);
         if (numAged > 0) {
             eventIndexer.markSummaryDirty();

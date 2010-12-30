@@ -10,7 +10,8 @@
  */
 package org.zenoss.zep.rest;
 
-import static org.junit.Assert.*;
+import org.junit.Test;
+import org.zenoss.protobufs.zep.Zep.NumberRange;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -19,33 +20,34 @@ import java.util.Date;
 import java.util.List;
 import java.util.TimeZone;
 
-import org.junit.Test;
-import org.zenoss.protobufs.zep.Zep.NumberCondition;
-import org.zenoss.protobufs.zep.Zep.NumberCondition.Operation;
+import static org.junit.Assert.*;
 
 public class EventsResourceTest {
     @Test
     public void testConvertCount() {
-        assertEquals(
-                NumberCondition.newBuilder().setOp(Operation.GT).setValue(2)
-                        .build(), EventsResource.convertCount(">2"));
-        assertEquals(NumberCondition.newBuilder().setOp(Operation.GTEQ)
-                .setValue(5).build(), EventsResource.convertCount(">=5"));
-        assertEquals(NumberCondition.newBuilder().setOp(Operation.LTEQ)
-                .setValue(7).build(), EventsResource.convertCount("<=7"));
-        assertEquals(
-                NumberCondition.newBuilder().setOp(Operation.LT).setValue(1)
-                        .build(), EventsResource.convertCount("<1"));
-        assertEquals(
-                NumberCondition.newBuilder().setOp(Operation.EQ).setValue(17)
-                        .build(), EventsResource.convertCount("17"));
-        assertEquals(
-                NumberCondition.newBuilder().setOp(Operation.EQ).setValue(18)
-                        .build(), EventsResource.convertCount("=18"));
+        assertEquals(NumberRange.newBuilder().setFrom(3).build(),
+                EventsResource.convertCount(">2"));
+        assertEquals(NumberRange.newBuilder().setFrom(5).build(),
+                EventsResource.convertCount(">=5"));
+        assertEquals(NumberRange.newBuilder().setTo(7).build(),
+                EventsResource.convertCount("<=7"));
+        assertEquals(NumberRange.newBuilder().setTo(0).build(),
+                EventsResource.convertCount("<1"));
+        assertEquals(NumberRange.newBuilder().setFrom(17).setTo(17).build(),
+                EventsResource.convertCount("17"));
+        assertEquals(NumberRange.newBuilder().setFrom(18).setTo(18).build(),
+                EventsResource.convertCount("=18"));
+        assertEquals(NumberRange.newBuilder().setFrom(5).build(),
+                EventsResource.convertCount("5:"));
+        assertEquals(NumberRange.newBuilder().setFrom(15).setTo(19).build(),
+                EventsResource.convertCount("15:19"));
+        assertEquals(NumberRange.newBuilder().setTo(18).build(),
+                EventsResource.convertCount(":18"));
 
         assertNull(EventsResource.convertCount(null));
+        assertNull(EventsResource.convertCount(""));
 
-        List<String> failures = Arrays.asList("-17", "=-18", "=>5", "");
+        List<String> failures = Arrays.asList("-17", "=-18", "=>5", "5:4");
         for (String failure : failures) {
             try {
                 EventsResource.convertCount(failure);

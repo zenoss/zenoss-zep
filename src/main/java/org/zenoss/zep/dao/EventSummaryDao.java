@@ -182,11 +182,13 @@ public interface EventSummaryDao {
      *            UUIDs of events to acknowledge.
      * @param userUuid
      *            The UUID of the user who acknowledged the event.
+     * @param userName
+     *            The name of the user who acknowledged the event.
      * @return The number of acknowledged events.
      * @throws ZepException
      *             If an error occurs.
      */
-    public int acknowledge(List<String> uuids, String userUuid)
+    public int acknowledge(List<String> uuids, String userUuid, String userName)
             throws ZepException;
 
     /**

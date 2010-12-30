@@ -59,6 +59,7 @@ public class EventConstants {
     public static final String COLUMN_LAST_SEEN = "last_seen";
     public static final String COLUMN_EVENT_COUNT = "event_count";
     public static final String COLUMN_ACKNOWLEDGED_BY_USER_UUID = "acknowledged_by_user_uuid";
+    public static final String COLUMN_ACKNOWLEDGED_BY_USER_NAME = "acknowledged_by_user_name";
     public static final String COLUMN_CLEAR_FINGERPRINT_HASH = "clear_fingerprint_hash";
     public static final String COLUMN_CLEARED_BY_EVENT_UUID = "cleared_by_event_uuid";
     public static final String COLUMN_NOTES_JSON = "notes_json";
@@ -78,6 +79,7 @@ public class EventConstants {
     public static final int MAX_EVENT_GROUP = 64;
     public static final int MAX_SUMMARY = 255;
     public static final int MAX_MESSAGE = 4096;
+    public static final int MAX_ACKNOWLEDGED_BY_USER_NAME = 32;
 
     private static final Set<String> SUMMARY_COLUMN_NAMES = new LinkedHashSet<String>();
     static {
@@ -109,6 +111,7 @@ public class EventConstants {
         SUMMARY_COLUMN_NAMES.add(COLUMN_SYSLOG_PRIORITY);
         SUMMARY_COLUMN_NAMES.add(COLUMN_NT_EVENT_CODE);
         SUMMARY_COLUMN_NAMES.add(COLUMN_ACKNOWLEDGED_BY_USER_UUID);
+        SUMMARY_COLUMN_NAMES.add(COLUMN_ACKNOWLEDGED_BY_USER_NAME);
         SUMMARY_COLUMN_NAMES.add(COLUMN_CLEAR_FINGERPRINT_HASH);
         SUMMARY_COLUMN_NAMES.add(COLUMN_CLEARED_BY_EVENT_UUID);
         SUMMARY_COLUMN_NAMES.add(COLUMN_SUMMARY);

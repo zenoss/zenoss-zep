@@ -12,19 +12,23 @@
 package org.zenoss.zep.index.impl;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import com.google.protobuf.ProtocolMessageEnum;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.WildcardQuery;
+import org.zenoss.protobufs.util.Util.TimestampRange;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberCondition;
+import org.zenoss.protobufs.zep.Zep.NumberRange;
 import org.zenoss.zep.ZepException;
 
 public class QueryBuilder {
@@ -35,84 +39,47 @@ public class QueryBuilder {
         return this;
     }
 
-    public QueryBuilder addWildcardField(String key, String value) {
-        queries.add(new WildcardQuery(new Term(key, value)));
-        return this;
-    }
+    public QueryBuilder addWildcardFields(String key, Collection<String> values) {
+        if (!values.isEmpty()) {
+            final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
+            final BooleanQuery booleanQuery = new BooleanQuery();
 
-    public QueryBuilder addField(String key, int value) {
-        queries.add(NumericRangeQuery.newIntRange(key, value, value, true, true));
-        return this;
-    }
-
-    public QueryBuilder addField(String key, long value) {
-        queries.add(NumericRangeQuery.newLongRange(key, value, value, true, true));
-        return this;
-    }
-
-    public QueryBuilder addField(String key,  NumberCondition condition) throws ZepException {
-        final NumericRangeQuery query;
-        int value = condition.getValue();
-
-        final String valueStr;
-        if ( condition.getOp() == NumberCondition.Operation.GT ) {
-            if ( value == Integer.MAX_VALUE ) {
-                throw new ZepException("Condition " + key + " has too large a value");
+            for (String value : values) {
+                booleanQuery.add(new WildcardQuery(new Term(key, value.toLowerCase())), occur);
             }
-            query = NumericRangeQuery.newIntRange(key, value, null, false, true);
+            queries.add(booleanQuery);
         }
-        else if ( condition.getOp() == NumberCondition.Operation.GTEQ ) {
-            query = NumericRangeQuery.newIntRange(key, value, null, true, true);
-        }
-        else if ( condition.getOp() == NumberCondition.Operation.LT ) {
-            if ( value == Integer.MIN_VALUE ) {
-                throw new ZepException("Condition " + key + " has too small a value");
-            }
-            query = NumericRangeQuery.newIntRange(key, null, value, true, false);
-        }
-        else if ( condition.getOp() == NumberCondition.Operation.LTEQ ) {
-            query = NumericRangeQuery.newIntRange(key, null, value, true, true);
-        }
-        else {
-            query = NumericRangeQuery.newIntRange(key, value, value, true, true);
-        }
-        queries.add(query);
         return this;
     }
 
     public QueryBuilder addField(String key, List<String> values, FilterOperator op) throws ZepException {
-        if ( values.size() == 0 ) {
-            throw new ZepException("You can not search on an empty list.");
-        }
+        if (!values.isEmpty()) {
+            final BooleanClause.Occur occur;
+            final BooleanQuery booleanQuery = new BooleanQuery();
+            if (op == FilterOperator.AND) {
+                occur = BooleanClause.Occur.MUST;
+            } else {
+                occur = BooleanClause.Occur.SHOULD;
+            }
 
-        final BooleanClause.Occur occur;
-        final BooleanQuery booleanQuery = new BooleanQuery();
-        if (op == FilterOperator.AND) {
-            occur = BooleanClause.Occur.MUST;
+            for (String value : values) {
+                booleanQuery.add(new TermQuery(new Term(key, value)), occur);
+            }
+            queries.add(booleanQuery);
         }
-        else {
-            occur = BooleanClause.Occur.SHOULD;
-        }
-
-        for (String value : values) {
-            booleanQuery.add(new TermQuery(new Term(key, value)), occur);
-        }
-        queries.add(booleanQuery);
         return this;
     }
 
     public QueryBuilder addFieldOfIntegers(String key, List<Integer> values) throws ZepException {
-        if ( values.size() == 0 ) {
-            throw new ZepException("You can not search on an empty list.");
-        }
+        if (!values.isEmpty()) {
+            final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
+            final BooleanQuery booleanQuery = new BooleanQuery();
 
-        final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
-        final BooleanQuery booleanQuery = new BooleanQuery();
-
-        for (int value : values) {
-            booleanQuery.add(NumericRangeQuery.newIntRange(key, value, value, true, true), occur);
+            for (int value : values) {
+                booleanQuery.add(NumericRangeQuery.newIntRange(key, value, value, true, true), occur);
+            }
+            queries.add(booleanQuery);
         }
-        queries.add(booleanQuery);
         return this;
     }
 
@@ -125,28 +92,54 @@ public class QueryBuilder {
         return this;
     }
 
-    public QueryBuilder addFieldOfEnumNames(String key, List<? extends Enum<?>> values) throws ZepException {
-        List<String> strValues = new ArrayList<String>(values.size());
-        for ( Enum<?> e : values ) {
-            strValues.add(e.name());
-        }
-        addField(key, strValues, FilterOperator.OR);
-        return this;
-    }
-
-    public QueryBuilder addRange(String key, Integer from, Integer to) {
-        this.queries.add(NumericRangeQuery.newIntRange(key, from, to, true, true));
-        return this;
-    }
-
     public QueryBuilder addRange(String key, Long from, Long to) {
         this.queries.add(NumericRangeQuery.newLongRange(key, from, to, true, true));
         return this;
     }
 
-    public Query build() {
+    public QueryBuilder addTimestampRanges(String key, List<TimestampRange> ranges) {
+        if (!ranges.isEmpty()) {
+            final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
+            final BooleanQuery booleanQuery = new BooleanQuery();
+
+            Long from = null, to = null;
+            for (TimestampRange range : ranges) {
+                if (range.hasStartTime()) {
+                    from = range.getStartTime();
+                }
+                if (range.hasEndTime()) {
+                    to = range.getEndTime();
+                }
+                booleanQuery.add(NumericRangeQuery.newLongRange(key, from, to, true, true), occur);
+            }
+            this.queries.add(booleanQuery);
+        }
+        return this;
+    }
+
+    public QueryBuilder addRanges(String key, Collection<NumberRange> ranges) throws ZepException {
+        if (!ranges.isEmpty()) {
+            final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
+            final BooleanQuery booleanQuery = new BooleanQuery();
+
+            for (NumberRange range : ranges) {
+                Integer from = null, to = null;
+                if (range.hasFrom()) {
+                    from = range.getFrom();
+                }
+                if (range.hasTo()) {
+                    to = range.getTo();
+                }
+                booleanQuery.add(NumericRangeQuery.newIntRange(key, from, to, true, true), occur);
+            }
+            queries.add(booleanQuery);
+        }
+        return this;
+    }
+
+    public BooleanQuery build() {
         if (this.queries.isEmpty()) {
-            return new MatchAllDocsQuery();
+            return null;
         }
         
         BooleanQuery booleanQuery = new BooleanQuery();

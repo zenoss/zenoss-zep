@@ -118,6 +118,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 + "status_change=IF(@old_status_id <> status_id,:last_seen,status_change),"
                 // Latest acknowledged_by_user_uuid
                 + "acknowledged_by_user_uuid=IF(status_id=:_acknowledged,acknowledged_by_user_uuid,NULL),"
+                // Latest acknowledged_by_user_name
+                + "acknowledged_by_user_name=IF(status_id=:_acknowledged,acknowledged_by_user_name,NULL),"
                 // Latest cleared_by_event_uuid
                 + "cleared_by_event_uuid=IF(status_id=:_cleared,cleared_by_event_uuid,NULL),"
                 // Use latest last_seen (events may come out of order)
@@ -181,11 +183,13 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put(COLUMN_STATUS_CHANGE, updateTime);
         fields.put(COLUMN_UPDATE_TIME, updateTime);
         fields.put(COLUMN_ACKNOWLEDGED_BY_USER_UUID, null);
+        fields.put(COLUMN_ACKNOWLEDGED_BY_USER_NAME, null);
 
         String updateSql = "UPDATE event_summary es, clear_events ce SET es.status_id=:_cleared, "
                 + "es.status_change=:status_change, es.update_time=:update_time, "
                 + "es.cleared_by_event_uuid=ce.event_summary_uuid, "
-                + "acknowledged_by_user_uuid=:acknowledged_by_user_uuid "
+                + "acknowledged_by_user_uuid=:acknowledged_by_user_uuid, "
+                + "acknowledged_by_user_name=:acknowledged_by_user_name "
                 + "WHERE es.clear_fingerprint_hash = ce.clear_fingerprint_hash AND "
                 + "es.last_seen <= ce.last_seen AND "
                 + "es.status_id NOT IN (:_closed_status_ids)";
@@ -274,9 +278,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @Transactional
-    public int ageEvents(long agingInverval, TimeUnit unit,
+    public int ageEvents(long agingInterval, TimeUnit unit,
             EventSeverity maxSeverity, int limit) throws ZepException {
-        long agingIntervalMs = unit.toMillis(agingInverval);
+        long agingIntervalMs = unit.toMillis(agingInterval);
         if (agingIntervalMs < 0 || agingIntervalMs == Long.MAX_VALUE) {
             throw new ZepException("Invalid aging interval: " + agingIntervalMs);
         }
@@ -300,10 +304,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put(COLUMN_STATUS_CHANGE, now);
         fields.put(COLUMN_UPDATE_TIME, now);
         fields.put(COLUMN_ACKNOWLEDGED_BY_USER_UUID, null);
+        fields.put(COLUMN_ACKNOWLEDGED_BY_USER_NAME, null);
 
         String updateSql = "UPDATE event_summary SET status_id=:status_id, "
                 + "status_change=:status_change, update_time=:update_time, "
-                + "acknowledged_by_user_uuid=:acknowledged_by_user_uuid "
+                + "acknowledged_by_user_uuid=:acknowledged_by_user_uuid, "
+                + "acknowledged_by_user_name=:acknowledged_by_user_name "
                 + "WHERE last_seen < :last_seen AND "
                 + "severity_id IN (:_severity_ids) AND "
                 + "status_id NOT IN (:_closed_status_ids) LIMIT " + limit;
@@ -318,40 +324,44 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     private int update(List<String> uuids, EventStatus status,
-            String acknowledgedByUserUuid) throws ZepException {
+            String userUuid, String userName) throws ZepException {
         byte[] ackUuidBytes = null;
-        if (acknowledgedByUserUuid != null) {
-            ackUuidBytes = DaoUtils.uuidToBytes(acknowledgedByUserUuid);
+        if (userUuid != null) {
+            ackUuidBytes = DaoUtils.uuidToBytes(userUuid);
+        }
+        String truncatedUserName = null;
+        if (userName != null) {
+            truncatedUserName = DaoUtils.truncateStringToUtf8(userName, MAX_ACKNOWLEDGED_BY_USER_NAME);
         }
 
-        Object[] fields = new Object[5];
+        Object[] fields = new Object[6];
         fields[0] = status.getNumber();
-        fields[1] = System.currentTimeMillis();
-        fields[2] = fields[1];
+        fields[1] = fields[2] = System.currentTimeMillis();
         fields[3] = ackUuidBytes;
+        fields[4] = truncatedUserName;
 
         String updateSql = "UPDATE event_summary SET status_id=?, "
-                + "status_change=?, update_time=?, acknowledged_by_user_uuid=? "
-                + "WHERE uuid = ?";
+                + "status_change=?, update_time=?, acknowledged_by_user_uuid=?, "
+                + "acknowledged_by_user_name=? WHERE uuid = ?";
         List<Object[]> batchFields = new ArrayList<Object[]>(uuids.size());
         for (String uuid : uuids) {
             Object[] newFields = fields.clone();
-            newFields[4] = DaoUtils.uuidToBytes(uuid);
+            newFields[5] = DaoUtils.uuidToBytes(uuid);
             batchFields.add(newFields);
         }
         int numUpdated = 0;
         int[] updateCounts = this.template.batchUpdate(updateSql, batchFields);
-        for (int i = 0; i < updateCounts.length; i++) {
-            numUpdated += updateCounts[i];
+        for (int updateCount : updateCounts) {
+            numUpdated += updateCount;
         }
         return numUpdated;
     }
 
     @Override
     @Transactional
-    public int acknowledge(List<String> uuids, String userUuid)
+    public int acknowledge(List<String> uuids, String userUuid, String userName)
             throws ZepException {
-        return update(uuids, EventStatus.STATUS_ACKNOWLEDGED, userUuid);
+        return update(uuids, EventStatus.STATUS_ACKNOWLEDGED, userUuid, userName);
     }
 
     @Override
@@ -413,18 +423,18 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @Override
     @Transactional
     public int close(List<String> uuids) throws ZepException {
-        return update(uuids, EventStatus.STATUS_CLOSED, null);
+        return update(uuids, EventStatus.STATUS_CLOSED, null, null);
     }
 
     @Override
     @Transactional
     public int reopen(List<String> uuids) throws ZepException {
-        return update(uuids, EventStatus.STATUS_NEW, null);
+        return update(uuids, EventStatus.STATUS_NEW, null, null);
     }
 
     @Override
     @Transactional
     public int suppress(List<String> uuids) throws ZepException {
-        return update(uuids, EventStatus.STATUS_SUPPRESSED, null);
+        return update(uuids, EventStatus.STATUS_SUPPRESSED, null, null);
     }
 }

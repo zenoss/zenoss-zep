@@ -44,6 +44,8 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_PROTOBUF, event_summary.toByteArray(), Field.Store.YES));
 
         doc.add(new Field(FIELD_UUID, event_summary.getUuid(), Field.Store.NO, Field.Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ACKNOWLEDGED_BY_USER_NAME, event_summary.getAcknowledgedByUserName(), Field.Store.NO,
+                Field.Index.NOT_ANALYZED_NO_NORMS));
         EventStatus status = event_summary.getStatus();
         if (status != null) {
             doc.add(new NumericField(FIELD_STATUS, Field.Store.NO, true).setIntValue(status.getNumber()));
@@ -65,6 +67,8 @@ public class EventIndexMapper {
         doc.add(new NumericField(FIELD_EVENT_SEVERITY, Field.Store.YES, true).setIntValue(severity.getNumber()));
         // Store with a trailing slash to make lookups simpler
         doc.add(new Field(FIELD_EVENT_EVENT_CLASS, event.getEventClass() + "/", Field.Store.NO, Field.Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_EVENT_AGENT, event.getAgent(), Field.Store.NO, Field.Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_EVENT_MONITOR, event.getMonitor(), Field.Store.NO, Field.Index.NOT_ANALYZED_NO_NORMS));
 
         for (EventTag tag : event.getTagsList()) {
             doc.add(new Field(FIELD_TAGS, tag.getUuid(), Field.Store.NO, Field.Index.NOT_ANALYZED_NO_NORMS));
