@@ -74,8 +74,21 @@ public class DaoCacheImpl implements DaoCache {
     private <T> T getNameFromId(final DaoTableCache<T> cache, final int id) {
         T cached = cache.getCache().getNameFromId(id);
         if (cached == null) {
-            cached = cache.findNameFromId(template, id);
-            cache.getCache().cache(cached, id);
+            final T name = cache.findNameFromId(template, id);
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(
+                        new TransactionSynchronizationAdapter() {
+                            @Override
+                            public void afterCommit() {
+                                cache.getCache().cache(name, id);
+                            }
+                        });
+            }
+            else {
+                // Not part of a transaction - can safely cache
+                cache.getCache().cache(name, id);
+            }
+            cached = name;
         }
         return cached;
     }
