@@ -374,4 +374,46 @@ public class EventIndexDaoImplIT extends
         assertTrue(foundUuids.contains(event2.getUuid()));
         assertTrue(foundUuids.contains(event3.getUuid()));
     }
+
+    private EventSummary createEventWithClass(String eventClass) throws ZepException {
+        final Event.Builder eventBuilder = Event.newBuilder(EventDaoImplIT.createSampleEvent());
+        eventBuilder.setEventClass(eventClass);
+        final Event event = eventBuilder.build();
+        EventSummary summary = createSummary(event, EventStatus.STATUS_NEW);
+        eventIndexDao.index(summary);
+        return summary;
+    }
+
+    private EventSummaryRequest createRequestForEventClass(String... eventClass) {
+        EventFilter.Builder filterBuilder = EventFilter.newBuilder();
+        filterBuilder.addAllEventClass(Arrays.asList(eventClass));
+        final EventFilter filter = filterBuilder.build();
+
+        EventSummaryRequest.Builder reqBuilder = EventSummaryRequest.newBuilder();
+        reqBuilder.setEventFilter(filter);
+        return reqBuilder.build();
+    }
+
+    @Test
+    public void testListByEventClass() throws ZepException {
+        EventSummary event1 = createEventWithClass("/Status/Ping");
+        EventSummary event2 = createEventWithClass("/Status/Snmp");
+        EventSummary event3 = createEventWithClass("/Perf");
+
+        // Exact match if it doesn't end with a slash
+        EventSummaryResult res = this.eventIndexDao.list(createRequestForEventClass("/Status"));
+        assertEquals(0, res.getEventsCount());
+
+        // Matches this class and children
+        res = this.eventIndexDao.list(createRequestForEventClass("/Status/"));
+        assertEquals(2, res.getEventsCount());
+        Set<String> uuids = getUuidsFromResult(res);
+        assertTrue(uuids.contains(event1.getUuid()));
+        assertTrue(uuids.contains(event2.getUuid()));
+
+        // Matches exact class
+        res = this.eventIndexDao.list(createRequestForEventClass("/Status/Ping"));
+        assertEquals(1, res.getEventsCount());
+        assertEquals(event1.getUuid(), res.getEvents(0).getUuid());
+    }
 }

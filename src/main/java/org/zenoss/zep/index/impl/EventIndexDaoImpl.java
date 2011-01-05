@@ -384,10 +384,10 @@ public class EventIndexDaoImpl implements EventIndexDao {
         QueryBuilder qb = new QueryBuilder();
 
         qb.addRanges(FIELD_COUNT, filter.getCountRangeList());
-        qb.addWildcardFields(FIELD_ACKNOWLEDGED_BY_USER_NAME, filter.getAcknowledgedByUserNameList());
-        qb.addWildcardFields(FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER, filter.getElementIdentifierList());
-        qb.addWildcardFields(FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER, filter.getElementSubIdentifierList());
-        qb.addWildcardFields(FIELD_EVENT_SUMMARY, filter.getEventSummaryList());
+        qb.addWildcardFields(FIELD_ACKNOWLEDGED_BY_USER_NAME, filter.getAcknowledgedByUserNameList(), false);
+        qb.addWildcardFields(FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER, filter.getElementIdentifierList(), true);
+        qb.addWildcardFields(FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER, filter.getElementSubIdentifierList(), true);
+        qb.addWildcardFields(FIELD_EVENT_SUMMARY, filter.getEventSummaryList(), true);
         qb.addTimestampRanges(FIELD_FIRST_SEEN_TIME, filter.getFirstSeenList());
         qb.addTimestampRanges(FIELD_LAST_SEEN_TIME, filter.getLastSeenList());
         qb.addTimestampRanges(FIELD_STATUS_CHANGE_TIME, filter.getStatusChangeList());
@@ -400,14 +400,14 @@ public class EventIndexDaoImpl implements EventIndexDao {
             if ( ec.endsWith("/") ) {
                 // This is a "startswith" search
                 ec += '*';
-            }       
+            }
             else if ( !ec.endsWith("*") ) {
                 // This is an exact match
                 ec += '/';
             }
             eventClasses.add(ec);
         }
-        qb.addWildcardFields(FIELD_EVENT_EVENT_CLASS, eventClasses);
+        qb.addWildcardFields(FIELD_EVENT_EVENT_CLASS, eventClasses, false);
 
         for (EventTagFilter tagFilter : filter.getTagFilterList()) {
             qb.addField(FIELD_TAGS, tagFilter.getTagUuidsList(), tagFilter.getOp());

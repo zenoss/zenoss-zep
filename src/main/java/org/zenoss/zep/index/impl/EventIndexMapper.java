@@ -36,7 +36,7 @@ public class EventIndexMapper {
         final PerFieldAnalyzerWrapper analyzer = new PerFieldAnalyzerWrapper(new KeywordAnalyzer());
         analyzer.addAnalyzer(FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER, new IdentifierAnalyzer());
         analyzer.addAnalyzer(FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER, new IdentifierAnalyzer());
-        analyzer.addAnalyzer(FIELD_EVENT_SUMMARY, new StandardAnalyzer(Version.LUCENE_30));
+        analyzer.addAnalyzer(FIELD_EVENT_SUMMARY, new SummaryAnalyzer());
         return analyzer;
     }
 

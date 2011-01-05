@@ -38,13 +38,16 @@ public class QueryBuilder {
         return this;
     }
 
-    public QueryBuilder addWildcardFields(String key, Collection<String> values) {
+    public QueryBuilder addWildcardFields(String key, Collection<String> values, boolean lowerCase) {
         if (!values.isEmpty()) {
             final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
             final BooleanQuery booleanQuery = new BooleanQuery();
 
             for (String value : values) {
-                booleanQuery.add(new WildcardQuery(new Term(key, value.toLowerCase())), occur);
+                if (lowerCase) {
+                    value = value.toLowerCase();
+                }
+                booleanQuery.add(new WildcardQuery(new Term(key, value)), occur);
             }
             queries.add(booleanQuery);
         }
