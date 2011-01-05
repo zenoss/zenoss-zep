@@ -17,7 +17,8 @@ import org.apache.lucene.analysis.TokenStream;
 import java.io.Reader;
 
 /**
- * Analyzer used for element and sub element identifiers.
+ * Analyzer used for element and sub element identifiers. Uses {@link IdentifierTokenizer}
+ * to tokenize the value.
  */
 public class IdentifierAnalyzer extends Analyzer {
 

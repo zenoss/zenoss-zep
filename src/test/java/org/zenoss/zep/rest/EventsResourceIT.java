@@ -10,23 +10,14 @@
  */
 package org.zenoss.zep.rest;
 
-import static org.junit.Assert.*;
-
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
-import javax.sql.DataSource;
-
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
+import org.zenoss.protobufs.util.Util.TimestampRange;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventNote;
@@ -40,6 +31,18 @@ import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.EventArchiveDaoImplIT;
 import org.zenoss.zep.dao.impl.EventSummaryDaoImplIT;
+
+import javax.sql.DataSource;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.junit.Assert.*;
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
 public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
@@ -142,31 +145,30 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
     }
 
     @Test
-    @Ignore
     public void testUpdateEventSummary() throws ZepException, IOException {
         List<String> uuids = new ArrayList<String>(20);
         for (int i = 0; i < 20; i++) {
-            uuids.add(createSummaryNew(
-                    EventSummaryDaoImplIT.createUniqueEvent()).getUuid());
+            uuids.add(createSummaryNew(EventSummaryDaoImplIT.createUniqueEvent()).getUuid());
         }
 
         // Update first 10
-        EventSummaryUpdateRequest.Builder reqBuilder = EventSummaryUpdateRequest
-                .newBuilder();
+        EventStatus status = EventStatus.STATUS_ACKNOWLEDGED;
+        String ackUuid = UUID.randomUUID().toString();
+        String ackName = "testuser123";
+
+        final EventSummaryUpdate updateFields = EventSummaryUpdate.newBuilder()
+                .setAcknowledgedByUserUuid(ackUuid).setAcknowledgedByUserName(ackName).setStatus(status).build();
+        EventSummaryUpdateRequest.Builder reqBuilder = EventSummaryUpdateRequest.newBuilder();
         reqBuilder.setLimit(10);
-        reqBuilder.setUpdateFields(EventSummaryUpdate.newBuilder()
-                .setAcknowledgedByUserUuid(UUID.randomUUID().toString())
-                .setStatus(EventStatus.STATUS_ACKNOWLEDGED).build());
-        reqBuilder.setEventFilter(EventFilter.newBuilder().addAllUuid(uuids)
-                .build());
+        reqBuilder.setUpdateFields(updateFields);
+        reqBuilder.setEventFilter(EventFilter.newBuilder().addAllUuid(uuids).build());
         EventSummaryUpdateRequest req = reqBuilder.build();
 
         EventSummaryUpdateResponse response = (EventSummaryUpdateResponse) client
                 .putProtobuf(EVENTS_URI, req).getMessage();
         assertEquals(10, response.getRemaining());
         assertEquals(10, response.getUpdated());
-        assertEquals(EventSummaryUpdateRequest.newBuilder(req)
-                .clearUpdateTime().build(), response.getRequest());
+        assertEquals(req, EventSummaryUpdateRequest.newBuilder(response.getRequest()).clearUpdateTime().build());
         assertTrue(response.getRequest().hasUpdateTime());
 
         // Repeat request for last 10
@@ -174,17 +176,73 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
                 .putProtobuf(EVENTS_URI, response.getRequest()).getMessage();
         assertEquals(0, newResponse.getRemaining());
         assertEquals(10, response.getUpdated());
-        assertEquals(EventSummaryUpdateRequest.newBuilder(req)
-                .clearUpdateTime().build(), response.getRequest());
-        assertEquals(response.getRequest().getUpdateTime(), newResponse
-                .getRequest().getUpdateTime());
+        assertEquals(req, EventSummaryUpdateRequest.newBuilder(newResponse.getRequest()).clearUpdateTime().build());
+        assertEquals(response.getRequest().getUpdateTime(), newResponse.getRequest().getUpdateTime());
 
         // Verify updates hit the database
         List<EventSummary> summaries = summaryDao.findByUuids(uuids);
+        assertEquals(uuids.size(), summaries.size());
         for (EventSummary summary : summaries) {
-            assertEquals(req.getUpdateFields().getStatus(), summary.getStatus());
-            assertEquals(req.getUpdateFields().getAcknowledgedByUserUuid(),
-                    summary.getAcknowledgedByUserUuid());
+            assertEquals(status, summary.getStatus());
+            assertEquals(ackUuid, summary.getAcknowledgedByUserUuid());
+            assertEquals(ackName, summary.getAcknowledgedByUserName());
+        }
+    }
+
+    @Test
+    public void testUpdateEventSummaryExclusions() throws ZepException, IOException {
+        long firstSeen = System.currentTimeMillis();
+        TimestampRange firstSeenRange = TimestampRange.newBuilder().setStartTime(firstSeen).setEndTime(firstSeen).build();
+        Set<String> uuids = new HashSet<String>();
+        Map<String,EventSummary> excludedUuids = new HashMap<String,EventSummary>();
+        for (int i = 0; i < 5; i++) {
+            Event event = Event.newBuilder(EventSummaryDaoImplIT.createUniqueEvent()).setCreatedTime(firstSeen).build();
+            EventSummary summary = createSummaryNew(event);
+            if ((i % 2) == 0) {
+                uuids.add(summary.getUuid());
+            }
+            else {
+                excludedUuids.put(summary.getUuid(), summary);
+            }
+        }
+
+        // Update first 10
+        EventStatus status = EventStatus.STATUS_ACKNOWLEDGED;
+        String ackUuid = UUID.randomUUID().toString();
+        String ackName = "testuser123";
+
+        final EventSummaryUpdate updateFields = EventSummaryUpdate.newBuilder()
+                .setAcknowledgedByUserUuid(ackUuid).setAcknowledgedByUserName(ackName).setStatus(status).build();
+        EventSummaryUpdateRequest.Builder reqBuilder = EventSummaryUpdateRequest.newBuilder();
+        reqBuilder.setLimit(10);
+        reqBuilder.setUpdateFields(updateFields);
+        reqBuilder.setEventFilter(EventFilter.newBuilder().addFirstSeen(firstSeenRange).build());
+        reqBuilder.setExclusionFilter(EventFilter.newBuilder().addAllUuid(excludedUuids.keySet()).build());
+        EventSummaryUpdateRequest req = reqBuilder.build();
+
+        EventSummaryUpdateResponse response = (EventSummaryUpdateResponse) client
+                .putProtobuf(EVENTS_URI, req).getMessage();
+        assertEquals(0, response.getRemaining());
+        assertEquals(uuids.size(), response.getUpdated());
+        assertEquals(req, EventSummaryUpdateRequest.newBuilder(response.getRequest()).clearUpdateTime().build());
+        assertTrue(response.getRequest().hasUpdateTime());
+
+        // Verify updates hit the database
+        List<String> allUuids = new ArrayList<String>();
+        allUuids.addAll(uuids);
+        allUuids.addAll(excludedUuids.keySet());
+        List<EventSummary> summaries = summaryDao.findByUuids(allUuids);
+        assertEquals(allUuids.size(), summaries.size());
+        for (EventSummary summary : summaries) {
+            if (uuids.contains(summary.getUuid())) {
+                assertEquals(status, summary.getStatus());
+                assertEquals(ackUuid, summary.getAcknowledgedByUserUuid());
+                assertEquals(ackName, summary.getAcknowledgedByUserName());
+            }
+            else {
+                // Excluded UUIDs shouldn't have changed
+                assertEquals(excludedUuids.get(summary.getUuid()), summary);
+            }
         }
     }
 }

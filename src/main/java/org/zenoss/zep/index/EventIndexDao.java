@@ -92,6 +92,19 @@ public interface EventIndexDao extends Purgable {
             throws ZepException;
 
     /**
+     * Retrieves event summary UUIDs matching the specified query.
+     *
+     * @param request
+     *            Event summary query.
+     * @return The matching event summary entries. Only the UUIDs of each event
+     *         summary will be returned.
+     * @throws ZepException
+     *             If an error occurs.
+     */
+    public EventSummaryResult listUuids(EventSummaryRequest request)
+            throws ZepException;
+
+    /**
      * Deletes the event with the specified uuid from the index
      * 
      * @param uuid

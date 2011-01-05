@@ -301,7 +301,6 @@
                         <configuration>
                             <url>jdbc:mysql://${zep.jdbc.hostname}?characterEncoding=UTF-8</url>
                             <sqlCommand>DROP DATABASE IF EXISTS ${zep.test.jdbc.dbname}</sqlCommand>
-                            <onError>continue</onError>
                         </configuration>
                     </execution>
                     <execution>

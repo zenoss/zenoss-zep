@@ -33,6 +33,7 @@ import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventStoreDao;
+import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
 
 import javax.ws.rs.Consumes;
@@ -67,12 +68,13 @@ public class EventsResource {
 
     private Integer defaultQueryLimit = 100;
     private EventIndexer eventIndexer;
+    private EventStoreDao eventStoreDao;
+    private EventIndexDao eventSummaryIndexDao;
+    private EventIndexDao eventArchiveIndexDao;
 
     public void setDefaultQueryLimit(Integer limit) {
         this.defaultQueryLimit = limit;
     }
-
-    private EventStoreDao eventStoreDao;
 
     public void setEventStoreDao(EventStoreDao eventStoreDao) {
         this.eventStoreDao = eventStoreDao;
@@ -80,6 +82,14 @@ public class EventsResource {
 
     public void setEventIndexer(EventIndexer eventIndexer) {
         this.eventIndexer = eventIndexer;
+    }
+
+    public void setEventSummaryIndexDao(EventIndexDao eventSummaryIndexDao) {
+        this.eventSummaryIndexDao = eventSummaryIndexDao;
+    }
+
+    public void setEventArchiveIndexDao(EventIndexDao eventArchiveIndexDao) {
+        this.eventArchiveIndexDao = eventArchiveIndexDao;
     }
 
     private static Set<String> getQuerySet(
@@ -122,8 +132,7 @@ public class EventsResource {
 
     @GET
     @Path("{eventUuid}")
-    @Produces({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public Response getEventSummaryByUuid(
             @PathParam("eventUuid") String eventUuid) throws ZepException {
         EventSummary summary = eventStoreDao.findByUuid(eventUuid);
@@ -136,10 +145,8 @@ public class EventsResource {
 
     @PUT
     @Path("/")
-    @Consumes({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    @Produces({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventSummaryUpdateResponse updateEventSummary(
             EventSummaryUpdateRequest request) throws ZepException {
         final long updateTime;
@@ -151,30 +158,29 @@ public class EventsResource {
             updateTime = request.getUpdateTime();
         }
 
-        EventSummaryRequest.Builder reqBuilder = EventSummaryRequest
-                .newBuilder();
-
-        // We only want UUIDs returned
-        // TODO: Constant / Enum
-        reqBuilder.addKeys("uuid");
-
+        EventSummaryRequest.Builder reqBuilder = EventSummaryRequest.newBuilder();
+        
         // Add additional constraint on user's filter that we only want to
         // include events with update_time < the current time. This prevents
-        // infinite updates and updating events that are modified after the
-        // request comes in.
-        EventFilter.Builder filterBuilder = EventFilter.newBuilder(request
-                .getEventFilter());
-        filterBuilder.addUpdateTime(TimestampRange.newBuilder().setEndTime(
-                updateTime));
+        // updating events that are modified after the request comes in.
+        EventFilter.Builder filterBuilder = EventFilter.newBuilder();
+        if (request.hasEventFilter()) {
+            filterBuilder.mergeFrom(request.getEventFilter());
+        }
+        filterBuilder.addUpdateTime(TimestampRange.newBuilder().setEndTime(updateTime));
         EventFilter filter = filterBuilder.build();
         reqBuilder.setEventFilter(filter);
+
+        if (request.hasExclusionFilter()) {
+            reqBuilder.setExclusionFilter(request.getExclusionFilter());
+        }
 
         // Maximum number of events we will update in one batch
         reqBuilder.setLimit(Math.min(request.getLimit(), defaultQueryLimit));
 
         EventSummaryRequest req = reqBuilder.build();
 
-        EventSummaryResult result = this.eventStoreDao.list(req);
+        EventSummaryResult result = this.eventSummaryIndexDao.listUuids(req);
         List<String> uuids = new ArrayList<String>(result.getEventsCount());
         for (EventSummary summary : result.getEventsList()) {
             uuids.add(summary.getUuid());
@@ -184,8 +190,7 @@ public class EventsResource {
         // Force the index to update - this will prevent updating these events again
         eventIndexer.index(true);
 
-        EventSummaryUpdateResponse.Builder response = EventSummaryUpdateResponse
-                .newBuilder();
+        EventSummaryUpdateResponse.Builder response = EventSummaryUpdateResponse.newBuilder();
         response.setRemaining(result.getTotal() - result.getEventsCount());
         response.setUpdated(result.getEventsCount());
         response.setRequest(EventSummaryUpdateRequest.newBuilder(request)
@@ -195,8 +200,7 @@ public class EventsResource {
 
     @PUT
     @Path("{eventUuid}")
-    @Consumes({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public Response updateEventSummaryByUuid(
             @PathParam("eventUuid") String uuid, EventSummaryUpdate update)
             throws ZepException {
@@ -216,8 +220,7 @@ public class EventsResource {
 
     @POST
     @Path("{eventUuid}/notes")
-    @Consumes({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public Response addNote(@PathParam("eventUuid") String eventUuid,
             EventNote note) throws ZepException {
 
@@ -235,26 +238,23 @@ public class EventsResource {
     }
 
     @GET
-    @Produces({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventSummaryResult listEventIndex(@Context UriInfo ui)
             throws ParseException, IOException, ZepException {
-        return eventStoreDao.list(eventSummaryRequestFromUriInfo(ui));
+        return this.eventSummaryIndexDao.list(eventSummaryRequestFromUriInfo(ui));
     }
 
     @GET
     @Path("archive")
-    @Produces({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventSummaryResult listEventIndexArchive(@Context UriInfo ui)
             throws ParseException, IOException, ZepException {
-        return eventStoreDao.listArchive(eventSummaryRequestFromUriInfo(ui));
+        return this.eventArchiveIndexDao.list(eventSummaryRequestFromUriInfo(ui));
     }
 
     @GET
     @Path("severities")
-    @Produces({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventTagSeveritiesSet listEventSeverities(@Context UriInfo ui)
             throws ZepException {
         final MultivaluedMap<String, String> queryParams = ui
@@ -263,8 +263,7 @@ public class EventsResource {
         EventTagSeveritiesSet.Builder setBuilder = EventTagSeveritiesSet
                 .newBuilder();
         if (!uuids.isEmpty()) {
-            Map<String, Map<EventSeverity, Integer>> counts = eventStoreDao
-                    .countSeverities(uuids);
+            Map<String, Map<EventSeverity, Integer>> counts = this.eventSummaryIndexDao.countSeverities(uuids);
             for (Map.Entry<String, Map<EventSeverity, Integer>> entry : counts
                     .entrySet()) {
                 EventTagSeverities.Builder sevsBuilder = EventTagSeverities
@@ -283,8 +282,7 @@ public class EventsResource {
 
     @GET
     @Path("worst_severity")
-    @Produces({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventTagSeveritiesSet listWorstEventSeverity(@Context UriInfo ui)
             throws ZepException {
         final MultivaluedMap<String, String> queryParams = ui
@@ -293,8 +291,7 @@ public class EventsResource {
         EventTagSeveritiesSet.Builder setBuilder = EventTagSeveritiesSet
                 .newBuilder();
         if (!uuids.isEmpty()) {
-            Map<String, EventSeverity> worstSeverities = eventStoreDao
-                    .findWorstSeverity(uuids);
+            Map<String, EventSeverity> worstSeverities = this.eventSummaryIndexDao.findWorstSeverity(uuids);
             for (Map.Entry<String, EventSeverity> entry : worstSeverities
                     .entrySet()) {
                 EventTagSeverities.Builder sevsBuilder = EventTagSeverities
@@ -312,9 +309,7 @@ public class EventsResource {
         /* Read all params from query */
         MultivaluedMap<String, String> queryParams = info.getQueryParameters();
         logger.debug("Query Parameters: {}", queryParams);
-        final Set<String> keys = getQuerySet(queryParams, "keys");
-        final int limit = getQueryInteger(queryParams, "limit",
-                defaultQueryLimit);
+        final int limit = getQueryInteger(queryParams, "limit", defaultQueryLimit);
         final int offset = getQueryInteger(queryParams, "offset", 0);
         final EnumSet<EventSeverity> severities = getQueryEnumSet(queryParams,
                 "severity", EventSeverity.class, "SEVERITY_");
@@ -376,7 +371,6 @@ public class EventsResource {
         final EventSummaryRequest.Builder reqBuilder = EventSummaryRequest
                 .newBuilder();
         reqBuilder.setEventFilter(filter);
-        reqBuilder.addAllKeys(keys);
 
         if (limit < 0) {
             throw new IllegalArgumentException("Invalid limit: " + limit);
@@ -395,8 +389,7 @@ public class EventsResource {
             eventSort.setField(EventSort.Field.valueOf(sortParts[0]));
 
             if (sortParts.length == 2) {
-                eventSort.setDirection(EventSort.Direction
-                        .valueOf(sortParts[1]));
+                eventSort.setDirection(EventSort.Direction.valueOf(sortParts[1]));
             }
 
             reqBuilder.addSort(eventSort);

@@ -20,7 +20,6 @@ public class EventConstants {
     public static final String TABLE_EVENT_ARCHIVE = "event_archive";
     public static final String TABLE_EVENT_SUMMARY = "event_summary";
     public static final String TABLE_CLEAR_EVENTS = "clear_events";
-    public static final String TABLE_INDEX_VERSION = "index_version";
 
     // Shared column names
     public static final String COLUMN_ELEMENT_SUB_IDENTIFIER = "element_sub_identifier";

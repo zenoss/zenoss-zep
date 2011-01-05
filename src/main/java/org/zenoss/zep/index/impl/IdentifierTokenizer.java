@@ -16,7 +16,7 @@ import org.apache.lucene.util.AttributeSource;
 import java.io.Reader;
 
 /**
- * Tokenizer for element identifiers and sub identifiers.
+ * Tokenizer for element identifiers and sub identifiers. Splits on whitespace, periods, and hyphens.
  */
 public class IdentifierTokenizer extends CharTokenizer {
 

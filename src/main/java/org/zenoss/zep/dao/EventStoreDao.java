@@ -11,21 +11,17 @@
 
 package org.zenoss.zep.dao;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
-import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
 import org.zenoss.zep.EventContext;
 import org.zenoss.zep.ZepException;
+
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * DAO which provides a bridge between event database storage and indexing.
@@ -67,31 +63,6 @@ public interface EventStoreDao extends Purgable {
      *             If an error occurs.
      */
     public EventSummary findByUuid(String uuid) throws ZepException;
-
-    /**
-     * Retrieves event summary entries matching the specified query.
-     * 
-     * @param request
-     *            Event summary query.
-     * @return The matching event summary entries.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public EventSummaryResult list(EventSummaryRequest request)
-            throws ZepException;
-
-    /**
-     * Retrieves event summary entries from the archive matching the specified
-     * query.
-     * 
-     * @param request
-     *            Event summary query.
-     * @return The matching event summary entries.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public EventSummaryResult listArchive(EventSummaryRequest request)
-            throws ZepException;
 
     /**
      * Updates the event with the specified UUID.
@@ -169,33 +140,5 @@ public interface EventStoreDao extends Purgable {
      *             If an error occurs.
      */
     public int archive(long agingInverval, TimeUnit unit, int limit)
-            throws ZepException;
-
-    /**
-     * Calculate the number of events in each severity type for each specified
-     * tag.
-     * 
-     * @param tags
-     *            The tags to calculate severities for.
-     * @return A Map of UUID to a map of event severity to the number of events
-     *         in that severity.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public Map<String, Map<EventSeverity, Integer>> countSeverities(
-            Set<String> tags) throws ZepException;
-
-    /**
-     * Calculates the worst severity event for each tag in the specified
-     * collection.
-     * 
-     * @param tags
-     *            The tags to determine the worst severity event for.
-     * @return A map of the tag to the worst severity event for the tag. Tags
-     *         which have no events are not returned in the mapping.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public Map<String, EventSeverity> findWorstSeverity(Set<String> tags)
             throws ZepException;
 }

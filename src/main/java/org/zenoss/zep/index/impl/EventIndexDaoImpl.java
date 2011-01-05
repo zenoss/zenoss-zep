@@ -12,7 +12,6 @@ package org.zenoss.zep.index.impl;
 
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldSelector;
-import org.apache.lucene.document.FieldSelectorResult;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
@@ -160,9 +159,24 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
         commit();
     }
+
+    // Load the serialized protobuf (entire event)
+    private static final FieldSelector PROTO_SELECTOR = new SingleFieldSelector(FIELD_PROTOBUF);
+
+    // Load just the event UUID
+    private static final FieldSelector UUID_SELECTOR = new SingleFieldSelector(FIELD_UUID);
     
     @Override
     public EventSummaryResult list(EventSummaryRequest request) throws ZepException {
+        return listInternal(request, PROTO_SELECTOR);
+    }
+
+    @Override
+    public EventSummaryResult listUuids(EventSummaryRequest request) throws ZepException {
+        return listInternal(request, UUID_SELECTOR);
+    }
+
+    private EventSummaryResult listInternal(EventSummaryRequest request, FieldSelector selector) throws ZepException {
         Query query = buildQuery(request.getEventFilter(), request.getExclusionFilter());
         Sort sort = buildSort(request.getSortList());
 
@@ -190,7 +204,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             }
 
             for (int i = offset; i < docs.scoreDocs.length; i++) {
-                result.addEvents(EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc)));
+                result.addEvents(EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector)));
             }
             return result.build();
         } catch (IOException e) {
@@ -404,16 +418,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         return qb.build();
     }
 
-    private static final FieldSelector SEVERITY_FIELD_SELECTOR = new FieldSelector() {
-        @Override
-        public FieldSelectorResult accept(String fieldName) {
-            FieldSelectorResult result = FieldSelectorResult.NO_LOAD;
-            if (FIELD_EVENT_SEVERITY.equals(fieldName)) {
-                result = FieldSelectorResult.LOAD_AND_BREAK;
-            }
-            return result;
-        }
-    };
+    private static final FieldSelector SEVERITY_SELECTOR = new SingleFieldSelector(FIELD_EVENT_SEVERITY);
     
     private Map<EventSeverity,Integer> countSeveritiesForTag(String tag) throws ZepException {
         QueryBuilder builder = new QueryBuilder();
@@ -430,7 +435,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             if (docs.scoreDocs.length > 0) {
                 severities = new EnumMap<EventSeverity,Integer>(EventSeverity.class);
                 for (ScoreDoc scoreDoc : docs.scoreDocs) {
-                    Document doc = searcher.doc(scoreDoc.doc, SEVERITY_FIELD_SELECTOR);
+                    Document doc = searcher.doc(scoreDoc.doc, SEVERITY_SELECTOR);
                     EventSeverity severity = EventSeverity.valueOf(Integer.valueOf(doc.get(FIELD_EVENT_SEVERITY)));
                     Integer count = severities.get(severity);
                     if (count == null) {
@@ -483,7 +488,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             TopFieldDocs docs = searcher.search(query, null, 1, sort);
             EventSeverity severity = null;
             if (docs.scoreDocs.length > 0) {
-                Document doc = searcher.doc(docs.scoreDocs[0].doc, SEVERITY_FIELD_SELECTOR);
+                Document doc = searcher.doc(docs.scoreDocs[0].doc, SEVERITY_SELECTOR);
                 severity = EventSeverity.valueOf(Integer.valueOf(doc.get(FIELD_EVENT_SEVERITY)));
             }
             return severity;

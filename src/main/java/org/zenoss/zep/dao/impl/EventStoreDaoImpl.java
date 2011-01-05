@@ -11,20 +11,12 @@
 
 package org.zenoss.zep.dao.impl;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
 import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
-import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
 import org.zenoss.zep.EventContext;
 import org.zenoss.zep.ZepException;
@@ -33,6 +25,10 @@ import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 public class EventStoreDaoImpl implements EventStoreDao {
     private EventSummaryDao eventSummaryDao;
@@ -105,18 +101,6 @@ public class EventStoreDaoImpl implements EventStoreDao {
             summary = eventArchiveDao.findByUuid(uuid);
         }
         return summary;
-    }
-
-    @Override
-    public EventSummaryResult list(EventSummaryRequest request)
-            throws ZepException {
-        return eventSummaryIndexDao.list(request);
-    }
-
-    @Override
-    public EventSummaryResult listArchive(EventSummaryRequest request)
-            throws ZepException {
-        return eventArchiveIndexDao.list(request);
     }
 
     @Override
@@ -200,17 +184,5 @@ public class EventStoreDaoImpl implements EventStoreDao {
     public void purge(int duration, TimeUnit unit) throws ZepException {
         eventArchiveDao.purge(duration, unit);
         eventArchiveIndexDao.purge(duration, unit);
-    }
-
-    @Override
-    public Map<String, Map<EventSeverity, Integer>> countSeverities(
-            Set<String> tags) throws ZepException {
-        return this.eventSummaryIndexDao.countSeverities(tags);
-    }
-
-    @Override
-    public Map<String, EventSeverity> findWorstSeverity(Set<String> tags)
-            throws ZepException {
-        return this.eventSummaryIndexDao.findWorstSeverity(tags);
     }
 }
