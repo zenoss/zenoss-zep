@@ -84,7 +84,6 @@ public class TriggerPluginImplTest {
                 "evt.severity == 'warning'",
                 "evt.event_class == '/Defcon/1'",
                 "evt.count > 5",
-                "evt.status == 'new'",
                 "dev.name == 'BHM1000'",
                 "component.name.lower().startswith('fuse')",
         };
@@ -96,7 +95,6 @@ public class TriggerPluginImplTest {
                 "evt.message.startswith('BEST')",
                 "evt.count > 15",
                 "evt.severity = 'critical'",
-                "evt.status == 'acked'",
                 "dev.name == 'BHM1001'",
         };
 
