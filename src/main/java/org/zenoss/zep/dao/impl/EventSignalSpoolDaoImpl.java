@@ -51,7 +51,7 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
             spool.setEventCount(rs.getInt(COLUMN_EVENT_COUNT));
             spool.setEventSummaryUuid(DaoUtils.uuidFromBytes(rs
                     .getBytes(COLUMN_EVENT_SUMMARY_UUID)));
-            spool.setEventTriggerSubscriptionUuid(DaoUtils.uuidFromBytes(rs
+            spool.setSubscriptionUuid(DaoUtils.uuidFromBytes(rs
                     .getBytes(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID)));
             spool.setFlushTime(rs.getLong(COLUMN_FLUSH_TIME));
             return spool;
@@ -75,7 +75,7 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
         fields.put(COLUMN_EVENT_SUMMARY_UUID,
                 DaoUtils.uuidToBytes(spool.getEventSummaryUuid()));
         fields.put(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID,
-                DaoUtils.uuidToBytes(spool.getEventTriggerSubscriptionUuid()));
+                DaoUtils.uuidToBytes(spool.getSubscriptionUuid()));
         fields.put(COLUMN_FLUSH_TIME, spool.getFlushTime());
         fields.put(COLUMN_EVENT_COUNT, spool.getEventCount());
 

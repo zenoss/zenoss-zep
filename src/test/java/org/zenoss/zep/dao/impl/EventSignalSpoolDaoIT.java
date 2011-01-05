@@ -99,8 +99,8 @@ public class EventSignalSpoolDaoIT extends
         assertEquals(existing.getCreated(), found.getCreated());
         assertEquals(existing.getEventSummaryUuid(),
                 found.getEventSummaryUuid());
-        assertEquals(existing.getEventTriggerSubscriptionUuid(),
-                found.getEventTriggerSubscriptionUuid());
+        assertEquals(existing.getSubscriptionUuid(),
+                found.getSubscriptionUuid());
         assertEquals(existing.getFlushTime(), found.getFlushTime());
     }
 

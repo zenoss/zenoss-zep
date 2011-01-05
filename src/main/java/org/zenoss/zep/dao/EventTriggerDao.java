@@ -64,6 +64,15 @@ public interface EventTriggerDao {
     public List<EventTrigger> findAll() throws ZepException;
 
     /**
+     * Finds all enabled triggers in the database.
+     *
+     * @return A list containing all of the enabled triggers in the database.
+     * @throws ZepException
+     *             If an error occurs looking up the triggers.
+     */
+    public List<EventTrigger> findAllEnabled() throws ZepException;
+
+    /**
      * Modifies the specified trigger in the database. Event trigger
      * subscriptions on the specified trigger are not modified - use
      * {@link EventTriggerSubscriptionDao} to create or modify subscriptions.

@@ -123,6 +123,22 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<EventTrigger> findAllEnabled() throws ZepException {
+        String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,sub.repeat_seconds "
+                + "FROM event_trigger "
+                + "LEFT JOIN event_trigger_subscription AS sub ON event_trigger.uuid = sub.event_trigger_uuid "
+                + "WHERE event_trigger.enabled <> 0";
+        try {
+            return this.template.getJdbcOperations().query(sql,
+                    new EventTriggerExtractor());
+        } catch (DataAccessException e) {
+            throw new ZepException(e);
+        }
+    }
+
+
+    @Override
     @Transactional
     public int modify(EventTrigger trigger) throws ZepException {
         final Map<String, Object> fields = triggerToFields(trigger);
