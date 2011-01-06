@@ -327,19 +327,19 @@ public class EventIndexDaoImpl implements EventIndexDao {
             case COUNT:
                 return new SortField(FIELD_COUNT, SortField.INT, reverse);
             case ELEMENT_IDENTIFIER:
-                return new SortField(FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER_SORT, SortField.STRING, reverse);
+                return new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse);
             case ELEMENT_SUB_IDENTIFIER:
-                return new SortField(FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER_SORT, SortField.STRING, reverse);
+                return new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse);
             case EVENT_CLASS:
-                return new SortField(FIELD_EVENT_EVENT_CLASS, SortField.STRING, reverse);
+                return new SortField(FIELD_EVENT_CLASS, SortField.STRING, reverse);
             case EVENT_SUMMARY:
-                return new SortField(FIELD_EVENT_SUMMARY_SORT, SortField.STRING, reverse);
+                return new SortField(FIELD_SUMMARY_NOT_ANALYZED, SortField.STRING, reverse);
             case FIRST_SEEN:
                 return new SortField(FIELD_FIRST_SEEN_TIME, SortField.LONG, reverse);
             case LAST_SEEN:
                 return new SortField(FIELD_LAST_SEEN_TIME, SortField.LONG, reverse);
             case SEVERITY:
-                return new SortField(FIELD_EVENT_SEVERITY, SortField.INT, reverse);
+                return new SortField(FIELD_SEVERITY, SortField.INT, reverse);
             case STATUS:
                 return new SortField(FIELD_STATUS, SortField.INT, reverse);
             case STATUS_CHANGE:
@@ -385,15 +385,17 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         qb.addRanges(FIELD_COUNT, filter.getCountRangeList());
         qb.addWildcardFields(FIELD_ACKNOWLEDGED_BY_USER_NAME, filter.getAcknowledgedByUserNameList(), false);
-        qb.addWildcardFields(FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER, filter.getElementIdentifierList(), true);
-        qb.addWildcardFields(FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER, filter.getElementSubIdentifierList(), true);
-        qb.addWildcardFields(FIELD_EVENT_SUMMARY, filter.getEventSummaryList(), true);
+        qb.addIdentifierFields(FIELD_ELEMENT_IDENTIFIER, FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED,
+                filter.getElementIdentifierList(), this.writer.getAnalyzer());
+        qb.addIdentifierFields(FIELD_ELEMENT_SUB_IDENTIFIER, FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED,
+                filter.getElementSubIdentifierList(), this.writer.getAnalyzer());
+        qb.addWildcardFields(FIELD_SUMMARY, filter.getEventSummaryList(), true);
         qb.addTimestampRanges(FIELD_FIRST_SEEN_TIME, filter.getFirstSeenList());
         qb.addTimestampRanges(FIELD_LAST_SEEN_TIME, filter.getLastSeenList());
         qb.addTimestampRanges(FIELD_STATUS_CHANGE_TIME, filter.getStatusChangeList());
         qb.addTimestampRanges(FIELD_UPDATE_TIME, filter.getUpdateTimeList());
         qb.addFieldOfEnumNumbers(FIELD_STATUS, filter.getStatusList());
-        qb.addFieldOfEnumNumbers(FIELD_EVENT_SEVERITY, filter.getSeverityList());
+        qb.addFieldOfEnumNumbers(FIELD_SEVERITY, filter.getSeverityList());
 
         List<String> eventClasses = new ArrayList<String>(filter.getEventClassCount());
         for (String ec : filter.getEventClassList()) {
@@ -407,7 +409,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             }
             eventClasses.add(ec);
         }
-        qb.addWildcardFields(FIELD_EVENT_EVENT_CLASS, eventClasses, false);
+        qb.addWildcardFields(FIELD_EVENT_CLASS, eventClasses, false);
 
         for (EventTagFilter tagFilter : filter.getTagFilterList()) {
             qb.addField(FIELD_TAGS, tagFilter.getTagUuidsList(), tagFilter.getOp());
@@ -418,7 +420,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         return qb.build();
     }
 
-    private static final FieldSelector SEVERITY_SELECTOR = new SingleFieldSelector(FIELD_EVENT_SEVERITY);
+    private static final FieldSelector SEVERITY_SELECTOR = new SingleFieldSelector(FIELD_SEVERITY);
     
     private Map<EventSeverity,Integer> countSeveritiesForTag(String tag) throws ZepException {
         QueryBuilder builder = new QueryBuilder();
@@ -436,7 +438,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 severities = new EnumMap<EventSeverity,Integer>(EventSeverity.class);
                 for (ScoreDoc scoreDoc : docs.scoreDocs) {
                     Document doc = searcher.doc(scoreDoc.doc, SEVERITY_SELECTOR);
-                    EventSeverity severity = EventSeverity.valueOf(Integer.valueOf(doc.get(FIELD_EVENT_SEVERITY)));
+                    EventSeverity severity = EventSeverity.valueOf(Integer.valueOf(doc.get(FIELD_SEVERITY)));
                     Integer count = severities.get(severity);
                     if (count == null) {
                         count = 1;
@@ -489,7 +491,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             EventSeverity severity = null;
             if (docs.scoreDocs.length > 0) {
                 Document doc = searcher.doc(docs.scoreDocs[0].doc, SEVERITY_SELECTOR);
-                severity = EventSeverity.valueOf(Integer.valueOf(doc.get(FIELD_EVENT_SEVERITY)));
+                severity = EventSeverity.valueOf(Integer.valueOf(doc.get(FIELD_SEVERITY)));
             }
             return severity;
         } catch (IOException e) {

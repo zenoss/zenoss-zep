@@ -12,10 +12,15 @@
 package org.zenoss.zep.index.impl;
 
 import com.google.protobuf.ProtocolMessageEnum;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.TermAttribute;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.NumericRangeQuery;
+import org.apache.lucene.search.PhraseQuery;
+import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.WildcardQuery;
@@ -23,7 +28,10 @@ import org.zenoss.protobufs.util.Util.TimestampRange;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.ZepUtils;
 
+import java.io.IOException;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -35,6 +43,70 @@ public class QueryBuilder {
 
     public QueryBuilder addField(String key, String value) {
         queries.add(new TermQuery(new Term(key, value)));
+        return this;
+    }
+
+    private static final String unquote(String str) {
+        final int len = str.length();
+        String unquoted = str;
+        if (len >= 2 && str.charAt(0) == '"' && str.charAt(len-1) == '"') {
+            unquoted = str.substring(1, len-1);
+        }
+        return unquoted;
+    }
+
+    /**
+     * Special case queries for identifier fields. Queries that are enclosed in quotes result in
+     * an exact query for the string in the non-analyzed field. Queries that end in an asterisk
+     * result in a prefix query in the non-analyzed field. Queries of a length less than
+     * the {@link IdentifierAnalyzer#MIN_NGRAM_SIZE} are converted to prefix queries on the
+     * non-analyzed field. All other queries are send to the NGram analyzed field for efficient
+     * substring matches.
+     *
+     * @param analyzedFieldName Analyzed field name.
+     * @param nonAnalyzedFieldName Non-analyzed field name.
+     * @param values Queries to search on.
+     * @param analyzer The analyzer used for the fields (used to build the NGram queries).
+     * @return This query builder instance (for chaining).
+     */
+    public QueryBuilder addIdentifierFields(String analyzedFieldName, String nonAnalyzedFieldName,
+                                            Collection<String> values, Analyzer analyzer) throws ZepException {
+        if (!values.isEmpty()) {
+            final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
+            final BooleanQuery booleanQuery = new BooleanQuery();
+
+            for (String value : values) {
+                final Query query;
+                final String unquoted = unquote(value);
+                if (unquoted != value) {
+                    query = new TermQuery(new Term(nonAnalyzedFieldName, unquoted));
+                }
+                else if (value.endsWith("*")) {
+                    query = new PrefixQuery(new Term(nonAnalyzedFieldName, value.substring(0, value.length()-1)));
+                }
+                else if (value.length() < IdentifierAnalyzer.MIN_NGRAM_SIZE) {
+                    query = new PrefixQuery(new Term(nonAnalyzedFieldName, value));
+                }
+                else {
+                    final PhraseQuery pq = new PhraseQuery();
+                    query = pq;
+                    TokenStream ts = analyzer.tokenStream(analyzedFieldName, new StringReader(value));
+                    TermAttribute term = ts.addAttribute(TermAttribute.class);
+                    try {
+                        while (ts.incrementToken()) {
+                            pq.add(new Term(analyzedFieldName, term.term()));
+                        }
+                        ts.end();
+                    } catch (IOException e) {
+                        throw new ZepException(e.getLocalizedMessage(), e);
+                    } finally {
+                        ZepUtils.close(ts);
+                    }
+                }
+                booleanQuery.add(query, occur);
+            }
+            queries.add(booleanQuery);
+        }
         return this;
     }
 

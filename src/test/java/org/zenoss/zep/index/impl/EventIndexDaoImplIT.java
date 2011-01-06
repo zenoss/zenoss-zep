@@ -289,7 +289,8 @@ public class EventIndexDaoImplIT extends
     @Test
     public void testIdentifierInsensitive() throws ZepException {
         EventSummary summary = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
-        Event occurrence = Event.newBuilder(summary.getOccurrence(0)).setActor(createSampleActor("MyHostName.zenoss.loc", "myCompName")).build();
+        Event occurrence = Event.newBuilder(summary.getOccurrence(0)).setActor(
+                createSampleActor("MyHostName.zenoss.loc", "myCompName")).build();
         summary = EventSummary.newBuilder(summary).clearOccurrence().addOccurrence(occurrence).build();
         eventIndexDao.index(summary);
 
@@ -304,6 +305,29 @@ public class EventIndexDaoImplIT extends
             EventSummaryResult result = eventIndexDao.list(req);
             assertEquals(1, result.getEventsCount());
             assertEquals(summary, result.getEvents(0));
+        }
+    }
+
+    @Test
+    public void testIdentifier() throws ZepException {
+        EventSummary summary = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+        Event occurrence = Event.newBuilder(summary.getOccurrence(0)).setActor(
+                createSampleActor("test-jboss.zenoss.loc", "myCompName")).build();
+        summary = EventSummary.newBuilder(summary).clearOccurrence().addOccurrence(occurrence).build();
+        eventIndexDao.index(summary);
+
+        List<String> queries = Arrays.asList("tes*", "test", "test-jboss*", "zenoss", "loc", "test-jboss*",
+                "test-jboss.zenoss.loc", "\"test-jboss.zenoss.loc\"", "noss");
+        for (String query : queries) {
+            EventFilter.Builder filterBuilder = EventFilter.newBuilder();
+            filterBuilder.addElementIdentifier(query);
+            final EventFilter filter = filterBuilder.build();
+            EventSummaryRequest.Builder reqBuilder = EventSummaryRequest.newBuilder();
+            reqBuilder.setEventFilter(filter);
+            final EventSummaryRequest req = reqBuilder.build();
+            EventSummaryResult result = eventIndexDao.list(req);
+            assertEquals(query, 1, result.getEventsCount());
+            assertEquals(query, summary, result.getEvents(0));
         }
     }
 

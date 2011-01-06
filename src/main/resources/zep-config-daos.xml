@@ -87,13 +87,13 @@
         <constructor-arg value="${zep.index.dir}/summary" />
     </bean>
 
-    <bean id="luceneSummaryAnalyzer" class="org.zenoss.zep.index.impl.EventIndexMapper"
+    <bean id="luceneAnalyzer" class="org.zenoss.zep.index.impl.EventIndexMapper"
           factory-method="createAnalyzer" destroy-method="close">
     </bean>
 
     <bean id="luceneSummaryIndexWriter" class="org.apache.lucene.index.IndexWriter" destroy-method="close">
         <constructor-arg index="0" ref="luceneSummaryDir"/>
-        <constructor-arg index="1" ref="luceneSummaryAnalyzer"/>
+        <constructor-arg index="1" ref="luceneAnalyzer"/>
         <constructor-arg index="2" ref="luceneMaxFieldLength"/>
     </bean>
 
@@ -108,13 +108,9 @@
         <constructor-arg value="${zep.index.dir}/archive" />
     </bean>
 
-    <bean id="luceneArchiveAnalyzer" class="org.zenoss.zep.index.impl.EventIndexMapper"
-          factory-method="createAnalyzer" destroy-method="close">
-    </bean>
-
     <bean id="luceneArchiveIndexWriter" class="org.apache.lucene.index.IndexWriter" destroy-method="close">
         <constructor-arg index="0" ref="luceneArchiveDir"/>
-        <constructor-arg index="1" ref="luceneArchiveAnalyzer"/>
+        <constructor-arg index="1" ref="luceneAnalyzer"/>
         <constructor-arg index="2" ref="luceneMaxFieldLength"/>
     </bean>
 

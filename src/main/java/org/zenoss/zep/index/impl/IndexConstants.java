@@ -11,6 +11,9 @@
 
 package org.zenoss.zep.index.impl;
 
+/**
+ * Constants for the event index (field names stored with the Lucene documents).
+ */
 public class IndexConstants {
     public static final String FIELD_UUID = "uuid";
     public static final String FIELD_STATUS = "status";
@@ -18,23 +21,23 @@ public class IndexConstants {
     public static final String FIELD_FIRST_SEEN_TIME = "first_seen_time";
     public static final String FIELD_LAST_SEEN_TIME = "last_seen_time";
     public static final String FIELD_STATUS_CHANGE_TIME = "status_change_time";
-    public static final String FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER = "event_actor_element_identifier";
-    public static final String FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER_SORT = "event_actor_element_identifier_sort";
-    public static final String FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER = "event_actor_element_sub_identifier";
-    public static final String FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER_SORT = "event_actor_element_sub_identifier_sort";
+    public static final String FIELD_ELEMENT_IDENTIFIER = "element_identifier";
+    public static final String FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED = "element_identifier_not_analyzed";
+    public static final String FIELD_ELEMENT_SUB_IDENTIFIER = "element_sub_identifier";
+    public static final String FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED = "element_sub_identifier_sort_not_analyzed";
     public static final String FIELD_EVENT_UUID = "event_uuid";
-    public static final String FIELD_EVENT_SUMMARY = "event_summary";
-    public static final String FIELD_EVENT_SUMMARY_SORT = "event_summary_sort";
-    public static final String FIELD_EVENT_SEVERITY = "event_severity";
-    public static final String FIELD_EVENT_EVENT_CLASS = "event_event_class";
+    public static final String FIELD_SUMMARY = "summary";
+    public static final String FIELD_SUMMARY_NOT_ANALYZED = "summary_not_analyzed";
+    public static final String FIELD_SEVERITY = "severity";
+    public static final String FIELD_EVENT_CLASS = "event_class";
     public static final String FIELD_TAGS = "tag";
     public static final String FIELD_UPDATE_TIME = "update_time";
     // TODO: Index device priority and production state from event details
     public static final String FIELD_DEVICE_PRIORITY = "device_priority";
     public static final String FIELD_PRODUCTION_STATE = "production_state";
     public static final String FIELD_ACKNOWLEDGED_BY_USER_NAME = "acknowledged_by_user_name";
-    public static final String FIELD_EVENT_AGENT = "event_agent";
-    public static final String FIELD_EVENT_MONITOR = "event_monitor";
+    public static final String FIELD_AGENT = "agent";
+    public static final String FIELD_MONITOR = "monitor";
     public static final String FIELD_PROTOBUF = "protobuf";
 }
 

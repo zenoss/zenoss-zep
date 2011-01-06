@@ -10,19 +10,15 @@
  */
 package org.zenoss.zep.index.impl;
 
-import static org.zenoss.zep.index.impl.IndexConstants.*;
-
 import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.analysis.PerFieldAnalyzerWrapper;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.document.NumericField;
-import org.apache.lucene.util.Version;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
@@ -31,12 +27,14 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
 
+import static org.zenoss.zep.index.impl.IndexConstants.*;
+
 public class EventIndexMapper {
     public static Analyzer createAnalyzer() {
         final PerFieldAnalyzerWrapper analyzer = new PerFieldAnalyzerWrapper(new KeywordAnalyzer());
-        analyzer.addAnalyzer(FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER, new IdentifierAnalyzer());
-        analyzer.addAnalyzer(FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER, new IdentifierAnalyzer());
-        analyzer.addAnalyzer(FIELD_EVENT_SUMMARY, new SummaryAnalyzer());
+        analyzer.addAnalyzer(FIELD_ELEMENT_IDENTIFIER, new IdentifierAnalyzer());
+        analyzer.addAnalyzer(FIELD_ELEMENT_SUB_IDENTIFIER, new IdentifierAnalyzer());
+        analyzer.addAnalyzer(FIELD_SUMMARY, new SummaryAnalyzer());
         return analyzer;
     }
 
@@ -65,18 +63,18 @@ public class EventIndexMapper {
 
         Event event = summary.getOccurrence(0);
         doc.add(new Field(FIELD_EVENT_UUID, event.getUuid(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-        doc.add(new Field(FIELD_EVENT_SUMMARY, event.getSummary(), Store.NO, Index.ANALYZED));
-        doc.add(new Field(FIELD_EVENT_SUMMARY_SORT, event.getSummary(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_SUMMARY, event.getSummary(), Store.NO, Index.ANALYZED));
+        doc.add(new Field(FIELD_SUMMARY_NOT_ANALYZED, event.getSummary(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         EventSeverity severity = event.getSeverity();
         if (severity == null) {
             severity = EventSeverity.SEVERITY_INFO;
         }
-        doc.add(new NumericField(FIELD_EVENT_SEVERITY, Store.YES, true).setIntValue(severity.getNumber()));
+        doc.add(new NumericField(FIELD_SEVERITY, Store.YES, true).setIntValue(severity.getNumber()));
 
         // Store with a trailing slash to make lookups simpler
-        doc.add(new Field(FIELD_EVENT_EVENT_CLASS, event.getEventClass() + "/", Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-        doc.add(new Field(FIELD_EVENT_AGENT, event.getAgent(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-        doc.add(new Field(FIELD_EVENT_MONITOR, event.getMonitor(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_EVENT_CLASS, event.getEventClass() + "/", Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_AGENT, event.getAgent(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_MONITOR, event.getMonitor(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         for (EventTag tag : event.getTagsList()) {
             doc.add(new Field(FIELD_TAGS, tag.getUuid(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
@@ -91,8 +89,8 @@ public class EventIndexMapper {
 
             String id = actor.getElementIdentifier();
             if (id != null) {
-                doc.add(new Field(FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER, id, Store.NO, Index.ANALYZED_NO_NORMS));
-                doc.add(new Field(FIELD_EVENT_ACTOR_ELEMENT_IDENTIFIER_SORT, id, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+                doc.add(new Field(FIELD_ELEMENT_IDENTIFIER, id, Store.NO, Index.ANALYZED_NO_NORMS));
+                doc.add(new Field(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, id, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
             }
 
             String subUuid = actor.getElementSubUuid();
@@ -102,8 +100,8 @@ public class EventIndexMapper {
 
             String subId = actor.getElementSubIdentifier();
             if (subId != null) {
-                doc.add(new Field(FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER, subId, Store.NO, Index.ANALYZED_NO_NORMS));
-                doc.add(new Field(FIELD_EVENT_ACTOR_ELEMENT_SUB_IDENTIFIER_SORT, subId, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+                doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER, subId, Store.NO, Index.ANALYZED_NO_NORMS));
+                doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
             }
         }
         return doc;
@@ -119,7 +117,7 @@ public class EventIndexMapper {
             else {
                 // Only other possible fields stored on index.
                 final String uuid = item.get(FIELD_UUID);
-                final String severityStr = item.get(FIELD_EVENT_SEVERITY);
+                final String severityStr = item.get(FIELD_SEVERITY);
                 if (uuid != null) {
                     summaryBuilder.setUuid(uuid);
                 }

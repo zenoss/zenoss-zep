@@ -1,6 +1,6 @@
 /*
  * This program is part of Zenoss Core, an open source monitoring platform.
- * Copyright (C) 2010, Zenoss Inc.
+ * Copyright (C) 2011, Zenoss Inc.
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -11,23 +11,19 @@
 package org.zenoss.zep.index.impl;
 
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.KeywordAnalyzer;
+import org.apache.lucene.analysis.KeywordTokenizer;
 import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.WhitespaceTokenizer;
-import org.apache.lucene.analysis.ngram.NGramTokenFilter;
 
 import java.io.IOException;
 import java.io.Reader;
 
 /**
- * Analyzer used for element and sub element identifiers.
+ * Lower-case version of {@link KeywordAnalyzer}.
  */
-public class IdentifierAnalyzer extends Analyzer {
-
-    public static final int MIN_NGRAM_SIZE = 3;
-    public static final int MAX_NGRAM_SIZE = MIN_NGRAM_SIZE;
-
+public class KeywordLowercaseAnalyzer extends Analyzer {
     private static class SavedStreams {
         Tokenizer source;
         TokenStream result;
@@ -38,9 +34,8 @@ public class IdentifierAnalyzer extends Analyzer {
         SavedStreams streams = (SavedStreams) getPreviousTokenStream();
         if (streams == null) {
             streams = new SavedStreams();
-            streams.source = new WhitespaceTokenizer(reader);
+            streams.source = new KeywordTokenizer(reader);
             streams.result = new LowerCaseFilter(streams.source);
-            streams.result = new NGramTokenFilter(streams.result, MIN_NGRAM_SIZE, MAX_NGRAM_SIZE);
             setPreviousTokenStream(streams);
         }
         else {
@@ -51,9 +46,8 @@ public class IdentifierAnalyzer extends Analyzer {
 
     @Override
     public TokenStream tokenStream(String fieldName, Reader reader) {
-        TokenStream tokenStream = new WhitespaceTokenizer(reader);
-        tokenStream = new LowerCaseFilter(tokenStream);
-        tokenStream = new NGramTokenFilter(tokenStream, MIN_NGRAM_SIZE, MAX_NGRAM_SIZE);
-        return tokenStream;
+        TokenStream ts = new KeywordTokenizer(reader);
+        ts = new LowerCaseFilter(ts);
+        return ts;
     }
 }
