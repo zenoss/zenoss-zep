@@ -100,6 +100,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 + ") ON DUPLICATE KEY UPDATE "
                 // Increment count
                 + "event_count=event_count+1,"
+                // Latest severity
+                + "severity_id=IF(:last_seen>=last_seen,VALUES(severity_id),severity_id),"
                 // Latest summary
                 + "summary=IF(:last_seen>=last_seen,VALUES(summary),summary),"
                 // Latest message

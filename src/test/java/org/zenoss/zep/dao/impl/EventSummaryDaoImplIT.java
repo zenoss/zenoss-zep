@@ -561,4 +561,24 @@ public class EventSummaryDaoImplIT extends
         }
         assertEquals(1, numFound);
     }
+
+    @Test
+    public void testChangeSeverity() throws ZepException {
+        // Verify that severity changes when new event with same fingerprint comes in with new severity
+        Event.Builder firstBuilder = Event.newBuilder(createUniqueEvent());
+        firstBuilder.setSeverity(EventSeverity.SEVERITY_WARNING);
+        Event first = firstBuilder.build();
+
+        EventSummary firstSummary = createSummaryNew(first);
+
+        Event.Builder secondBuilder = Event.newBuilder(first);
+        secondBuilder.setCreatedTime(first.getCreatedTime()+10);
+        secondBuilder.setSeverity(EventSeverity.SEVERITY_INFO);
+        Event second = secondBuilder.build();
+
+        EventSummary secondSummary = createSummaryNew(second);
+        assertEquals(firstSummary.getUuid(), secondSummary.getUuid());
+        assertEquals(2, secondSummary.getCount());
+        assertEquals(EventSeverity.SEVERITY_INFO, secondSummary.getOccurrence(0).getSeverity());
+    }
 }
