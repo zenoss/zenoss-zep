@@ -311,66 +311,13 @@ public class EventsResource {
         logger.debug("Query Parameters: {}", queryParams);
         final int limit = getQueryInteger(queryParams, "limit", defaultQueryLimit);
         final int offset = getQueryInteger(queryParams, "offset", 0);
-        final EnumSet<EventSeverity> severities = getQueryEnumSet(queryParams,
-                "severity", EventSeverity.class, "SEVERITY_");
-        final EnumSet<EventStatus> status = getQueryEnumSet(queryParams,
-                "status", EventStatus.class, "STATUS_");
-        final Set<String> eventClass = getQuerySet(queryParams, "event_class");
-        final TimestampRange firstSeen = parseRange(queryParams.getFirst("first_seen"));
-        final TimestampRange lastSeen = parseRange(queryParams.getFirst("last_seen"));
-        final TimestampRange statusChange = parseRange(queryParams.getFirst("status_change"));
-        final NumberRange count = convertCount(queryParams.getFirst("count"));
-        final Set<String> tagUuids = getQuerySet(queryParams, "tag_uuids");
-        final Set<String> summary = getQuerySet(queryParams, "event_summary");
-        final Set<String> element_identifier = getQuerySet(queryParams, "element_identifier");
-        final Set<String> element_sub_identifier = getQuerySet(queryParams, "element_sub_identifier");
         final Set<String> sorts = getQuerySet(queryParams, "sort");
-        final String tagUuidsOp = queryParams.getFirst("tag_uuids_op");
-
-        /* Build event filter */
-        final EventFilter.Builder filterBuilder = EventFilter.newBuilder();
-        filterBuilder.addAllSeverity(severities);
-        filterBuilder.addAllStatus(status);
-        filterBuilder.addAllEventClass(eventClass);
-        
-        if (firstSeen != null) {
-            filterBuilder.addFirstSeen(firstSeen);
-        }
-        if (lastSeen != null) {
-            filterBuilder.addLastSeen(lastSeen);
-        }
-        if (statusChange != null) {
-            filterBuilder.addStatusChange(statusChange);
-        }
-        if (count != null) {
-            filterBuilder.addCountRange(count);
-        }
-        if (summary != null) {
-            filterBuilder.addAllEventSummary(summary);
-        }
-        if (element_identifier != null) {
-            filterBuilder.addAllElementIdentifier(element_identifier);
-        }
-        if (element_sub_identifier != null) {
-            filterBuilder.addAllElementSubIdentifier(element_sub_identifier);
-        }
-        if (!tagUuids.isEmpty()) {
-            FilterOperator op = FilterOperator.OR;
-            if (tagUuidsOp != null) {
-                op = FilterOperator.valueOf(tagUuidsOp.toUpperCase());
-            }
-            EventTagFilter.Builder tagFilterBuilder = EventTagFilter.newBuilder();
-            tagFilterBuilder.addAllTagUuids(tagUuids);
-            tagFilterBuilder.setOp(op);
-            filterBuilder.addTagFilter(tagFilterBuilder.build());
-        }
-
-        final EventFilter filter = filterBuilder.build();
 
         /* Build event request */
         final EventSummaryRequest.Builder reqBuilder = EventSummaryRequest
                 .newBuilder();
-        reqBuilder.setEventFilter(filter);
+        reqBuilder.setEventFilter(createEventFilter(queryParams, false));
+        reqBuilder.setExclusionFilter(createEventFilter(queryParams, true));
 
         if (limit < 0) {
             throw new IllegalArgumentException("Invalid limit: " + limit);
@@ -396,6 +343,69 @@ public class EventsResource {
         }
 
         return reqBuilder.build();
+    }
+
+    static EventFilter createEventFilter(MultivaluedMap<String, String> queryParams, boolean isExclusion)
+            throws ParseException {
+        String prefix = (isExclusion) ? "ex_" : "";
+
+        final EnumSet<EventSeverity> severities = getQueryEnumSet(queryParams,
+                prefix + "severity", EventSeverity.class, "SEVERITY_");
+        final EnumSet<EventStatus> status = getQueryEnumSet(queryParams,
+                prefix + "status", EventStatus.class, "STATUS_");
+        final Set<String> eventClass = getQuerySet(queryParams, prefix + "event_class");
+        final TimestampRange firstSeen = parseRange(queryParams.getFirst(prefix + "first_seen"));
+        final TimestampRange lastSeen = parseRange(queryParams.getFirst(prefix + "last_seen"));
+        final TimestampRange statusChange = parseRange(queryParams.getFirst(prefix + "status_change"));
+        final TimestampRange updateTime = parseRange(queryParams.getFirst(prefix + "update_time"));
+        final NumberRange count = convertCount(queryParams.getFirst(prefix + "count"));
+        final Set<String> element_identifier = getQuerySet(queryParams, prefix + "element_identifier");
+        final Set<String> element_sub_identifier = getQuerySet(queryParams, prefix + "element_sub_identifier");
+        final Set<String> uuids = getQuerySet(queryParams, prefix + "uuid");
+        final Set<String> summary = getQuerySet(queryParams, prefix + "event_summary");
+        final Set<String> acknowledged_by_user = getQuerySet(queryParams, prefix + "acknowledged_by_user");
+        final Set<String> tagUuids = getQuerySet(queryParams, prefix + "tag_uuids");
+        final String tagUuidsOp = queryParams.getFirst(prefix + "tag_uuids_op");
+        // TODO: EventDetailFilter
+
+        /* Build event filter */
+        final EventFilter.Builder filterBuilder = EventFilter.newBuilder();
+        filterBuilder.addAllSeverity(severities);
+        filterBuilder.addAllStatus(status);
+        filterBuilder.addAllEventClass(eventClass);
+        filterBuilder.addAllElementIdentifier(element_identifier);
+        filterBuilder.addAllElementSubIdentifier(element_sub_identifier);
+        filterBuilder.addAllUuid(uuids);
+        filterBuilder.addAllEventSummary(summary);
+        filterBuilder.addAllAcknowledgedByUserName(acknowledged_by_user);
+
+        if (firstSeen != null) {
+            filterBuilder.addFirstSeen(firstSeen);
+        }
+        if (lastSeen != null) {
+            filterBuilder.addLastSeen(lastSeen);
+        }
+        if (statusChange != null) {
+            filterBuilder.addStatusChange(statusChange);
+        }
+        if (updateTime != null) {
+            filterBuilder.addUpdateTime(updateTime);
+        }
+        if (count != null) {
+            filterBuilder.addCountRange(count);
+        }
+        if (!tagUuids.isEmpty()) {
+            FilterOperator op = FilterOperator.OR;
+            if (tagUuidsOp != null) {
+                op = FilterOperator.valueOf(tagUuidsOp.toUpperCase());
+            }
+            EventTagFilter.Builder tagFilterBuilder = EventTagFilter.newBuilder();
+            tagFilterBuilder.addAllTagUuids(tagUuids);
+            tagFilterBuilder.setOp(op);
+            filterBuilder.addTagFilter(tagFilterBuilder.build());
+        }
+
+        return filterBuilder.build();
     }
 
     static TimestampRange parseRange(String range) throws ParseException {

@@ -24,6 +24,7 @@ import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.protobufs.zep.Zep.EventSummaryFilter;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
 import org.zenoss.protobufs.zep.Zep.EventTag;
@@ -31,6 +32,7 @@ import org.zenoss.protobufs.zep.Zep.EventTagFilter;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
+import org.zenoss.zep.dao.impl.EventDaoImpl;
 import org.zenoss.zep.dao.impl.EventDaoImplIT;
 import org.zenoss.zep.index.EventIndexDao;
 
@@ -439,5 +441,21 @@ public class EventIndexDaoImplIT extends
         res = this.eventIndexDao.list(createRequestForEventClass("/Status/Ping"));
         assertEquals(1, res.getEventsCount());
         assertEquals(event1.getUuid(), res.getEvents(0).getUuid());
+    }
+
+    @Test
+    public void testOnlyExclusion() throws ZepException {
+        EventSummary event1 = createEventWithSeverity(EventSeverity.SEVERITY_INFO, EventStatus.STATUS_NEW);
+        /* This event should be excluded from result. */
+        EventSummary event2 = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+
+        EventFilter.Builder exclusion = EventFilter.newBuilder();
+        exclusion.addSeverity(EventSeverity.SEVERITY_ERROR);
+
+        EventSummaryRequest req = EventSummaryRequest.newBuilder().setExclusionFilter(exclusion.build()).build();
+
+        EventSummaryResult res = this.eventIndexDao.list(req);
+        assertEquals(1, res.getEventsCount());
+        assertEquals(event1, res.getEvents(0));
     }
 }

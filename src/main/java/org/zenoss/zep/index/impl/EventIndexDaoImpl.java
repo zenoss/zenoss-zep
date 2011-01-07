@@ -369,6 +369,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         else {
             BooleanQuery bq = new BooleanQuery();
             bq.add(exclusionQuery, Occur.MUST_NOT);
+            bq.add(new MatchAllDocsQuery(), Occur.MUST);
             query = bq;
         }
         logger.debug("Filter: {}, Exclusion filter: {}, Query: {}", new Object[] { filter, exclusionFilter, query });
