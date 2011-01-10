@@ -43,6 +43,7 @@
             <Set name="confidentialPort">8443</Set>
             <Set name="lowResourcesConnections">20000</Set>
             <Set name="lowResourcesMaxIdleTime">5000</Set>
+            <Set name="requestHeaderSize">65536</Set>
           </New>
       </Arg>
     </Call>

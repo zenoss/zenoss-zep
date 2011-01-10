@@ -353,6 +353,7 @@
                         <connector implementation="org.eclipse.jetty.server.nio.SelectChannelConnector">
                             <port>${jetty.port}</port>
                             <maxIdleTime>60000</maxIdleTime>
+                            <requestHeaderSize>65536</requestHeaderSize>
                         </connector>
                     </connectors>
                     <webAppConfig>
