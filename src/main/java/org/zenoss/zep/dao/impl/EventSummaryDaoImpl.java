@@ -144,33 +144,22 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @Transactional
     public String createClearEvent(Event event, Set<String> clearClasses)
             throws ZepException {
-        String uuid = create(event, EventStatus.STATUS_CLOSED);
-        byte[] uuidBytes = DaoUtils.uuidToBytes(uuid);
+        final String uuid = create(event, EventStatus.STATUS_CLOSED);
+        final byte[] uuidBytes = DaoUtils.uuidToBytes(uuid);
 
-        // Need to retrieve UUID and last_seen from created event
-        String sql = String.format("SELECT %s FROM %s WHERE %s=?",
-                COLUMN_LAST_SEEN, TABLE_EVENT_SUMMARY, COLUMN_UUID);
-        long lastSeen = this.template.queryForObject(sql,
-                new RowMapper<Long>() {
-                    @Override
-                    public Long mapRow(ResultSet rs, int rowNum)
-                            throws SQLException {
-                        return rs.getLong(COLUMN_LAST_SEEN);
-                    }
-                }, uuidBytes);
+        // Need to retrieve last_seen from created event
+        long lastSeen = this.template.queryForLong("SELECT last_seen FROM event_summary WHERE uuid=?", uuidBytes);
 
-        final List<byte[]> clearHashes = EventDaoUtils.createClearHashes(event,
-                clearClasses);
-        List<Object[]> fields = new ArrayList<Object[]>(clearClasses.size());
+        final List<byte[]> clearHashes = EventDaoUtils.createClearHashes(event, clearClasses);
+        final List<Object[]> fields = new ArrayList<Object[]>(clearHashes.size());
         for (byte[] clearHash : clearHashes) {
             fields.add(new Object[] { uuidBytes, clearHash, lastSeen });
         }
-        this.template.update(String.format("DELETE FROM %s WHERE %s=?",
-                TABLE_CLEAR_EVENTS, COLUMN_EVENT_SUMMARY_UUID), uuidBytes);
-        sql = String.format("INSERT INTO %s (%s,%s,%s) VALUES(?,?,?)",
-                TABLE_CLEAR_EVENTS, COLUMN_EVENT_SUMMARY_UUID,
-                COLUMN_CLEAR_FINGERPRINT_HASH, COLUMN_LAST_SEEN);
-        this.template.batchUpdate(sql, fields);
+        this.template.update("DELETE FROM clear_events WHERE event_summary_uuid=?", uuidBytes);
+        this.template.batchUpdate("INSERT INTO clear_events (event_summary_uuid,clear_fingerprint_hash,last_seen) " +
+                "VALUES(?,?,?) ON DUPLICATE KEY UPDATE " +
+                "event_summary_uuid=IF(VALUES(last_seen) > last_seen, VALUES(event_summary_uuid), event_summary_uuid)," +
+                "last_seen=IF(VALUES(last_seen) > last_seen, VALUES(last_seen), last_seen)", fields);
         return uuid;
     }
 
@@ -200,24 +189,55 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @Transactional
-    public int reidentify(ModelEvent event) throws ZepException {
-        String deviceId = event.getDevice().getId(); 
-        String deviceUuidStr = event.getDevice().getUuid();
+    public int reidentify(ModelElementType type, String id, String uuid, String parentUuid) throws ZepException {
         long updateTime = System.currentTimeMillis();
 
         Map<String, Object> fields = new HashMap<String, Object>();
-        fields.put(COLUMN_ELEMENT_UUID, DaoUtils.uuidToBytes(deviceUuidStr));
-        fields.put(COLUMN_ELEMENT_TYPE_ID, ModelElementType.DEVICE.getNumber());
-        fields.put(COLUMN_ELEMENT_IDENTIFIER, deviceId);
+        fields.put("_uuid", DaoUtils.uuidToBytes(uuid));
+        fields.put("_uuid_str", uuid);
+        fields.put("_type_id", type.getNumber());
+        fields.put("_id", id);
         fields.put(COLUMN_UPDATE_TIME, updateTime);
 
-        String updateSql = "UPDATE event_summary "
-                + "SET element_uuid=:element_uuid, "
-                +       "update_time=:update_time "
-                + "WHERE element_type_id=:element_type_id and "
-                +       "element_identifier=:element_identifier and "
-                +       "element_uuid IS NULL";
-        return this.template.update(updateSql, fields);
+        int numRows = 0;
+        String updateSql = "UPDATE event_summary SET element_uuid=:_uuid, update_time=:update_time "
+                + "WHERE element_uuid IS NULL AND element_type_id=:_type_id AND element_identifier=:_id";
+        numRows += this.template.update(updateSql, fields);
+
+        if (parentUuid != null) {
+            fields.put("_parent_uuid", DaoUtils.uuidToBytes(parentUuid));
+            updateSql = "UPDATE event_summary es INNER JOIN event_class ON es.event_class_id = event_class.id " +
+                    "LEFT JOIN event_key ON es.event_key_id = event_key.id " +
+                    "SET element_sub_uuid=:_uuid, update_time=:update_time, " +
+                    "clear_fingerprint_hash = UNHEX(SHA1(CONCAT_WS('|',:_uuid_str,event_class.name,IFNULL(event_key.name,'')))) " +
+                    "WHERE es.element_uuid=:_parent_uuid AND es.element_sub_uuid IS NULL AND " +
+                    "es.element_sub_type_id=:_type_id AND es.element_sub_identifier=:_id";
+            numRows += this.template.update(updateSql, fields);
+        }
+        return numRows;
+    }
+
+    @Override
+    @Transactional
+    public int deidentify(String uuid) throws ZepException {
+        long updateTime = System.currentTimeMillis();
+
+        Map<String,Object> fields = new HashMap<String,Object>();
+        fields.put("_uuid", DaoUtils.uuidToBytes(uuid));
+        fields.put(COLUMN_UPDATE_TIME, updateTime);
+
+        int numRows = 0;
+        String updateSql = "UPDATE event_summary SET element_uuid=NULL, update_time=:update_time "
+                + "WHERE element_uuid=:_uuid";
+        numRows += this.template.update(updateSql, fields);
+
+        updateSql = "UPDATE event_summary es INNER JOIN event_class ON es.event_class_id = event_class.id " +
+                "LEFT JOIN event_key ON es.event_key_id = event_key.id " +
+                "SET element_sub_uuid=NULL, update_time=:update_time, " +
+                "clear_fingerprint_hash=UNHEX(SHA1(CONCAT_WS('|',element_identifier,IFNULL(element_sub_identifier,''),event_class.name,IFNULL(event_key.name,'')))) " +
+                "WHERE element_sub_uuid=:_uuid";
+        numRows += this.template.update(updateSql, fields);
+        return numRows;
     }
 
     @Override

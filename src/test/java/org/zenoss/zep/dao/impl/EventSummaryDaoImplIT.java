@@ -10,21 +10,9 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import static org.junit.Assert.*;
-import static org.zenoss.zep.dao.impl.EventConstants.*;
-
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.zenoss.protobufs.model.Model.ModelElementType;
@@ -41,6 +29,24 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventDao;
 import org.zenoss.zep.dao.EventSummaryDao;
+
+import java.io.UnsupportedEncodingException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.*;
+import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
 public class EventSummaryDaoImplIT extends
@@ -480,7 +486,7 @@ public class EventSummaryDaoImplIT extends
         EventSummary clearEvent = createSummaryClear(
                 Event.newBuilder(createUniqueEvent())
                         .setSeverity(EventSeverity.SEVERITY_CLEAR)
-                        .setEventKey("MyKey1").build(),
+                        .setActor(event.getActor()).setEventKey("MyKey1").build(),
                 Collections.singleton(normalEvent.getOccurrence(0)
                         .getEventClass()));
         assertEquals(EventStatus.STATUS_CLOSED, clearEvent.getStatus());
@@ -500,6 +506,7 @@ public class EventSummaryDaoImplIT extends
         EventSummary clearEvent = createSummaryClear(
                 Event.newBuilder(createUniqueEvent())
                         .setCreatedTime(event.getCreatedTime() + 100L)
+                        .setActor(event.getActor())
                         .setSeverity(EventSeverity.SEVERITY_CLEAR).build(),
                 Collections.singleton(event.getEventClass()));
         assertEquals(EventStatus.STATUS_CLOSED, clearEvent.getStatus());
@@ -580,5 +587,102 @@ public class EventSummaryDaoImplIT extends
         assertEquals(firstSummary.getUuid(), secondSummary.getUuid());
         assertEquals(2, secondSummary.getCount());
         assertEquals(EventSeverity.SEVERITY_INFO, secondSummary.getOccurrence(0).getSeverity());
+    }
+
+    @Test
+    public void testReidentifyDevice() throws ZepException {
+        Event.Builder builder = Event.newBuilder(createUniqueEvent());
+        EventActor.Builder actorBuilder = EventActor.newBuilder(builder.getActor());
+        actorBuilder.clearElementSubIdentifier().clearElementSubTypeId().clearElementSubUuid();
+        actorBuilder.clearElementUuid();
+        builder.setActor(actorBuilder.build());
+
+        EventSummary summary = createSummaryNew(builder.build());
+        Event occurrence = summary.getOccurrence(0);
+        assertFalse(occurrence.getActor().hasElementUuid());
+
+        final String elementUuid = UUID.randomUUID().toString();
+        int numRows = this.eventSummaryDao.reidentify(occurrence.getActor().getElementTypeId(),
+                occurrence.getActor().getElementIdentifier(), elementUuid, null);
+        assertEquals(1, numRows);
+        EventSummary summaryFromDb = this.eventSummaryDao.findByUuid(summary.getUuid());
+        assertTrue(summaryFromDb.getUpdateTime() > summary.getUpdateTime());
+        assertEquals(elementUuid, summaryFromDb.getOccurrence(0).getActor().getElementUuid());
+    }
+
+    @Test
+    public void testReidentifyComponent() throws ZepException, NoSuchAlgorithmException, UnsupportedEncodingException {
+        Event.Builder builder = Event.newBuilder(createUniqueEvent());
+        EventActor.Builder actorBuilder = EventActor.newBuilder(builder.getActor());
+        actorBuilder.clearElementSubUuid();
+        builder.setActor(actorBuilder.build());
+
+        EventSummary summary = createSummaryNew(builder.build());
+        Event occurrence = summary.getOccurrence(0);
+        EventActor actor = occurrence.getActor();
+        assertFalse(occurrence.getActor().hasElementSubUuid());
+
+        final String elementSubUuid = UUID.randomUUID().toString();
+        int numRows = this.eventSummaryDao.reidentify(actor.getElementSubTypeId(),
+                actor.getElementSubIdentifier(), elementSubUuid, actor.getElementUuid());
+        assertEquals(1, numRows);
+        EventSummary summaryFromDb = this.eventSummaryDao.findByUuid(summary.getUuid());
+        assertTrue(summaryFromDb.getUpdateTime() > summary.getUpdateTime());
+        assertEquals(elementSubUuid, summaryFromDb.getOccurrence(0).getActor().getElementSubUuid());
+        // Ensure clear_fingerprint_hash was updated
+        String clearHashString = EventDaoUtils.join('|', elementSubUuid, occurrence.getEventClass(),
+                occurrence.getEventKey());
+        byte[] clearHash = MessageDigest.getInstance("SHA-1").digest(clearHashString.getBytes("UTF-8"));
+        byte[] clearHashFromDb = this.simpleJdbcTemplate.query(
+                "SELECT clear_fingerprint_hash FROM event_summary WHERE uuid=?",
+                new RowMapper<byte[]>() {
+                    @Override
+                    public byte[] mapRow(ResultSet rs, int rowNum) throws SQLException {
+                        return rs.getBytes("clear_fingerprint_hash");
+                    }
+                }, DaoUtils.uuidToBytes(summary.getUuid())).get(0);
+        assertArrayEquals(clearHash, clearHashFromDb);
+    }
+
+    @Test
+    public void testDeidentifyDevice() throws ZepException {
+        EventSummary summary = createSummaryNew(createUniqueEvent());
+        Event occurrence = summary.getOccurrence(0);
+        EventActor actor = occurrence.getActor();
+        assertTrue(occurrence.getActor().hasElementUuid());
+
+        int numRows = this.eventSummaryDao.deidentify(actor.getElementUuid());
+        assertEquals(1, numRows);
+        EventSummary summaryFromDb = this.eventSummaryDao.findByUuid(summary.getUuid());
+        assertTrue(summaryFromDb.getUpdateTime() > summary.getUpdateTime());
+        assertFalse(summaryFromDb.getOccurrence(0).getActor().hasElementUuid());
+    }
+
+    @Test
+    public void testDeidentifyComponent() throws ZepException, NoSuchAlgorithmException, UnsupportedEncodingException {
+        EventSummary summary = createSummaryNew(createUniqueEvent());
+        Event occurrence = summary.getOccurrence(0);
+        EventActor actor = occurrence.getActor();
+        assertTrue(occurrence.getActor().hasElementSubUuid());
+
+        int numRows = this.eventSummaryDao.deidentify(actor.getElementSubUuid());
+        assertEquals(1, numRows);
+        EventSummary summaryFromDb = this.eventSummaryDao.findByUuid(summary.getUuid());
+        assertTrue(summaryFromDb.getUpdateTime() > summary.getUpdateTime());
+        assertFalse(summaryFromDb.getOccurrence(0).getActor().hasElementSubUuid());
+        // Ensure clear_fingerprint_hash was updated
+        String clearHashString = EventDaoUtils.join('|', actor.getElementIdentifier(),
+                actor.getElementSubIdentifier(), occurrence.getEventClass(),
+                occurrence.getEventKey());
+        byte[] clearHash = MessageDigest.getInstance("SHA-1").digest(clearHashString.getBytes("UTF-8"));
+        byte[] clearHashFromDb = this.simpleJdbcTemplate.query(
+                "SELECT clear_fingerprint_hash FROM event_summary WHERE uuid=?",
+                new RowMapper<byte[]>() {
+                    @Override
+                    public byte[] mapRow(ResultSet rs, int rowNum) throws SQLException {
+                        return rs.getBytes("clear_fingerprint_hash");
+                    }
+                }, DaoUtils.uuidToBytes(summary.getUuid())).get(0);
+        assertArrayEquals(clearHash, clearHashFromDb);
     }
 }

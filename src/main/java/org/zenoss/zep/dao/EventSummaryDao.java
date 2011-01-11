@@ -10,17 +10,17 @@
  */
 package org.zenoss.zep.dao;
 
-import java.util.List;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-
+import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.protobufs.modelevents.Modelevents.ModelEvent;
 import org.zenoss.zep.ZepException;
+
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 /**
  * DAO which provides an interface to the event summary table.
@@ -50,7 +50,7 @@ public interface EventSummaryDao {
      * @param clearClasses
      *            Clear classes.
      * @return The UUID of the created (or updated) event.
-     * @throws ZepException
+     * @throws ZepException If an exception occurred.
      */
     public String createClearEvent(Event event, Set<String> clearClasses)
             throws ZepException;
@@ -71,13 +71,26 @@ public interface EventSummaryDao {
      * device uuid for all matching events summaries with null uuid, and updates
      * the summary update time.
      * 
-     * @param event
-     *            model change event causing device reidentification
+     * @param type The model type.
+     * @param id The ID of the element which has been identified.
+     * @param uuid The UUID of the element.
+     * @param parentUuid The UUID of the element's parent (For components, this will be the
+     *                   device UUID.
      * @return The number of rows affected by the update.
      * @throws ZepException
      *             If an exception occurred.
      */
-    public int reidentify(ModelEvent event) throws ZepException;
+    public int reidentify(ModelElementType type, String id, String uuid, String parentUuid) throws ZepException;
+
+    /**
+     * De-identifies a previously identified UUID on an event. This can occur
+     * if a device has been removed from Zenoss.
+     *
+     * @param uuid The previous UUID of the device.
+     * @return The number of affected rows.
+     * @throws ZepException If an exception occurred.
+     */
+    public int deidentify(String uuid) throws ZepException;
 
     /**
      * Deletes the summary entry with the specified UUID.
@@ -129,7 +142,8 @@ public interface EventSummaryDao {
 
     /**
      * Add a note to the event.
-     * 
+     *
+     * @param uuid The event UUID.
      * @param note
      *            The note to add.
      * @return The number of rows affected by the query.

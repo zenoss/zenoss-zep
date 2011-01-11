@@ -106,18 +106,18 @@ CREATE TABLE `event_summary`
     `notes_json` MEDIUMTEXT COMMENT 'Event notes (formerly log).',
     PRIMARY KEY (uuid),
     UNIQUE KEY (fingerprint_hash),
--- No foreign keys to reduce dead locks (we don't cascade anyway so what's the point?)    
---     FOREIGN KEY (`event_group_id`) REFERENCES `event_group` (`id`),
---     FOREIGN KEY (`event_class_id`) REFERENCES `event_class` (`id`),
---     FOREIGN KEY (`event_class_key_id`) REFERENCES `event_class_key` (`id`),
---     FOREIGN KEY (`event_key_id`) REFERENCES `event_key` (`id`),
---     FOREIGN KEY (`monitor_id`) REFERENCES `monitor` (`id`),
---     FOREIGN KEY (`agent_id`) REFERENCES `agent` (`id`),
+    FOREIGN KEY (`event_group_id`) REFERENCES `event_group` (`id`),
+    FOREIGN KEY (`event_class_id`) REFERENCES `event_class` (`id`),
+    FOREIGN KEY (`event_class_key_id`) REFERENCES `event_class_key` (`id`),
+    FOREIGN KEY (`event_key_id`) REFERENCES `event_key` (`id`),
+    FOREIGN KEY (`monitor_id`) REFERENCES `monitor` (`id`),
+    FOREIGN KEY (`agent_id`) REFERENCES `agent` (`id`),
     INDEX (`status_id`,`last_seen`),
     INDEX (`clear_fingerprint_hash`,`last_seen`),
     INDEX (`severity_id`,`last_seen`),
     INDEX (`update_time`),
-    INDEX (`element_uuid`,`element_type_id`,`element_identifier`)
+    INDEX (`element_uuid`,`element_type_id`,`element_identifier`),
+    INDEX (`element_sub_uuid`,`element_sub_type_id`,`element_sub_identifier`)
 ) ENGINE=InnoDB COMMENT='Contains details about the most recent record.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 CREATE TABLE `event_archive`
@@ -244,6 +244,6 @@ CREATE TABLE `clear_events`
     `clear_fingerprint_hash` BINARY(20) NOT NULL,
     `last_seen` BIGINT NOT NULL,
     FOREIGN KEY (`event_summary_uuid`) REFERENCES `event_summary` (`uuid`) ON DELETE CASCADE,
-    INDEX (`clear_fingerprint_hash`,`last_seen`)
+    UNIQUE (`clear_fingerprint_hash`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 

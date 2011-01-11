@@ -11,6 +11,7 @@
 package org.zenoss.zep.impl;
 
 import org.springframework.transaction.annotation.Transactional;
+import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.modelevents.Modelevents.ModelEvent;
 import org.zenoss.protobufs.modelevents.Modelevents.ModelEventList;
 import org.zenoss.zep.ZepException;
@@ -29,18 +30,55 @@ public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
         this.eventSummaryDao = eventSummaryDao;
     }
 
+    private void processModelAdded(ModelEvent event) throws ZepException {
+        final ModelElementType type = event.getModelType();
+        String id = null, uuid = null, parentUuid = null;
+        switch (event.getModelType()) {
+            case COMPONENT:
+                id = event.getComponent().getId();
+                uuid = event.getComponent().getUuid();
+                parentUuid = event.getComponent().getDevice().getUuid();
+                break;
+            case DEVICE:
+                id = event.getDevice().getId();
+                uuid = event.getDevice().getUuid();
+                break;
+        }
+        if (id != null && uuid != null) {
+            logger.info("Re-identifying events for {}", id);
+            this.eventSummaryDao.reidentify(type, id, uuid, parentUuid);
+        }
+    }
+
+    private void processModelRemoved(ModelEvent event) throws ZepException {
+        String id = null, uuid = null;
+        switch (event.getModelType()) {
+            case COMPONENT:
+                id = event.getComponent().getId();
+                uuid = event.getComponent().getUuid();
+                break;
+            case DEVICE:
+                id = event.getDevice().getId();
+                uuid = event.getDevice().getUuid();
+                break;
+        }
+        if (uuid != null) {
+            logger.info("De-identifying events for {}", uuid);
+            eventSummaryDao.deidentify(uuid);
+        }
+    }
+
     private void processMessage(ModelEventList eventlist) throws ZepException {
-
         for (ModelEvent event : eventlist.getEventsList()) {
-
-            // only interested in AddedEvent's for Devices
-            if (event.getType() == ModelEvent.Type.ADDED && 
-	        event.getModelType() == ModelEvent.ModelType.DEVICE) {
-                logger.info("Reidentify all events for device: {}", event.getDevice().getId());
-                eventSummaryDao.reidentify(event);                
+            switch (event.getType()) {
+                case ADDED:
+                    processModelAdded(event);
+                    break;
+                case REMOVED:
+                    processModelRemoved(event);
+                    break;
             }
         }
-
     }
 
     @Override
@@ -51,7 +89,6 @@ public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
         } else {
             this.processMessage((ModelEventList)message);
         }
-
     }
 
 }
