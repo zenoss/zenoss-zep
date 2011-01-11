@@ -85,7 +85,10 @@ public class TriggerPluginImplTest {
                 "evt.event_class == '/Defcon/1'",
                 "evt.count > 5",
                 "dev.name == 'BHM1000'",
-                "component.name.lower().startswith('fuse')",
+                "elem.name == 'BHM1000'",
+                "elem.type == 'DEVICE'",
+                "sub_elem.type == 'COMPONENT'",
+                "sub_elem.name.lower().startswith('fuse')",
         };
         String[] false_rules = {
                 "1 = 0", // try a syntax error

@@ -1,11 +1,11 @@
 /*
  * This program is part of Zenoss Core, an open source monitoring platform.
  * Copyright (C) 2010, Zenoss Inc.
- * 
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
  * the Free Software Foundation.
- * 
+ *
  * For complete information please visit: http://www.zenoss.com/oss/
  */
 package org.zenoss.zep.impl;
@@ -31,6 +31,7 @@ import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
+import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Rule;
 import org.zenoss.protobufs.zep.Zep.Signal;
 import org.zenoss.zep.ZepException;
@@ -56,7 +57,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Post processing plug-in used to determine if NEW events match a specified trigger. If the
+ * Post processing plug-in used to determine if NEW  or CLEARED events match a specified trigger. If the
  * trigger doesn't match, no signal is sent. If the trigger matches and doesn't specify a delay or repeat
  * interval, then it is sent immediately. If the trigger matches and specifies a delay, then a signal is
  * sent only if the event is still in NEW state after the delay. If the trigger specifies a repeat
@@ -165,14 +166,22 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
         this.connectionManager = connmgr;
     }
 
+    private void putIdAndUuidInDict(PyDictionary dict, String id, String uuid){
+        if (id != null) {
+            dict.put("name", id);
+        }
+        if (uuid != null) {
+            dict.put("uuid", uuid);
+        }
+    }
+
     protected boolean eventSatisfiesRule(EventSummary evtsummary,
                                          String ruleSource) {
         // set up interpreter environment to evaluate the rule source
         PyDictionary eventdict = new PyDictionary();
         PyDictionary devdict = new PyDictionary();
-        PyDictionary componentdict = new PyDictionary();
-        PyDictionary servicedict = new PyDictionary();
-
+        PyDictionary elemdict = new PyDictionary();
+        PyDictionary subelemdict = new PyDictionary();
         // extract event data from most recent occurrence
         if (evtsummary.getOccurrenceCount() > 0) {
             Event event = evtsummary.getOccurrence(0);
@@ -200,63 +209,34 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                 eventdict.put("monitor", new PyString(event.getMonitor()));
             }
             eventdict.put("severity", severityAsPyString.get(event.getSeverity()));
-            
+            eventdict.put("status", new PyString(evtsummary.getStatus().name()));
+
             if (event.hasActor()) {
                 EventActor actor = event.getActor();
-                
+
                 if (actor.hasElementTypeId()) {
+                    elemdict.put("type", actor.getElementTypeId().name());
                     final String id = (actor.hasElementIdentifier()) ? actor.getElementIdentifier() : null;
                     final String uuid = actor.hasElementUuid() ? actor.getElementUuid() : null;
 
-                    PyDictionary dict = null;
-                    switch (actor.getElementTypeId()) {
-                    case DEVICE:
-                        dict = devdict;
-                        break;
-                    case COMPONENT:
-                        dict = componentdict;
-                        break;
-                    case SERVICE:
-                        dict = servicedict;
-                        break;
+                    if (actor.getElementTypeId() == ModelElementType.DEVICE) {
+                        this.putIdAndUuidInDict(devdict, id, uuid);
                     }
-                    if (dict != null) {
-                        if (id != null) {
-                            dict.put("name", id);
-                        }
-                        if (uuid != null) {
-                            dict.put("uuid", uuid);
-                        }
-                    }
+                    putIdAndUuidInDict(elemdict, id, uuid);
                 }
-                
+
                 if (actor.hasElementSubTypeId()) {
+                    subelemdict.put("type", actor.getElementSubTypeId().name());
                     final String id = (actor.hasElementSubIdentifier()) ? actor.getElementSubIdentifier() : null;
                     final String uuid = actor.hasElementSubUuid() ? actor.getElementSubUuid() : null;
 
-                    PyDictionary dict = null;
-                    switch (actor.getElementSubTypeId()) {
-                    case DEVICE:
-                        dict = devdict;
-                        break;
-                    case COMPONENT:
-                        dict = componentdict;
-                        break;
-                    case SERVICE:
-                        dict = servicedict;
-                        break;
+                    if (actor.getElementSubTypeId() == ModelElementType.DEVICE) {
+                        this.putIdAndUuidInDict(devdict, id, uuid);
                     }
-                    if (dict != null) {
-                        if (id != null) {
-                            dict.put("name", id);
-                        }
-                        if (uuid != null) {
-                            dict.put("uuid", uuid);
-                        }
-                    }
-                }    
+                    putIdAndUuidInDict(subelemdict, id, uuid);
+                }
             }
-            
+
             for (EventDetail detail : event.getDetailsList()) {
                 if ("zenoss.device.production_state".equals(detail.getName())) {
                     try {
@@ -286,7 +266,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
             PyFunction fn = ruleFunctionCache.get(ruleSource);
             if (fn == null) {
                 fn = (PyFunction)this.python.eval(
-                    "lambda evt, dev, component, service : " + ruleSource
+                    "lambda evt, dev, elem, sub_elem : " + ruleSource
                     );
                 ruleFunctionCache.put(ruleSource, fn);
             }
@@ -294,14 +274,13 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
             // create vars to pass to rule expression function
             PyObject evtobj = this.toObject.__call__(eventdict);
             PyObject devobj = this.toObject.__call__(devdict);
-            PyObject cmpobj = this.toObject.__call__(componentdict);
-            PyObject svcobj = this.toObject.__call__(servicedict);
-
+            PyObject elemobj = this.toObject.__call__(elemdict);
+            PyObject subelemobj = this.toObject.__call__(subelemdict);
             // evaluate the rule function
-            result = fn.__call__(evtobj, devobj, cmpobj, svcobj);
+            result = fn.__call__(evtobj, devobj, elemobj, subelemobj);
         } catch (PyException pyexc) {
             // evaluating rule raised an exception - treat as "False" eval
-            logger.warn("exception raised while evaluating rule: ", pyexc);
+            logger.warn("exception raised while evaluating rule: " + ruleSource, pyexc);
             result = new PyInteger(0);
         }
 
@@ -313,44 +292,44 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
     @Override
     public void processEvent(EventSummary eventSummary)
             throws ZepException {
-        // Triggers should only be processed for NEW events
-        if (eventSummary.getStatus() != EventStatus.STATUS_NEW) {
-            return;
-        }
+        // Triggers should only be processed for NEW and cleared events
+        if (eventSummary.getStatus() == EventStatus.STATUS_NEW ||
+            eventSummary.getStatus() == EventStatus.STATUS_CLEARED) {
 
-        List<EventTrigger> triggers = this.triggerDao.findAllEnabled();
-        for (EventTrigger trigger : triggers) {
-            logger.debug("Checking trigger {} against event {}", trigger, eventSummary);
+            List<EventTrigger> triggers = this.triggerDao.findAllEnabled();
+            for (EventTrigger trigger : triggers) {
+                logger.debug("Checking trigger {} against event {}", trigger, eventSummary);
 
-            // check to see if this trigger has any subscriptions registered with it
-            // if not, continue, if yes, process trigger rule with regard to event.
-            List<EventTriggerSubscription> subscriptions = trigger.getSubscriptionsList();
-            if (subscriptions.isEmpty()) {
-                continue;
-            }
+                // check to see if this trigger has any subscriptions registered with it
+                // if not, continue, if yes, process trigger rule with regard to event.
+                List<EventTriggerSubscription> subscriptions = trigger.getSubscriptionsList();
+                if (subscriptions.isEmpty()) {
+                    continue;
+                }
 
-            if (trigger.hasRule() && trigger.getRule().hasSource()) {
-                Rule rule = trigger.getRule();
-                String ruleSource = rule.getSource();
+                if (trigger.hasRule() && trigger.getRule().hasSource()) {
+                    Rule rule = trigger.getRule();
+                    String ruleSource = rule.getSource();
 
-                if (eventSatisfiesRule(eventSummary, ruleSource)) {
-                    // handle interval evaluation/buffering
-                    for (EventTriggerSubscription subscription : subscriptions) {
-                        final int delaySeconds = subscription.getDelaySeconds();
-                        final int repeatSeconds = subscription.getRepeatSeconds();
+                    if (eventSatisfiesRule(eventSummary, ruleSource)) {
+                        // handle interval evaluation/buffering
+                        for (EventTriggerSubscription subscription : subscriptions) {
+                            final int delaySeconds = subscription.getDelaySeconds();
+                            final int repeatSeconds = subscription.getRepeatSeconds();
 
-                        // Send signal immediately if no delay
-                        if (delaySeconds <= 0) {
-                            this.publishSignal(eventSummary, subscription);
-                        }
+                            // Send signal immediately if no delay
+                            if (delaySeconds <= 0) {
+                                this.publishSignal(eventSummary, subscription);
+                            }
 
-                        // If we have a delay or repeat interval, create a spool record
-                        if (delaySeconds > 0 || repeatSeconds > 0) {
-                            EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
-                            this.signalSpoolDao.create(ess);
+                            // If we have a delay or repeat interval, create a spool record
+                            if (delaySeconds > 0 || repeatSeconds > 0) {
+                                EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
+                                this.signalSpoolDao.create(ess);
 
-                            int nextDelay = (delaySeconds > 0) ? delaySeconds : repeatSeconds;
-                            delayed.put(new SpoolDelayed(nextDelay));
+                                int nextDelay = (delaySeconds > 0) ? delaySeconds : repeatSeconds;
+                                delayed.put(new SpoolDelayed(nextDelay));
+                            }
                         }
                     }
                 }
@@ -408,7 +387,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                 if (triggerEnabled && (status == EventStatus.STATUS_NEW || status == EventStatus.STATUS_CLEARED)) {
                     this.publishSignal(eventSummary, trSub);
 
-                    // If the event is still in NEW status, repeat the signal 
+                    // If the event is still in NEW status, repeat the signal
                     if (status == EventStatus.STATUS_NEW) {
                         repeatInterval = trSub.getRepeatSeconds();
                     }
