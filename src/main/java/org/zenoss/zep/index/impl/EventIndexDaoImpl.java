@@ -433,20 +433,23 @@ public class EventIndexDaoImpl implements EventIndexDao {
         IndexSearcher searcher = null;
         try {
             searcher = getSearcher();
-            TopDocs docs = searcher.search(query, searcher.maxDoc());
             Map<EventSeverity, Integer> severities = null;
-            if (docs.scoreDocs.length > 0) {
-                severities = new EnumMap<EventSeverity,Integer>(EventSeverity.class);
-                for (ScoreDoc scoreDoc : docs.scoreDocs) {
-                    Document doc = searcher.doc(scoreDoc.doc, SEVERITY_SELECTOR);
-                    EventSeverity severity = EventSeverity.valueOf(Integer.valueOf(doc.get(FIELD_SEVERITY)));
-                    Integer count = severities.get(severity);
-                    if (count == null) {
-                        count = 1;
-                    } else {
-                        ++count;
+            int maxDoc = searcher.maxDoc();
+            if (maxDoc > 0) {
+                TopDocs docs = searcher.search(query, maxDoc);
+                if (docs.scoreDocs.length > 0) {
+                    severities = new EnumMap<EventSeverity,Integer>(EventSeverity.class);
+                    for (ScoreDoc scoreDoc : docs.scoreDocs) {
+                        Document doc = searcher.doc(scoreDoc.doc, SEVERITY_SELECTOR);
+                        EventSeverity severity = EventSeverity.valueOf(Integer.valueOf(doc.get(FIELD_SEVERITY)));
+                        Integer count = severities.get(severity);
+                        if (count == null) {
+                            count = 1;
+                        } else {
+                            ++count;
+                        }
+                        severities.put(severity, count);
                     }
-                    severities.put(severity, count);
                 }
             }
             return severities;
