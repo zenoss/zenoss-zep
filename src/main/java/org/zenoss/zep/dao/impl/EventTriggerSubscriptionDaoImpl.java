@@ -41,6 +41,7 @@ public class EventTriggerSubscriptionDaoImpl implements
     public static final String COLUMN_SUBSCRIBER_UUID = "subscriber_uuid";
     public static final String COLUMN_DELAY_SECONDS = "delay_seconds";
     public static final String COLUMN_REPEAT_SECONDS = "repeat_seconds";
+    public static final String COLUMN_SEND_INITIAL_OCCURRENCE = "send_initial_occurrence";
 
     private static final class EventTriggerSubscriptionMapper implements
             RowMapper<EventTriggerSubscription> {
@@ -59,7 +60,7 @@ public class EventTriggerSubscriptionDaoImpl implements
                     .getBytes(COLUMN_EVENT_TRIGGER_UUID)));
             evtTriggerSub.setSubscriberUuid(DaoUtils.uuidFromBytes(rs
                     .getBytes(COLUMN_SUBSCRIBER_UUID)));
-
+            evtTriggerSub.setSendInitialOccurrence(rs.getBoolean(COLUMN_SEND_INITIAL_OCCURRENCE));
             return evtTriggerSub.build();
         }
     }
@@ -87,7 +88,7 @@ public class EventTriggerSubscriptionDaoImpl implements
                 DaoUtils.uuidToBytes(evtTriggerSub.getSubscriberUuid()));
         fields.put(COLUMN_DELAY_SECONDS, evtTriggerSub.getDelaySeconds());
         fields.put(COLUMN_REPEAT_SECONDS, evtTriggerSub.getRepeatSeconds());
-
+        fields.put(COLUMN_SEND_INITIAL_OCCURRENCE, evtTriggerSub.getSendInitialOccurrence());
         return fields;
     }
 
@@ -205,16 +206,18 @@ public class EventTriggerSubscriptionDaoImpl implements
                     TABLE_EVENT_TRIGGER_SUBSCRIPTION, COLUMN_SUBSCRIBER_UUID,
                     COLUMN_EVENT_TRIGGER_UUID), subscriberUuidBytes,
                     eventTriggerUuids);
-            String sql = String.format("INSERT INTO %s (%s,%s,%s,%s,%s) "
-                    + "VALUES(:%s,:%s,:%s,:%s,:%s) "
-                    + "ON DUPLICATE KEY UPDATE %s=VALUES(%s), %s=VALUES(%s)",
+            String sql = String.format("INSERT INTO %s (%s, %s, %s, %s, %s, %s) "
+                    + "VALUES(:%s, :%s, :%s, :%s, :%s, :%s)"
+                    + "ON DUPLICATE KEY UPDATE %s=VALUES(%s), %s=VALUES(%s), %s=VALUES(%s)",
                     TABLE_EVENT_TRIGGER_SUBSCRIPTION, COLUMN_UUID,
                     COLUMN_EVENT_TRIGGER_UUID, COLUMN_SUBSCRIBER_UUID,
-                    COLUMN_DELAY_SECONDS, COLUMN_REPEAT_SECONDS, COLUMN_UUID,
+                    COLUMN_DELAY_SECONDS, COLUMN_REPEAT_SECONDS, COLUMN_SEND_INITIAL_OCCURRENCE,
+                    COLUMN_UUID,
                     COLUMN_EVENT_TRIGGER_UUID, COLUMN_SUBSCRIBER_UUID,
-                    COLUMN_DELAY_SECONDS, COLUMN_REPEAT_SECONDS,
+                    COLUMN_DELAY_SECONDS, COLUMN_REPEAT_SECONDS, COLUMN_SEND_INITIAL_OCCURRENCE,
                     COLUMN_DELAY_SECONDS, COLUMN_DELAY_SECONDS,
-                    COLUMN_REPEAT_SECONDS, COLUMN_REPEAT_SECONDS);
+                    COLUMN_REPEAT_SECONDS, COLUMN_REPEAT_SECONDS,
+                    COLUMN_SEND_INITIAL_OCCURRENCE, COLUMN_SEND_INITIAL_OCCURRENCE);
             for (Map<String, Object> fields : subscriptionFields) {
                 numRows += this.template.update(sql, fields);
             }

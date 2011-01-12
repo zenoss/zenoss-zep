@@ -149,6 +149,7 @@ public class TriggersResourceIT {
                     .newBuilder();
             subBuilder.setDelaySeconds(30);
             subBuilder.setRepeatSeconds(60);
+            subBuilder.setSendInitialOccurrence(false);
             subBuilder.setSubscriberUuid(subscriberUuid);
             subBuilder.setTriggerUuid(trigger.getUuid());
             subscriptionBuilder.addSubscriptions(subBuilder.build());
@@ -203,13 +204,13 @@ public class TriggersResourceIT {
         /* Modify a few triggers */
         tempSubscriptions.set(1,
                 EventTriggerSubscription.newBuilder(tempSubscriptions.get(1))
-                        .setDelaySeconds(90).setRepeatSeconds(120).build());
+                        .setDelaySeconds(90).setRepeatSeconds(120).setSendInitialOccurrence(false).build());
         tempSubscriptions.set(2,
                 EventTriggerSubscription.newBuilder(tempSubscriptions.get(2))
-                        .setDelaySeconds(150).setRepeatSeconds(720).build());
+                        .setDelaySeconds(150).setRepeatSeconds(720).setSendInitialOccurrence(false).build());
         /* Add a new trigger */
         tempSubscriptions.add(EventTriggerSubscription.newBuilder()
-                .setDelaySeconds(600).setRepeatSeconds(0)
+                .setDelaySeconds(600).setRepeatSeconds(0).setSendInitialOccurrence(false)
                 .setSubscriberUuid(subscriberUuid)
                 .setTriggerUuid(createTrigger().getUuid()).build());
         subscriptions = EventTriggerSubscriptionSet.newBuilder()

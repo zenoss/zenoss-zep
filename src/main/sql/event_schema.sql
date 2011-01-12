@@ -1,10 +1,10 @@
 -- This program is part of Zenoss Core, an open source monitoring platform.
 -- Copyright (C) 2010, Zenoss Inc.
--- 
+--
 -- This program is free software; you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License version 2 as published by
 -- the Free Software Foundation.
--- 
+--
 -- For complete information please visit: http://www.zenoss.com/oss/
 
 SET storage_engine=InnoDB;
@@ -66,7 +66,7 @@ CREATE TABLE `index_version`
     `last_index_time` BIGINT NOT NULL COMMENT 'Last event_summary.update_time that was indexed.',
     PRIMARY KEY (`zep_instance`, `index_name`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
- 
+
 CREATE TABLE `event_summary`
 (
     `uuid` BINARY(16) NOT NULL,
@@ -217,6 +217,7 @@ CREATE TABLE event_trigger_subscription
     subscriber_uuid BINARY(16) NOT NULL,
     delay_seconds INTEGER NOT NULL DEFAULT 0,
     repeat_seconds INTEGER NOT NULL DEFAULT 0,
+    send_initial_occurrence TINYINT NOT NULL,
     PRIMARY KEY (uuid),
     FOREIGN KEY (`event_trigger_uuid`) REFERENCES `event_trigger` (`uuid`) ON DELETE CASCADE,
     UNIQUE INDEX (`event_trigger_uuid`,`subscriber_uuid`)

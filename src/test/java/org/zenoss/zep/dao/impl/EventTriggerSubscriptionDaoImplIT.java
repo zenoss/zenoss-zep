@@ -51,6 +51,7 @@ public class EventTriggerSubscriptionDaoImplIT extends
                 .newBuilder();
         subBuilder.setDelaySeconds(30);
         subBuilder.setRepeatSeconds(90);
+        subBuilder.setSendInitialOccurrence(false);
         subBuilder.setSubscriberUuid(UUID.randomUUID().toString());
         subBuilder.setTriggerUuid(trigger.getUuid());
         subBuilder.setUuid(UUID.randomUUID().toString());
