@@ -115,11 +115,9 @@ public class EventArchiveDaoImplIT extends
 
     @Test
     public void testListByUuid() throws ZepException {
-        Set<String> uuids = new HashSet<String>();
         Set<String> uuidsToSearch = new HashSet<String>();
         for (int i = 0; i < 10; i++) {
             String uuid = createArchive(createEvent()).getUuid();
-            uuids.add(uuid);
             if ((i % 2) == 0) {
                 uuidsToSearch.add(uuid);
             }

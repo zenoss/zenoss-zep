@@ -82,19 +82,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
                     EventDaoUtils.createClearHash(event));
         }
 
-        StringBuilder names = new StringBuilder();
-        StringBuilder values = new StringBuilder();
-        for (String columnName : fields.keySet()) {
-            if (names.length() > 0) {
-                names.append(',');
-                values.append(',');
-            }
-            names.append(columnName);
-            values.append(':').append(columnName);
-        }
-        final String sql = String.format("INSERT INTO %s (%s) VALUES (%s)",
-                TABLE_EVENT_ARCHIVE, names, values);
-        this.template.update(sql, fields);
+        this.template.update(DaoUtils.createNamedInsert(TABLE_EVENT_ARCHIVE, fields.keySet()), fields);
         return uuid.toString();
     }
 

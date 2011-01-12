@@ -38,8 +38,10 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
@@ -146,8 +148,11 @@ public class EventSummaryDaoImplIT extends
                 newEventSummaryFromDb.getStatusChangeTime());
         assertEquals(newEvent.getMessage(), newEventFromSummary.getMessage());
         assertEquals(newEvent.getSummary(), newEventFromSummary.getSummary());
-        assertEquals(newEvent.getDetailsList(),
-                newEventFromSummary.getDetailsList());
+
+        List<EventDetail> combined = new ArrayList<EventDetail>();
+        combined.addAll(event.getDetailsList());
+        combined.addAll(newEvent.getDetailsList());
+        assertEquals(combined, newEventFromSummary.getDetailsList());
 
         eventSummaryDao.delete(eventSummaryFromDb.getUuid());
         assertNull(eventSummaryDao.findByUuid(eventSummaryFromDb.getUuid()));
@@ -273,11 +278,9 @@ public class EventSummaryDaoImplIT extends
 
     @Test
     public void testListByUuid() throws ZepException {
-        Set<String> uuids = new HashSet<String>();
         Set<String> uuidsToSearch = new HashSet<String>();
         for (int i = 0; i < 10; i++) {
             String uuid = createSummaryNew(createUniqueEvent()).getUuid();
-            uuids.add(uuid);
             if ((i % 2) == 0) {
                 uuidsToSearch.add(uuid);
             }
@@ -684,5 +687,46 @@ public class EventSummaryDaoImplIT extends
                     }
                 }, DaoUtils.uuidToBytes(summary.getUuid())).get(0);
         assertArrayEquals(clearHash, clearHashFromDb);
+    }
+
+    private static Map<String,List<String>> detailsToMap(List<EventDetail> details) {
+        Map<String,List<String>> detailsMap = new HashMap<String,List<String>>(details.size());
+        for (EventDetail detail : details) {
+            detailsMap.put(detail.getName(), detail.getValueList());
+        }
+        return detailsMap;
+    }
+
+    @Test
+    public void testMergeDetails() throws ZepException {
+        Event.Builder eventBuilder = Event.newBuilder(createUniqueEvent());
+        eventBuilder.clearDetails();
+        eventBuilder.addDetails(EventDetail.newBuilder().setName("foo")
+                .addValue("bar").addValue("baz").build());
+        eventBuilder.addDetails(EventDetail.newBuilder().setName("foo2")
+                .addValue("bar2").addValue("baz2").build());
+        final Event event = eventBuilder.build();
+
+        EventSummary summary = createSummaryNew(event);
+        compareEvents(event, summary.getOccurrence(0));
+
+        /* Add a new detail, don't specify an old one, and replace an existing one */
+        Event.Builder newEventBuilder = Event.newBuilder(event);
+        newEventBuilder.clearDetails();
+        /* Update foo */
+        newEventBuilder.addDetails(EventDetail.newBuilder().setName("foo").addValue("foobar").
+                addValue("foobaz").build());
+        /* Don't specify foo2 */
+        /* Add a new detail foo3 */
+        newEventBuilder.addDetails(EventDetail.newBuilder().setName("foo3").addValue("foobar3").
+                addValue("foobaz3").build());
+        final Event newEvent = newEventBuilder.build();
+
+        EventSummary newSummary = createSummaryNew(newEvent);
+        assertEquals(2, newSummary.getCount());
+        Map<String,List<String>> detailsMap = detailsToMap(newSummary.getOccurrence(0).getDetailsList());
+        assertEquals(Arrays.asList("foobar","foobaz"), detailsMap.get("foo"));
+        assertEquals(Arrays.asList("bar2", "baz2"), detailsMap.get("foo2"));
+        assertEquals(Arrays.asList("foobar3", "foobaz3"), detailsMap.get("foo3"));
     }
 }

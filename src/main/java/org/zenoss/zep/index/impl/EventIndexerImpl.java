@@ -216,8 +216,9 @@ public class EventIndexerImpl implements EventIndexer {
      * index.
      * 
      * @param dao The DAO to use to index
+     * @param deleteFromDao The DAO to delete from for each item found in <code>dao</code>.
      * @param sql The query to index
-     * @throws org.zenoss.zep.ZepException
+     * @throws org.zenoss.zep.ZepException If an error occurs.
      */
     private void doIndex(EventIndexDao dao, EventIndexDao deleteFromDao, String sql) throws ZepException {
         long since = getNextIndexTime(dao);

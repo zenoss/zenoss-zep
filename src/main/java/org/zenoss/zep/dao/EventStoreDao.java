@@ -86,14 +86,15 @@ public interface EventStoreDao extends Purgable {
      * @param update
      *            Changes to make to events.
      * @return The number of affected events.
-     * @throws ZepException
+     * @throws ZepException If an error occurs.
      */
     public int update(List<String> uuids, EventSummaryUpdate update)
             throws ZepException;
 
     /**
      * Add a note to the event.
-     * 
+     *
+     * @param uuid The event UUID.
      * @param note
      *            The note to add.
      * @return The number of rows affected by the query.

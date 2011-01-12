@@ -73,7 +73,7 @@ public class TriggersResource {
     }
 
     @GET
-    @Path("")
+    @Path("/")
     @Produces({ MediaType.APPLICATION_JSON,
             ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventTriggerSet findTriggers() throws ZepException {

@@ -52,13 +52,13 @@ public interface EventIndexDao extends Purgable {
      * Stage an event to be indexed with a batch index. Must call commit() to
      * store changes.
      * @param event EventSummary to index
-     * @throws ZepException
+     * @throws ZepException If an error occurs.
      */
     public void stage(EventSummary event) throws ZepException;
 
     /**
      * Commit any staged changes to the index.
-     * @throws ZepException
+     * @throws ZepException If an error occurs.
      */
     public void commit() throws ZepException;
 
@@ -109,7 +109,6 @@ public interface EventIndexDao extends Purgable {
      * 
      * @param uuid
      *            UUID of the event to delete.
-     * @return The number of affected rows.
      * @throws ZepException
      *             If the event could not be deleted.
      */
@@ -120,7 +119,6 @@ public interface EventIndexDao extends Purgable {
      * 
      * @param uuids
      *            UUIDs of the event to delete.
-     * @return The number of affected rows.
      * @throws ZepException
      *             If the event could not be deleted.
      */

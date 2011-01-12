@@ -69,7 +69,8 @@ public interface EventArchiveDao extends Partitionable, Purgable {
 
     /**
      * Add a note to the event.
-     * 
+     *
+     * @param uuid The event UUID.
      * @param note
      *            The note to add.
      * @return The number of rows affected by the query.

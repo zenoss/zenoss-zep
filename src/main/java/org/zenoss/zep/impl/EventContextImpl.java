@@ -55,7 +55,7 @@ public class EventContextImpl implements EventContext {
     @Override
     public String toString() {
         return String.format("EventContextImpl [status=%s, clearClasses=%s]",
-                clearClasses);
+                status, clearClasses);
     }
 
 }

@@ -26,7 +26,7 @@ import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 public class EventDaoUtils {
     private static final Charset UTF8 = Charset.forName("UTF-8");
 
-    public static final int syslogPriorityToInt(final SyslogPriority priority) {
+    public static int syslogPriorityToInt(final SyslogPriority priority) {
         switch (priority) {
         case SYSLOG_PRIORITY_EMERG:
             return 0;
@@ -48,7 +48,7 @@ public class EventDaoUtils {
         throw new IllegalArgumentException("Invalid priority: " + priority);
     }
 
-    public static final SyslogPriority syslogPriorityFromInt(
+    public static SyslogPriority syslogPriorityFromInt(
             final int priorityInt) {
         switch (priorityInt) {
         case 0:

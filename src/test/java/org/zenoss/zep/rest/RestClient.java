@@ -118,7 +118,7 @@ public class RestClient implements Closeable {
                         msgForBuild.newBuilderForType());
             } else if (ProtobufConstants.CONTENT_TYPE_PROTOBUF
                     .equals(contentType)) {
-                msg = (Message) msgForBuild.newBuilderForType()
+                msg = msgForBuild.newBuilderForType()
                         .mergeFrom(response.getEntity().getContent()).build();
             } else {
                 throw new IOException("Unsupported content type: "

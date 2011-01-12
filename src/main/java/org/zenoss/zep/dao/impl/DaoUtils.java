@@ -18,12 +18,11 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.UUID;
-
-import org.zenoss.zep.ZepException;
 
 public final class DaoUtils {
     private DaoUtils() {
@@ -36,7 +35,7 @@ public final class DaoUtils {
      *            UUID string.
      * @return 16 byte array.
      */
-    public static final byte[] uuidToBytes(String uuidStr) {
+    public static byte[] uuidToBytes(String uuidStr) {
         final ByteBuffer bb = ByteBuffer.allocate(16);
         final UUID uuid = UUID.fromString(uuidStr);
         bb.putLong(uuid.getMostSignificantBits());
@@ -51,7 +50,7 @@ public final class DaoUtils {
      *            UUID.
      * @return 16 byte array.
      */
-    public static final byte[] uuidToBytes(UUID uuid) {
+    public static byte[] uuidToBytes(UUID uuid) {
         final ByteBuffer bb = ByteBuffer.allocate(16);
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
@@ -63,7 +62,8 @@ public final class DaoUtils {
      * 
      * @return Bytes from a randomly created UUID.
      */
-    public static final byte[] createRandomUuid() {
+    @SuppressWarnings("unused")
+    public static byte[] createRandomUuid() {
         final ByteBuffer bb = ByteBuffer.allocate(16);
         final UUID uuid = UUID.randomUUID();
         bb.putLong(uuid.getMostSignificantBits());
@@ -78,7 +78,7 @@ public final class DaoUtils {
      *            16-byte byte array.
      * @return UUID string.
      */
-    public static final String uuidFromBytes(byte[] bytes) {
+    public static String uuidFromBytes(byte[] bytes) {
         final ByteBuffer bb = ByteBuffer.wrap(bytes);
         return new UUID(bb.getLong(), bb.getLong()).toString();
     }
@@ -91,7 +91,7 @@ public final class DaoUtils {
      * @return A list of UUID byte arrays (suitable for passing to the
      *         database).
      */
-    public static final List<byte[]> uuidsToBytes(Collection<String> strUuids) {
+    public static List<byte[]> uuidsToBytes(Collection<String> strUuids) {
         List<byte[]> uuids = new ArrayList<byte[]>(strUuids.size());
         for (String strUuid : strUuids) {
             uuids.add(uuidToBytes(strUuid));
@@ -105,9 +105,8 @@ public final class DaoUtils {
      * @param str
      *            String to hash.
      * @return SHA-1 hash for string.
-     * @throws ZepException
      */
-    public static final byte[] sha1(String str) {
+    public static byte[] sha1(String str) {
         try {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
             return sha1.digest(str.getBytes(Charset.forName("UTF-8")));
@@ -171,5 +170,29 @@ public final class DaoUtils {
         }
         return (newLength == length) ? original : original.substring(0,
                 newLength);
+    }
+
+    /**
+     * Create an insert SQL string for the table with the specified insert columns.
+     *
+     * @param tableName Table name.
+     * @param columnNames Column names for insert.
+     * @return An insert SQL statement with the names (suitable for passing to Spring named
+     *         parameter template).
+     */
+    public static String createNamedInsert(String tableName, Collection<String> columnNames) {
+        StringBuilder names = new StringBuilder();
+        StringBuilder values = new StringBuilder();
+        Iterator<String> it = columnNames.iterator();
+        while (it.hasNext()) {
+            final String columnName = it.next();
+            names.append(columnName);
+            values.append(':').append(columnName);
+            if (it.hasNext()) {
+                names.append(',');
+                values.append(',');
+            }
+        }
+        return "INSERT INTO " + tableName + " (" + names + ") VALUES (" + values + ")";
     }
 }

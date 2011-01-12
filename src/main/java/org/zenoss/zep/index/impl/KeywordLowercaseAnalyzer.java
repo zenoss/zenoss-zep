@@ -27,7 +27,7 @@ public class KeywordLowercaseAnalyzer extends Analyzer {
     private static class SavedStreams {
         Tokenizer source;
         TokenStream result;
-    };
+    }
 
     @Override
     public TokenStream reusableTokenStream(String fieldName, Reader reader) throws IOException {

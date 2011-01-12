@@ -21,14 +21,14 @@ public interface EventPublisher {
      * 
      * @param event
      *            The event to be published.
-     * @throws ZepException
+     * @throws ZepException If an exception occurs.
      */
     public void addEvent(EventSummary event) throws ZepException;
 
     /**
      * Publishes any events to the fan-out exchange.
      * 
-     * @throws ZepException
+     * @throws ZepException If an exception occurs.
      */
     public void publish() throws ZepException;
 }

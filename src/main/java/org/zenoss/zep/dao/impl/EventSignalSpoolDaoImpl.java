@@ -232,8 +232,7 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     public List<EventSignalSpool> findAllDue() throws ZepException {
         try {
             final String sql = String.format("SELECT * FROM %s WHERE %s <= ?",
-                    TABLE_EVENT_TRIGGER_SIGNAL_SPOOL, COLUMN_FLUSH_TIME,
-                    COLUMN_FLUSH_TIME);
+                    TABLE_EVENT_TRIGGER_SIGNAL_SPOOL, COLUMN_FLUSH_TIME);
             return this.template.query(sql, new EventSignalSpoolMapper(),
                     System.currentTimeMillis());
         } catch (DataAccessException e) {

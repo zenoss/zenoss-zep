@@ -10,13 +10,6 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import static org.junit.Assert.*;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
@@ -34,6 +27,13 @@ import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.EventTriggerDao;
 import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.junit.Assert.*;
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
 public class EventSignalSpoolDaoIT extends
