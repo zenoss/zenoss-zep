@@ -52,6 +52,7 @@ public class EventIndexerImpl implements EventIndexer {
     private final NamedParameterJdbcTemplate template;
     private final byte[] zepInstanceIdBytes;
     private EventDaoHelper eventDaoHelper;
+    private Object indexLock = new Object();
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
     private PluginService pluginService;
@@ -198,12 +199,14 @@ public class EventIndexerImpl implements EventIndexer {
     @Override
     @Transactional
     public void index(boolean force) throws ZepException {
-        if ( force || summaryDirty.compareAndSet(true, false)) {
-            doIndex(eventSummaryIndexDao, null, sqlGetSummary);
-        }
+        synchronized (indexLock) {
+            if ( force || summaryDirty.compareAndSet(true, false)) {
+                doIndex(eventSummaryIndexDao, null, sqlGetSummary);
+            }
 
-        if ( force || archiveDirty.compareAndSet(true, false)) {
-            doIndex(eventArchiveIndexDao, eventSummaryIndexDao, sqlGetArchive);
+            if ( force || archiveDirty.compareAndSet(true, false)) {
+                doIndex(eventArchiveIndexDao, eventSummaryIndexDao, sqlGetArchive);
+            }
         }
     }
 
@@ -216,7 +219,7 @@ public class EventIndexerImpl implements EventIndexer {
      * @param sql The query to index
      * @throws org.zenoss.zep.ZepException
      */
-    private synchronized void doIndex(EventIndexDao dao, EventIndexDao deleteFromDao, String sql) throws ZepException {
+    private void doIndex(EventIndexDao dao, EventIndexDao deleteFromDao, String sql) throws ZepException {
         long since = getNextIndexTime(dao);
 
         logger.debug("Indexing {} events since {}", dao.getName(), new Date(since));
