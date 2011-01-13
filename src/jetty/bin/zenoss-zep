@@ -22,7 +22,9 @@ JETTY_ARGS="--ini=$JETTY_HOME/etc/jetty.ini"
 VAR=${JETTY_HOME}/var
 mkdir -p ${VAR}/run
 
-PIDFILE=${VAR}/run/zenoss-zep.pid
+#zenoss expects {daemonname}-{monitor} for pid file
+#zep only runs on localhost
+PIDFILE=${VAR}/zenoss-zep-localhost.pid
 CMD=$1
 
 JAVAEXE="java"
