@@ -27,6 +27,9 @@ start() {
         echo is already running
     else
         echo starting...
+        JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
+        # Redirect stdout/stderr to separate log file
+        JETTY_ARGS="$JETTY_ARGS etc/jetty-logging.xml"
         java -jar ${JVM_ARGS} ${JETTYSTART_JAR} ${JETTY_ARGS} \
         ${START_ARGS} > /dev/null 2>&1 &
         PID=$!
@@ -85,6 +88,54 @@ status() {
 }
 
 generic() {
+    CMD=$1
+    shift
+
+    while getopts "p:v:" flag
+    do
+        case "$flag" in
+            p)
+                case "$OPTARG" in
+                    [1-9][0-9]*)
+                        ;;
+                    *)
+                        echo "Invalid argument for $flag: $OPTARG" >&2
+                        exit 1
+                        ;;
+                esac
+                JVM_ARGS="$JVM_ARGS -Djetty.port=$OPTARG"
+                ;;
+            v)
+                OPTARG=`echo "$OPTARG" | tr "[:lower:]" "[:upper:]"`
+                case "$OPTARG" in
+                    TRACE)
+                        ZENOSS_LOG_LEVEL="TRACE"
+                        ;;
+                    10|DEBUG)
+                        ZENOSS_LOG_LEVEL="DEBUG"
+                        ;;
+                    20|INFO)
+                        ZENOSS_LOG_LEVEL="INFO"
+                        ;;
+                    30|WARN|WARNING)
+                        ZENOSS_LOG_LEVEL="WARN"
+                        ;;
+                    40|ERROR)
+                        ZENOSS_LOG_LEVEL="ERROR"
+                        ;;
+                    *)
+                        echo "Invalid log level: '$OPTARG'" >&2
+                        exit 1
+                        ;;
+                esac
+                JVM_ARGS="$JVM_ARGS -DZENOSS_LOG_LEVEL=$ZENOSS_LOG_LEVEL"
+                ;;
+            *)
+                echo "Invalid argument: $flag" >&2
+                exit 1
+        esac
+    done
+
     case "$CMD" in
         start)
             start "$@"

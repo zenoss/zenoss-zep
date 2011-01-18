@@ -55,6 +55,9 @@ public class ZepInstanceImpl implements ZepInstance {
         String id;
         String zenHome = System.getenv("ZENHOME");
         if (zenHome == null) {
+            zenHome = System.getProperty("ZENHOME");
+        }
+        if (zenHome == null) {
             logger.warn("ZENHOME not specified. Not persisting ZEP instance id.");
             id = UUID.randomUUID().toString();
         } else {
