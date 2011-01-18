@@ -126,6 +126,10 @@ public class QueryBuilder {
         return this;
     }
 
+    public QueryBuilder addField(String key, List<String> values) throws ZepException {
+        return addField(key, values, FilterOperator.OR);
+    }
+
     public QueryBuilder addField(String key, List<String> values, FilterOperator op) throws ZepException {
         if (!values.isEmpty()) {
             final BooleanClause.Occur occur;

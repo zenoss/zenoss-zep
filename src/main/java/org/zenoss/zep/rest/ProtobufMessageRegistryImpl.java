@@ -10,13 +10,11 @@
  */
 package org.zenoss.zep.rest;
 
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
+import com.google.protobuf.ExtensionRegistry;
+import com.google.protobuf.Message;
 import org.zenoss.protobufs.rest.ProtobufMessageRegistry;
 import org.zenoss.protobufs.zep.Zep.EventNote;
+import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdateRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdateResponse;
@@ -24,8 +22,10 @@ import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscriptionSet;
 
-import com.google.protobuf.ExtensionRegistry;
-import com.google.protobuf.Message;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class ProtobufMessageRegistryImpl implements ProtobufMessageRegistry {
 
@@ -37,6 +37,7 @@ public class ProtobufMessageRegistryImpl implements ProtobufMessageRegistry {
         List<? extends Message> messages = Arrays.asList(
                 EventTrigger.getDefaultInstance(),
                 EventNote.getDefaultInstance(),
+                EventSummaryRequest.getDefaultInstance(),
                 EventSummaryUpdateRequest.getDefaultInstance(),
                 EventSummaryUpdateResponse.getDefaultInstance(),
                 EventSummaryUpdate.getDefaultInstance(),

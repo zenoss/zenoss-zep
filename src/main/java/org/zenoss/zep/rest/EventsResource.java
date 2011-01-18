@@ -239,9 +239,26 @@ public class EventsResource {
         return Response.noContent().build();
     }
 
-    @GET
+    @POST
+    @Path("/")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    public EventSummaryResult listEventIndex(@Context UriInfo ui)
+    public EventSummaryResult listEventIndex(EventSummaryRequest request)
+            throws ParseException, IOException, ZepException {
+        return this.eventSummaryIndexDao.list(request);
+    }
+
+    @POST
+    @Path("archive")
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    public EventSummaryResult listEventIndexArchive(EventSummaryRequest request)
+            throws ParseException, IOException, ZepException {
+        return this.eventArchiveIndexDao.list(request);
+    }
+
+    @GET
+    @Path("/")
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    public EventSummaryResult listEventIndexGet(@Context UriInfo ui)
             throws ParseException, IOException, ZepException {
         return this.eventSummaryIndexDao.list(eventSummaryRequestFromUriInfo(ui));
     }
@@ -249,7 +266,7 @@ public class EventsResource {
     @GET
     @Path("archive")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    public EventSummaryResult listEventIndexArchive(@Context UriInfo ui)
+    public EventSummaryResult listEventIndexArchiveGet(@Context UriInfo ui)
             throws ParseException, IOException, ZepException {
         return this.eventArchiveIndexDao.list(eventSummaryRequestFromUriInfo(ui));
     }
@@ -400,6 +417,7 @@ public class EventsResource {
         final TimestampRange statusChange = parseRange(queryParams.getFirst(prefix + "status_change"));
         final TimestampRange updateTime = parseRange(queryParams.getFirst(prefix + "update_time"));
         final NumberRange count = convertCount(queryParams.getFirst(prefix + "count"));
+        final Set<String> fingerprint = getQuerySet(queryParams, prefix + "fingerprint");
         final Set<String> element_identifier = getQuerySet(queryParams, prefix + "element_identifier");
         final Set<String> element_sub_identifier = getQuerySet(queryParams, prefix + "element_sub_identifier");
         final Set<String> uuids = getQuerySet(queryParams, prefix + "uuid");
@@ -411,6 +429,7 @@ public class EventsResource {
 
         /* Build event filter */
         final EventFilter.Builder filterBuilder = EventFilter.newBuilder();
+        filterBuilder.addAllFingerprint(fingerprint);
         filterBuilder.addAllSeverity(severities);
         filterBuilder.addAllStatus(status);
         filterBuilder.addAllEventClass(eventClass);

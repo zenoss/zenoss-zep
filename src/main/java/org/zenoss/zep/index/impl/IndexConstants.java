@@ -26,6 +26,7 @@ public class IndexConstants {
     public static final String FIELD_ELEMENT_SUB_IDENTIFIER = "element_sub_identifier";
     public static final String FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED = "element_sub_identifier_sort_not_analyzed";
     public static final String FIELD_EVENT_UUID = "event_uuid";
+    public static final String FIELD_FINGERPRINT = "fingerprint";
     public static final String FIELD_SUMMARY = "summary";
     public static final String FIELD_SUMMARY_NOT_ANALYZED = "summary_not_analyzed";
     public static final String FIELD_SEVERITY = "severity";

@@ -63,6 +63,7 @@ public class EventIndexMapper {
 
         Event event = summary.getOccurrence(0);
         doc.add(new Field(FIELD_EVENT_UUID, event.getUuid(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_FINGERPRINT, event.getFingerprint(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_SUMMARY, event.getSummary(), Store.NO, Index.ANALYZED));
         doc.add(new Field(FIELD_SUMMARY_NOT_ANALYZED, event.getSummary(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         EventSeverity severity = event.getSeverity();
