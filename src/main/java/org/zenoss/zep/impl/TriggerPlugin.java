@@ -12,6 +12,7 @@ package org.zenoss.zep.impl;
 
 import org.python.core.PyDictionary;
 import org.python.core.PyException;
+import org.python.core.PySyntaxError;
 import org.python.core.PyFunction;
 import org.python.core.PyInteger;
 import org.python.core.PyObject;
@@ -90,6 +91,9 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
 
     // The maximum amount of time to wait between processing the signal spool.
     private static final int MAXIMUM_DELAY_SECONDS = 60;
+
+    public static final String PRODUCTION_STATE_DETAIL_KEY = "zenoss.device.production_state";
+    public static final String DEVICE_PRIORITY_DETAIL_KEY = "zenoss.device.priority";
 
     private DelayQueue<SpoolDelayed> delayed = new DelayQueue<SpoolDelayed>();
     private ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -215,30 +219,33 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                 EventActor actor = event.getActor();
 
                 if (actor.hasElementTypeId()) {
+                    if (actor.getElementTypeId() == ModelElementType.DEVICE) {
+                        devdict = elemdict;
+                    }
+
                     elemdict.put("type", actor.getElementTypeId().name());
                     final String id = (actor.hasElementIdentifier()) ? actor.getElementIdentifier() : null;
                     final String uuid = actor.hasElementUuid() ? actor.getElementUuid() : null;
 
-                    if (actor.getElementTypeId() == ModelElementType.DEVICE) {
-                        this.putIdAndUuidInDict(devdict, id, uuid);
-                    }
                     putIdAndUuidInDict(elemdict, id, uuid);
                 }
 
                 if (actor.hasElementSubTypeId()) {
+                    if (actor.getElementSubTypeId() == ModelElementType.DEVICE) {
+                        devdict = subelemdict;
+                    }
+
                     subelemdict.put("type", actor.getElementSubTypeId().name());
                     final String id = (actor.hasElementSubIdentifier()) ? actor.getElementSubIdentifier() : null;
                     final String uuid = actor.hasElementSubUuid() ? actor.getElementSubUuid() : null;
 
-                    if (actor.getElementSubTypeId() == ModelElementType.DEVICE) {
-                        this.putIdAndUuidInDict(devdict, id, uuid);
-                    }
                     putIdAndUuidInDict(subelemdict, id, uuid);
                 }
             }
 
             for (EventDetail detail : event.getDetailsList()) {
-                if ("zenoss.device.production_state".equals(detail.getName())) {
+                final String detailName = detail.getName();
+                if (PRODUCTION_STATE_DETAIL_KEY.equals(detailName)) {
                     try {
                         int prodState = Integer.parseInt(detail.getValue(0));
                         devdict.put("production_state", new PyInteger(prodState));
@@ -246,7 +253,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                         logger.warn("Failed retrieving production state", e);
                     }
                 }
-                else if ("zenoss.device.priority".equals(detail.getName())) {
+                else if (DEVICE_PRIORITY_DETAIL_KEY.equals(detailName)) {
                     try {
                         int priority = Integer.parseInt(detail.getValue(0));
                         devdict.put("priority", new PyInteger(priority));
@@ -278,6 +285,10 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
             PyObject subelemobj = this.toObject.__call__(subelemdict);
             // evaluate the rule function
             result = fn.__call__(evtobj, devobj, elemobj, subelemobj);
+        } catch (PySyntaxError pysynerr) {
+            // evaluating rule raised an exception - treat as "False" eval
+            logger.warn("syntax error exception raised while compiling rule: " + ruleSource, pysynerr);
+            result = new PyInteger(0);
         } catch (PyException pyexc) {
             // evaluating rule raised an exception - treat as "False" eval
             logger.warn("exception raised while evaluating rule: " + ruleSource, pyexc);
@@ -293,8 +304,11 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
     public void processEvent(EventSummary eventSummary)
             throws ZepException {
         // Triggers should only be processed for NEW and cleared events
-        if (eventSummary.getStatus() == EventStatus.STATUS_NEW ||
-            eventSummary.getStatus() == EventStatus.STATUS_CLEARED) {
+        final EventStatus evtstatus = eventSummary.getStatus();
+        if (evtstatus == EventStatus.STATUS_NEW ||
+            evtstatus == EventStatus.STATUS_CLEARED ||
+            evtstatus == EventStatus.STATUS_AGED ||
+            evtstatus == EventStatus.STATUS_CLOSED) {
 
             List<EventTrigger> triggers = this.triggerDao.findAllEnabled();
             for (EventTrigger trigger : triggers) {
@@ -317,18 +331,75 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                             final int delaySeconds = subscription.getDelaySeconds();
                             final int repeatSeconds = subscription.getRepeatSeconds();
 
-                            // Send signal immediately if no delay
-                            if (delaySeconds <= 0) {
-                                this.publishSignal(eventSummary, subscription);
+                            // see if any spool already exists for this trigger-eventSummary
+                            // combination
+                            EventSignalSpool currentSpool =
+                                    this.signalSpoolDao.findByTriggerAndEventSummaryUuids(
+                                            trigger.getUuid(), eventSummary.getUuid()
+                                    );
+                            boolean spoolExists = (currentSpool != null);
+
+                            if (evtstatus == EventStatus.STATUS_NEW) {
+                                boolean onlySendInitial = subscription.getSendInitialOccurrence();
+                                boolean needSpoolDelay = false;
+                                // Send signal immediately if no delay
+                                if (delaySeconds <= 0) {
+                                    if (!onlySendInitial) {
+                                        this.publishSignal(eventSummary, subscription);
+                                    }
+                                    else {
+                                        if (!spoolExists) {
+                                            EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
+                                            this.signalSpoolDao.create(ess);
+                                            currentSpool = ess;
+                                            needSpoolDelay = true;
+                                            this.publishSignal(eventSummary, subscription);
+                                        }
+                                    }
+                                }
+                                else {
+                                    // delaySeconds > 0
+                                    if (!spoolExists) {
+                                        EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
+                                        this.signalSpoolDao.create(ess);
+                                        currentSpool = ess;
+                                        needSpoolDelay = true;
+                                    }
+                                    else {
+                                        if (repeatSeconds == 0) {
+                                            if (!onlySendInitial &&
+                                                currentSpool.getFlushTime() == Long.MAX_VALUE) {
+                                                this.signalSpoolDao.updateFlushTime(currentSpool.getUuid(),
+                                                        System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(delaySeconds));
+                                                needSpoolDelay = true;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                // If we have a delay or repeat interval, set up SpoolDelayed
+                                if (needSpoolDelay) {
+                                    long nextFlushTime = currentSpool.getFlushTime();
+                                    if (nextFlushTime != Long.MAX_VALUE) {
+                                        long nextDelay = nextFlushTime - System.currentTimeMillis();
+                                        delayed.put(new SpoolDelayed(nextDelay));
+                                    }
+                                }
                             }
-
-                            // If we have a delay or repeat interval, create a spool record
-                            if (delaySeconds > 0 || repeatSeconds > 0) {
-                                EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
-                                this.signalSpoolDao.create(ess);
-
-                                int nextDelay = (delaySeconds > 0) ? delaySeconds : repeatSeconds;
-                                delayed.put(new SpoolDelayed(nextDelay));
+                            else if (evtstatus == EventStatus.STATUS_CLEARED) {
+                                if (spoolExists) {
+                                    // send clear signal
+                                    publishSignal(eventSummary, subscription);
+                                    // delete spool
+                                    this.signalSpoolDao.delete(currentSpool.getUuid());
+                                }
+                            }
+                            else if (evtstatus == EventStatus.STATUS_AGED ||
+                                     evtstatus == EventStatus.STATUS_CLOSED) {
+                                if (spoolExists) {
+                                    // delete spool
+                                    this.signalSpoolDao.delete(currentSpool.getUuid());
+                                }
                             }
                         }
                     }
@@ -370,37 +441,43 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                 EventSummary eventSummary = this.eventSummaryDao.findByUuid(spool.getEventSummaryUuid());
                 EventStatus status = (eventSummary != null) ? eventSummary.getStatus() : null;
 
-                EventTriggerSubscription trSub = this.eventTriggerSubscriptionDao
-                        .findByUuid(spool.getSubscriptionUuid());
+                if (status == EventStatus.STATUS_NEW ||
+                    status == EventStatus.STATUS_ACKNOWLEDGED ||
+                    status == EventStatus.STATUS_SUPPRESSED) {
 
-                // Ensure trigger is still enabled
-                // TODO: Should we re-evaluate event against rule again?
-                boolean triggerEnabled = false;
-                if (trSub != null) {
-                    EventTrigger trigger = this.triggerDao.findByUuid(trSub.getTriggerUuid());
-                    if (trigger != null) {
-                        triggerEnabled = trigger.getEnabled();
+                    EventTriggerSubscription trSub = this.eventTriggerSubscriptionDao
+                            .findByUuid(spool.getSubscriptionUuid());
+
+                    // Check to see if trigger is still enabled
+                    boolean triggerEnabled = false;
+                    if (trSub != null) {
+                        EventTrigger trigger = this.triggerDao.findByUuid(trSub.getTriggerUuid());
+                        if (trigger != null) {
+                            triggerEnabled = trigger.getEnabled();
+                        }
                     }
-                }
 
-                int repeatInterval = -1;
-                if (triggerEnabled && (status == EventStatus.STATUS_NEW || status == EventStatus.STATUS_CLEARED)) {
-                    this.publishSignal(eventSummary, trSub);
-
-                    // If the event is still in NEW status, repeat the signal
-                    if (status == EventStatus.STATUS_NEW) {
-                        repeatInterval = trSub.getRepeatSeconds();
+                    if (status == EventStatus.STATUS_NEW && triggerEnabled) {
+                        publishSignal(eventSummary, trSub);
                     }
-                }
 
-                // If we don't repeat the signal, delete it from the spool
-                if (repeatInterval <= 0) {
-                    this.signalSpoolDao.delete(spool.getUuid());
-                }
-                else {
-                    this.signalSpoolDao.updateFlushTime(spool.getUuid(),
-                            now + TimeUnit.SECONDS.toMillis(repeatInterval));
-                    minRepeatSeconds = Math.min(repeatInterval, minRepeatSeconds);
+                    int repeatInterval = trSub.getRepeatSeconds();
+                    if (repeatInterval > 0) {
+                        long nextFlush = now + TimeUnit.SECONDS.toMillis(repeatInterval);
+                        minRepeatSeconds = repeatInterval;
+                        this.signalSpoolDao.updateFlushTime(spool.getUuid(),
+                                nextFlush);
+                    }
+                    else {
+                        boolean onlySendInitial = trSub.getSendInitialOccurrence();
+                        if (!onlySendInitial) {
+                            this.signalSpoolDao.delete(spool.getUuid());
+                        }
+                        else {
+                            this.signalSpoolDao.updateFlushTime(spool.getUuid(),
+                                Long.MAX_VALUE);
+                        }
+                    }
                 }
             }
         } catch (Exception e) {
@@ -411,10 +488,10 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
 
     private static class SpoolDelayed implements Delayed {
 
-        private final int seconds;
+        private final long milliseconds;
 
-        public SpoolDelayed(int seconds) {
-            this.seconds = seconds;
+        public SpoolDelayed(long msec) {
+            this.milliseconds = msec;
         }
 
         @Override
@@ -429,7 +506,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
 
         @Override
         public long getDelay(TimeUnit unit) {
-            return unit.convert(this.seconds, TimeUnit.SECONDS);
+            return unit.convert(this.milliseconds, TimeUnit.MILLISECONDS);
         }
     }
 }

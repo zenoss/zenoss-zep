@@ -107,6 +107,7 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
                             TABLE_EVENT_TRIGGER_SIGNAL_SPOOL, names, values,
                             COLUMN_EVENT_COUNT, COLUMN_EVENT_COUNT);
             this.template.update(sql, fields);
+            spool.setUuid(uuid);
             return uuid;
         } catch (DataAccessException e) {
             throw new ZepException(e);

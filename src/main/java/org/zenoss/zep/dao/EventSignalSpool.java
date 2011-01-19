@@ -110,8 +110,11 @@ public class EventSignalSpool {
         if (delaySeconds > 0) {
             flushTime = created + TimeUnit.SECONDS.toMillis(delaySeconds);
         }
-        else {
+        else if (repeatSeconds > 0) {
             flushTime = created + TimeUnit.SECONDS.toMillis(repeatSeconds);
+        }
+        else {
+            flushTime = Long.MAX_VALUE;
         }
         spool.setCreated(created);
         spool.setEventCount(1);
