@@ -134,10 +134,8 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
             @Override
             public Object call() throws Exception {
                 while (true) {
-                    int nextTime = processSpool();
-                    if (nextTime > 0 && nextTime < MAXIMUM_DELAY_SECONDS) {
-                        delayed.put(new SpoolDelayed(nextTime));
-                    }
+                    long now = System.currentTimeMillis();
+                    processSpool(now);
                     delayed.poll(MAXIMUM_DELAY_SECONDS, TimeUnit.SECONDS);
                 }
             }
@@ -303,105 +301,146 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
     @Override
     public void processEvent(EventSummary eventSummary)
             throws ZepException {
+
         // Triggers should only be processed for NEW and cleared events
         final EventStatus evtstatus = eventSummary.getStatus();
-        if (evtstatus == EventStatus.STATUS_NEW ||
-            evtstatus == EventStatus.STATUS_CLEARED ||
-            evtstatus == EventStatus.STATUS_AGED ||
-            evtstatus == EventStatus.STATUS_CLOSED) {
+        if (!(evtstatus == EventStatus.STATUS_NEW ||
+              evtstatus == EventStatus.STATUS_CLEARED ||
+              evtstatus == EventStatus.STATUS_AGED ||
+              evtstatus == EventStatus.STATUS_CLOSED)) {
 
-            List<EventTrigger> triggers = this.triggerDao.findAllEnabled();
-            for (EventTrigger trigger : triggers) {
-                logger.debug("Checking trigger {} against event {}", trigger, eventSummary);
+            return;
+        }
 
-                // check to see if this trigger has any subscriptions registered with it
-                // if not, continue, if yes, process trigger rule with regard to event.
-                List<EventTriggerSubscription> subscriptions = trigger.getSubscriptionsList();
-                if (subscriptions.isEmpty()) {
-                    continue;
-                }
+        long now = System.currentTimeMillis();
 
-                if (trigger.hasRule() && trigger.getRule().hasSource()) {
-                    Rule rule = trigger.getRule();
-                    String ruleSource = rule.getSource();
+        // iterate over all enabled triggers to see if any rules will match
+        // for this event summary
+        List<EventTrigger> triggers = this.triggerDao.findAllEnabled();
+        for (EventTrigger trigger : triggers) {
+            logger.debug("Checking trigger {} against event {}", trigger, eventSummary);
 
-                    if (eventSatisfiesRule(eventSummary, ruleSource)) {
-                        // handle interval evaluation/buffering
-                        for (EventTriggerSubscription subscription : subscriptions) {
-                            final int delaySeconds = subscription.getDelaySeconds();
-                            final int repeatSeconds = subscription.getRepeatSeconds();
+            // verify trigger has a defined rule
+            if (!(trigger.hasRule() && trigger.getRule().hasSource())) {
+                continue;
+            }
 
-                            // see if any spool already exists for this trigger-eventSummary
-                            // combination
-                            EventSignalSpool currentSpool =
-                                    this.signalSpoolDao.findByTriggerAndEventSummaryUuids(
-                                            trigger.getUuid(), eventSummary.getUuid()
-                                    );
-                            boolean spoolExists = (currentSpool != null);
+            Rule rule = trigger.getRule();
+            String ruleSource = rule.getSource();
 
-                            if (evtstatus == EventStatus.STATUS_NEW) {
-                                boolean onlySendInitial = subscription.getSendInitialOccurrence();
-                                boolean needSpoolDelay = false;
-                                // Send signal immediately if no delay
-                                if (delaySeconds <= 0) {
-                                    if (!onlySendInitial) {
-                                        this.publishSignal(eventSummary, subscription);
-                                    }
-                                    else {
-                                        if (!spoolExists) {
-                                            EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
-                                            this.signalSpoolDao.create(ess);
-                                            currentSpool = ess;
-                                            needSpoolDelay = true;
-                                            this.publishSignal(eventSummary, subscription);
-                                        }
-                                    }
-                                }
-                                else {
-                                    // delaySeconds > 0
-                                    if (!spoolExists) {
-                                        EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
-                                        this.signalSpoolDao.create(ess);
-                                        currentSpool = ess;
-                                        needSpoolDelay = true;
-                                    }
-                                    else {
-                                        if (repeatSeconds == 0) {
-                                            if (!onlySendInitial &&
-                                                currentSpool.getFlushTime() == Long.MAX_VALUE) {
-                                                this.signalSpoolDao.updateFlushTime(currentSpool.getUuid(),
-                                                        System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(delaySeconds));
-                                                needSpoolDelay = true;
-                                            }
-                                        }
-                                    }
-                                }
+            // if event does not match rule for current trigger, go on to the next
+            if (!eventSatisfiesRule(eventSummary, ruleSource)) {
+                logger.debug("event does not satisfy rule: {}", ruleSource);
+                continue;
+            }
 
-                                // If we have a delay or repeat interval, set up SpoolDelayed
-                                if (needSpoolDelay) {
-                                    long nextFlushTime = currentSpool.getFlushTime();
-                                    if (nextFlushTime != Long.MAX_VALUE) {
-                                        long nextDelay = nextFlushTime - System.currentTimeMillis();
-                                        delayed.put(new SpoolDelayed(nextDelay));
-                                    }
-                                }
+            // confirm trigger has any subscriptions registered with it
+            // if not, go on to the next
+            List<EventTriggerSubscription> subscriptions = trigger.getSubscriptionsList();
+            if (subscriptions.isEmpty()) {
+                logger.debug("no subscriptions for this trigger, go on to the next");
+                continue;
+            }
+
+            // event satisfies trigger rule and has at least one subscription,
+            // publish signal and/or spool for future signals
+
+
+            // handle interval evaluation/buffering
+            for (EventTriggerSubscription subscription : subscriptions) {
+                final int delaySeconds = subscription.getDelaySeconds();
+                final int repeatSeconds = subscription.getRepeatSeconds();
+
+                // see if any signalling spool already exists for this trigger-eventSummary
+                // combination
+                EventSignalSpool currentSpool =
+                        this.signalSpoolDao.findByTriggerAndEventSummaryUuids(
+                                subscription.getUuid(), eventSummary.getUuid()
+                        );
+                boolean spoolExists = (currentSpool != null);
+
+                logger.debug("delay|repeat|existing spool: {}|{}|{}", 
+                             new Object[] { Integer.toString(delaySeconds),
+                                            Integer.toString(repeatSeconds),
+                                            Boolean.toString(spoolExists) });
+
+                if (evtstatus == EventStatus.STATUS_NEW) {
+                    boolean onlySendInitial = subscription.getSendInitialOccurrence();
+                    boolean needSpoolDelay = false;
+                    // Send signal immediately if no delay
+                    if (delaySeconds <= 0) {
+                        if (!onlySendInitial) {
+                            logger.debug("send signal for event {}", eventSummary);
+                            this.publishSignal(eventSummary, subscription);
+                        }
+                        else {
+                            if (!spoolExists) {
+                                EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
+                                this.signalSpoolDao.create(ess);
+                                currentSpool = ess;
+                                needSpoolDelay = true;
+                                logger.debug("send signal for event {}", eventSummary);
+                                this.publishSignal(eventSummary, subscription);
                             }
-                            else if (evtstatus == EventStatus.STATUS_CLEARED) {
-                                if (spoolExists) {
-                                    // send clear signal
-                                    publishSignal(eventSummary, subscription);
-                                    // delete spool
-                                    this.signalSpoolDao.delete(currentSpool.getUuid());
-                                }
-                            }
-                            else if (evtstatus == EventStatus.STATUS_AGED ||
-                                     evtstatus == EventStatus.STATUS_CLOSED) {
-                                if (spoolExists) {
-                                    // delete spool
-                                    this.signalSpoolDao.delete(currentSpool.getUuid());
+                            else {
+                                if (repeatSeconds > 0 &&
+                                    currentSpool.getFlushTime() >
+                                        now + TimeUnit.SECONDS.toMillis(repeatSeconds)) {
+                                    logger.debug("adjust spool flush time to reflect new repeat seconds");
+                                    this.signalSpoolDao.updateFlushTime(currentSpool.getUuid(),
+                                            now + TimeUnit.SECONDS.toMillis(repeatSeconds));
                                 }
                             }
                         }
+                    }
+                    else {
+                        // delaySeconds > 0
+                        if (!spoolExists) {
+                            EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
+                            this.signalSpoolDao.create(ess);
+                            currentSpool = ess;
+                            needSpoolDelay = true;
+                        }
+                        else {
+                            if (repeatSeconds == 0) {
+                                if (!onlySendInitial &&
+                                    currentSpool.getFlushTime() == Long.MAX_VALUE) {
+                                    this.signalSpoolDao.updateFlushTime(currentSpool.getUuid(),
+                                            now + TimeUnit.SECONDS.toMillis(delaySeconds));
+                                    needSpoolDelay = true;
+                                }
+                            }
+                            else {
+                                if (currentSpool.getFlushTime() >
+                                        now + TimeUnit.SECONDS.toMillis(repeatSeconds)) {
+
+                                    this.signalSpoolDao.updateFlushTime(currentSpool.getUuid(),
+                                            now + TimeUnit.SECONDS.toMillis(repeatSeconds));
+                                }
+                            }
+                        }
+                    }
+
+                    // If we have a delay or repeat interval, set up SpoolDelayed
+                    if (needSpoolDelay) {
+                        long nextFlushTime = currentSpool.getFlushTime();
+                        if (nextFlushTime != Long.MAX_VALUE) {
+                            delayed.put(new SpoolDelayed(nextFlushTime));
+                        }
+                    }
+                }
+                else {
+                    // this is a closing event
+                    if (spoolExists) {
+
+                        if (evtstatus == EventStatus.STATUS_CLEARED) {
+                            // send clear signal
+                            logger.debug("sending clear signal for event {}", eventSummary);
+                            publishSignal(eventSummary, subscription);
+                        }
+
+                        // delete spool
+                        this.signalSpoolDao.delete(currentSpool.getUuid());
                     }
                 }
             }
@@ -430,10 +469,8 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
         }
     }
 
-    protected int processSpool() throws ZepException {
+    protected void processSpool(long now) throws ZepException {
         logger.debug("Processing signal spool");
-        int minRepeatSeconds = Integer.MAX_VALUE;
-        final long now = System.currentTimeMillis();
         try {
             // get spools that need to be processed
             List<EventSignalSpool> spools = this.signalSpoolDao.findAllDue();
@@ -458,15 +495,15 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                     }
 
                     if (status == EventStatus.STATUS_NEW && triggerEnabled) {
+                        logger.debug("sending spooled signal for event {}", eventSummary);
                         publishSignal(eventSummary, trSub);
                     }
 
                     int repeatInterval = trSub.getRepeatSeconds();
-                    if (repeatInterval > 0) {
+                    if (repeatInterval > 0 && repeatInterval != Long.MAX_VALUE) {
                         long nextFlush = now + TimeUnit.SECONDS.toMillis(repeatInterval);
-                        minRepeatSeconds = repeatInterval;
-                        this.signalSpoolDao.updateFlushTime(spool.getUuid(),
-                                nextFlush);
+                        this.signalSpoolDao.updateFlushTime(spool.getUuid(), nextFlush);
+                        delayed.put(new SpoolDelayed(nextFlush));
                     }
                     else {
                         boolean onlySendInitial = trSub.getSendInitialOccurrence();
@@ -474,8 +511,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                             this.signalSpoolDao.delete(spool.getUuid());
                         }
                         else {
-                            this.signalSpoolDao.updateFlushTime(spool.getUuid(),
-                                Long.MAX_VALUE);
+                            this.signalSpoolDao.updateFlushTime(spool.getUuid(), Long.MAX_VALUE);
                         }
                     }
                 }
@@ -483,15 +519,14 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
         } catch (Exception e) {
             logger.warn("Failed to process signal spool", e);
         }
-        return minRepeatSeconds;
     }
 
     private static class SpoolDelayed implements Delayed {
 
-        private final long milliseconds;
+        private final long delayUntil;
 
-        public SpoolDelayed(long msec) {
-            this.milliseconds = msec;
+        public SpoolDelayed(long expireTimestamp) {
+            this.delayUntil = expireTimestamp;
         }
 
         @Override
@@ -506,7 +541,9 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
 
         @Override
         public long getDelay(TimeUnit unit) {
-            return unit.convert(this.milliseconds, TimeUnit.MILLISECONDS);
+            long now = System.currentTimeMillis();
+            return unit.convert(this.delayUntil-now, TimeUnit.MILLISECONDS);
         }
     }
 }
+
