@@ -62,20 +62,11 @@ public class EventStoreDaoImpl implements EventStoreDao {
 
     @Override
     @Transactional
-    public void create(Event event, EventContext eventContext)
-            throws ZepException {
-
+    public void create(Event event, EventContext eventContext) throws ZepException {
         if (event.getSeverity() == EventSeverity.SEVERITY_CLEAR) {
-            // If we have no clear classes - send event straight to archive
-            if (eventContext.getClearClasses().isEmpty()) {
-                this.eventArchiveDao.create(event);
-                this.eventIndexer.markArchiveDirty();
-            } else {
-                this.eventSummaryDao.createClearEvent(event,
-                        eventContext.getClearClasses());
-                if (this.eventSummaryDao.clearEvents() > 0) {
-                    this.eventIndexer.markSummaryDirty();
-                }
+            String uuid = this.eventSummaryDao.createClearEvent(event, eventContext.getClearClasses());
+            if (uuid != null) {
+                this.eventIndexer.markSummaryDirty();
             }
         } else {
             this.eventSummaryDao.create(event, eventContext.getStatus());
@@ -88,8 +79,15 @@ public class EventStoreDaoImpl implements EventStoreDao {
     @Transactional
     public int delete(String uuid) throws ZepException {
         int rows = eventSummaryDao.delete(uuid);
-        rows += eventArchiveDao.delete(uuid);
-        eventSummaryIndexDao.delete(uuid);
+        if (rows > 0) {
+            eventSummaryIndexDao.delete(uuid);
+        }
+        else {
+            rows = eventArchiveDao.delete(uuid);
+            if (rows > 0) {
+                eventArchiveIndexDao.delete(uuid);
+            }
+        }
         return rows;
     }
 
@@ -150,8 +148,7 @@ public class EventStoreDaoImpl implements EventStoreDao {
     @Transactional
     public int ageEvents(long agingInterval, TimeUnit unit,
             EventSeverity maxSeverity, int limit) throws ZepException {
-        int numAged = eventSummaryDao.ageEvents(agingInterval, unit,
-                maxSeverity, limit);
+        int numAged = eventSummaryDao.ageEvents(agingInterval, unit, maxSeverity, limit);
         if (numAged > 0) {
             eventIndexer.markSummaryDirty();
         }
@@ -173,8 +170,14 @@ public class EventStoreDaoImpl implements EventStoreDao {
     @Transactional
     public int addNote(String uuid, EventNote note) throws ZepException {
         int numRows = eventSummaryDao.addNote(uuid, note);
-        if (numRows == 0) {
+        if (numRows > 0) {
+            eventIndexer.markSummaryDirty();
+        }
+        else {
             numRows = eventArchiveDao.addNote(uuid, note);
+            if (numRows > 0) {
+                eventIndexer.markArchiveDirty();
+            }
         }
         return numRows;
     }

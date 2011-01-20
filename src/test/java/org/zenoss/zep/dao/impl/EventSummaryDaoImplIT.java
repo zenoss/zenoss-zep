@@ -303,23 +303,17 @@ public class EventSummaryDaoImplIT extends
         assertFalse(summary.hasAcknowledgedByUserUuid());
         assertFalse(summary.hasAcknowledgedByUserName());
 
-        String userUuid = UUID.randomUUID().toString();
-        String userName = "user" + random.nextInt(500);
-        int numUpdated = eventSummaryDao.acknowledge(
-                Collections.singletonList(summary.getUuid()), userUuid, userName);
+        int numUpdated = eventSummaryDao.close(Collections.singletonList(summary.getUuid()));
         assertEquals(1, numUpdated);
         summary = eventSummaryDao.findByUuid(summary.getUuid());
-        assertEquals(userUuid, summary.getAcknowledgedByUserUuid());
-        assertEquals(userName, summary.getAcknowledgedByUserName());
-        assertEquals(EventStatus.STATUS_ACKNOWLEDGED, summary.getStatus());
+        assertEquals(EventStatus.STATUS_CLOSED, summary.getStatus());
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
         origStatusChange = summary.getStatusChangeTime();
         origUpdateTime = summary.getUpdateTime();
 
         /* Now reopen event */
-        numUpdated = eventSummaryDao.reopen(Collections.singletonList(summary
-                .getUuid()));
+        numUpdated = eventSummaryDao.reopen(Collections.singletonList(summary.getUuid()));
         assertEquals(1, numUpdated);
         EventSummary origSummary = summary;
         summary = eventSummaryDao.findByUuid(summary.getUuid());
@@ -493,34 +487,11 @@ public class EventSummaryDaoImplIT extends
                 Collections.singleton(normalEvent.getOccurrence(0)
                         .getEventClass()));
         assertEquals(EventStatus.STATUS_CLOSED, clearEvent.getStatus());
-        assertEquals(1, eventSummaryDao.clearEvents());
         EventSummary normalEventSummary = eventSummaryDao
                 .findByUuid(normalEvent.getUuid());
         assertEquals(EventStatus.STATUS_CLEARED, normalEventSummary.getStatus());
-        assertTrue(normalEventSummary.getStatusChangeTime() > normalEvent
-                .getStatusChangeTime());
-        compareSummary(normalEvent, normalEventSummary);
-    }
-
-    @Test
-    public void testClearEventsOutOfOrder() throws ZepException {
-        Event event = createUniqueEvent();
-        /* Create clear event first with later timestamp */
-        EventSummary clearEvent = createSummaryClear(
-                Event.newBuilder(createUniqueEvent())
-                        .setCreatedTime(event.getCreatedTime() + 100L)
-                        .setActor(event.getActor())
-                        .setSeverity(EventSeverity.SEVERITY_CLEAR).build(),
-                Collections.singleton(event.getEventClass()));
-        assertEquals(EventStatus.STATUS_CLOSED, clearEvent.getStatus());
-        EventSummary normalEvent = createSummaryNew(Event.newBuilder(event)
-                .setSeverity(EventSeverity.SEVERITY_WARNING).build());
-        assertEquals(1, eventSummaryDao.clearEvents());
-        EventSummary normalEventSummary = eventSummaryDao
-                .findByUuid(normalEvent.getUuid());
-        assertTrue(normalEventSummary.getStatusChangeTime() > normalEvent
-                .getStatusChangeTime());
-        assertEquals(EventStatus.STATUS_CLEARED, normalEventSummary.getStatus());
+        assertEquals(clearEvent.getUuid(), normalEventSummary.getClearedByEventUuid());
+        assertTrue(normalEventSummary.getStatusChangeTime() > normalEvent.getStatusChangeTime());
         compareSummary(normalEvent, normalEventSummary);
     }
 
@@ -636,14 +607,15 @@ public class EventSummaryDaoImplIT extends
         String clearHashString = EventDaoUtils.join('|', elementSubUuid, occurrence.getEventClass(),
                 occurrence.getEventKey());
         byte[] clearHash = MessageDigest.getInstance("SHA-1").digest(clearHashString.getBytes("UTF-8"));
+        Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(summary.getUuid()));
         byte[] clearHashFromDb = this.simpleJdbcTemplate.query(
-                "SELECT clear_fingerprint_hash FROM event_summary WHERE uuid=?",
+                "SELECT clear_fingerprint_hash FROM event_summary WHERE uuid=:uuid",
                 new RowMapper<byte[]>() {
                     @Override
                     public byte[] mapRow(ResultSet rs, int rowNum) throws SQLException {
                         return rs.getBytes("clear_fingerprint_hash");
                     }
-                }, DaoUtils.uuidToBytes(summary.getUuid())).get(0);
+                }, fields).get(0);
         assertArrayEquals(clearHash, clearHashFromDb);
     }
 
@@ -678,14 +650,15 @@ public class EventSummaryDaoImplIT extends
                 actor.getElementSubIdentifier(), occurrence.getEventClass(),
                 occurrence.getEventKey());
         byte[] clearHash = MessageDigest.getInstance("SHA-1").digest(clearHashString.getBytes("UTF-8"));
+        Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(summary.getUuid()));
         byte[] clearHashFromDb = this.simpleJdbcTemplate.query(
-                "SELECT clear_fingerprint_hash FROM event_summary WHERE uuid=?",
+                "SELECT clear_fingerprint_hash FROM event_summary WHERE uuid=:uuid",
                 new RowMapper<byte[]>() {
                     @Override
                     public byte[] mapRow(ResultSet rs, int rowNum) throws SQLException {
                         return rs.getBytes("clear_fingerprint_hash");
                     }
-                }, DaoUtils.uuidToBytes(summary.getUuid())).get(0);
+                }, fields).get(0);
         assertArrayEquals(clearHash, clearHashFromDb);
     }
 
@@ -728,5 +701,18 @@ public class EventSummaryDaoImplIT extends
         assertEquals(Arrays.asList("foobar","foobaz"), detailsMap.get("foo"));
         assertEquals(Arrays.asList("bar2", "baz2"), detailsMap.get("foo2"));
         assertEquals(Arrays.asList("foobar3", "foobaz3"), detailsMap.get("foo3"));
+    }
+
+    @Test
+    public void testArchive() throws ZepException {
+        EventSummary summary1 = createSummaryNew(createUniqueEvent());
+        EventSummary summary2 = createSummaryNew(createUniqueEvent());
+        EventSummary summary3 = createSummaryNew(createUniqueEvent());
+
+        List<String> uuids = Arrays.asList(summary1.getUuid(), summary2.getUuid(), summary3.getUuid());
+        int numArchived = this.eventSummaryDao.archive(uuids);
+        assertEquals(uuids.size(), numArchived);
+        assertEquals(0, this.eventSummaryDao.findByUuids(uuids).size());
+        assertEquals(uuids.size(), this.eventArchiveDao.findByUuids(uuids).size());
     }
 }

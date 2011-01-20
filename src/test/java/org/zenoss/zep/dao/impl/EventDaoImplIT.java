@@ -12,6 +12,7 @@ package org.zenoss.zep.dao.impl;
 
 import static org.junit.Assert.*;
 
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 
@@ -24,14 +25,18 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
+import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventDao;
+import org.zenoss.zep.dao.EventSummaryDao;
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
-public class EventDaoImplIT extends
-        AbstractTransactionalJUnit4SpringContextTests {
+public class EventDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
+
+    @Autowired
+    public EventSummaryDao summaryDao;
 
     @Autowired
     public EventDao eventDao;
@@ -62,12 +67,9 @@ public class EventDaoImplIT extends
                 .addValue("bar").addValue("baz").build());
         eventBuilder.addDetails(EventDetail.newBuilder().setName("foo2")
                 .addValue("bar2").addValue("baz2").build());
-        eventBuilder.addTags(createTag(ModelElementType.DEVICE, UUID
-                .randomUUID().toString()));
-        eventBuilder.addTags(createTag(ModelElementType.COMPONENT, UUID
-                .randomUUID().toString()));
-        eventBuilder.addTags(createTag(ModelElementType.SERVICE, UUID
-                .randomUUID().toString()));
+        eventBuilder.addTags(createTag(ModelElementType.DEVICE, UUID.randomUUID().toString()));
+        eventBuilder.addTags(createTag(ModelElementType.COMPONENT, UUID.randomUUID().toString()));
+        eventBuilder.addTags(createTag(ModelElementType.SERVICE, UUID.randomUUID().toString()));
         eventBuilder.addTags(createTag(actor.getElementTypeId(),
                 actor.getElementUuid()));
         eventBuilder.addTags(createTag(actor.getElementSubTypeId(),
@@ -94,13 +96,17 @@ public class EventDaoImplIT extends
     @Test
     public void testCreateAllFields() throws ZepException {
         Event event = createSampleEvent();
-        String uuid = eventDao.create(event);
+        String summaryUuid = summaryDao.create(event, EventStatus.STATUS_NEW);
 
-        Event eventFromDb = eventDao.findByUuid(uuid);
-        assertEquals(uuid, eventFromDb.getUuid());
+        Event eventFromDb = eventDao.findByUuid(event.getUuid());
+        assertEquals(event.getUuid(), eventFromDb.getUuid());
         assertEquals(event, eventFromDb);
 
-        eventDao.delete(uuid);
-        assertNull(eventDao.findByUuid(uuid));
+        List<Event> occurrences = eventDao.findBySummaryUuid(summaryUuid);
+        assertEquals(1, occurrences.size());
+        assertEquals(event, occurrences.get(0));
+
+        eventDao.delete(event.getUuid());
+        assertNull(eventDao.findByUuid(event.getUuid()));
     }
 }

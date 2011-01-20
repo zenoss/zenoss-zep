@@ -22,6 +22,7 @@ import org.zenoss.zep.dao.EventDao;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -32,8 +33,7 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 public class EventDaoImpl implements EventDao {
 
     @SuppressWarnings("unused")
-    private static final Logger logger = LoggerFactory
-            .getLogger(EventDaoImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventDaoImpl.class);
 
     private final SimpleJdbcTemplate template;
     private EventDaoHelper eventDaoHelper;
@@ -56,25 +56,25 @@ public class EventDaoImpl implements EventDao {
 
     @Override
     @Transactional
-    public String create(Event event) throws ZepException {
-        Map<String, Object> fields = eventDaoHelper.insert(event);
-        return DaoUtils.uuidFromBytes((byte[]) fields.get(COLUMN_UUID));
-    }
-
-    @Override
-    @Transactional
     public int delete(String uuid) throws ZepException {
-        return this.template.update("DELETE FROM event WHERE uuid=?",
-                DaoUtils.uuidToBytes(uuid));
+        final Map<String,byte[]> params = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
+        return this.template.update("DELETE FROM event WHERE uuid=:uuid", params);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Event findByUuid(String uuid) throws ZepException {
-        List<Event> events = template.query("SELECT * FROM event WHERE uuid=?",
-                new EventRowMapper(this.eventDaoHelper),
-                DaoUtils.uuidToBytes(uuid));
+        final Map<String,byte[]> params = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
+        List<Event> events = template.query("SELECT * FROM event WHERE uuid=:uuid",
+                new EventRowMapper(this.eventDaoHelper), params);
         return (events.size() > 0) ? events.get(0) : null;
+    }
+
+    @Override
+    public List<Event> findBySummaryUuid(String summaryUuid) throws ZepException {
+        final Map<String,byte[]> params = Collections.singletonMap(COLUMN_SUMMARY_UUID, DaoUtils.uuidToBytes(summaryUuid));
+        return template.query("SELECT * FROM event WHERE summary_uuid=:summary_uuid",
+                new EventRowMapper(this.eventDaoHelper), params);
     }
 
     @Override

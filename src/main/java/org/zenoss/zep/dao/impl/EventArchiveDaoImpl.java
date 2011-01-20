@@ -13,6 +13,7 @@ package org.zenoss.zep.dao.impl;
 import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -64,10 +65,11 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @Override
     @Transactional
     public String create(Event event) throws ZepException {
-        Map<String, Object> fields = eventDaoHelper.insert(event);
+        Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
+        Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
         long created = (Long) fields.remove(COLUMN_CREATED);
         long updateTime = System.currentTimeMillis();
-        final UUID uuid = UUID.randomUUID();
+        final String uuid = UUID.randomUUID().toString();
         final EventStatus status = EventStatus.STATUS_CLOSED;
         final int eventCount = 1;
         fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
@@ -83,23 +85,26 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         }
 
         this.template.update(DaoUtils.createNamedInsert(TABLE_EVENT_ARCHIVE, fields.keySet()), fields);
-        return uuid.toString();
+
+        /* Create occurrence */
+        occurrenceFields.put(COLUMN_SUMMARY_UUID, fields.get(COLUMN_UUID));
+        this.eventDaoHelper.insert(occurrenceFields);
+        return uuid;
     }
 
     @Override
     @Transactional
     public int delete(String uuid) throws ZepException {
-        return this.template.update("DELETE FROM event_archive WHERE uuid=?",
-                DaoUtils.uuidToBytes(uuid));
+        final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
+        return this.template.update("DELETE FROM event_archive WHERE uuid=:uuid", fields);
     }
 
     @Override
     @Transactional(readOnly = true)
     public EventSummary findByUuid(String uuid) throws ZepException {
-        List<EventSummary> summaries = this.template.query(
-                "SELECT * FROM event_archive WHERE uuid=?",
-                new EventSummaryRowMapper(this.eventDaoHelper),
-                DaoUtils.uuidToBytes(uuid));
+        final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
+        List<EventSummary> summaries = this.template.query("SELECT * FROM event_archive WHERE uuid=:uuid",
+                new EventSummaryRowMapper(this.eventDaoHelper), fields);
         return (summaries.size() > 0) ? summaries.get(0) : null;
     }
 

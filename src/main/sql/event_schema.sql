@@ -27,14 +27,14 @@ CREATE TABLE `element_event_summary`
 CREATE TABLE `event_class_key`
 (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(128) NOT NULL UNIQUE COMMENT 'Free-form text field (maximum 128 characters) that is used as the first step in mapping an unknown event into an event class.',
+    `name` VARCHAR(128) NOT NULL UNIQUE COMMENT 'Free-form text field that is used as the first step in mapping an unknown event into an event class.',
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 CREATE TABLE `event_key`
 (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(128) NOT NULL UNIQUE COMMENT 'Free-form text field (maximum 128 characters) that allows another specificity key to be used to drive the de-duplication and auto-clearing correlation process.',
+    `name` VARCHAR(128) NOT NULL UNIQUE COMMENT 'Free-form text field that allows another specificity key to be used to drive the de-duplication and auto-clearing correlation process.',
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
@@ -55,7 +55,7 @@ CREATE TABLE `agent`
 CREATE TABLE `event_group`
 (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `name` VARCHAR(64) NOT NULL UNIQUE COMMENT 'Free-form text field (maximum 64 characters) that can be used to group similar types of events. This is primarily an extension point for customization. Currently not used in a standard system.',
+    `name` VARCHAR(64) NOT NULL UNIQUE COMMENT 'Free-form text field that can be used to group similar types of events. This is primarily an extension point for customization. Currently not used in a standard system.',
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
@@ -70,40 +70,40 @@ CREATE TABLE `index_version`
 CREATE TABLE `event_summary`
 (
     `uuid` BINARY(16) NOT NULL,
-    `fingerprint_hash` BINARY(20) NOT NULL COMMENT 'SHA-1 hash of the dedupid. Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
-    `fingerprint` VARCHAR(255) NOT NULL COMMENT 'Human readable dedupid. Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
+    `fingerprint_hash` BINARY(20) NOT NULL COMMENT 'SHA-1 hash of the fingerprint.',
+    `fingerprint` VARCHAR(255) NOT NULL COMMENT 'Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
     `status_id` TINYINT NOT NULL,
-    `event_group_id` INTEGER COMMENT 'Can be used to group similar types of events. This is primarily an extension point for customization. Currently not used in a standard system.',
+    `event_group_id` INTEGER COMMENT 'Can be used to group similar types of events. This is primarily an extension point for customization.',
     `event_class_id` INTEGER NOT NULL,
     `event_class_key_id` INTEGER COMMENT 'Used as the first step in mapping an unknown event into an event class.',
-    `event_class_mapping_uuid` BINARY(16) COMMENT 'If this event was matched by one of the configured event class mappings, contains the name of that mapping rule.',
+    `event_class_mapping_uuid` BINARY(16) COMMENT 'If this event was matched by one of the configured event class mappings, contains the UUID of that mapping rule.',
     `event_key_id` INTEGER,
     `severity_id` TINYINT NOT NULL,
     `element_uuid` BINARY(16),
     `element_type_id` TINYINT,
-    `element_identifier` VARCHAR(255) COMMENT 'Identifier used for element.',
-    `element_sub_uuid` BINARY(16) COMMENT 'Unique identifier for sub element',
+    `element_identifier` VARCHAR(255),
+    `element_sub_uuid` BINARY(16),
     `element_sub_type_id` TINYINT,
-    `element_sub_identifier` VARCHAR(255) COMMENT 'Identifier used for sub element.',
-    `update_time` BIGINT NOT NULL COMMENT 'Used to determine whether event has been indexed.',
+    `element_sub_identifier` VARCHAR(255),
+    `update_time` BIGINT NOT NULL COMMENT 'Last time any modification was made to the event. Used to determine whether event should be re-indexed.',
     `first_seen` BIGINT NOT NULL COMMENT 'UTC Time. First time that the event occurred.',
-    `status_change` BIGINT NOT NULL COMMENT 'Last time that any information about the event changed.',
+    `status_change` BIGINT NOT NULL COMMENT 'Last time that the event status changed.',
     `last_seen` BIGINT NOT NULL COMMENT 'UTC time. Most recent time that the event occurred.',
-    `event_count` INTEGER NOT NULL COMMENT 'Number of occurrences of the event between the firstTime and lastTime.',
+    `event_count` INTEGER NOT NULL COMMENT 'Number of occurrences of the event.',
     `monitor_id` INTEGER COMMENT 'In a distributed setup, contains the name of the collector from which the event originated.',
     `agent_id` INTEGER COMMENT 'Typically the name of the daemon that generated the event. For example, an SNMP threshold event will have zenperfsnmp as its agent.',
-    `syslog_facility` INTEGER COMMENT 'Only present on events coming from syslog. The syslog facility.',
-    `syslog_priority` TINYINT COMMENT 'Only present on events coming from syslog. The syslog priority.',
-    `nt_event_code` INTEGER COMMENT 'Only present on events coming from Windows event log. The NT Event Code.',
+    `syslog_facility` INTEGER COMMENT 'The syslog facility.',
+    `syslog_priority` TINYINT COMMENT 'The syslog priority.',
+    `nt_event_code` INTEGER COMMENT 'The Windows NT Event Code.',
     `acknowledged_by_user_uuid` BINARY(16) COMMENT 'UUID of the user who acknowledged this event.',
-    `acknowledged_by_user_name` VARCHAR(32) COMMENT 'User name who acknowledged this event.',
+    `acknowledged_by_user_name` VARCHAR(32) COMMENT 'Name of the user who acknowledged this event.',
     `clear_fingerprint_hash` BINARY(20) COMMENT 'Hash of clear fingerprint used for clearing events.',
-    `cleared_by_event_uuid` BINARY(16) COMMENT 'Only present on events in archive that were cleared. The uuid of the event that cleared this one.',
+    `cleared_by_event_uuid` BINARY(16) COMMENT 'The UUID of the event that cleared this event (for events with status == CLEARED).',
     `summary` VARCHAR(255) NOT NULL DEFAULT '',
     `message` VARCHAR(4096) NOT NULL DEFAULT '',
     `details_json` MEDIUMTEXT COMMENT 'JSON encoded event details.',
     `tags_json` MEDIUMTEXT COMMENT 'JSON encoded event tags.',
-    `notes_json` MEDIUMTEXT COMMENT 'Event notes (formerly log).',
+    `notes_json` MEDIUMTEXT COMMENT 'JSON encoded event notes (formerly log).',
     PRIMARY KEY (uuid),
     UNIQUE KEY (fingerprint_hash),
     FOREIGN KEY (`event_group_id`) REFERENCES `event_group` (`id`),
@@ -118,79 +118,79 @@ CREATE TABLE `event_summary`
     INDEX (`update_time`),
     INDEX (`element_uuid`,`element_type_id`,`element_identifier`),
     INDEX (`element_sub_uuid`,`element_sub_type_id`,`element_sub_identifier`)
-) ENGINE=InnoDB COMMENT='Contains details about the most recent record.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 CREATE TABLE `event_archive`
 (
     `uuid` BINARY(16) NOT NULL,
-    `fingerprint_hash` BINARY(20) NOT NULL COMMENT 'SHA-1 hash of the dedupid. Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
-    `fingerprint` VARCHAR(255) NOT NULL COMMENT 'Human readable dedupid. Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
+    `fingerprint_hash` BINARY(20) NOT NULL COMMENT 'SHA-1 hash of the fingerprint.',
+    `fingerprint` VARCHAR(255) NOT NULL COMMENT 'Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
     `status_id` TINYINT NOT NULL,
-    `event_group_id` INTEGER COMMENT 'Can be used to group similar types of events. This is primarily an extension point for customization. Currently not used in a standard system.',
+    `event_group_id` INTEGER COMMENT 'Can be used to group similar types of events. This is primarily an extension point for customization.',
     `event_class_id` INTEGER NOT NULL,
     `event_class_key_id` INTEGER COMMENT 'Used as the first step in mapping an unknown event into an event class.',
-    `event_class_mapping_uuid` BINARY(16) COMMENT 'If this event was matched by one of the configured event class mappings, contains the name of that mapping rule.',
+    `event_class_mapping_uuid` BINARY(16) COMMENT 'If this event was matched by one of the configured event class mappings, contains the UUID of that mapping rule.',
     `event_key_id` INTEGER,
     `severity_id` TINYINT NOT NULL,
     `element_uuid` BINARY(16),
     `element_type_id` TINYINT,
-    `element_identifier` VARCHAR(255) COMMENT 'Identifier used for element.',
-    `element_sub_uuid` BINARY(16) COMMENT 'Unique identifier for sub element',
+    `element_identifier` VARCHAR(255),
+    `element_sub_uuid` BINARY(16),
     `element_sub_type_id` TINYINT,
-    `element_sub_identifier` VARCHAR(255) COMMENT 'Identifier used for sub element.',
-    `update_time` BIGINT NOT NULL COMMENT 'Used to determine whether event has been indexed.',
+    `element_sub_identifier` VARCHAR(255),
+    `update_time` BIGINT NOT NULL COMMENT 'Last time any modification was made to the event. Used to determine whether event should be re-indexed.',
     `first_seen` BIGINT NOT NULL COMMENT 'UTC Time. First time that the event occurred.',
-    `status_change` BIGINT NOT NULL COMMENT 'Last time that any information about the event changed.',
+    `status_change` BIGINT NOT NULL COMMENT 'Last time that the event status changed.',
     `last_seen` BIGINT NOT NULL COMMENT 'UTC time. Most recent time that the event occurred.',
-    `event_count` INTEGER NOT NULL COMMENT 'Number of occurrences of the event between the firstTime and lastTime.',
+    `event_count` INTEGER NOT NULL COMMENT 'Number of occurrences of the event.',
     `monitor_id` INTEGER COMMENT 'In a distributed setup, contains the name of the collector from which the event originated.',
     `agent_id` INTEGER COMMENT 'Typically the name of the daemon that generated the event. For example, an SNMP threshold event will have zenperfsnmp as its agent.',
-    `syslog_facility` INTEGER COMMENT 'Only present on events coming from syslog. The syslog facility.',
-    `syslog_priority` TINYINT COMMENT 'Only present on events coming from syslog. The syslog priority.',
-    `nt_event_code` INTEGER COMMENT 'Only present on events coming from Windows event log. The NT Event Code.',
+    `syslog_facility` INTEGER COMMENT 'The syslog facility.',
+    `syslog_priority` TINYINT COMMENT 'The syslog priority.',
+    `nt_event_code` INTEGER COMMENT 'The Windows NT Event Code.',
     `acknowledged_by_user_uuid` BINARY(16) COMMENT 'UUID of the user who acknowledged this event.',
-    `acknowledged_by_user_name` VARCHAR(32) COMMENT 'User name who acknowledged this event.',
-    `clear_fingerprint_hash` BINARY(20) COMMENT 'SHA-1 hash of clear fingerprint used for clearing events.',
-    `cleared_by_event_uuid` BINARY(16) COMMENT 'Only present on events in archive that were auto-cleared. The uuid of the event that cleared this one.',
+    `acknowledged_by_user_name` VARCHAR(32) COMMENT 'Name of the user who acknowledged this event.',
+    `clear_fingerprint_hash` BINARY(20) COMMENT 'Hash of clear fingerprint used for clearing events.',
+    `cleared_by_event_uuid` BINARY(16) COMMENT 'The UUID of the event that cleared this event (for events with status == CLEARED).',
     `summary` VARCHAR(255) NOT NULL DEFAULT '',
     `message` VARCHAR(4096) NOT NULL DEFAULT '',
     `details_json` MEDIUMTEXT COMMENT 'JSON encoded event details.',
     `tags_json` MEDIUMTEXT COMMENT 'JSON encoded event tags.',
-    `notes_json` MEDIUMTEXT COMMENT 'Event notes (formerly log).',
+    `notes_json` MEDIUMTEXT COMMENT 'JSON encoded event notes (formerly log).',
     INDEX (`uuid`),
     INDEX (`update_time`)
-) ENGINE=InnoDB COMMENT='Contains details about archived event summaries.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
+) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 CREATE TABLE `event`
 (
     `uuid` BINARY(16) NOT NULL,
-    `fingerprint_hash` BINARY(20) NOT NULL COMMENT 'SHA-1 hash of the dedupid. Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
-    `fingerprint` VARCHAR(255) NOT NULL COMMENT 'Human readable dedupid. Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
-    `event_group_id` INTEGER COMMENT 'Can be used to group similar types of events. This is primarily an extension point for customization. Currently not used in a standard system.',
+    `summary_uuid` BINARY(16) NOT NULL COMMENT 'UUID of the event summary this occurrence was de-duplicated into.',
+    `fingerprint` VARCHAR(255) NOT NULL COMMENT 'Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
+    `event_group_id` INTEGER COMMENT 'Can be used to group similar types of events. This is primarily an extension point for customization.',
     `event_class_id` INTEGER NOT NULL,
     `event_class_key_id` INTEGER COMMENT 'Used as the first step in mapping an unknown event into an event class.',
-    `event_class_mapping_uuid` BINARY(16) COMMENT 'If this event was matched by one of the configured event class mappings, contains the name of that mapping rule.',
+    `event_class_mapping_uuid` BINARY(16) COMMENT 'If this event was matched by one of the configured event class mappings, contains the UUID of that mapping rule.',
     `event_key_id` INTEGER,
     `severity_id` TINYINT NOT NULL,
     `element_uuid` BINARY(16),
     `element_type_id` TINYINT,
-    `element_identifier` VARCHAR(255) COMMENT 'Identifier used for element.',
-    `element_sub_uuid` BINARY(16) COMMENT 'Unique identifier for sub element',
+    `element_identifier` VARCHAR(255),
+    `element_sub_uuid` BINARY(16),
     `element_sub_type_id` TINYINT,
-    `element_sub_identifier` VARCHAR(255) COMMENT 'Identifier used for sub element.',
+    `element_sub_identifier` VARCHAR(255),
     `created` BIGINT NOT NULL COMMENT 'UTC Time. Time that the event occurred.',
     `monitor_id` INTEGER COMMENT 'In a distributed setup, contains the name of the collector from which the event originated.',
     `agent_id` INTEGER COMMENT 'Typically the name of the daemon that generated the event. For example, an SNMP threshold event will have zenperfsnmp as its agent.',
-    `syslog_facility` INTEGER COMMENT 'Only present on events coming from syslog. The syslog facility.',
-    `syslog_priority` TINYINT COMMENT 'Only present on events coming from syslog. The syslog priority.',
-    `nt_event_code` INTEGER COMMENT 'Only present on events coming from Windows event log. The NT EventCode.',
+    `syslog_facility` INTEGER COMMENT 'The syslog facility.',
+    `syslog_priority` TINYINT COMMENT 'The syslog priority.',
+    `nt_event_code` INTEGER COMMENT 'The Windows NT Event Code.',
     `summary` VARCHAR(255) NOT NULL DEFAULT '',
     `message` VARCHAR(4096) NOT NULL DEFAULT '',
     `details_json` MEDIUMTEXT COMMENT 'JSON encoded event details.',
     `tags_json` MEDIUMTEXT COMMENT 'JSON encoded event tags.',
     INDEX (`uuid`),
-    INDEX (`fingerprint_hash`)
-) ENGINE=InnoDB COMMENT='Every occurrence of an event goes here.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
+    INDEX (`summary_uuid`)
+) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 CREATE TABLE `config`
 (
@@ -228,9 +228,9 @@ CREATE TABLE `event_trigger_signal_spool`
     `uuid` BINARY(16) NOT NULL,
     `event_trigger_subscription_uuid` BINARY(16) NOT NULL,
     `event_summary_uuid` BINARY(16) NOT NULL,
-    `flush_time` BIGINT DEFAULT 0 NOT NULL COMMENT 'This Signal will be sent when the flush_time is reached',
+    `flush_time` BIGINT DEFAULT 0 NOT NULL COMMENT 'A signal will be sent when the flush_time is reached',
     `created` BIGINT NOT NULL,
-    `event_count` INTEGER DEFAULT 1 NOT NULL COMMENT 'The number of times the event occured while the Signal was in the spool.',
+    `event_count` INTEGER DEFAULT 1 NOT NULL COMMENT 'The number of times the event occurred while the signal was in the spool.',
     PRIMARY KEY (`uuid`),
     FOREIGN KEY (`event_trigger_subscription_uuid`) REFERENCES `event_trigger_subscription` (`uuid`) ON DELETE CASCADE,
     FOREIGN KEY (`event_summary_uuid`) REFERENCES `event_summary` (`uuid`) ON DELETE CASCADE,
@@ -239,12 +239,4 @@ CREATE TABLE `event_trigger_signal_spool`
     INDEX (`created`)
 ) ENGINE=InnoDB COMMENT='Spool for event flapping.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
-CREATE TABLE `clear_events`
-(
-    `event_summary_uuid` BINARY(16) NOT NULL,
-    `clear_fingerprint_hash` BINARY(20) NOT NULL,
-    `last_seen` BIGINT NOT NULL,
-    FOREIGN KEY (`event_summary_uuid`) REFERENCES `event_summary` (`uuid`) ON DELETE CASCADE,
-    UNIQUE (`clear_fingerprint_hash`)
-) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 

@@ -10,10 +10,17 @@
  */
 package org.zenoss.zep.dao.impl;
 
+import org.springframework.jdbc.support.DatabaseMetaDataCallback;
+import org.springframework.jdbc.support.JdbcUtils;
+import org.springframework.jdbc.support.MetaDataAccessException;
+
+import javax.sql.DataSource;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -38,20 +45,6 @@ public final class DaoUtils {
     public static byte[] uuidToBytes(String uuidStr) {
         final ByteBuffer bb = ByteBuffer.allocate(16);
         final UUID uuid = UUID.fromString(uuidStr);
-        bb.putLong(uuid.getMostSignificantBits());
-        bb.putLong(uuid.getLeastSignificantBits());
-        return bb.array();
-    }
-
-    /**
-     * Converts the UUID to a 16-byte byte array.
-     * 
-     * @param uuid
-     *            UUID.
-     * @return 16 byte array.
-     */
-    public static byte[] uuidToBytes(UUID uuid) {
-        final ByteBuffer bb = ByteBuffer.allocate(16);
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
         return bb.array();
@@ -194,5 +187,31 @@ public final class DaoUtils {
             }
         }
         return "INSERT INTO " + tableName + " (" + names + ") VALUES (" + values + ")";
+    }
+
+    /**
+     * Returns a list of column names in the specified table.
+     *
+     * @param dataSource DataSource to use.
+     * @param tableName Table name.
+     * @return A list of column names in the table.
+     * @throws MetaDataAccessException If an exception occurs.
+     */
+    public static List<String> getColumnNames(final DataSource dataSource, final String tableName)
+            throws MetaDataAccessException {
+        final List<String> columnNames = new ArrayList<String>();
+        JdbcUtils.extractDatabaseMetaData(dataSource, new DatabaseMetaDataCallback() {
+            @Override
+            public Object processMetaData(DatabaseMetaData dbmd) throws SQLException, MetaDataAccessException {
+                ResultSet rs = dbmd.getColumns(null, null, tableName, null);
+                while (rs.next()) {
+                    String columnName = rs.getString("COLUMN_NAME");
+                    columnNames.add(columnName);
+                }
+                rs.close();
+                return null;
+            }
+        });
+        return columnNames;
     }
 }

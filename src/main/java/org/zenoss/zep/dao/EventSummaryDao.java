@@ -49,26 +49,17 @@ public interface EventSummaryDao {
      *            Event occurrence.
      * @param clearClasses
      *            Clear classes.
-     * @return The UUID of the created (or updated) event.
+     * @return The UUID of the created clear event, or null if this clear
+     *         event didn't clear any existing events and was dropped.
      * @throws ZepException If an exception occurred.
      */
     public String createClearEvent(Event event, Set<String> clearClasses)
             throws ZepException;
 
     /**
-     * Processes clear events (will clear all events in the summary table which
-     * have a corresponding clear event which came in at a later timestamp).
-     * 
-     * @return The number of cleared events.
-     * @throws ZepException
-     *             If an exception occurred.
-     */
-    public int clearEvents() throws ZepException;
-
-    /**
-     * Updates event summaries recorded with null device uuid's, after
+     * Updates event summaries recorded with null device UUIDs, after
      * receiving a ModelChange event for the device's addition - sets the
-     * device uuid for all matching events summaries with null uuid, and updates
+     * device UUID for all matching events summaries with null UUID, and updates
      * the summary update time.
      * 
      * @param type The model type.
@@ -102,20 +93,6 @@ public interface EventSummaryDao {
      *             If an exception occurs.
      */
     public int delete(String uuid) throws ZepException;
-
-    /**
-     * Returns the event matching the specified fingerprint, or null if the
-     * event cannot be found.
-     * 
-     * @param fingerprint
-     *            The fingerprint of the event to find.
-     * @return The event with the specified fingerprint, or null if the event is
-     *         not found.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public EventSummary findByFingerprint(String fingerprint)
-            throws ZepException;
 
     /**
      * Finds the event summary entry with the specified UUID.
@@ -156,7 +133,7 @@ public interface EventSummaryDao {
      * Ages events from the summary database which are older than the specified
      * interval and whose severity is less than the specified maximum severity.
      * 
-     * @param agingInverval
+     * @param agingInterval
      *            Aging duration.
      * @param unit
      *            Aging unit.
@@ -169,14 +146,12 @@ public interface EventSummaryDao {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int ageEvents(long agingInverval, TimeUnit unit,
+    public int ageEvents(long agingInterval, TimeUnit unit,
             EventSeverity maxSeverity, int limit) throws ZepException;
 
     /**
-     * Reopens events with event status of
-     * {@link EventStatus#STATUS_ACKNOWLEDGED} or
-     * {@link EventStatus#STATUS_SUPPRESSED}. The acknowledged user UUID or
-     * suppressed by event UUID columns are cleared if they are set.
+     * Reopens events with event status of {@link EventStatus#STATUS_AGED},
+     * {@link EventStatus#STATUS_CLOSED} or {@link EventStatus#STATUS_CLEARED}.
      * 
      * @param uuids
      *            The event UUIDs to return to {@link EventStatus#STATUS_NEW}.
@@ -206,9 +181,7 @@ public interface EventSummaryDao {
             throws ZepException;
 
     /**
-     * Suppresses the events with event status of {@link EventStatus#STATUS_NEW}
-     * or {@link EventStatus#STATUS_ACKNOWLEDGED}. The acknowledged by user UUID
-     * is cleared if it is set.
+     * Suppresses the events with event status of {@link EventStatus#STATUS_NEW}.
      * 
      * @param uuids
      *            UUIDs of events to suppress.
@@ -228,6 +201,15 @@ public interface EventSummaryDao {
      *             If an error occurs.
      */
     public int close(List<String> uuids) throws ZepException;
+
+    /**
+     * Archives events with the specified UUIDs.
+     *
+     * @param uuids UUIDs of events to move to the archive.
+     * @return The number of archived events.
+     * @throws ZepException If an error occurs.
+     */
+    public int archive(List<String> uuids) throws ZepException;
 
     /**
      * Moves all events with last seen time before the duration and a closed

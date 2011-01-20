@@ -66,7 +66,7 @@ public interface EventStoreDao extends Purgable {
 
     /**
      * Updates the event with the specified UUID.
-     * 
+     *
      * @param uuid
      *            UUID of event to update.
      * @param update
@@ -80,7 +80,7 @@ public interface EventStoreDao extends Purgable {
 
     /**
      * Updates the events with the specified UUIDs.
-     * 
+     *
      * @param uuids
      *            UUIDs of events to update.
      * @param update
@@ -107,7 +107,7 @@ public interface EventStoreDao extends Purgable {
      * Moves all events in the summary table not modified within the last aging
      * interval to the archive table. Only events with severity less than the
      * given severity are aged.
-     * 
+     *
      * @param agingInverval
      *            Aging interval (in TimeUnit units).
      * @param unit
@@ -129,7 +129,7 @@ public interface EventStoreDao extends Purgable {
      * Moves all events which have status {@link EventStatus#STATUS_CLOSED},
      * {@link EventStatus#STATUS_CLEARED}, or {@link EventStatus#STATUS_AGED}
      * from the summary to the archive database.
-     * 
+     *
      * @param agingInverval
      *            Aging interval (in TimeUnit units).
      * @param unit

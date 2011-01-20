@@ -13,21 +13,12 @@ package org.zenoss.zep.dao;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.zep.ZepException;
 
+import java.util.List;
+
 /**
- * DAO for Events.
+ * DAO for event occurrences.
  */
 public interface EventDao extends Partitionable, Purgable {
-    /**
-     * Creates the event in the database.
-     * 
-     * @param event
-     *            Event to create.
-     * @return The UUID of the created event.
-     * @throws ZepException
-     *             If the event could not be created.
-     */
-    public String create(Event event) throws ZepException;
-
     /**
      * Deletes the event with the specified id from the database.
      * 
@@ -49,4 +40,13 @@ public interface EventDao extends Partitionable, Purgable {
      *             If the event database cannot be queried.
      */
     public Event findByUuid(String uuid) throws ZepException;
+
+    /**
+     * Returns the event occurrences for the summary UUID, or an empty list if not found.
+     *
+     * @param summaryUuid Event summary or archive UUID.
+     * @return The occurrences for the event, or an empty list if not found.
+     * @throws ZepException If an exception occurs.
+     */
+    public List<Event> findBySummaryUuid(String summaryUuid) throws ZepException;
 }

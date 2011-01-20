@@ -129,9 +129,11 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
             try {
                 future.get();
             } catch (CancellationException e) {
+                logger.debug("Canceled future", e);
             } catch (ExecutionException e) {
                 logger.warn("exception", e);
             } catch (InterruptedException e) {
+                logger.debug("Interrupted", e);
             }
         }
     }
@@ -186,7 +188,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                         public void run() {
                             logger.info("Aging events");
                             try {
-                                int numAged = 0;
+                                int numAged;
                                 do {
                                     numAged = eventStoreDao.ageEvents(duration,
                                             EVENT_AGE_INTERVAL_UNIT, severity,
@@ -222,7 +224,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                         public void run() {
                             logger.info("Archiving events");
                             try {
-                                int numArchived = 0;
+                                int numArchived;
                                 do {
                                     numArchived = eventStoreDao.archive(
                                             duration,
@@ -232,7 +234,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                                 logger.warn("Failed to archive events", e);
                             }
                         }
-                    }, "ZEP_EVENT_ARCHIVING_THREAD"), 1L, 1L,
+                    }, "ZEP_EVENT_ARCHIVING_THREAD"), 0L, 1L,
                     EVENT_ARCHIVE_INTERVAL_UNIT);
         } else {
             logger.info("Event archiving disabled");
@@ -337,10 +339,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                 try {
                     severity = EventSeverity.valueOf(strAgingSeverity);
                 } catch (Exception e) {
-                }
-                if (severity == null) {
-                    logger.warn("Invalid event aging value: {}",
-                            strAgingSeverity);
+                    logger.warn("Invalid event aging value: {}", strAgingSeverity);
                 }
             }
             if (severity == null) {
@@ -405,6 +404,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
             try {
                 Thread.currentThread().setName(this.name);
             } catch (SecurityException e) {
+                logger.debug("Exception changing name", e);
             }
             try {
                 this.runnable.run();
@@ -412,6 +412,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                 try {
                     Thread.currentThread().setName(previousName);
                 } catch (SecurityException e) {
+                    logger.debug("Exception changing name", e);
                 }
             }
         }

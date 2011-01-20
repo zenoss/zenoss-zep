@@ -18,14 +18,16 @@
     </bean>
 
     <!-- JDBC Datasource -->
-    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource"
-          destroy-method="close">
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
         <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
         <property name="url"
                   value="jdbc:mysql://${zep.jdbc.hostname}/${zep.jdbc.dbname}?characterEncoding=UTF-8&amp;autoReconnect=true"/>
         <property name="username" value="${zep.jdbc.username}"/>
         <property name="password" value="${zep.jdbc.password}"/>
+        <property name="initialSize" value="2" />
         <property name="maxActive" value="10"/>
+        <property name="validationQuery" value="SELECT 1" />
+        <property name="testOnBorrow" value="true" />
     </bean>
 
     <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">

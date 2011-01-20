@@ -48,6 +48,7 @@ public class EventConstants {
     public static final String COLUMN_UUID = "uuid";
 
     // Only in Event
+    public static final String COLUMN_SUMMARY_UUID = "summary_uuid";
     public static final String COLUMN_CREATED = "created";
 
     // Summary / Archive fields
@@ -63,9 +64,6 @@ public class EventConstants {
     public static final String COLUMN_CLEARED_BY_EVENT_UUID = "cleared_by_event_uuid";
     public static final String COLUMN_NOTES_JSON = "notes_json";
 
-    // clear_events
-    public static final String COLUMN_EVENT_SUMMARY_UUID = "event_summary_uuid";
-
     // Maximum lengths for CHAR/VARCHAR columns
     public static final int MAX_FINGERPRINT = 255;
     public static final int MAX_ELEMENT_IDENTIFIER = 255;
@@ -79,48 +77,4 @@ public class EventConstants {
     public static final int MAX_SUMMARY = 255;
     public static final int MAX_MESSAGE = 4096;
     public static final int MAX_ACKNOWLEDGED_BY_USER_NAME = 32;
-
-    private static final Set<String> SUMMARY_COLUMN_NAMES = new LinkedHashSet<String>();
-    static {
-        SUMMARY_COLUMN_NAMES.add(COLUMN_UUID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_FINGERPRINT_HASH);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_FINGERPRINT);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_STATUS_ID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_EVENT_GROUP_ID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_EVENT_CLASS_ID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_EVENT_CLASS_KEY_ID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_EVENT_CLASS_MAPPING_UUID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_EVENT_KEY_ID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_SEVERITY_ID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_ELEMENT_UUID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_ELEMENT_TYPE_ID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_ELEMENT_IDENTIFIER);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_ELEMENT_SUB_UUID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_ELEMENT_SUB_TYPE_ID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_ELEMENT_SUB_IDENTIFIER);
-        // Don't include update_time - we always want this to have latest timestamp
-        SUMMARY_COLUMN_NAMES.add(COLUMN_FIRST_SEEN);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_STATUS_CHANGE);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_UPDATE_TIME);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_LAST_SEEN);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_EVENT_COUNT);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_MONITOR_ID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_AGENT_ID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_SYSLOG_FACILITY);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_SYSLOG_PRIORITY);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_NT_EVENT_CODE);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_ACKNOWLEDGED_BY_USER_UUID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_ACKNOWLEDGED_BY_USER_NAME);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_CLEAR_FINGERPRINT_HASH);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_CLEARED_BY_EVENT_UUID);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_SUMMARY);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_MESSAGE);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_DETAILS_JSON);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_TAGS_JSON);
-        SUMMARY_COLUMN_NAMES.add(COLUMN_NOTES_JSON);
-    }
-
-    public static Set<String> getSummaryColumnNames() {
-        return Collections.unmodifiableSet(SUMMARY_COLUMN_NAMES);
-    }
 }
