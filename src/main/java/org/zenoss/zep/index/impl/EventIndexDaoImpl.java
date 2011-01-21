@@ -329,7 +329,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             case ELEMENT_IDENTIFIER:
                 return new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse);
             case ELEMENT_SUB_IDENTIFIER:
-                return new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse);
+                return new SortField(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse);
             case EVENT_CLASS:
                 return new SortField(FIELD_EVENT_CLASS, SortField.STRING, reverse);
             case EVENT_SUMMARY:
