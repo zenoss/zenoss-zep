@@ -469,7 +469,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
         }
     }
 
-    protected void processSpool(long now) throws ZepException {
+    protected void processSpool(long processCutoffTime) throws ZepException {
         logger.debug("Processing signal spool");
         try {
             // get spools that need to be processed
@@ -501,7 +501,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
 
                     int repeatInterval = trSub.getRepeatSeconds();
                     if (repeatInterval > 0 && repeatInterval != Long.MAX_VALUE) {
-                        long nextFlush = now + TimeUnit.SECONDS.toMillis(repeatInterval);
+                        long nextFlush = processCutoffTime + TimeUnit.SECONDS.toMillis(repeatInterval);
                         this.signalSpoolDao.updateFlushTime(spool.getUuid(), nextFlush);
                         delayed.put(new SpoolDelayed(nextFlush));
                     }
@@ -516,6 +516,17 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                     }
                 }
             }
+
+            // read out all entries from spool <= processCutoffTime, to avoid multiple calls to processSpool
+            // for duplicate or near-duplicate timestamps (still verify that nextSD <= cutoff time,
+            // in case a spool with time a few milliseconds later than the cutoff might have expired during
+            // the time elapsed since the call to findAllDue)
+            SpoolDelayed nextSD = delayed.peek();
+            while(nextSD != null && nextSD.delayUntil <= processCutoffTime) {
+                delayed.take();
+                nextSD = delayed.peek();
+            }
+
         } catch (Exception e) {
             logger.warn("Failed to process signal spool", e);
         }
