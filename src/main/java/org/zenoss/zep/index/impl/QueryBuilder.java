@@ -217,10 +217,18 @@ public class QueryBuilder {
             for (NumberRange range : ranges) {
                 Integer from = null, to = null;
                 if (range.hasFrom()) {
-                    from = range.getFrom();
+                    Long f = range.getFrom();
+                    if (f < Integer.MIN_VALUE) {
+                        throw new ZepException("NumberRange value 'from' must be an integer.");
+                    }
+                    from = f.intValue();
                 }
                 if (range.hasTo()) {
-                    to = range.getTo();
+                    Long t = range.getTo();
+                    if (t > Integer.MAX_VALUE) {
+                        throw new ZepException("NumberRange value 'to' must be an integer.");
+                    }
+                    to = t.intValue();
                 }
                 booleanQuery.add(NumericRangeQuery.newIntRange(key, from, to, true, true), occur);
             }
