@@ -15,9 +15,12 @@ import com.google.protobuf.ProtocolMessageEnum;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.TermAttribute;
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.index.TermEnum;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.PrefixQuery;
@@ -37,6 +40,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 public class QueryBuilder {
     private List<Query> queries = new ArrayList<Query>();
@@ -46,7 +51,7 @@ public class QueryBuilder {
         return this;
     }
 
-    private static final String unquote(String str) {
+    private static String unquote(String str) {
         final int len = str.length();
         String unquoted = str;
         if (len >= 2 && str.charAt(0) == '"' && str.charAt(len-1) == '"') {
@@ -68,6 +73,7 @@ public class QueryBuilder {
      * @param values Queries to search on.
      * @param analyzer The analyzer used for the fields (used to build the NGram queries).
      * @return This query builder instance (for chaining).
+     * @throws ZepException If an exception occurs.
      */
     public QueryBuilder addIdentifierFields(String analyzedFieldName, String nonAnalyzedFieldName,
                                             Collection<String> values, Analyzer analyzer) throws ZepException {
@@ -78,14 +84,14 @@ public class QueryBuilder {
             for (String value : values) {
                 final Query query;
                 final String unquoted = unquote(value);
-                if (unquoted != value) {
+                if (value.isEmpty() || !unquoted.equals(value)) {
                     query = new TermQuery(new Term(nonAnalyzedFieldName, unquoted));
                 }
                 else if (value.endsWith("*")) {
                     query = new PrefixQuery(new Term(nonAnalyzedFieldName, value.substring(0, value.length()-1)));
                 }
                 else if (value.length() < IdentifierAnalyzer.MIN_NGRAM_SIZE) {
-                    query = new PrefixQuery(new Term(nonAnalyzedFieldName, value));
+                    query = new PrefixQuery(new Term(analyzedFieldName, value));
                 }
                 else {
                     final PhraseQuery pq = new PhraseQuery();
@@ -95,6 +101,111 @@ public class QueryBuilder {
                     try {
                         while (ts.incrementToken()) {
                             pq.add(new Term(analyzedFieldName, term.term()));
+                        }
+                        ts.end();
+                    } catch (IOException e) {
+                        throw new ZepException(e.getLocalizedMessage(), e);
+                    } finally {
+                        ZepUtils.close(ts);
+                    }
+                }
+                booleanQuery.add(query, occur);
+            }
+            queries.add(booleanQuery);
+        }
+        return this;
+    }
+
+    /**
+     * Special case queries for event classes. Queries that begin with a slash and end
+     * with a slash or an asterisk result in a starts-with query on the non-analyzed
+     * field name. Queries that begin with a slash and end with anything else are an
+     * exact match on the non-analyzed field name. Otherwise, the query is run through
+     * the analyzer and substring matching is performed.
+     *
+     * @param analyzedFieldName Analyzed field name.
+     * @param nonAnalyzedFieldName Non-analyzed field name.
+     * @param values Queries to search on.
+     * @param analyzer The analyzer used for the fields.
+     * @param reader The reader (used to query terms).
+     * @return This query builder instance (for chaining).
+     * @throws ZepException If an exception occurs.
+     */
+    public QueryBuilder addEventClassFields(String analyzedFieldName, String nonAnalyzedFieldName,
+                                            Collection<String> values, Analyzer analyzer,
+                                            IndexReader reader) throws ZepException {
+        if (!values.isEmpty()) {
+            final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
+            final BooleanQuery booleanQuery = new BooleanQuery();
+
+            for (String value : values) {
+                final Query query;
+                if (value.startsWith("/")) {
+                    value = value.toLowerCase();
+                    // Starts-with
+                    if (value.endsWith("/")) {
+                        query = new PrefixQuery(new Term(nonAnalyzedFieldName, value));
+                    }
+                    // Prefix
+                    else if (value.endsWith("*")) {
+                        value = value.substring(0, value.length()-1);
+                        query = new PrefixQuery(new Term(nonAnalyzedFieldName, value));
+                    }
+                    // Exact match
+                    else {
+                        query = new TermQuery(new Term(nonAnalyzedFieldName, value + "/"));
+                    }
+                }
+                else {
+                    final MultiPhraseQuery pq = new MultiPhraseQuery();
+                    query = pq;
+
+                    // Get all terms stored in index for this field
+                    TermEnum termEnum = null;
+                    TreeSet<String> allTerms = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
+                    try {
+                        termEnum = reader.terms(new Term(analyzedFieldName, ""));
+                        do {
+                            Term term = termEnum.term();
+                            if (!analyzedFieldName.equals(term.field())) {
+                                break;
+                            }
+                            allTerms.add(term.text());
+                        } while (termEnum.next());
+                    } catch (IOException e) {
+                        throw new ZepException(e.getLocalizedMessage(), e);
+                    } finally {
+                        ZepUtils.close(termEnum);
+                    }
+
+                    TokenStream ts = analyzer.tokenStream(analyzedFieldName, new StringReader(value));
+                    TermAttribute term = ts.addAttribute(TermAttribute.class);
+                    try {
+                        while (ts.incrementToken()) {
+                            String t = term.term();
+                            if (t.endsWith("*")) {
+                                t = t.substring(0, t.length()-1);
+
+                                List<Term> terms = new ArrayList<Term>();
+                                SortedSet<String> tailSet = allTerms.tailSet(t);
+                                for (String termText : tailSet) {
+                                    if (!termText.startsWith(t)) {
+                                        break;
+                                    }
+                                    terms.add(new Term(analyzedFieldName, termText));
+                                }
+
+                                // Ensure that we don't return results if term doesn't exist
+                                if (terms.isEmpty()) {
+                                    pq.add(new Term(analyzedFieldName, t));
+                                }
+                                else {
+                                    pq.add(terms.toArray(new Term[terms.size()]));
+                                }
+                            }
+                            else {
+                                pq.add(new Term(analyzedFieldName, term.term()));
+                            }
                         }
                         ts.end();
                     } catch (IOException e) {
@@ -178,7 +289,7 @@ public class QueryBuilder {
     public QueryBuilder addFieldOfEnumNumbers(String key, List<? extends ProtocolMessageEnum> values) throws ZepException {
         List<Integer> valuesList = new ArrayList<Integer>(values.size());
         for ( ProtocolMessageEnum e : values ) {
-            valuesList.add(Integer.valueOf(e.getNumber()));
+            valuesList.add(e.getNumber());
         }
         addFieldOfIntegers(key, valuesList);
         return this;

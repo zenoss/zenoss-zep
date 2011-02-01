@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSort;
+import org.zenoss.protobufs.zep.Zep.EventSort.Direction;
 import org.zenoss.protobufs.zep.Zep.EventSort.Field;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -177,9 +178,6 @@ public class EventIndexDaoImpl implements EventIndexDao {
     }
 
     private EventSummaryResult listInternal(EventSummaryRequest request, FieldSelector selector) throws ZepException {
-        Query query = buildQuery(request.getEventFilter(), request.getExclusionFilter());
-        Sort sort = buildSort(request.getSortList());
-
         int limit = request.getLimit();
         if ( limit > MAX_RESULTS || limit < 1 ) {
             limit = MAX_RESULTS;
@@ -192,7 +190,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
         IndexSearcher searcher = null;
         try {
             searcher = getSearcher();
-            logger.debug("Querying for events matching: {}", query);
+            Query query = buildQuery(searcher.getIndexReader(), request.getEventFilter(), request.getExclusionFilter());
+            Sort sort = buildSort(request.getSortList());
+            logger.debug("Querying for events matching: {}, sort: {}", query, sort);
             TopDocs docs = searcher.search(query, null, limit + offset, sort);
             logger.debug("Found {} results", docs.totalHits);
 
@@ -204,7 +204,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
             }
 
             for (int i = offset; i < docs.scoreDocs.length; i++) {
-                result.addEvents(EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector)));
+                EventSummary summary = EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector));
+                result.addEvents(summary);
             }
             return result.build();
         } catch (IOException e) {
@@ -276,15 +277,17 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void delete(EventSummaryRequest request) throws ZepException {
-        Query query = buildQuery(request.getEventFilter(), request.getExclusionFilter());
-
-        logger.info("Deleting events matching: {}", query);
-
+        IndexSearcher searcher = null;
         try {
+            searcher = getSearcher();
+            Query query = buildQuery(searcher.getIndexReader(), request.getEventFilter(), request.getExclusionFilter());
+            logger.debug("Deleting events matching: {}", query);
             this.writer.deleteDocuments(query);
             commit(true);
         } catch (IOException e) {
             throw new ZepException(e);
+        } finally {
+            returnSearcher(searcher);
         }
     }
 
@@ -307,8 +310,11 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
     }
 
-    private static final EventSort DEFAULT_EVENT_SORT = EventSort.newBuilder().setDirection(EventSort.Direction.DESCENDING).setField(Field.LAST_SEEN).build();
-    private static final Sort DEFAULT_SORT = new Sort(createSortField(DEFAULT_EVENT_SORT));
+    private static final List<EventSort> DEFAULT_EVENT_SORT = Arrays.asList(
+            EventSort.newBuilder().setDirection(Direction.DESCENDING).setField(Field.SEVERITY).build(),
+            EventSort.newBuilder().setDirection(Direction.DESCENDING).setField(Field.LAST_SEEN).build()
+    );
+    private static final Sort DEFAULT_SORT = buildSort(DEFAULT_EVENT_SORT);
 
     private static Sort buildSort(List<EventSort> sortList) {
         if (sortList.isEmpty()) {
@@ -322,7 +328,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     }
 
     private static SortField createSortField(EventSort sort) {
-        boolean reverse = (sort.getDirection() == EventSort.Direction.DESCENDING);
+        boolean reverse = (sort.getDirection() == Direction.DESCENDING);
         switch (sort.getField()) {
             case COUNT:
                 return new SortField(FIELD_COUNT, SortField.INT, reverse);
@@ -331,7 +337,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             case ELEMENT_SUB_IDENTIFIER:
                 return new SortField(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse);
             case EVENT_CLASS:
-                return new SortField(FIELD_EVENT_CLASS, SortField.STRING, reverse);
+                return new SortField(FIELD_EVENT_CLASS_NOT_ANALYZED, SortField.STRING, reverse);
             case EVENT_SUMMARY:
                 return new SortField(FIELD_SUMMARY_NOT_ANALYZED, SortField.STRING, reverse);
             case FIRST_SEEN:
@@ -348,13 +354,19 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 return new SortField(FIELD_UPDATE_TIME, SortField.LONG, reverse);
             case ACKNOWLEDGED_BY_USER_NAME:
                 return new SortField(FIELD_ACKNOWLEDGED_BY_USER_NAME, SortField.STRING, reverse);
+            case AGENT:
+                return new SortField(FIELD_AGENT, SortField.STRING, reverse);
+            case MONITOR:
+                return new SortField(FIELD_MONITOR, SortField.STRING ,reverse);
+            case UUID:
+                return new SortField(FIELD_UUID, SortField.STRING, reverse);
         }
         throw new IllegalArgumentException("Unsupported sort field: " + sort.getField());
     }
 
-    private Query buildQuery(EventFilter filter, EventFilter exclusionFilter) throws ZepException {
-        final BooleanQuery filterQuery = buildQueryFromFilter(filter);
-        final BooleanQuery exclusionQuery = buildQueryFromFilter(exclusionFilter);
+    private Query buildQuery(IndexReader reader, EventFilter filter, EventFilter exclusionFilter) throws ZepException {
+        final BooleanQuery filterQuery = buildQueryFromFilter(reader, filter);
+        final BooleanQuery exclusionQuery = buildQueryFromFilter(reader, exclusionFilter);
         final Query query;
 
         if (filterQuery == null && exclusionQuery == null) {
@@ -377,7 +389,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         return query;
     }
 
-    private BooleanQuery buildQueryFromFilter(EventFilter filter) throws ZepException {
+    private BooleanQuery buildQueryFromFilter(IndexReader reader, EventFilter filter) throws ZepException {
         if (filter == null) {
             return null;
         }
@@ -398,20 +410,11 @@ public class EventIndexDaoImpl implements EventIndexDao {
         qb.addTimestampRanges(FIELD_UPDATE_TIME, filter.getUpdateTimeList());
         qb.addFieldOfEnumNumbers(FIELD_STATUS, filter.getStatusList());
         qb.addFieldOfEnumNumbers(FIELD_SEVERITY, filter.getSeverityList());
+        qb.addWildcardFields(FIELD_AGENT, filter.getAgentList(), false);
+        qb.addWildcardFields(FIELD_MONITOR, filter.getMonitorList(), false);
 
-        List<String> eventClasses = new ArrayList<String>(filter.getEventClassCount());
-        for (String ec : filter.getEventClassList()) {
-            if ( ec.endsWith("/") ) {
-                // This is a "startswith" search
-                ec += '*';
-            }
-            else if ( !ec.endsWith("*") ) {
-                // This is an exact match
-                ec += '/';
-            }
-            eventClasses.add(ec);
-        }
-        qb.addWildcardFields(FIELD_EVENT_CLASS, eventClasses, false);
+        qb.addEventClassFields(FIELD_EVENT_CLASS, FIELD_EVENT_CLASS_NOT_ANALYZED, filter.getEventClassList(),
+                this.writer.getAnalyzer(), reader);
 
         for (EventTagFilter tagFilter : filter.getTagFilterList()) {
             qb.addField(FIELD_TAGS, tagFilter.getTagUuidsList(), tagFilter.getOp());
@@ -483,7 +486,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         // Sort by worst severity
         EventSort.Builder eventSortBuilder = EventSort.newBuilder();
-        eventSortBuilder.setDirection(EventSort.Direction.DESCENDING);
+        eventSortBuilder.setDirection(Direction.DESCENDING);
         eventSortBuilder.setField(Field.SEVERITY);
         final EventSort eventSort = eventSortBuilder.build();
         final Sort sort = buildSort(Collections.singletonList(eventSort));

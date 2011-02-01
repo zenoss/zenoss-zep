@@ -59,7 +59,7 @@ public class ZepInstanceImpl implements ZepInstance {
         }
         if (zenHome == null) {
             logger.warn("ZENHOME not specified. Not persisting ZEP instance id.");
-            id = UUID.randomUUID().toString();
+            id = new UUID(0, 0).toString();
         } else {
             File f = new File(zenHome, "etc/zenoss-zep-instance.properties");
             Properties props = loadProperties(f);
@@ -75,7 +75,7 @@ public class ZepInstanceImpl implements ZepInstance {
         return id;
     }
 
-    private static final boolean isValidUuid(String uuid) {
+    private static boolean isValidUuid(String uuid) {
         boolean valid = false;
         try {
             UUID.fromString(uuid);

@@ -22,7 +22,6 @@ import org.apache.lucene.document.NumericField;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
-import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
@@ -35,6 +34,7 @@ public class EventIndexMapper {
         analyzer.addAnalyzer(FIELD_ELEMENT_IDENTIFIER, new IdentifierAnalyzer());
         analyzer.addAnalyzer(FIELD_ELEMENT_SUB_IDENTIFIER, new IdentifierAnalyzer());
         analyzer.addAnalyzer(FIELD_SUMMARY, new SummaryAnalyzer());
+        analyzer.addAnalyzer(FIELD_EVENT_CLASS, new EventClassAnalyzer());
         return analyzer;
     }
 
@@ -49,12 +49,8 @@ public class EventIndexMapper {
 
         doc.add(new Field(FIELD_ACKNOWLEDGED_BY_USER_NAME, summary.getAcknowledgedByUserName(), Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
-        
-        EventStatus status = summary.getStatus();
-        if (status != null) {
-            doc.add(new NumericField(FIELD_STATUS, Store.NO, true).setIntValue(status.getNumber()));
-        }
-        
+
+        doc.add(new NumericField(FIELD_STATUS, Store.NO, true).setIntValue(summary.getStatus().getNumber()));        
         doc.add(new NumericField(FIELD_COUNT, Store.NO, true).setIntValue(summary.getCount()));
         doc.add(new NumericField(FIELD_LAST_SEEN_TIME, Store.NO, true).setLongValue(summary.getLastSeenTime()));
         doc.add(new NumericField(FIELD_FIRST_SEEN_TIME, Store.NO, true).setLongValue(summary.getFirstSeenTime()));
@@ -62,18 +58,15 @@ public class EventIndexMapper {
         doc.add(new NumericField(FIELD_UPDATE_TIME, Store.NO, true).setLongValue(summary.getUpdateTime()));
 
         Event event = summary.getOccurrence(0);
-        doc.add(new Field(FIELD_EVENT_UUID, event.getUuid(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_FINGERPRINT, event.getFingerprint(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_SUMMARY, event.getSummary(), Store.NO, Index.ANALYZED));
         doc.add(new Field(FIELD_SUMMARY_NOT_ANALYZED, event.getSummary(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-        EventSeverity severity = event.getSeverity();
-        if (severity == null) {
-            severity = EventSeverity.SEVERITY_INFO;
-        }
-        doc.add(new NumericField(FIELD_SEVERITY, Store.YES, true).setIntValue(severity.getNumber()));
+        doc.add(new NumericField(FIELD_SEVERITY, Store.YES, true).setIntValue(event.getSeverity().getNumber()));
 
+        doc.add(new Field(FIELD_EVENT_CLASS, event.getEventClass(), Store.NO, Index.ANALYZED));
         // Store with a trailing slash to make lookups simpler
-        doc.add(new Field(FIELD_EVENT_CLASS, event.getEventClass() + "/", Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_EVENT_CLASS_NOT_ANALYZED, event.getEventClass().toLowerCase() + "/", Store.NO,
+                Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_AGENT, event.getAgent(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_MONITOR, event.getMonitor(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
@@ -82,29 +75,23 @@ public class EventIndexMapper {
         }
 
         EventActor actor = event.getActor();
-        if (actor != null) {
-            String uuid = actor.getElementUuid();
-            if (uuid != null) {
-                doc.add(new Field(FIELD_TAGS, uuid, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-            }
-
-            String id = actor.getElementIdentifier();
-            if (id != null) {
-                doc.add(new Field(FIELD_ELEMENT_IDENTIFIER, id, Store.NO, Index.ANALYZED_NO_NORMS));
-                doc.add(new Field(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, id, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-            }
-
-            String subUuid = actor.getElementSubUuid();
-            if (subUuid != null) {
-                doc.add(new Field(FIELD_TAGS, subUuid, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-            }
-
-            String subId = actor.getElementSubIdentifier();
-            if (subId != null) {
-                doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER, subId, Store.NO, Index.ANALYZED_NO_NORMS));
-                doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-            }
+        String uuid = actor.getElementUuid();
+        if (uuid != null && !uuid.isEmpty()) {
+            doc.add(new Field(FIELD_TAGS, uuid, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         }
+
+        String id = actor.getElementIdentifier();
+        doc.add(new Field(FIELD_ELEMENT_IDENTIFIER, id, Store.NO, Index.ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, id, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+
+        String subUuid = actor.getElementSubUuid();
+        if (subUuid != null && !subUuid.isEmpty()) {
+            doc.add(new Field(FIELD_TAGS, subUuid, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        }
+
+        String subId = actor.getElementSubIdentifier();
+        doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER, subId, Store.NO, Index.ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         return doc;
     }
 

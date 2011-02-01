@@ -24,18 +24,15 @@ public class IndexConstants {
     public static final String FIELD_ELEMENT_IDENTIFIER = "element_identifier";
     public static final String FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED = "element_identifier_not_analyzed";
     public static final String FIELD_ELEMENT_SUB_IDENTIFIER = "element_sub_identifier";
-    public static final String FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED = "element_sub_identifier_sort_not_analyzed";
-    public static final String FIELD_EVENT_UUID = "event_uuid";
+    public static final String FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED = "element_sub_identifier_not_analyzed";
     public static final String FIELD_FINGERPRINT = "fingerprint";
     public static final String FIELD_SUMMARY = "summary";
     public static final String FIELD_SUMMARY_NOT_ANALYZED = "summary_not_analyzed";
     public static final String FIELD_SEVERITY = "severity";
     public static final String FIELD_EVENT_CLASS = "event_class";
+    public static final String FIELD_EVENT_CLASS_NOT_ANALYZED = "event_class_not_analyzed";
     public static final String FIELD_TAGS = "tag";
     public static final String FIELD_UPDATE_TIME = "update_time";
-    // TODO: Index device priority and production state from event details
-    public static final String FIELD_DEVICE_PRIORITY = "device_priority";
-    public static final String FIELD_PRODUCTION_STATE = "production_state";
     public static final String FIELD_ACKNOWLEDGED_BY_USER_NAME = "acknowledged_by_user_name";
     public static final String FIELD_AGENT = "agent";
     public static final String FIELD_MONITOR = "monitor";

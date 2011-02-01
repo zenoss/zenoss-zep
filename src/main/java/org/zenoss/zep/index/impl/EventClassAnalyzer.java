@@ -14,20 +14,18 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.LowerCaseFilter;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.Tokenizer;
-import org.apache.lucene.analysis.WhitespaceTokenizer;
 
 import java.io.IOException;
 import java.io.Reader;
 
 /**
- * Analyzer used for event summaries. Uses combination of lower case filter and
- * whitespace tokenizer.
+ * Analyzer used for storing event classes.
  */
-public class SummaryAnalyzer extends Analyzer {
+public class EventClassAnalyzer extends Analyzer {
 
     @Override
     public TokenStream tokenStream(String fieldName, Reader reader) {
-        TokenStream tokenStream = new WhitespaceTokenizer(reader);
+        TokenStream tokenStream = new EventClassTokenizer(reader);
         tokenStream = new LowerCaseFilter(tokenStream);
         return tokenStream;
     }
@@ -42,10 +40,11 @@ public class SummaryAnalyzer extends Analyzer {
         SavedStreams streams = (SavedStreams) getPreviousTokenStream();
         if (streams == null) {
             streams = new SavedStreams();
-            streams.source = new WhitespaceTokenizer(reader);
+            streams.source = new EventClassTokenizer(reader);
             streams.result = new LowerCaseFilter(streams.source);
             setPreviousTokenStream(streams);
-        } else {
+        }
+        else {
             streams.source.reset(reader);
         }
         return streams.result;

@@ -52,7 +52,7 @@ public class EventIndexerImpl implements EventIndexer {
     private final NamedParameterJdbcTemplate template;
     private final byte[] zepInstanceIdBytes;
     private EventDaoHelper eventDaoHelper;
-    private Object indexLock = new Object();
+    private final Object indexLock = new Object();
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
     private PluginService pluginService;
@@ -105,7 +105,7 @@ public class EventIndexerImpl implements EventIndexer {
     }
 
     private void rebuildIndex(final EventIndexDao dao, final String tableName) throws ZepException {
-        long lastIndexTime = getNextIndexTime(dao);
+        long lastIndexTime = getLastIndexTime(dao);
         int numDocs = dao.getNumDocs();
 
         /*
@@ -163,15 +163,13 @@ public class EventIndexerImpl implements EventIndexer {
         archiveDirty.set(true);
     }
 
-    private long getNextIndexTime(EventIndexDao dao) {
+    private long getLastIndexTime(EventIndexDao dao) {
         // Get the first ID that we haven't finished indexing
         String sql = "SELECT last_index_time FROM index_version WHERE zep_instance = :zep_instance AND index_name = :index_name";
 
         Map<String, Object> fields = new HashMap<String, Object>();
-
         fields.put("zep_instance", zepInstanceIdBytes);
         fields.put("index_name", dao.getName());
-
         try {
             return this.template.queryForLong(sql, fields);
         }
@@ -181,13 +179,13 @@ public class EventIndexerImpl implements EventIndexer {
     }
 
     private void setNextIndexTime(EventIndexDao dao, long time) {
+        String sql = "REPLACE INTO index_version (zep_instance, index_name, last_index_time) VALUES (:zep_instance, :index_name, :last_index_time)";
         Map<String, Object> fields = new HashMap<String, Object>();
         fields.put("last_index_time", time);
         fields.put("zep_instance", zepInstanceIdBytes);
         fields.put("index_name", dao.getName());
 
-        this.template.update("REPLACE INTO index_version (zep_instance, index_name, last_index_time) VALUES (:zep_instance, :index_name, :last_index_time)",
-                fields);
+        this.template.update(sql, fields);
     }
     
     @Override
@@ -221,7 +219,7 @@ public class EventIndexerImpl implements EventIndexer {
      * @throws org.zenoss.zep.ZepException If an error occurs.
      */
     private void doIndex(EventIndexDao dao, EventIndexDao deleteFromDao, String sql) throws ZepException {
-        long since = getNextIndexTime(dao);
+        long since = getLastIndexTime(dao);
 
         logger.debug("Indexing {} events since {}", dao.getName(), new Date(since));
 

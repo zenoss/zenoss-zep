@@ -129,7 +129,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
             try {
                 future.get();
             } catch (CancellationException e) {
-                logger.debug("Canceled future", e);
+                // Expected exception - we just canceled above
             } catch (ExecutionException e) {
                 logger.warn("exception", e);
             } catch (InterruptedException e) {

@@ -421,30 +421,55 @@ public class EventIndexDaoImplIT extends
     public void testListByEventClass() throws ZepException {
         EventSummary event1 = createEventWithClass("/Status/Ping");
         EventSummary event2 = createEventWithClass("/Status/Snmp");
-        EventSummary event3 = createEventWithClass("/Perf");
+        createEventWithClass("/Perf");
+        EventSummary event4 = createEventWithClass("/App/Info/Status");
 
         // Exact match if it doesn't end with a slash
         EventSummaryResult res = this.eventIndexDao.list(createRequestForEventClass("/Status"));
         assertEquals(0, res.getEventsCount());
 
         // Matches this class and children
-        res = this.eventIndexDao.list(createRequestForEventClass("/Status/"));
-        assertEquals(2, res.getEventsCount());
-        Set<String> uuids = getUuidsFromResult(res);
-        assertTrue(uuids.contains(event1.getUuid()));
-        assertTrue(uuids.contains(event2.getUuid()));
+        for (String query : Arrays.asList("/Status/", "/Status*", "/STATUS/", "/status/*")) {
+            res = this.eventIndexDao.list(createRequestForEventClass(query));
+            assertEquals(2, res.getEventsCount());
+            Set<String> uuids = getUuidsFromResult(res);
+            assertTrue(uuids.contains(event1.getUuid()));
+            assertTrue(uuids.contains(event2.getUuid()));
+        }
 
         // Matches exact class
-        res = this.eventIndexDao.list(createRequestForEventClass("/Status/Ping"));
-        assertEquals(1, res.getEventsCount());
-        assertEquals(event1.getUuid(), res.getEvents(0).getUuid());
+        for (String query : Arrays.asList("/Status/Ping","/status/ping","/STATUS/ping")) {
+            res = this.eventIndexDao.list(createRequestForEventClass(query));
+            assertEquals(1, res.getEventsCount());
+            assertEquals(event1.getUuid(), res.getEvents(0).getUuid());
+        }
+
+        // Matches substring
+        for (String query : Arrays.asList("Ping", "ping", "PING", "PIN*")) {
+            res = this.eventIndexDao.list(createRequestForEventClass(query));
+            assertEquals(1, res.getEventsCount());
+            assertEquals(event1.getUuid(), res.getEvents(0).getUuid());
+        }
+
+        // Matches substring with slash
+        for (String query : Arrays.asList("app/info", "app/inf*", "app/i*", "ap*/inf*", "a*/info")) {
+            res = this.eventIndexDao.list(createRequestForEventClass(query));
+            assertEquals(1, res.getEventsCount());
+            assertEquals(event4.getUuid(), res.getEvents(0).getUuid());
+        }
+
+        // Ensure we don't match if substring order differs
+        for (String query : Arrays.asList("info/app", "inf*/app", "info/app*", "app/information", "inform*")) {
+            res = this.eventIndexDao.list(createRequestForEventClass(query));
+            assertEquals(0, res.getEventsCount());
+        }
     }
 
     @Test
     public void testOnlyExclusion() throws ZepException {
         EventSummary event1 = createEventWithSeverity(EventSeverity.SEVERITY_INFO, EventStatus.STATUS_NEW);
         /* This event should be excluded from result. */
-        EventSummary event2 = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+        createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
 
         EventFilter.Builder exclusion = EventFilter.newBuilder();
         exclusion.addSeverity(EventSeverity.SEVERITY_ERROR);
