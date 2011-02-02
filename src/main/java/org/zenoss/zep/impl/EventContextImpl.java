@@ -20,7 +20,7 @@ import org.zenoss.zep.EventContext;
 public class EventContextImpl implements EventContext {
 
     private EventStatus status;
-    private Set<String> clearClasses = new HashSet<String>();
+    private final Set<String> clearClasses = new HashSet<String>();
 
     public EventContextImpl() {
         this.status = EventStatus.STATUS_NEW;

@@ -17,7 +17,7 @@ import org.zenoss.zep.ZepException;
 
 /**
  * Abstract post-processing plug-in which implements all methods but
- * {@link EventPreProcessingPlugin#processEvent(Event)}.
+ * {@link EventPreProcessingPlugin#processEvent(Event, EventContext)}.
  */
 public abstract class AbstractPreProcessingPlugin extends AbstractPlugin
         implements EventPreProcessingPlugin {

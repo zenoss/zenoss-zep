@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.ProtobufConstants;
 import org.zenoss.protobufs.util.Util.TimestampRange;
-import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
@@ -33,6 +32,7 @@ import org.zenoss.protobufs.zep.Zep.EventTagSeverity;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.zep.ConfigConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.index.EventIndexDao;
@@ -68,14 +68,19 @@ public class EventsResource {
     private static final Logger logger = LoggerFactory
             .getLogger(EventsResource.class);
 
-    private Integer defaultQueryLimit = 100;
+    private int queryLimit = ConfigConstants.DEFAULT_QUERY_LIMIT;
     private EventIndexer eventIndexer;
     private EventStoreDao eventStoreDao;
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
 
-    public void setDefaultQueryLimit(Integer limit) {
-        this.defaultQueryLimit = limit;
+    public void setQueryLimit(int limit) {
+        if (limit > 0) {
+            this.queryLimit = limit;
+        }
+        else {
+            logger.warn("Invalid query limit: {}, using default: {}", limit, queryLimit);
+        }
     }
 
     public void setEventStoreDao(EventStoreDao eventStoreDao) {
@@ -178,7 +183,7 @@ public class EventsResource {
         }
 
         // Maximum number of events we will update in one batch
-        reqBuilder.setLimit(Math.min(request.getLimit(), defaultQueryLimit));
+        reqBuilder.setLimit(Math.min(request.getLimit(), queryLimit));
 
         EventSummaryRequest req = reqBuilder.build();
 
@@ -243,7 +248,7 @@ public class EventsResource {
     @Path("/")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventSummaryResult listEventIndex(EventSummaryRequest request)
-            throws ParseException, IOException, ZepException {
+            throws ZepException {
         return this.eventSummaryIndexDao.list(request);
     }
 
@@ -251,7 +256,7 @@ public class EventsResource {
     @Path("archive")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventSummaryResult listEventIndexArchive(EventSummaryRequest request)
-            throws ParseException, IOException, ZepException {
+            throws ZepException {
         return this.eventArchiveIndexDao.list(request);
     }
 
@@ -259,7 +264,7 @@ public class EventsResource {
     @Path("/")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventSummaryResult listEventIndexGet(@Context UriInfo ui)
-            throws ParseException, IOException, ZepException {
+            throws ParseException, ZepException {
         return this.eventSummaryIndexDao.list(eventSummaryRequestFromUriInfo(ui));
     }
 
@@ -267,7 +272,7 @@ public class EventsResource {
     @Path("archive")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     public EventSummaryResult listEventIndexArchiveGet(@Context UriInfo ui)
-            throws ParseException, IOException, ZepException {
+            throws ParseException, ZepException {
         return this.eventArchiveIndexDao.list(eventSummaryRequestFromUriInfo(ui));
     }
 
@@ -367,7 +372,7 @@ public class EventsResource {
         /* Read all params from query */
         MultivaluedMap<String, String> queryParams = info.getQueryParameters();
         logger.debug("Query Parameters: {}", queryParams);
-        final int limit = getQueryInteger(queryParams, "limit", defaultQueryLimit);
+        final int limit = getQueryInteger(queryParams, "limit", queryLimit);
         final int offset = getQueryInteger(queryParams, "offset", 0);
         final Set<String> sorts = getQuerySet(queryParams, "sort");
 

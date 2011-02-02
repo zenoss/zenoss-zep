@@ -10,11 +10,15 @@
  */
 package org.zenoss.zep.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.EventProcessor;
 
 public class RawEventQueueListener extends AbstractEventQueueListener {
+
+    private static final Logger logger = LoggerFactory.getLogger(RawEventQueueListener.class);
 
     private EventProcessor eventProcessor;
 

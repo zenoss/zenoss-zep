@@ -39,6 +39,7 @@ import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
 import org.zenoss.protobufs.zep.Zep.EventTagFilter;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
+import org.zenoss.zep.ConfigConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.index.EventIndexDao;
@@ -65,16 +66,30 @@ public class EventIndexDaoImpl implements EventIndexDao {
     private IndexSearcher _searcher;
     private final String name;
 
-    public static final int MAX_RESULTS = 100;
-    public static final int OPTIMIZE_AT_NUM_EVENTS = 5000;
-    private AtomicInteger eventsSinceOptimize = new AtomicInteger(0);
+    private int queryLimit = ConfigConstants.DEFAULT_QUERY_LIMIT;
+    private static final int OPTIMIZE_AT_NUM_EVENTS = 5000;
+    private final AtomicInteger eventsSinceOptimize = new AtomicInteger(0);
 
-    private static Logger logger = LoggerFactory.getLogger(EventIndexDaoImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImpl.class);
 
     public EventIndexDaoImpl(String name, IndexWriter writer) throws IOException {
         this.name = name;
         this.writer = writer;
         this._searcher = new IndexSearcher(IndexReader.open(this.writer.getDirectory(), true));
+    }
+
+    /**
+     * Sets the maximum number of results returned in a query from ZEP.
+     *
+     * @param limit Maximum number of results returned in a query from ZEP.
+     */
+    public void setQueryLimit(int limit) {
+        if (limit > 0) {
+            this.queryLimit = limit;
+        }
+        else {
+            logger.warn("Invalid query limit: {}, using default: {}", limit, this.queryLimit);
+        }
     }
 
     @Override
@@ -179,8 +194,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     private EventSummaryResult listInternal(EventSummaryRequest request, FieldSelector selector) throws ZepException {
         int limit = request.getLimit();
-        if ( limit > MAX_RESULTS || limit < 1 ) {
-            limit = MAX_RESULTS;
+        if ( limit > queryLimit || limit < 1 ) {
+            limit = queryLimit;
         }
         int offset = request.getOffset();
         if ( offset < 0 ) {

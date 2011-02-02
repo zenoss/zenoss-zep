@@ -44,7 +44,7 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 public class QueryBuilder {
-    private List<Query> queries = new ArrayList<Query>();
+    private final List<Query> queries = new ArrayList<Query>();
 
     public QueryBuilder addField(String key, String value) {
         queries.add(new TermQuery(new Term(key, value)));
@@ -241,7 +241,7 @@ public class QueryBuilder {
         return addField(key, values, FilterOperator.OR);
     }
 
-    public QueryBuilder addField(String key, List<String> values, FilterOperator op) throws ZepException {
+    public QueryBuilder addField(String key, List<String> values, FilterOperator op) {
         if (!values.isEmpty()) {
             final BooleanClause.Occur occur;
             final BooleanQuery booleanQuery = new BooleanQuery();
@@ -259,7 +259,7 @@ public class QueryBuilder {
         return this;
     }
 
-    public QueryBuilder addFieldOfIntegers(String key, List<Integer> values) throws ZepException {
+    public QueryBuilder addFieldOfIntegers(String key, List<Integer> values) {
         if (!values.isEmpty()) {
             final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
             final BooleanQuery booleanQuery = new BooleanQuery();

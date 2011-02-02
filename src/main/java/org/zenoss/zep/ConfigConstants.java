@@ -23,6 +23,11 @@ public class ConfigConstants {
     }
 
     /**
+     * The default limit of the maximum number of results which can be returned from a ZEP query.
+     */
+    public static final int DEFAULT_QUERY_LIMIT = 1000;
+
+    /**
      * Configuration setting which controls which events are aged from the
      * summary table to the archive table. Only events with a lower severity
      * than this are automatically aged to the history table. The default value
@@ -54,8 +59,7 @@ public class ConfigConstants {
 
     /**
      * Configuration setting which controls the event purge interval of events
-     * in the event archive (in days). This must be set to a value between 1 and
-     * {@link #MAX_EVENT_ARCHIVE_PURGE_INTERVAL_DAYS}.
+     * in the event archive (in days).
      */
     public static final String CONFIG_EVENT_ARCHIVE_PURGE_INTERVAL_DAYS = "event_archive_purge_interval_days";
 
@@ -100,7 +104,7 @@ public class ConfigConstants {
     /**
      * The time unit for archiving events from summary.
      */
-    public static TimeUnit EVENT_ARCHIVE_INTERVAL_UNIT = TimeUnit.DAYS;
+    public static final TimeUnit EVENT_ARCHIVE_INTERVAL_UNIT = TimeUnit.DAYS;
 
     /**
      * The maximum value for the event archive interval.

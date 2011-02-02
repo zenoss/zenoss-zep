@@ -61,8 +61,8 @@ public class EventIndexerImpl implements EventIndexer {
     private final int BATCH_SIZE = 1000;
 
     // Start dirty so we scan anything new on startup
-    private AtomicBoolean summaryDirty = new AtomicBoolean(true);
-    private AtomicBoolean archiveDirty = new AtomicBoolean(true);
+    private final AtomicBoolean summaryDirty = new AtomicBoolean(true);
+    private final AtomicBoolean archiveDirty = new AtomicBoolean(true);
 
     private static final String sqlTemplate =
             String.format("SELECT * FROM %%s WHERE %1$s > :since && %1$s <= :max_update_time ORDER BY %1$s ASC LIMIT :limit OFFSET :offset",
@@ -257,8 +257,8 @@ public class EventIndexerImpl implements EventIndexer {
 
     protected class ResultSetIndexer implements ResultSetExtractor<Result> {
         private final EventIndexDao dao;
-        private List<EventPostProcessingPlugin> plugins;
-        private EventPublisher publisher;
+        private final List<EventPostProcessingPlugin> plugins;
+        private final EventPublisher publisher;
 
         public ResultSetIndexer(EventIndexDao eventIndexDao, List<EventPostProcessingPlugin> plugins, EventPublisher publisher) {
             this.dao = eventIndexDao;
@@ -313,7 +313,7 @@ public class EventIndexerImpl implements EventIndexer {
 
     protected static class Result {
         private int processed = 0;
-        private Set<String> uuids = new HashSet<String>();
+        private final Set<String> uuids = new HashSet<String>();
         private long lastUpdateTime = 0L;
         private boolean moreToIndex = false;
     }

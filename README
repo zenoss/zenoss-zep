@@ -34,7 +34,7 @@ default values are:
     * zep.jdbc.password: <BLANK>
     * zep.amqp.uri: amqp://guest:guest@localhost:5672
     * zep.amqp.retry: 300000
-    * zep.query.limit: 100
+    * zep.query.limit: 1000
 
 To specify a system property from the Maven command-line, run:
 
@@ -48,17 +48,16 @@ $ mvn jetty:run -Dzep.jdbc.hostname=myhost.zenoss.loc -Dzep.jdbc.username=zenoss
 
 $ mvn assembly:assembly
 $ mkdir -p ~/zep
-$ tar zxvf target/zenoss-zep-*-webapp.tar.gz --strip-components=1 -C ~/zep
+$ tar zxvf target/zenoss-zep-*-webapp.tar.gz -C ~/zep
 $ cd ~/zep
 --> Edit 'etc/zenoss-zep.properties' and 'etc/zenoss-zep-plugins.properties' as
     needed to configure ZEP.
 $ ./bin/zenoss-zep-create-db
 $ ./bin/zenoss-zep start
 
-ZEP will log any problems in 'log/zenoss-zep-<N>.log' where '<N>' is the
-number of the log file (the most recent log will be written to the
-zenoss-zep-0.log file). To update the logging configuration, edit the
-'etc/logging.properties' file and restart the ZEP daemon.
+ZEP will log any problems in 'log/zenoss-zep.log'. To update the logging
+configuration, edit the 'webapps/zenoss-zep/WEB-INF/classes/logback.xml' file
+and restart the ZEP daemon.
 
 == Running ZEP Unit and Integration Tests ==
 

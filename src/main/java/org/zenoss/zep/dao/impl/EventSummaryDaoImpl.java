@@ -57,7 +57,7 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 public class EventSummaryDaoImpl implements EventSummaryDao {
 
-    private static Logger logger = LoggerFactory.getLogger(EventSummaryDaoImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventSummaryDaoImpl.class);
 
     private final DataSource dataSource;
 

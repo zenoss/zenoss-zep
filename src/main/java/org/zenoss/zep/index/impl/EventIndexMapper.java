@@ -38,7 +38,7 @@ public class EventIndexMapper {
         return analyzer;
     }
 
-    public static Document fromEventSummary(EventSummary summary) throws ZepException {
+    public static Document fromEventSummary(EventSummary summary) {
         Document doc = new Document();
 
         // Store the entire serialized protobuf so we can reproduce the entire event from the index.

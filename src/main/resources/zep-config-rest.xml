@@ -14,13 +14,11 @@
         <property name="configDao" ref="configDao" />
     </bean>
     <bean id="eventsResource" class="org.zenoss.zep.rest.EventsResource">
-        <property name="defaultQueryLimit" value="${zep.query.limit}" />
+        <property name="queryLimit" value="${zep.query.limit}" />
         <property name="eventStoreDao" ref="eventStoreDao" />
         <property name="eventIndexer" ref="eventIndexer" />
         <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao" />
         <property name="eventArchiveIndexDao" ref="eventArchiveIndexDao" />
-    </bean>
-    <bean id="modelResource" class="org.zenoss.zep.rest.ModelResource">
     </bean>
     <bean id="triggersResource" class="org.zenoss.zep.rest.TriggersResource">
         <property name="eventTriggerDao" ref="eventTriggerDao" />

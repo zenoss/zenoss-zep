@@ -202,11 +202,9 @@ public class Partition {
             } else if ("SUBPARTITION_NAME".equals(field)) {
                 partition.subpartitionName = (String) val;
             } else if ("PARTITION_ORDINAL_POSITION".equals(field)) {
-                partition.partitionOrdinalPosition = Long
-                        .valueOf(((Number) val).longValue());
+                partition.partitionOrdinalPosition = ((Number) val).longValue();
             } else if ("SUBPARTITION_ORDINAL_POSITION".equals(field)) {
-                partition.subpartitionOrdinalPosition = Long
-                        .valueOf(((Number) val).longValue());
+                partition.subpartitionOrdinalPosition = ((Number) val).longValue();
             } else if ("PARTITION_METHOD".equals(field)) {
                 partition.partitionMethod = (String) val;
             } else if ("SUBPARTITION_METHOD".equals(field)) {
@@ -218,20 +216,17 @@ public class Partition {
             } else if ("PARTITION_DESCRIPTION".equals(field)) {
                 partition.partitionDescription = (String) val;
             } else if ("TABLE_ROWS".equals(field)) {
-                partition.tableRows = Long.valueOf(((Number) val).longValue());
+                partition.tableRows = ((Number) val).longValue();
             } else if ("AVG_ROW_LENGTH".equals(field)) {
-                partition.avgRowLength = Long.valueOf(((Number) val)
-                        .longValue());
+                partition.avgRowLength = ((Number) val).longValue();
             } else if ("DATA_LENGTH".equals(field)) {
-                partition.dataLength = Long.valueOf(((Number) val).longValue());
+                partition.dataLength = ((Number) val).longValue();
             } else if ("MAX_DATA_LENGTH".equals(field)) {
-                partition.maxDataLength = Long.valueOf(((Number) val)
-                        .longValue());
+                partition.maxDataLength = ((Number) val).longValue();
             } else if ("INDEX_LENGTH".equals(field)) {
-                partition.indexLength = Long
-                        .valueOf(((Number) val).longValue());
+                partition.indexLength = ((Number) val).longValue();
             } else if ("DATA_FREE".equals(field)) {
-                partition.dataFree = Long.valueOf(((Number) val).longValue());
+                partition.dataFree = ((Number) val).longValue();
             } else if ("CREATE_TIME".equals(field)) {
                 partition.createTime = (Timestamp) val;
             } else if ("UPDATE_TIME".equals(field)) {
@@ -239,7 +234,7 @@ public class Partition {
             } else if ("CHECK_TIME".equals(field)) {
                 partition.checkTime = (Timestamp) val;
             } else if ("CHECKSUM".equals(field)) {
-                partition.checksum = Long.valueOf(((Number) val).longValue());
+                partition.checksum = ((Number) val).longValue();
             } else if ("PARTITION_COMMENT".equals(field)) {
                 partition.partitionComment = (String) val;
             } else if ("NODEGROUP".equals(field)) {

@@ -103,6 +103,7 @@
         <qualifier value="summary"/>
         <constructor-arg value="event_summary"/>
         <constructor-arg ref="luceneSummaryIndexWriter"/>
+        <property name="queryLimit" value="${zep.query.limit}" />
     </bean>
 
     <bean id="luceneArchiveDir" class="org.apache.lucene.store.FSDirectory"
@@ -120,6 +121,7 @@
         <qualifier value="archive"/>
         <constructor-arg value="event_archive"/>
         <constructor-arg ref="luceneArchiveIndexWriter"/>
+        <property name="queryLimit" value="${zep.query.limit}" />
     </bean>
 
     <bean id="eventStoreDao" class="org.zenoss.zep.dao.impl.EventStoreDaoImpl">

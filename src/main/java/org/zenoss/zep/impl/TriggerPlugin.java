@@ -95,8 +95,8 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
     public static final String PRODUCTION_STATE_DETAIL_KEY = "zenoss.device.production_state";
     public static final String DEVICE_PRIORITY_DETAIL_KEY = "zenoss.device.priority";
 
-    private DelayQueue<SpoolDelayed> delayed = new DelayQueue<SpoolDelayed>();
-    private ExecutorService executor = Executors.newSingleThreadExecutor();
+    private final DelayQueue<SpoolDelayed> delayed = new DelayQueue<SpoolDelayed>();
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     static {
         PythonInterpreter.initialize(System.getProperties(), new Properties(), new String[0]);
@@ -469,7 +469,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
         }
     }
 
-    protected void processSpool(long processCutoffTime) throws ZepException {
+    protected void processSpool(long processCutoffTime) {
         logger.debug("Processing signal spool");
         try {
             // get spools that need to be processed

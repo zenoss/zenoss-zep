@@ -25,7 +25,7 @@ import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 
 public class EventSummaryRowMapper implements RowMapper<EventSummary> {
-    private EventDaoHelper helper;
+    private final EventDaoHelper helper;
     private Set<String> fields = null;
 
     public EventSummaryRowMapper(EventDaoHelper eventDaoHelper) {

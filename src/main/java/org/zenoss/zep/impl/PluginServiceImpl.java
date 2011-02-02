@@ -59,7 +59,7 @@ public class PluginServiceImpl implements PluginService,
     }
 
     private static class PluginConfig {
-        private Map<String, Map<String, String>> allPluginProperties = new HashMap<String, Map<String, String>>();
+        private final Map<String, Map<String, String>> allPluginProperties = new HashMap<String, Map<String, String>>();
 
         public Map<String, String> getPluginProperties(String pluginId) {
             Map<String, String> pluginProps = allPluginProperties.get(pluginId);
@@ -272,15 +272,12 @@ public class PluginServiceImpl implements PluginService,
         // Load plug-ins from ServiceLoader.
         final ServiceLoader<EventPlugin> eventPlugins = ServiceLoader
                 .load(EventPlugin.class);
-        Iterator<EventPlugin> it = eventPlugins.iterator();
-        while (it.hasNext()) {
+        for (EventPlugin plugin : eventPlugins) {
             try {
-                EventPlugin plugin = it.next();
                 if (!enabledPlugins.contains(plugin.getId())) {
                     logger.info("Plugin {} is disabled", plugin.getId());
                 } else if (!allPluginIds.add(plugin.getId())) {
-                    logger.warn("Multiple plugins with id {} found",
-                            plugin.getId());
+                    logger.warn("Multiple plugins with id {} found", plugin.getId());
                 } else if (plugin instanceof EventPreProcessingPlugin) {
                     availablePreProcessingPlugins.put(plugin.getId(),
                             (EventPreProcessingPlugin) plugin);

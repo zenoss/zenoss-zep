@@ -10,6 +10,8 @@
  */
 package org.zenoss.zep.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.modelevents.Modelevents.ModelEvent;
@@ -18,6 +20,8 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
 
 public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
+
+    private static final Logger logger = LoggerFactory.getLogger(ModelChangeEventQueueListener.class);
 
     private EventSummaryDao eventSummaryDao;
 
@@ -51,15 +55,16 @@ public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
     }
 
     private void processModelRemoved(ModelEvent event) throws ZepException {
-        String id = null, uuid = null;
+        String uuid = null;
         switch (event.getModelType()) {
             case COMPONENT:
-                id = event.getComponent().getId();
                 uuid = event.getComponent().getUuid();
                 break;
             case DEVICE:
-                id = event.getDevice().getId();
                 uuid = event.getDevice().getUuid();
+                break;
+            case SERVICE:
+                uuid = event.getService().getUuid();
                 break;
         }
         if (uuid != null) {

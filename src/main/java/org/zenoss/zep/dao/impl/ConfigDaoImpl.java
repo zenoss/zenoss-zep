@@ -171,7 +171,7 @@ public class ConfigDaoImpl implements ConfigDao, ApplicationEventPublisherAware 
         }
     }
 
-    private String validateConfigEntry(String name, String value)
+    private void validateConfigEntry(String name, String value)
             throws ZepException {
         try {
             if (ConfigConstants.CONFIG_EVENT_AGE_DISABLE_SEVERITY.equals(name)) {
@@ -203,7 +203,6 @@ public class ConfigDaoImpl implements ConfigDao, ApplicationEventPublisherAware 
                         || archiveDays > ConfigConstants.MAX_EVENT_ARCHIVE_INTERVAL_DAYS)
                     throw new IllegalArgumentException();
             }
-            return value;
         } catch (RuntimeException e) {
             throw new ZepException(String.format(
                     "Invalid value specified for %s: %s", name, value));

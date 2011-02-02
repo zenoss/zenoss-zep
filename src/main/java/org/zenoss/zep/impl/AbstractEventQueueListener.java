@@ -24,21 +24,17 @@ import org.zenoss.amqp.ZenossQueueConfig;
 
 public abstract class AbstractEventQueueListener extends QueueListener {
 
-    protected static final Logger logger = LoggerFactory
-            .getLogger(AbstractEventQueueListener.class);
-
-    private AmqpConnectionManager connectionManager;
+    private static final Logger logger = LoggerFactory.getLogger(AbstractEventQueueListener.class);
 
     abstract protected String getQueueIdentifier();
 
     public void setConnectionManager(AmqpConnectionManager connectionManager)
             throws IOException {
-        this.connectionManager = connectionManager;
         QueueConfiguration queueCfg = ZenossQueueConfig.getConfig().getQueue(
                 this.getQueueIdentifier());
         logger.info("Listening for messages on queue: {}", queueCfg.getQueue()
                 .getName());
-        this.connectionManager.addListener(ZenossQueueConfig.getConfig()
+        connectionManager.addListener(ZenossQueueConfig.getConfig()
                 .getQueue(this.getQueueIdentifier()), this);
     }
 
