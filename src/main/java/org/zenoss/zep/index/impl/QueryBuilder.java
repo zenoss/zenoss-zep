@@ -83,12 +83,20 @@ public class QueryBuilder {
 
             for (String value : values) {
                 final Query query;
+
+                // Strip off any trailing *
+                int i;
+                for (i = value.length() - 1; i > 0; i--) {
+                    if (value.charAt(i) != '*') {
+                        break;
+                    }
+                }
+                value = value.substring(0, i + 1);
+
                 final String unquoted = unquote(value);
+
                 if (value.isEmpty() || !unquoted.equals(value)) {
                     query = new TermQuery(new Term(nonAnalyzedFieldName, unquoted));
-                }
-                else if (value.endsWith("*")) {
-                    query = new PrefixQuery(new Term(nonAnalyzedFieldName, value.substring(0, value.length()-1)));
                 }
                 else if (value.length() < IdentifierAnalyzer.MIN_NGRAM_SIZE) {
                     query = new PrefixQuery(new Term(analyzedFieldName, value));
