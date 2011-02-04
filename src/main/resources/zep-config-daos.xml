@@ -80,6 +80,14 @@
     </bean>
 
     <!-- Indexing DAO -->
+    <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl"
+        init-method="init">
+    </bean>
+
+    <bean id="eventIndexMapper" class="org.zenoss.zep.index.impl.EventIndexMapper">
+        <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao" />
+    </bean>
+
     <bean id="luceneMaxFieldLength" class="org.apache.lucene.index.IndexWriter$MaxFieldLength">
         <constructor-arg index="0" value="${zep.index.maximum_field_length}" />
     </bean>
@@ -104,6 +112,7 @@
         <constructor-arg value="event_summary"/>
         <constructor-arg ref="luceneSummaryIndexWriter"/>
         <property name="queryLimit" value="${zep.query.limit}" />
+        <property name="eventIndexMapper" ref="eventIndexMapper" />
     </bean>
 
     <bean id="luceneArchiveDir" class="org.apache.lucene.store.FSDirectory"
@@ -122,6 +131,7 @@
         <constructor-arg value="event_archive"/>
         <constructor-arg ref="luceneArchiveIndexWriter"/>
         <property name="queryLimit" value="${zep.query.limit}" />
+        <property name="eventIndexMapper" ref="eventIndexMapper" />
     </bean>
 
     <bean id="eventStoreDao" class="org.zenoss.zep.dao.impl.EventStoreDaoImpl">

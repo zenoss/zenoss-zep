@@ -69,6 +69,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     private int queryLimit = ConfigConstants.DEFAULT_QUERY_LIMIT;
     private static final int OPTIMIZE_AT_NUM_EVENTS = 5000;
     private final AtomicInteger eventsSinceOptimize = new AtomicInteger(0);
+    private EventIndexMapper eventIndexMapper;
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImpl.class);
 
@@ -76,6 +77,10 @@ public class EventIndexDaoImpl implements EventIndexDao {
         this.name = name;
         this.writer = writer;
         this._searcher = new IndexSearcher(IndexReader.open(this.writer.getDirectory(), true));
+    }
+
+    public void setEventIndexMapper(EventIndexMapper eim) {
+        this.eventIndexMapper = eim;
     }
 
     /**
@@ -114,7 +119,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void stage(EventSummary event) throws ZepException {
-        Document doc = EventIndexMapper.fromEventSummary(event);
+        Document doc = this.eventIndexMapper.fromEventSummary(event);
         logger.debug("Indexing {}", event.getUuid());
 
         try {
@@ -219,7 +224,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             }
 
             for (int i = offset; i < docs.scoreDocs.length; i++) {
-                EventSummary summary = EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector));
+                EventSummary summary = this.eventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector));
                 result.addEvents(summary);
             }
             return result.build();
@@ -268,7 +273,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             searcher = getSearcher();
             TopDocs docs = searcher.search(query, 1);
             if (docs.scoreDocs.length > 0) {
-                summary = EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[0].doc));
+                summary = this.eventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[0].doc));
             }
         } catch (IOException e) {
             throw new ZepException(e);

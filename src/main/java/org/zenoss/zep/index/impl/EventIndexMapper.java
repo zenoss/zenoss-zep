@@ -1,6 +1,6 @@
 /*
  * This program is part of Zenoss Core, an open source monitoring platform.
- * Copyright (C) 2010, Zenoss Inc.
+ * Copyright (C) 2011, Zenoss Inc.
  * 
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
@@ -15,16 +15,26 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.analysis.PerFieldAnalyzerWrapper;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Fieldable;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.document.NumericField;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
+import org.zenoss.protobufs.zep.Zep.EventDetail;
+import org.zenoss.protobufs.zep.Zep.EventDetailItem;
+import org.zenoss.protobufs.zep.Zep.EventDetailItem.EventDetailType;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.EventDetailsConfigDao;
+
+import java.util.List;
+import java.util.Map;
 
 import static org.zenoss.zep.index.impl.IndexConstants.*;
 
@@ -38,7 +48,17 @@ public class EventIndexMapper {
         return analyzer;
     }
 
-    public static Document fromEventSummary(EventSummary summary) {
+    public static final String DETAIL_INDEX_PREFIX = "details";
+    private EventDetailsConfigDao eventDetailsConfigDao;
+
+    private static final Logger logger = LoggerFactory.getLogger(EventIndexMapper.class);
+
+    public void setEventDetailsConfigDao(EventDetailsConfigDao eventDetailsConfigDao) {
+        this.eventDetailsConfigDao = eventDetailsConfigDao;
+    }
+
+    public Document fromEventSummary(EventSummary summary) throws ZepException {
+
         Document doc = new Document();
 
         // Store the entire serialized protobuf so we can reproduce the entire event from the index.
@@ -92,10 +112,55 @@ public class EventIndexMapper {
         String subId = actor.getElementSubIdentifier();
         doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER, subId, Store.NO, Index.ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+
+        // find details configured for indexing
+        Map<String, EventDetailItem> detailsConfig =
+                this.eventDetailsConfigDao.getEventDetailsIndexConfiguration();
+        List<EventDetail> evtDetails = event.getDetailsList();
+        for(EventDetail eDetail : evtDetails) {
+            String detailName = eDetail.getName();
+            EventDetailItem detailDefn = detailsConfig.get(detailName);
+
+            if (detailDefn != null) {
+                String detailKeyName = DETAIL_INDEX_PREFIX + '.' + detailDefn.getKey();
+
+                for (String detvalue  : eDetail.getValueList()) {
+                    Fieldable field = null;
+                    switch(detailDefn.getType()) {
+                        case INTEGER:
+                            try {
+                                int detIntValue = Integer.parseInt(detvalue);
+                                field = new NumericField(
+                                    detailKeyName, Store.NO, true).setIntValue(detIntValue);
+                            } catch (Exception e) {
+                                // don't let an exception on one value keep others from indexing
+                                logger.warn("Invalid integer data reported for detail {}: {}",
+                                        detailName, detvalue);
+                            }
+                            break;
+
+                        case STRING:
+                            field = new Field(
+                                detailKeyName, detvalue, Store.NO, Index.NOT_ANALYZED_NO_NORMS);
+                            break;
+
+                        default:
+                            logger.warn("Configured detail {} uses unknown data type: {}, skipping",
+                                    detailName, detailDefn.getType());
+                            break;
+                    }
+
+                    if (field != null) {
+                        doc.add(field);
+                    }
+                }
+            }
+        }
+
         return doc;
     }
 
-    public static EventSummary toEventSummary(Document item) throws ZepException {
+    public EventSummary toEventSummary(Document item) throws ZepException {
         EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
         try {
             final byte[] protobuf = item.getBinaryValue(FIELD_PROTOBUF);
