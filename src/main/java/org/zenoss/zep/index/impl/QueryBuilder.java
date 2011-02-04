@@ -44,7 +44,20 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 
 public class QueryBuilder {
+    private final BooleanClause.Occur operator;
     private final List<Query> queries = new ArrayList<Query>();
+
+    public QueryBuilder() {
+        this(FilterOperator.AND);
+    }
+
+    public QueryBuilder(FilterOperator operator) {
+        if (operator == FilterOperator.OR) {
+            this.operator = BooleanClause.Occur.SHOULD;
+        } else {
+            this.operator = BooleanClause.Occur.MUST;
+        }
+    }
 
     public QueryBuilder addField(String key, String value) {
         queries.add(new TermQuery(new Term(key, value)));
@@ -54,8 +67,8 @@ public class QueryBuilder {
     private static String unquote(String str) {
         final int len = str.length();
         String unquoted = str;
-        if (len >= 2 && str.charAt(0) == '"' && str.charAt(len-1) == '"') {
-            unquoted = str.substring(1, len-1);
+        if (len >= 2 && str.charAt(0) == '"' && str.charAt(len - 1) == '"') {
+            unquoted = str.substring(1, len - 1);
         }
         return unquoted;
     }
@@ -68,10 +81,10 @@ public class QueryBuilder {
      * non-analyzed field. All other queries are send to the NGram analyzed field for efficient
      * substring matches.
      *
-     * @param analyzedFieldName Analyzed field name.
+     * @param analyzedFieldName    Analyzed field name.
      * @param nonAnalyzedFieldName Non-analyzed field name.
-     * @param values Queries to search on.
-     * @param analyzer The analyzer used for the fields (used to build the NGram queries).
+     * @param values               Queries to search on.
+     * @param analyzer             The analyzer used for the fields (used to build the NGram queries).
      * @return This query builder instance (for chaining).
      * @throws ZepException If an exception occurs.
      */
@@ -97,11 +110,9 @@ public class QueryBuilder {
 
                 if (value.isEmpty() || !unquoted.equals(value)) {
                     query = new TermQuery(new Term(nonAnalyzedFieldName, unquoted));
-                }
-                else if (value.length() < IdentifierAnalyzer.MIN_NGRAM_SIZE) {
+                } else if (value.length() < IdentifierAnalyzer.MIN_NGRAM_SIZE) {
                     query = new PrefixQuery(new Term(analyzedFieldName, value));
-                }
-                else {
+                } else {
                     final PhraseQuery pq = new PhraseQuery();
                     query = pq;
                     TokenStream ts = analyzer.tokenStream(analyzedFieldName, new StringReader(value));
@@ -131,11 +142,11 @@ public class QueryBuilder {
      * exact match on the non-analyzed field name. Otherwise, the query is run through
      * the analyzer and substring matching is performed.
      *
-     * @param analyzedFieldName Analyzed field name.
+     * @param analyzedFieldName    Analyzed field name.
      * @param nonAnalyzedFieldName Non-analyzed field name.
-     * @param values Queries to search on.
-     * @param analyzer The analyzer used for the fields.
-     * @param reader The reader (used to query terms).
+     * @param values               Queries to search on.
+     * @param analyzer             The analyzer used for the fields.
+     * @param reader               The reader (used to query terms).
      * @return This query builder instance (for chaining).
      * @throws ZepException If an exception occurs.
      */
@@ -156,15 +167,14 @@ public class QueryBuilder {
                     }
                     // Prefix
                     else if (value.endsWith("*")) {
-                        value = value.substring(0, value.length()-1);
+                        value = value.substring(0, value.length() - 1);
                         query = new PrefixQuery(new Term(nonAnalyzedFieldName, value));
                     }
                     // Exact match
                     else {
                         query = new TermQuery(new Term(nonAnalyzedFieldName, value + "/"));
                     }
-                }
-                else {
+                } else {
                     final MultiPhraseQuery pq = new MultiPhraseQuery();
                     query = pq;
 
@@ -192,7 +202,7 @@ public class QueryBuilder {
                         while (ts.incrementToken()) {
                             String t = term.term();
                             if (t.endsWith("*")) {
-                                t = t.substring(0, t.length()-1);
+                                t = t.substring(0, t.length() - 1);
 
                                 List<Term> terms = new ArrayList<Term>();
                                 SortedSet<String> tailSet = allTerms.tailSet(t);
@@ -206,12 +216,10 @@ public class QueryBuilder {
                                 // Ensure that we don't return results if term doesn't exist
                                 if (terms.isEmpty()) {
                                     pq.add(new Term(analyzedFieldName, t));
-                                }
-                                else {
+                                } else {
                                     pq.add(terms.toArray(new Term[terms.size()]));
                                 }
-                            }
-                            else {
+                            } else {
                                 pq.add(new Term(analyzedFieldName, term.term()));
                             }
                         }
@@ -281,8 +289,7 @@ public class QueryBuilder {
                 int value = it.next();
                 if (value == to + 1) {
                     to = value;
-                }
-                else {
+                } else {
                     booleanQuery.add(NumericRangeQuery.newIntRange(key, from, to, true, true), occur);
                     from = to = value;
                 }
@@ -296,7 +303,7 @@ public class QueryBuilder {
 
     public QueryBuilder addFieldOfEnumNumbers(String key, List<? extends ProtocolMessageEnum> values) throws ZepException {
         List<Integer> valuesList = new ArrayList<Integer>(values.size());
-        for ( ProtocolMessageEnum e : values ) {
+        for (ProtocolMessageEnum e : values) {
             valuesList.add(e.getNumber());
         }
         addFieldOfIntegers(key, valuesList);
@@ -356,15 +363,19 @@ public class QueryBuilder {
         return this;
     }
 
+    public QueryBuilder addSubquery(Query subquery) throws ZepException {
+        queries.add(subquery);
+        return this;
+    }
+
     public BooleanQuery build() {
         if (this.queries.isEmpty()) {
             return null;
         }
-        
+
         BooleanQuery booleanQuery = new BooleanQuery();
-        final BooleanClause.Occur occur = BooleanClause.Occur.MUST;
         for (Query query : this.queries) {
-            booleanQuery.add(query, occur);
+            booleanQuery.add(query, this.operator);
         }
         this.queries.clear();
         return booleanQuery;
@@ -376,4 +387,5 @@ public class QueryBuilder {
                 "queries=" + queries +
                 '}';
     }
+
 }

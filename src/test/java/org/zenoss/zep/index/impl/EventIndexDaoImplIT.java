@@ -44,7 +44,7 @@ import java.util.UUID;
 
 import static org.junit.Assert.*;
 
-@ContextConfiguration({ "classpath:zep-config.xml" })
+@ContextConfiguration({"classpath:zep-config.xml"})
 public class EventIndexDaoImplIT extends
         AbstractTransactionalJUnit4SpringContextTests {
     @Autowired
@@ -63,7 +63,7 @@ public class EventIndexDaoImplIT extends
     public void tearDown() throws ZepException {
         eventIndexDao.clear();
     }
-    
+
     private EventSummary createSummaryNew(Event event) throws ZepException {
         return createSummary(event, EventStatus.STATUS_NEW);
     }
@@ -152,7 +152,7 @@ public class EventIndexDaoImplIT extends
     }
 
     private EventSummary createEventWithSeverity(EventSeverity severity,
-            EventStatus status, String... tags) throws ZepException {
+                                                 EventStatus status, String... tags) throws ZepException {
         final Event.Builder eventBuilder = Event.newBuilder(EventDaoImplIT
                 .createSampleEvent());
         eventBuilder.setSeverity(severity);
@@ -233,7 +233,7 @@ public class EventIndexDaoImplIT extends
     }
 
     private EventSummaryRequest createTagRequest(FilterOperator op,
-            String... tags) {
+                                                 String... tags) {
         EventTagFilter.Builder tagBuilder = EventTagFilter.newBuilder();
         tagBuilder.addAllTagUuids(Arrays.asList(tags));
         tagBuilder.setOp(op);
@@ -438,7 +438,7 @@ public class EventIndexDaoImplIT extends
         }
 
         // Matches exact class
-        for (String query : Arrays.asList("/Status/Ping","/status/ping","/STATUS/ping")) {
+        for (String query : Arrays.asList("/Status/Ping", "/status/ping", "/STATUS/ping")) {
             res = this.eventIndexDao.list(createRequestForEventClass(query));
             assertEquals(1, res.getEventsCount());
             assertEquals(event1.getUuid(), res.getEvents(0).getUuid());
@@ -480,4 +480,35 @@ public class EventIndexDaoImplIT extends
         assertEquals(1, res.getEventsCount());
         assertEquals(event1, res.getEvents(0));
     }
+
+    @Test
+    public void testEventFilterOperator() throws ZepException {
+        EventSummary event1 = createEventWithSeverity(EventSeverity.SEVERITY_INFO, EventStatus.STATUS_NEW);
+        EventSummary event2 = createEventWithSeverity(EventSeverity.SEVERITY_DEBUG, EventStatus.STATUS_CLOSED);
+
+        // First test OR query with INFO or CLOSED; should return both events
+        EventFilter.Builder or_filter = EventFilter.newBuilder()
+                .addSeverity(EventSeverity.SEVERITY_INFO)
+                .addStatus(EventStatus.STATUS_CLOSED)
+                .setOperator(FilterOperator.OR);
+
+        EventSummaryRequest or_req = EventSummaryRequest.newBuilder()
+                .setEventFilter(or_filter)
+                .build();
+        EventSummaryResult or_res = this.eventIndexDao.list(or_req);
+        assertEquals(2, or_res.getEventsCount());
+
+        // Now AND query with INFO and CLOSED; should return zero
+        EventFilter.Builder and_filter = EventFilter.newBuilder()
+                .addSeverity(EventSeverity.SEVERITY_INFO)
+                .addStatus(EventStatus.STATUS_CLOSED)
+                .setOperator(FilterOperator.AND);
+
+        EventSummaryRequest and_req = EventSummaryRequest.newBuilder()
+                .setEventFilter(and_filter)
+                .build();
+        EventSummaryResult and_res = this.eventIndexDao.list(and_req);
+        assertEquals(0, and_res.getEventsCount());
+    }
+
 }

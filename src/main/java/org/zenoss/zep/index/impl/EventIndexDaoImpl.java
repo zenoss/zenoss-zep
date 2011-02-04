@@ -409,7 +409,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             return null;
         }
         
-        QueryBuilder qb = new QueryBuilder();
+        QueryBuilder qb = new QueryBuilder(filter.getOperator());
 
         qb.addRanges(FIELD_COUNT, filter.getCountRangeList());
         qb.addWildcardFields(FIELD_ACKNOWLEDGED_BY_USER_NAME, filter.getAcknowledgedByUserNameList(), false);
@@ -436,6 +436,10 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
 
         qb.addField(FIELD_UUID, filter.getUuidList(), FilterOperator.OR);
+
+        for (EventFilter subfilter : filter.getSubfilterList()) {
+            qb.addSubquery(buildQueryFromFilter(reader, subfilter));
+        }
 
         return qb.build();
     }
