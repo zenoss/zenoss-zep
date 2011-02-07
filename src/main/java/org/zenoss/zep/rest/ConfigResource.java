@@ -10,7 +10,12 @@
  */
 package org.zenoss.zep.rest;
 
-import java.util.Map;
+import org.zenoss.protobufs.ProtobufConstants;
+import org.zenoss.protobufs.zep.Zep.EventDetailItem;
+import org.zenoss.protobufs.zep.Zep.EventDetailItemSet;
+import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.ConfigDao;
+import org.zenoss.zep.dao.EventDetailsConfigDao;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -22,17 +27,20 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
-
-import org.zenoss.zep.ZepException;
-import org.zenoss.zep.dao.ConfigDao;
+import java.util.Map;
 
 @Path("1.0/config")
 public class ConfigResource {
 
     private ConfigDao configDao;
+    private EventDetailsConfigDao detailsConfigDao;
 
     public void setConfigDao(ConfigDao configDao) {
         this.configDao = configDao;
+    }
+
+    public void setEventDetailsConfigDao(EventDetailsConfigDao eventDetailsConfigDao) {
+        this.detailsConfigDao = eventDetailsConfigDao;
     }
 
     @GET
@@ -76,5 +84,15 @@ public class ConfigResource {
             return Response.status(Status.NOT_FOUND).build();
         }
         return Response.ok(Status.NO_CONTENT).build();
+    }
+
+    @GET
+    @Path("index_details")
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    public EventDetailItemSet getIndexedDetails() throws ZepException {
+        EventDetailItemSet.Builder setBuilder = EventDetailItemSet.newBuilder();
+        Map<String, EventDetailItem> indexDetailsMap = this.detailsConfigDao.getEventDetailsIndexConfiguration();
+        setBuilder.addAllDetails(indexDetailsMap.values());
+        return setBuilder.build();
     }
 }

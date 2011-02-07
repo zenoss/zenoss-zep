@@ -12,6 +12,7 @@
     <!-- REST API -->
     <bean id="configResource" class="org.zenoss.zep.rest.ConfigResource">
         <property name="configDao" ref="configDao" />
+        <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao" />
     </bean>
     <bean id="eventsResource" class="org.zenoss.zep.rest.EventsResource">
         <property name="queryLimit" value="${zep.query.limit}" />

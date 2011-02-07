@@ -61,7 +61,7 @@ public class ZepInstanceImpl implements ZepInstance {
             logger.warn("ZENHOME not specified. Not persisting ZEP instance id.");
             id = new UUID(0, 0).toString();
         } else {
-            File f = new File(zenHome, "etc/zenoss-zep-instance.properties");
+            File f = new File(zenHome, "etc/zenoss-zep/instance.properties");
             Properties props = loadProperties(f);
             id = props.getProperty("id");
 
@@ -107,6 +107,10 @@ public class ZepInstanceImpl implements ZepInstance {
             throws IOException {
         BufferedOutputStream bos = null;
         try {
+            if (!f.getParentFile().isDirectory() && !f.getParentFile().mkdirs()) {
+                throw new IOException("Failed to create parent directory: " +
+                        f.getParentFile().getAbsolutePath());
+            }
             bos = new BufferedOutputStream(new FileOutputStream(f));
             properties.store(bos, "ZEP Instance ID. Do not modify");
         } finally {

@@ -17,7 +17,7 @@ cd $JETTY_HOME
 JVM_ARGS="$JVM_ARGS -DZENHOME=${JETTY_HOME}"
 JVM_ARGS="$JVM_ARGS -Djetty.logs=${JETTY_HOME}/log"
 
-JETTY_ARGS="--ini=$JETTY_HOME/etc/jetty.ini"
+JETTY_ARGS="--ini=$JETTY_HOME/etc/zenoss-zep/jetty/jetty.ini"
 
 VAR=${JETTY_HOME}/var
 mkdir -p ${VAR}/run

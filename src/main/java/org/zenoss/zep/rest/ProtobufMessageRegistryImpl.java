@@ -13,6 +13,7 @@ package org.zenoss.zep.rest;
 import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import org.zenoss.protobufs.rest.ProtobufMessageRegistry;
+import org.zenoss.protobufs.zep.Zep.EventDetailItemSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
@@ -44,7 +45,8 @@ public class ProtobufMessageRegistryImpl implements ProtobufMessageRegistry {
                 EventSummaryUpdate.getDefaultInstance(),
                 EventTriggerSubscriptionSet.getDefaultInstance(),
                 EventTagSeveritiesSet.getDefaultInstance(),
-                EventQuery.getDefaultInstance());
+                EventQuery.getDefaultInstance(),
+                EventDetailItemSet.getDefaultInstance());
         for (Message message : messages) {
             messageByFullName.put(message.getDescriptorForType().getFullName(),
                     message);

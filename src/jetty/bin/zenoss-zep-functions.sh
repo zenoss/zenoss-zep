@@ -29,7 +29,7 @@ start() {
         echo starting...
         JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
         # Redirect stdout/stderr to separate log file
-        JETTY_ARGS="$JETTY_ARGS etc/jetty-logging.xml"
+        JETTY_ARGS="$JETTY_ARGS etc/zenoss-zep/jetty/jetty-logging.xml"
         java -jar ${JVM_ARGS} ${JETTYSTART_JAR} ${JETTY_ARGS} \
         ${START_ARGS} > /dev/null 2>&1 &
         PID=$!

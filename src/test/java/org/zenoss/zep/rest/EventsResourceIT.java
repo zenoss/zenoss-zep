@@ -165,6 +165,7 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         RestResponse restResponse = client.postProtobuf(EVENTS_URI + "/search", query);
         assertEquals(HttpStatus.SC_CREATED, restResponse.getResponseCode());
         String location = restResponse.getHeaders().get("location").get(0);
+        String query_uuid = location.substring(location.lastIndexOf('/') + 1);
 
         final EventSummaryUpdate updateFields = EventSummaryUpdate.newBuilder()
                 .setAcknowledgedByUserUuid(ackUuid).setAcknowledgedByUserName(ackName).setStatus(status).build();
@@ -175,7 +176,8 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
 
         EventSummaryUpdateResponse response = (EventSummaryUpdateResponse)
                 client.putProtobuf(location, req).getMessage();
-        assertEquals(EventSummaryUpdateRequest.newBuilder(req).setOffset(10).build(), response.getNextRequest());
+        assertEquals(EventSummaryUpdateRequest.newBuilder(req).setOffset(10).setEventQueryUuid(query_uuid).build(),
+                response.getNextRequest());
         assertEquals(uuids.size(), response.getTotal());
         assertEquals(10, response.getUpdated());
 

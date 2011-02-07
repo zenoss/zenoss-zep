@@ -33,7 +33,7 @@ def create_tmpfile(path):
     return (tmpfd,tmpname)
 
 def remove_properties(properties_to_remove):
-    filename = zenPath('etc', 'zenoss-zep.properties')
+    filename = zenPath('etc', 'zenoss-zep', 'zenoss-zep.properties')
     (tmpfd,tmpname) = create_tmpfile(filename)
     output_file = os.fdopen(tmpfd, 'wb')
     found_properties = set()
@@ -53,7 +53,7 @@ def remove_properties(properties_to_remove):
             pass
 
 def update_properties(properties_dict):
-    filename = zenPath('etc', 'zenoss-zep.properties')
+    filename = zenPath('etc', 'zenoss-zep', 'zenoss-zep.properties')
     (tmpfd,tmpname) = create_tmpfile(filename)
     output_file = os.fdopen(tmpfd, 'wb')
     found_properties = set()
