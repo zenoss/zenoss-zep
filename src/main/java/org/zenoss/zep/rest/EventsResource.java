@@ -14,8 +14,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.ProtobufConstants;
 import org.zenoss.protobufs.util.Util.TimestampRange;
+import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventNote;
+import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSort;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -31,7 +33,6 @@ import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
 import org.zenoss.protobufs.zep.Zep.EventTagSeverity;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
-import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.zep.ConfigConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventStoreDao;
@@ -39,19 +40,22 @@ import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
 
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.MultivaluedMap;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
-import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -65,8 +69,7 @@ import java.util.TimeZone;
 
 @Path("1.0/events")
 public class EventsResource {
-    private static final Logger logger = LoggerFactory
-            .getLogger(EventsResource.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventsResource.class);
 
     private int queryLimit = ConfigConstants.DEFAULT_QUERY_LIMIT;
     private EventIndexer eventIndexer;
@@ -99,8 +102,7 @@ public class EventsResource {
         this.eventArchiveIndexDao = eventArchiveIndexDao;
     }
 
-    private static Set<String> getQuerySet(
-            MultivaluedMap<String, String> params, String name) {
+    private static Set<String> getQuerySet(MultivaluedMap<String, String> params, String name) {
         final Set<String> set;
         final List<String> l = params.get(name);
         if (l == null) {
@@ -112,14 +114,12 @@ public class EventsResource {
         return set;
     }
 
-    private static int getQueryInteger(MultivaluedMap<String, String> params,
-            String name, int defaultValue) {
+    private static int getQueryInteger(MultivaluedMap<String, String> params, String name, int defaultValue) {
         final String strVal = params.getFirst(name);
         return (strVal != null) ? Integer.valueOf(strVal) : defaultValue;
     }
 
-    static <T extends Enum<T>> EnumSet<T> getQueryEnumSet(
-            MultivaluedMap<String, String> params, String name,
+    static <T extends Enum<T>> EnumSet<T> getQueryEnumSet(MultivaluedMap<String, String> params, String name,
             Class<T> enumClass, String prefix) {
         final EnumSet<T> set = EnumSet.noneOf(enumClass);
         final List<String> values = params.get(name);
@@ -129,7 +129,6 @@ public class EventsResource {
                 if (!value.startsWith(prefix)) {
                     value = prefix + value;
                 }
-
                 set.add(Enum.valueOf(enumClass, value));
             }
         }
@@ -137,11 +136,130 @@ public class EventsResource {
         return set;
     }
 
+    @POST
+    @Path("search")
+    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    public Response createSavedSearch(EventQuery query, @Context UriInfo ui) throws URISyntaxException, ZepException {
+        return createSavedSearchInternal(this.eventSummaryIndexDao, query, ui);
+    }
+
+    @POST
+    @Path("archive/search")
+    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    public Response createArchiveSavedSearch(EventQuery query, @Context UriInfo ui) throws URISyntaxException, ZepException {
+        return createSavedSearchInternal(this.eventArchiveIndexDao, query, ui);
+    }
+
+    public Response createSavedSearchInternal(EventIndexDao indexDao, EventQuery query, @Context UriInfo ui)
+            throws URISyntaxException, ZepException {
+        // Make sure index is up to date with latest events prior to creating the saved search
+        this.eventIndexer.index(true);
+        String uuid = indexDao.createSavedSearch(query);
+        return Response.created(new URI(ui.getRequestUri().toString() + '/' + uuid)).build();
+    }
+
+    @GET
+    @Path("search/{searchUuid}")
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    public Response listSavedSearch(@PathParam("searchUuid") String searchUuid,
+                                    @QueryParam("offset") String offsetStr,
+                                    @QueryParam("limit") String limitStr) throws ZepException {
+        return listSavedSearchInternal(this.eventSummaryIndexDao, searchUuid, offsetStr, limitStr);
+    }
+
+    @GET
+    @Path("archive/search/{searchUuid}")
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    public Response listArchiveSavedSearch(@PathParam("searchUuid") String searchUuid,
+                                    @QueryParam("offset") String offsetStr,
+                                    @QueryParam("limit") String limitStr) throws ZepException {
+        return listSavedSearchInternal(this.eventArchiveIndexDao, searchUuid, offsetStr, limitStr);
+    }
+
+    private Response listSavedSearchInternal(EventIndexDao indexDao, String searchUuid, String offsetStr,
+                                             String limitStr) throws ZepException {
+        int offset = 0;
+        if (offsetStr != null) {
+            offset = Integer.parseInt(offsetStr);
+            if (offset < 0) {
+                throw new ZepException("Invalid offset: " + offsetStr);
+            }
+        }
+        int limit = queryLimit;
+        if (limitStr != null) {
+            limit = Integer.parseInt(limitStr);
+            if (limit > queryLimit) {
+                limit = queryLimit;
+            }
+        }
+        Response response;
+        try {
+            response = Response.ok(indexDao.savedSearch(searchUuid, offset, limit)).build();
+        } catch (ZepException e) {
+            if (e.getLocalizedMessage() != null && e.getLocalizedMessage().startsWith("ZEP0001E")) {
+                response = Response.status(Status.NOT_FOUND).entity(e.getLocalizedMessage()).type(MediaType.TEXT_PLAIN_TYPE).build();
+            }
+            else {
+                throw e;
+            }
+        }
+        return response;
+    }
+
+    @DELETE
+    @Path("search/{searchUuid}")
+    public Response deleteSavedSearch(@PathParam("searchUuid") String searchUuid) throws ZepException {
+        return deleteSavedSearchInternal(this.eventSummaryIndexDao, searchUuid);
+    }
+
+    @DELETE
+    @Path("archive/search/{searchUuid}")
+    public Response deleteArchiveSavedSearch(@PathParam("searchUuid") String searchUuid) throws ZepException {
+        return deleteSavedSearchInternal(this.eventArchiveIndexDao, searchUuid);
+    }
+
+    private Response deleteSavedSearchInternal(EventIndexDao indexDao, String searchUuid) throws ZepException {
+        String uuid = indexDao.deleteSavedSearch(searchUuid);
+        if (uuid == null) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
+        return Response.status(Status.NO_CONTENT).build();
+    }
+
+    @PUT
+    @Path("search/{searchUuid}")
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    public EventSummaryUpdateResponse updateEvents(@PathParam("searchUuid") String searchUuid,
+                                                   EventSummaryUpdateRequest request) throws ZepException {
+        if (request.hasEventQueryUuid() && !searchUuid.equals(request.getEventQueryUuid())) {
+            throw new ZepException(String.format("Mismatched search UUIDs: '%s' != '%s'", searchUuid,
+                    request.getEventQueryUuid()));
+        }
+        EventSummaryResult result = this.eventSummaryIndexDao.savedSearchUuids(searchUuid, request.getOffset(),
+                request.getLimit());
+        List<String> uuids = new ArrayList<String>(result.getEventsCount());
+        for (EventSummary summary : result.getEventsList()) {
+            uuids.add(summary.getUuid());
+        }
+        int numUpdated = this.eventStoreDao.update(uuids, request.getUpdateFields());
+
+        EventSummaryUpdateResponse.Builder response = EventSummaryUpdateResponse.newBuilder();
+        if (result.hasNextOffset()) {
+            EventSummaryUpdateRequest.Builder requestBuilder = EventSummaryUpdateRequest.newBuilder(request);
+            // Must set limit again in case initial limit is greater than configured maximum
+            requestBuilder.setOffset(result.getNextOffset()).setLimit(result.getLimit());
+            requestBuilder.setEventQueryUuid(searchUuid);
+            response.setNextRequest(requestBuilder.build());
+        }
+        response.setTotal(result.getTotal());
+        response.setUpdated(numUpdated);
+        return response.build();
+    }
+
     @GET
     @Path("{eventUuid}")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    public Response getEventSummaryByUuid(
-            @PathParam("eventUuid") String eventUuid) throws ZepException {
+    public Response getEventSummaryByUuid(@PathParam("eventUuid") String eventUuid) throws ZepException {
         EventSummary summary = eventStoreDao.findByUuid(eventUuid);
         if (summary == null) {
             return Response.status(Status.NOT_FOUND).build();
@@ -151,65 +269,9 @@ public class EventsResource {
     }
 
     @PUT
-    @Path("/")
-    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    public EventSummaryUpdateResponse updateEventSummary(
-            EventSummaryUpdateRequest request) throws ZepException {
-        final long updateTime;
-        if (!request.hasUpdateTime()) {
-            updateTime = System.currentTimeMillis();
-            // Force an index to ensure we have a consistent view of data
-            this.eventIndexer.index(true);
-        } else {
-            updateTime = request.getUpdateTime();
-        }
-
-        EventSummaryRequest.Builder reqBuilder = EventSummaryRequest.newBuilder();
-        
-        // Add additional constraint on user's filter that we only want to
-        // include events with update_time < the current time. This prevents
-        // updating events that are modified after the request comes in.
-        EventFilter.Builder filterBuilder = EventFilter.newBuilder();
-        if (request.hasEventFilter()) {
-            filterBuilder.mergeFrom(request.getEventFilter());
-        }
-        filterBuilder.addUpdateTime(TimestampRange.newBuilder().setEndTime(updateTime));
-        EventFilter filter = filterBuilder.build();
-        reqBuilder.setEventFilter(filter);
-
-        if (request.hasExclusionFilter()) {
-            reqBuilder.setExclusionFilter(request.getExclusionFilter());
-        }
-
-        // Maximum number of events we will update in one batch
-        reqBuilder.setLimit(Math.min(request.getLimit(), queryLimit));
-
-        EventSummaryRequest req = reqBuilder.build();
-
-        EventSummaryResult result = this.eventSummaryIndexDao.listUuids(req);
-        List<String> uuids = new ArrayList<String>(result.getEventsCount());
-        for (EventSummary summary : result.getEventsList()) {
-            uuids.add(summary.getUuid());
-        }
-        eventStoreDao.update(uuids, request.getUpdateFields());
-
-        // Force the index to update - this will prevent updating these events again
-        eventIndexer.index(true);
-
-        EventSummaryUpdateResponse.Builder response = EventSummaryUpdateResponse.newBuilder();
-        response.setRemaining(result.getTotal() - result.getEventsCount());
-        response.setUpdated(result.getEventsCount());
-        response.setRequest(EventSummaryUpdateRequest.newBuilder(request)
-                .setUpdateTime(updateTime).build());
-        return response.build();
-    }
-
-    @PUT
     @Path("{eventUuid}")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    public Response updateEventSummaryByUuid(
-            @PathParam("eventUuid") String uuid, EventSummaryUpdate update)
+    public Response updateEventSummaryByUuid(@PathParam("eventUuid") String uuid, EventSummaryUpdate update)
             throws ZepException {
 
         EventSummary summary = eventStoreDao.findByUuid(uuid);
@@ -228,8 +290,7 @@ public class EventsResource {
     @POST
     @Path("{eventUuid}/notes")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    public Response addNote(@PathParam("eventUuid") String eventUuid,
-            EventNote note) throws ZepException {
+    public Response addNote(@PathParam("eventUuid") String eventUuid, EventNote note) throws ZepException {
 
         EventSummary summary = eventStoreDao.findByUuid(eventUuid);
         if (summary == null) {
@@ -288,16 +349,13 @@ public class EventsResource {
     }
 
     private EventTagSeveritiesSet createTagSeverities(Set<String> uuids) throws ZepException {
-        EventTagSeveritiesSet.Builder setBuilder = EventTagSeveritiesSet
-                .newBuilder();
+        EventTagSeveritiesSet.Builder setBuilder = EventTagSeveritiesSet.newBuilder();
         if (!uuids.isEmpty()) {
             Map<String, Map<EventSeverity, Integer>> counts = this.eventSummaryIndexDao.countSeverities(uuids);
-            for (Map.Entry<String, Map<EventSeverity, Integer>> entry : counts
-                    .entrySet()) {
+            for (Map.Entry<String, Map<EventSeverity, Integer>> entry : counts.entrySet()) {
                 EventTagSeverities.Builder sevsBuilder = EventTagSeverities
                         .newBuilder().setTagUuid(entry.getKey());
-                for (Map.Entry<EventSeverity, Integer> severityEntry : entry
-                        .getValue().entrySet()) {
+                for (Map.Entry<EventSeverity, Integer> severityEntry : entry.getValue().entrySet()) {
                     sevsBuilder.addSeverities(EventTagSeverity.newBuilder()
                             .setSeverity(severityEntry.getKey())
                             .setCount(severityEntry.getValue()).build());
@@ -346,8 +404,7 @@ public class EventsResource {
     @GET
     @Path("worst_severity")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    public EventTagSeveritiesSet listWorstEventSeverity(@Context UriInfo ui)
-            throws ZepException {
+    public EventTagSeveritiesSet listWorstEventSeverity(@Context UriInfo ui) throws ZepException {
         final MultivaluedMap<String, String> queryParams = ui
                 .getQueryParameters();
         Set<String> uuids = getQuerySet(queryParams, "tag");
@@ -367,8 +424,7 @@ public class EventsResource {
         return setBuilder.build();
     }
 
-    private EventSummaryRequest eventSummaryRequestFromUriInfo(UriInfo info)
-            throws ParseException {
+    private EventSummaryRequest eventSummaryRequestFromUriInfo(UriInfo info) throws ParseException {
         /* Read all params from query */
         MultivaluedMap<String, String> queryParams = info.getQueryParameters();
         logger.debug("Query Parameters: {}", queryParams);

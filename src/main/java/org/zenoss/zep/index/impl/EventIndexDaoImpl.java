@@ -28,7 +28,10 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TopFieldDocs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.TaskScheduler;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
+import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSort;
 import org.zenoss.protobufs.zep.Zep.EventSort.Direction;
@@ -40,10 +43,13 @@ import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
 import org.zenoss.protobufs.zep.Zep.EventTagFilter;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.zep.ConfigConstants;
+import org.zenoss.zep.Messages;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
+import org.zenoss.zep.impl.ThreadRenamingRunnable;
 import org.zenoss.zep.index.EventIndexDao;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -55,6 +61,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -65,6 +74,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
     // Don't use searcher directly - use getSearcher()/returnSearcher()
     private IndexSearcher _searcher;
     private final String name;
+
+    @Autowired
+    private Messages messages;
 
     private int queryLimit = ConfigConstants.DEFAULT_QUERY_LIMIT;
     private static final int OPTIMIZE_AT_NUM_EVENTS = 5000;
@@ -149,7 +161,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         return this._searcher;
     }
 
-    private synchronized void returnSearcher(IndexSearcher searcher) throws ZepException {
+    private static void returnSearcher(IndexSearcher searcher) throws ZepException {
         if (searcher != null) {
             try {
                 searcher.getIndexReader().decRef();
@@ -198,41 +210,52 @@ public class EventIndexDaoImpl implements EventIndexDao {
     }
 
     private EventSummaryResult listInternal(EventSummaryRequest request, FieldSelector selector) throws ZepException {
-        int limit = request.getLimit();
-        if ( limit > queryLimit || limit < 1 ) {
-            limit = queryLimit;
-        }
-        int offset = request.getOffset();
-        if ( offset < 0 ) {
-            offset = 0;
-        }
-
         IndexSearcher searcher = null;
         try {
             searcher = getSearcher();
             Query query = buildQuery(searcher.getIndexReader(), request.getEventFilter(), request.getExclusionFilter());
             Sort sort = buildSort(request.getSortList());
-            logger.debug("Querying for events matching: {}, sort: {}", query, sort);
-            TopDocs docs = searcher.search(query, null, limit + offset, sort);
-            logger.debug("Found {} results", docs.totalHits);
-
-            EventSummaryResult.Builder result = EventSummaryResult.newBuilder();
-            result.setTotal(docs.totalHits);
-            result.setLimit(limit);
-            if ( result.getTotal() > limit + offset ) {
-                result.setNextOffset(limit + offset + 1);
-            }
-
-            for (int i = offset; i < docs.scoreDocs.length; i++) {
-                EventSummary summary = this.eventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector));
-                result.addEvents(summary);
-            }
-            return result.build();
+            return searchToEventSummaryResult(searcher, query, sort, selector, request.getOffset(), request.getLimit());
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
         } finally {
             returnSearcher(searcher);
         }
+    }
+
+    private EventSummaryResult searchToEventSummaryResult(IndexSearcher searcher, Query query, Sort sort,
+                                                          FieldSelector selector, int offset, int limit)
+            throws IOException, ZepException {
+        if (limit < 0) {
+            throw new ZepException(messages.getMessage("invalid_query_limit", limit));
+        }
+        if (limit > queryLimit) {
+            limit = queryLimit;
+        }
+        if ( offset < 0 ) {
+            offset = 0;
+        }
+        logger.debug("Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[] { query, sort, offset, limit });
+        final TopDocs docs;
+        if (sort != null) {
+            docs = searcher.search(query, null, limit + offset, sort);
+        }
+        else {
+            docs = searcher.search(query, null, limit + offset);
+        }
+        logger.debug("Found {} results", docs.totalHits);
+        EventSummaryResult.Builder result = EventSummaryResult.newBuilder();
+        result.setTotal(docs.totalHits);
+        result.setLimit(limit);
+        if (docs.totalHits > limit + offset) {
+            result.setNextOffset(limit + offset);
+        }
+
+        for (int i = offset; i < docs.scoreDocs.length; i++) {
+            EventSummary summary = this.eventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector));
+            result.addEvents(summary);
+        }
+        return result.build();
     }
 
     @Override
@@ -330,15 +353,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
     }
 
-    private static final List<EventSort> DEFAULT_EVENT_SORT = Arrays.asList(
-            EventSort.newBuilder().setDirection(Direction.DESCENDING).setField(Field.SEVERITY).build(),
-            EventSort.newBuilder().setDirection(Direction.DESCENDING).setField(Field.LAST_SEEN).build()
-    );
-    private static final Sort DEFAULT_SORT = buildSort(DEFAULT_EVENT_SORT);
-
     private static Sort buildSort(List<EventSort> sortList) {
         if (sortList.isEmpty()) {
-            return DEFAULT_SORT;
+            return null;
         }
         List<SortField> fields = new ArrayList<SortField>(sortList.size());
         for (EventSort sort : sortList) {
@@ -544,5 +561,174 @@ public class EventIndexDaoImpl implements EventIndexDao {
             }
         }
         return severities;
+    }
+
+    private static class SavedSearch implements Closeable {
+        private final String uuid;
+        private IndexReader reader;
+        private final Query query;
+        private final Sort sort;
+        private final int timeout;
+        private ScheduledFuture<?> timeoutFuture;
+
+        public SavedSearch(String uuid, IndexReader reader, Query query, Sort sort, int timeout) {
+            this.uuid = uuid;
+            this.reader = reader;
+            this.query = query;
+            this.sort = sort;
+            this.timeout = timeout;
+        }
+
+        public String getUuid() {
+            return uuid;
+        }
+
+        public IndexReader getReader() {
+            return this.reader;
+        }
+
+        public Query getQuery() {
+            return this.query;
+        }
+
+        public Sort getSort() {
+            return sort;
+        }
+
+        public int getTimeout() {
+            return timeout;
+        }
+
+        public synchronized ScheduledFuture<?> getTimeoutFuture() {
+            return this.timeoutFuture;
+        }
+
+        public synchronized void setTimeoutFuture(ScheduledFuture<?> timeoutFuture) throws ZepException {
+            if (this.timeoutFuture != null) {
+                this.timeoutFuture.cancel(false);
+            }
+            this.timeoutFuture = timeoutFuture;
+        }
+
+        public synchronized void close() throws IOException {
+            if (this.reader != null) {
+                this.reader.decRef();
+                this.reader = null;
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "SavedSearch{" +
+                    "uuid='" + uuid + '\'' +
+                    ", reader=" + reader +
+                    ", query=" + query +
+                    ", sort=" + sort +
+                    ", timeout=" + timeout +
+                    ", timeoutFuture=" + timeoutFuture +
+                    '}';
+        }
+    }
+
+    @Autowired
+    private TaskScheduler scheduler;
+    private final Map<String,SavedSearch> savedSearches = new ConcurrentHashMap<String,SavedSearch>();
+
+    @Override
+    public String createSavedSearch(EventQuery eventQuery) throws ZepException {
+        if (eventQuery.getTimeout() < 1) {
+            throw new ZepException("Invalid timeout: " + eventQuery.getTimeout());
+        }
+        final String uuid = UUID.randomUUID().toString();
+        IndexReader reader = null;
+        try {
+            reader = getSearcher().getIndexReader();
+            final Query query = buildQuery(reader, eventQuery.getEventFilter(), eventQuery.getExclusionFilter());
+            final Sort sort = buildSort(eventQuery.getSortList());
+            final SavedSearch search = new SavedSearch(uuid, reader, query, sort, eventQuery.getTimeout());
+            savedSearches.put(uuid, search);
+            scheduleSearchTimeout(search);
+        } catch (Exception e) {
+            logger.warn("Exception creating saved search", e);
+            if (reader != null) {
+                try {
+                    reader.decRef();
+                } catch (IOException ex) {
+                    logger.warn("Exception decrementing reference count", ex);
+                }
+            }
+            if (e instanceof ZepException) {
+                throw (ZepException) e;
+            }
+            throw new ZepException(e.getLocalizedMessage(), e);
+        }
+        return uuid;
+    }
+
+    private void scheduleSearchTimeout(final SavedSearch search) throws ZepException {
+        logger.info("Scheduling saved search {} for expiration in {} seconds", search.getUuid(), search.getTimeout());
+        Date d = new Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(search.getTimeout()));
+        search.setTimeoutFuture(scheduler.schedule(new ThreadRenamingRunnable(new Runnable() {
+            @Override
+            public void run() {
+                logger.info("Saved search timed out: {}", search.getUuid());
+                savedSearches.remove(search.getUuid());
+                try {
+                    search.close();
+                } catch (IOException e) {
+                    logger.warn("Failed closing saved search", e);
+                }
+            }
+        }, "ZEP_SAVED_SEARCH_TIMEOUT"), d));
+    }
+
+    @Override
+    public EventSummaryResult savedSearch(String uuid, int offset, int limit) throws ZepException {
+        return savedSearchInternal(uuid, offset, limit, PROTO_SELECTOR);
+    }
+
+    @Override
+    public EventSummaryResult savedSearchUuids(String uuid, int offset, int limit) throws ZepException {
+        return savedSearchInternal(uuid, offset, limit, UUID_SELECTOR);
+    }
+
+    private EventSummaryResult savedSearchInternal(String uuid, int offset, int limit, FieldSelector selector)
+            throws ZepException {
+        final SavedSearch search = savedSearches.get(uuid);
+        if (search == null) {
+            throw new ZepException(messages.getMessage("saved_search_not_found", uuid));
+        }
+
+        /* Reset the timeout for the saved search to prevent it expiring while in use */
+        scheduleSearchTimeout(search);
+
+        IndexSearcher searcher = null;
+        try {
+            IndexReader reader = search.getReader();
+            reader.incRef();
+            
+            searcher = new IndexSearcher(reader);
+            return searchToEventSummaryResult(searcher, search.getQuery(), search.getSort(), selector, offset, limit);
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        } finally {
+            returnSearcher(searcher);
+        }
+    }
+
+    @Override
+    public String deleteSavedSearch(String uuid) throws ZepException {
+        final SavedSearch search = savedSearches.remove(uuid);
+        if (search == null) {
+            return null;
+        }
+        logger.info("Deleting saved search: {}", uuid);
+        try {
+            search.close();
+        } catch (IOException e) {
+            logger.warn("Failed closing reader", e);
+        }
+        search.getTimeoutFuture().cancel(false);
+        return search.getUuid();
     }
 }

@@ -12,18 +12,23 @@ package org.zenoss.zep.impl;
 
 import org.python.core.PyDictionary;
 import org.python.core.PyException;
-import org.python.core.PySyntaxError;
 import org.python.core.PyFunction;
 import org.python.core.PyInteger;
 import org.python.core.PyObject;
 import org.python.core.PyString;
+import org.python.core.PySyntaxError;
 import org.python.util.PythonInterpreter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.Trigger;
+import org.springframework.scheduling.TriggerContext;
 import org.zenoss.amqp.AmqpConnectionManager;
 import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.ExchangeConfiguration;
 import org.zenoss.amqp.ZenossQueueConfig;
+import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
@@ -32,7 +37,6 @@ import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
-import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Rule;
 import org.zenoss.protobufs.zep.Zep.Signal;
 import org.zenoss.zep.ZepException;
@@ -45,16 +49,13 @@ import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Date;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
-import java.util.concurrent.Callable;
-import java.util.concurrent.DelayQueue;
-import java.util.concurrent.Delayed;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -90,13 +91,13 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                     .<String, PyFunction> createBoundedMap(MAX_RULE_CACHE_SIZE));
 
     // The maximum amount of time to wait between processing the signal spool.
-    private static final int MAXIMUM_DELAY_SECONDS = 60;
+    private static final long MAXIMUM_DELAY_MS = TimeUnit.SECONDS.toMillis(60);
 
     public static final String PRODUCTION_STATE_DETAIL_KEY = "zenoss.device.production_state";
     public static final String DEVICE_PRIORITY_DETAIL_KEY = "zenoss.device.priority";
 
-    private final DelayQueue<SpoolDelayed> delayed = new DelayQueue<SpoolDelayed>();
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
+    private TaskScheduler scheduler;
+    private ScheduledFuture<?> spoolFuture;
 
     static {
         PythonInterpreter.initialize(System.getProperties(), new Properties(), new String[0]);
@@ -110,6 +111,11 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
     }
 
     public TriggerPlugin() {
+    }
+
+    @Autowired
+    public void setTaskScheduler(TaskScheduler scheduler) {
+        this.scheduler = scheduler;
     }
 
     @Override
@@ -130,22 +136,46 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
         // import some helpful modules from the standard lib
         this.python.exec("import string, re, datetime");
 
-        this.executor.submit(new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-                while (true) {
-                    long now = System.currentTimeMillis();
-                    processSpool(now);
-                    delayed.poll(MAXIMUM_DELAY_SECONDS, TimeUnit.SECONDS);
-                }
-            }
-        });
+        scheduleSpool();
     }
 
     public void shutdown() throws InterruptedException {
         this.python.cleanup();
-        executor.shutdownNow();
-        executor.awaitTermination(0L, TimeUnit.SECONDS);
+        if (spoolFuture != null) {
+            spoolFuture.cancel(true);
+        }
+    }
+
+    private void scheduleSpool() {
+        if (spoolFuture != null) {
+            spoolFuture.cancel(false);
+        }
+        Trigger trigger = new Trigger() {
+            @Override
+            public Date nextExecutionTime(TriggerContext triggerContext) {
+                Date nextExecution = null;
+                try {
+                    long nextFlushTime = signalSpoolDao.getNextFlushTime();
+                    if (nextFlushTime > 0) {
+                        logger.debug("Next flush time: {}", nextFlushTime);
+                        nextExecution = new Date(nextFlushTime);
+                    }
+                } catch (Exception e) {
+                    logger.warn("Exception getting next flush time", e);
+                }
+                if (nextExecution == null) {
+                    nextExecution = new Date(System.currentTimeMillis() + MAXIMUM_DELAY_MS);
+                }
+                return nextExecution;
+            }
+        };
+        Runnable runnable = new ThreadRenamingRunnable(new Runnable() {
+            @Override
+            public void run() {
+                processSpool(System.currentTimeMillis());
+            }
+        }, "ZEP_TRIGGER_PLUGIN_SPOOL");
+        spoolFuture = scheduler.schedule(runnable, trigger);
     }
 
     public void setTriggerDao(EventTriggerDao triggerDao) {
@@ -366,7 +396,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
 
                 if (evtstatus == EventStatus.STATUS_NEW) {
                     boolean onlySendInitial = subscription.getSendInitialOccurrence();
-                    boolean needSpoolDelay = false;
+                    boolean rescheduleSpool = false;
                     // Send signal immediately if no delay
                     if (delaySeconds <= 0) {
                         if (!onlySendInitial) {
@@ -375,20 +405,19 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                         }
                         else {
                             if (!spoolExists) {
-                                EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
-                                this.signalSpoolDao.create(ess);
-                                currentSpool = ess;
-                                needSpoolDelay = true;
+                                currentSpool = EventSignalSpool.buildSpool(subscription, eventSummary);
+                                this.signalSpoolDao.create(currentSpool);
+                                rescheduleSpool = true;
                                 logger.debug("send signal for event {}", eventSummary);
                                 this.publishSignal(eventSummary, subscription);
                             }
                             else {
                                 if (repeatSeconds > 0 &&
-                                    currentSpool.getFlushTime() >
-                                        now + TimeUnit.SECONDS.toMillis(repeatSeconds)) {
+                                    currentSpool.getFlushTime() > now + TimeUnit.SECONDS.toMillis(repeatSeconds)) {
                                     logger.debug("adjust spool flush time to reflect new repeat seconds");
                                     this.signalSpoolDao.updateFlushTime(currentSpool.getUuid(),
                                             now + TimeUnit.SECONDS.toMillis(repeatSeconds));
+                                    rescheduleSpool = true;
                                 }
                             }
                         }
@@ -396,37 +425,30 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                     else {
                         // delaySeconds > 0
                         if (!spoolExists) {
-                            EventSignalSpool ess = EventSignalSpool.buildSpool(subscription, eventSummary);
-                            this.signalSpoolDao.create(ess);
-                            currentSpool = ess;
-                            needSpoolDelay = true;
+                            currentSpool = EventSignalSpool.buildSpool(subscription, eventSummary);
+                            this.signalSpoolDao.create(currentSpool);
+                            rescheduleSpool = true;
                         }
                         else {
                             if (repeatSeconds == 0) {
-                                if (!onlySendInitial &&
-                                    currentSpool.getFlushTime() == Long.MAX_VALUE) {
+                                if (!onlySendInitial && currentSpool.getFlushTime() == Long.MAX_VALUE) {
                                     this.signalSpoolDao.updateFlushTime(currentSpool.getUuid(),
                                             now + TimeUnit.SECONDS.toMillis(delaySeconds));
-                                    needSpoolDelay = true;
+                                    rescheduleSpool = true;
                                 }
                             }
                             else {
-                                if (currentSpool.getFlushTime() >
-                                        now + TimeUnit.SECONDS.toMillis(repeatSeconds)) {
-
+                                if (currentSpool.getFlushTime() > now + TimeUnit.SECONDS.toMillis(repeatSeconds)) {
                                     this.signalSpoolDao.updateFlushTime(currentSpool.getUuid(),
                                             now + TimeUnit.SECONDS.toMillis(repeatSeconds));
+                                    rescheduleSpool = true;
                                 }
                             }
                         }
                     }
 
-                    // If we have a delay or repeat interval, set up SpoolDelayed
-                    if (needSpoolDelay) {
-                        long nextFlushTime = currentSpool.getFlushTime();
-                        if (nextFlushTime != Long.MAX_VALUE) {
-                            delayed.put(new SpoolDelayed(nextFlushTime));
-                        }
+                    if (rescheduleSpool) {
+                        scheduleSpool();
                     }
                 }
                 else {
@@ -469,7 +491,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
         }
     }
 
-    protected void processSpool(long processCutoffTime) {
+    protected synchronized void processSpool(long processCutoffTime) {
         logger.debug("Processing signal spool");
         try {
             // get spools that need to be processed
@@ -503,7 +525,6 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                     if (repeatInterval > 0 && repeatInterval != Long.MAX_VALUE) {
                         long nextFlush = processCutoffTime + TimeUnit.SECONDS.toMillis(repeatInterval);
                         this.signalSpoolDao.updateFlushTime(spool.getUuid(), nextFlush);
-                        delayed.put(new SpoolDelayed(nextFlush));
                     }
                     else {
                         boolean onlySendInitial = trSub.getSendInitialOccurrence();
@@ -517,43 +538,8 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                 }
             }
 
-            // read out all entries from spool <= processCutoffTime, to avoid multiple calls to processSpool
-            // for duplicate or near-duplicate timestamps (still verify that nextSD <= cutoff time,
-            // in case a spool with time a few milliseconds later than the cutoff might have expired during
-            // the time elapsed since the call to findAllDue)
-            SpoolDelayed nextSD = delayed.peek();
-            while(nextSD != null && nextSD.delayUntil <= processCutoffTime) {
-                delayed.take();
-                nextSD = delayed.peek();
-            }
-
         } catch (Exception e) {
             logger.warn("Failed to process signal spool", e);
-        }
-    }
-
-    private static class SpoolDelayed implements Delayed {
-
-        private final long delayUntil;
-
-        public SpoolDelayed(long expireTimestamp) {
-            this.delayUntil = expireTimestamp;
-        }
-
-        @Override
-        public int compareTo(Delayed o) {
-            if (o == this) {
-                return 0;
-            }
-            long diff = getDelay(TimeUnit.MILLISECONDS)
-                    - o.getDelay(TimeUnit.MILLISECONDS);
-            return diff > 0 ? 1 : (diff < 0) ? -1 : 0;
-        }
-
-        @Override
-        public long getDelay(TimeUnit unit) {
-            long now = System.currentTimeMillis();
-            return unit.convert(this.delayUntil-now, TimeUnit.MILLISECONDS);
         }
     }
 }

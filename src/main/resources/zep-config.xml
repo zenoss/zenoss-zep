@@ -1,74 +1,90 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <beans xmlns="http://www.springframework.org/schema/beans"
-    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
-    xmlns:p="http://www.springframework.org/schema/p" xmlns:tx="http://www.springframework.org/schema/tx"
-    xsi:schemaLocation="http://www.springframework.org/schema/beans
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
                         http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
                         http://www.springframework.org/schema/context
-                        http://www.springframework.org/schema/context/spring-context-3.0.xsd
-                        http://www.springframework.org/schema/tx
-                        http://www.springframework.org/schema/tx/spring-tx-3.0.xsd">
+                        http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+
+    <context:annotation-config/>
+    <context:component-scan base-package="org.zenoss.zep"/>
+
+    <bean id="scheduler" class="org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler">
+        <property name="poolSize" value="10" />
+        <property name="threadNamePrefix" value="ZEP"/>
+    </bean>
 
     <!-- CFG -->
-    <import resource="zep-config-cfg.xml" />
+    <import resource="zep-config-cfg.xml"/>
 
     <!-- DAO -->
-    <import resource="zep-config-daos.xml" />
-    
+    <import resource="zep-config-daos.xml"/>
+
     <!-- REST -->
-    <import resource="zep-config-rest.xml" />
+    <import resource="zep-config-rest.xml"/>
 
     <bean id="pluginService" class="org.zenoss.zep.impl.PluginServiceImpl">
-        <property name="pluginProperties" ref="zepPluginsConfig" />
+        <property name="pluginProperties" ref="zepPluginsConfig"/>
     </bean>
-    
+
     <bean id="eventPublisher" class="org.zenoss.zep.impl.EventPublisherImpl">
-        <property name="amqpConnectionManager" ref="amqpConnectionManager" />
+        <property name="amqpConnectionManager" ref="amqpConnectionManager"/>
     </bean>
 
     <bean id="eventProcessor" class="org.zenoss.zep.impl.EventProcessorImpl">
-        <property name="pluginService" ref="pluginService" />
-        <property name="eventStoreDao" ref="eventStoreDao" />
+        <property name="pluginService" ref="pluginService"/>
+        <property name="eventStoreDao" ref="eventStoreDao"/>
     </bean>
 
     <bean id="eventQueueListener" class="org.zenoss.zep.impl.RawEventQueueListener"
-        depends-on="application">
-        <property name="connectionManager" ref="amqpConnectionManager" />
-        <property name="eventProcessor" ref="eventProcessor" />
+          depends-on="application">
+        <property name="connectionManager" ref="amqpConnectionManager"/>
+        <property name="eventProcessor" ref="eventProcessor"/>
     </bean>
-    
+
     <bean id="modelChangeEventQueueListener" class="org.zenoss.zep.impl.ModelChangeEventQueueListener"
-        depends-on="application">
-        <property name="connectionManager" ref="amqpConnectionManager" />
-        <property name="eventSummaryDao" ref="eventSummaryDao" />
+          depends-on="application">
+        <property name="connectionManager" ref="amqpConnectionManager"/>
+        <property name="eventSummaryDao" ref="eventSummaryDao"/>
     </bean>
 
     <bean id="amqpServerUri" class="org.zenoss.amqp.AmqpServerUri" factory-method="createFromGlobalConf">
-        <constructor-arg index="0" ref="globalConf" />
-        <constructor-arg index="1" value="${zep.amqp.uri}" />
+        <constructor-arg index="0" ref="globalConf"/>
+        <constructor-arg index="1" value="${zep.amqp.uri}"/>
     </bean>
 
     <bean id="amqpConnectionManager" class="org.zenoss.amqp.AmqpConnectionManager"
-        init-method="init" destroy-method="shutdown">
-        <constructor-arg index="0" ref="amqpServerUri" />
-        <constructor-arg index="1" value="${zep.amqp.retry}" />
+          init-method="init" destroy-method="shutdown">
+        <constructor-arg index="0" ref="amqpServerUri"/>
+        <constructor-arg index="1" value="${zep.amqp.retry}"/>
     </bean>
 
     <bean id="application" class="org.zenoss.zep.impl.Application"
-        init-method="init" destroy-method="shutdown" depends-on="amqpConnectionManager">
+          init-method="init" destroy-method="shutdown" depends-on="amqpConnectionManager">
         <constructor-arg index="0" value="${zep.index.interval_seconds}"/>
-        <property name="configDao" ref="configDao" />
-        <property name="eventDao" ref="eventDao" />
-        <property name="eventStoreDao" ref="eventStoreDao" />
-        <property name="eventArchiveDao" ref="eventArchiveDao" />
-        <property name="eventIndexer" ref="eventIndexer" />
+        <property name="configDao" ref="configDao"/>
+        <property name="eventDao" ref="eventDao"/>
+        <property name="eventStoreDao" ref="eventStoreDao"/>
+        <property name="eventArchiveDao" ref="eventArchiveDao"/>
+        <property name="eventIndexer" ref="eventIndexer"/>
     </bean>
 
     <bean id="triggerPlugin" class="org.zenoss.zep.impl.TriggerPlugin">
-        <property name="triggerDao" ref="eventTriggerDao" />
-        <property name="signalSpoolDao" ref="eventSignalSpoolDao" />
-        <property name="eventSummaryDao" ref="eventSummaryDao" />
-        <property name="eventTriggerSubscriptionDao" ref="eventTriggerSubscriptionDao" />
-        <property name="connectionManager" ref="amqpConnectionManager" />
+        <property name="triggerDao" ref="eventTriggerDao"/>
+        <property name="signalSpoolDao" ref="eventSignalSpoolDao"/>
+        <property name="eventSummaryDao" ref="eventSummaryDao"/>
+        <property name="eventTriggerSubscriptionDao" ref="eventTriggerSubscriptionDao"/>
+        <property name="connectionManager" ref="amqpConnectionManager"/>
+    </bean>
+
+    <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
+        <property name="basenames">
+            <value>org.zenoss.zep.messages</value>
+        </property>
+    </bean>
+
+    <bean id="messages" class="org.zenoss.zep.Messages">
+        <constructor-arg ref="messageSource"/>
     </bean>
 </beans>

@@ -17,10 +17,13 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ScheduledFuture;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.Trigger;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
@@ -33,24 +36,30 @@ import org.zenoss.zep.dao.EventSignalSpoolDao;
 
 public class TriggerPluginImplTest {
 
-    public  TriggerPlugin triggerPlugin = null;
+    public TriggerPlugin triggerPlugin = null;
     private EventSignalSpoolDao spoolDaoMock;
+    private TaskScheduler schedulerMock;
+    private ScheduledFuture futureMock;
 
     @Before
     public void testInit() throws IOException, ZepException {
         Map<String,String> props = new HashMap<String,String>();
         this.triggerPlugin = new TriggerPlugin();
-        spoolDaoMock = createMock(EventSignalSpoolDao.class);
+        this.spoolDaoMock = createMock(EventSignalSpoolDao.class);
         expect(spoolDaoMock.findAllDue()).andReturn(Collections.<EventSignalSpool> emptyList()).anyTimes();
-        replay(spoolDaoMock);
+        this.schedulerMock = createMock(TaskScheduler.class);
+        this.futureMock = createNiceMock(ScheduledFuture.class);
+        expect(schedulerMock.schedule(isA(Runnable.class), isA(Trigger.class))).andReturn(futureMock);
+        replay(spoolDaoMock, schedulerMock, futureMock);
         this.triggerPlugin.setSignalSpoolDao(this.spoolDaoMock);
+        this.triggerPlugin.setTaskScheduler(this.schedulerMock);
         this.triggerPlugin.init(props);
     }
     
     @After
     public void shutdown() throws InterruptedException {
         this.triggerPlugin.shutdown();
-        verify(this.spoolDaoMock);
+        verify(this.spoolDaoMock, this.schedulerMock, this.futureMock);
     }
 
     @Test

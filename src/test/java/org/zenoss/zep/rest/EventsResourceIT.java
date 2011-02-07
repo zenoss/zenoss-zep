@@ -10,6 +10,7 @@
  */
 package org.zenoss.zep.rest;
 
+import org.apache.commons.httpclient.HttpStatus;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -21,6 +22,7 @@ import org.zenoss.protobufs.util.Util.TimestampRange;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventNote;
+import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
@@ -31,6 +33,7 @@ import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.EventArchiveDaoImplIT;
 import org.zenoss.zep.dao.impl.EventSummaryDaoImplIT;
+import org.zenoss.zep.rest.RestClient.RestResponse;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -156,28 +159,35 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         String ackUuid = UUID.randomUUID().toString();
         String ackName = "testuser123";
 
+        EventQuery.Builder queryBuilder = EventQuery.newBuilder();
+        queryBuilder.setEventFilter(EventFilter.newBuilder().addAllUuid(uuids).build());
+        EventQuery query = queryBuilder.build();
+        RestResponse restResponse = client.postProtobuf(EVENTS_URI + "/search", query);
+        assertEquals(HttpStatus.SC_CREATED, restResponse.getResponseCode());
+        String location = restResponse.getHeaders().get("location").get(0);
+
         final EventSummaryUpdate updateFields = EventSummaryUpdate.newBuilder()
                 .setAcknowledgedByUserUuid(ackUuid).setAcknowledgedByUserName(ackName).setStatus(status).build();
         EventSummaryUpdateRequest.Builder reqBuilder = EventSummaryUpdateRequest.newBuilder();
         reqBuilder.setLimit(10);
         reqBuilder.setUpdateFields(updateFields);
-        reqBuilder.setEventFilter(EventFilter.newBuilder().addAllUuid(uuids).build());
         EventSummaryUpdateRequest req = reqBuilder.build();
 
-        EventSummaryUpdateResponse response = (EventSummaryUpdateResponse) client
-                .putProtobuf(EVENTS_URI, req).getMessage();
-        assertEquals(10, response.getRemaining());
+        EventSummaryUpdateResponse response = (EventSummaryUpdateResponse)
+                client.putProtobuf(location, req).getMessage();
+        assertEquals(EventSummaryUpdateRequest.newBuilder(req).setOffset(10).build(), response.getNextRequest());
+        assertEquals(uuids.size(), response.getTotal());
         assertEquals(10, response.getUpdated());
-        assertEquals(req, EventSummaryUpdateRequest.newBuilder(response.getRequest()).clearUpdateTime().build());
-        assertTrue(response.getRequest().hasUpdateTime());
 
         // Repeat request for last 10
         EventSummaryUpdateResponse newResponse = (EventSummaryUpdateResponse) client
-                .putProtobuf(EVENTS_URI, response.getRequest()).getMessage();
-        assertEquals(0, newResponse.getRemaining());
+                .putProtobuf(location, response.getNextRequest()).getMessage();
+        assertFalse(newResponse.hasNextRequest());
         assertEquals(10, response.getUpdated());
-        assertEquals(req, EventSummaryUpdateRequest.newBuilder(newResponse.getRequest()).clearUpdateTime().build());
-        assertEquals(response.getRequest().getUpdateTime(), newResponse.getRequest().getUpdateTime());
+        assertEquals(uuids.size(), response.getTotal());
+
+        assertEquals(HttpStatus.SC_NO_CONTENT, client.delete(location).getResponseCode());
+        assertEquals(HttpStatus.SC_NOT_FOUND, client.getProtobuf(location).getResponseCode());
 
         // Verify updates hit the database
         List<EventSummary> summaries = summaryDao.findByUuids(uuids);
@@ -206,6 +216,14 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
             }
         }
 
+        EventQuery.Builder queryBuilder = EventQuery.newBuilder();
+        queryBuilder.setEventFilter(EventFilter.newBuilder().addFirstSeen(firstSeenRange).build());
+        queryBuilder.setExclusionFilter(EventFilter.newBuilder().addAllUuid(excludedUuids.keySet()).build());
+        EventQuery query = queryBuilder.build();
+        RestResponse restResponse = client.postProtobuf(EVENTS_URI + "/search", query);
+        assertEquals(HttpStatus.SC_CREATED, restResponse.getResponseCode());
+        String location = restResponse.getHeaders().get("location").get(0);
+
         // Update first 10
         EventStatus status = EventStatus.STATUS_ACKNOWLEDGED;
         String ackUuid = UUID.randomUUID().toString();
@@ -216,16 +234,16 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         EventSummaryUpdateRequest.Builder reqBuilder = EventSummaryUpdateRequest.newBuilder();
         reqBuilder.setLimit(10);
         reqBuilder.setUpdateFields(updateFields);
-        reqBuilder.setEventFilter(EventFilter.newBuilder().addFirstSeen(firstSeenRange).build());
-        reqBuilder.setExclusionFilter(EventFilter.newBuilder().addAllUuid(excludedUuids.keySet()).build());
         EventSummaryUpdateRequest req = reqBuilder.build();
 
         EventSummaryUpdateResponse response = (EventSummaryUpdateResponse) client
-                .putProtobuf(EVENTS_URI, req).getMessage();
-        assertEquals(0, response.getRemaining());
+                .putProtobuf(location, req).getMessage();
+        assertFalse(response.hasNextRequest());
         assertEquals(uuids.size(), response.getUpdated());
-        assertEquals(req, EventSummaryUpdateRequest.newBuilder(response.getRequest()).clearUpdateTime().build());
-        assertTrue(response.getRequest().hasUpdateTime());
+        assertEquals(uuids.size(), response.getTotal());
+
+        assertEquals(HttpStatus.SC_NO_CONTENT, client.delete(location).getResponseCode());
+        assertEquals(HttpStatus.SC_NOT_FOUND, client.getProtobuf(location).getResponseCode());
 
         // Verify updates hit the database
         List<String> allUuids = new ArrayList<String>();

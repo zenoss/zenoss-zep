@@ -115,4 +115,12 @@ public interface EventSignalSpoolDao {
      *             If an error occurs looking up the signal spool item.
      */
     public List<EventSignalSpool> findAllDue() throws ZepException;
+
+    /**
+     * Returns the next flush time in the spool.
+     *
+     * @return The next flush time in the spool. If there are no spooled items, returns 0.
+     * @throws ZepException If an error occurs.
+     */
+    public long getNextFlushTime() throws ZepException;
 }

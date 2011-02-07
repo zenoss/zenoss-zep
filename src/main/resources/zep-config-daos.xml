@@ -52,6 +52,7 @@
     </bean>
     <bean id="eventSummaryDao" class="org.zenoss.zep.dao.impl.EventSummaryDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
+        <property name="eventIndexer" ref="eventIndexer" />
         <property name="eventDaoHelper" ref="eventDaoHelper"/>
     </bean>
     <bean id="eventArchiveDao" class="org.zenoss.zep.dao.impl.EventArchiveDaoImpl">

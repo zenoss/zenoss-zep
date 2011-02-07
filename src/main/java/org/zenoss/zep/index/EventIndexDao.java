@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
@@ -164,8 +165,7 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException
      *             If an error occurs.
      */
-    public Map<String, Map<EventSeverity, Integer>> countSeverities(
-            Set<String> tags) throws ZepException;
+    public Map<String, Map<EventSeverity, Integer>> countSeverities(Set<String> tags) throws ZepException;
 
     /**
      * Calculates the worst severity event for each tag in the specified
@@ -180,4 +180,45 @@ public interface EventIndexDao extends Purgable {
      */
     public Map<String, EventSeverity> findWorstSeverity(Set<String> tags)
             throws ZepException;
+
+    /**
+     * Creates a saved search with the given event query.
+     *
+     * @param query Event query.
+     * @return A UUID of the saved search.
+     * @throws ZepException If an exception occurs creating the saved query.
+     */
+    public String createSavedSearch(EventQuery query) throws ZepException;
+
+    /**
+     * Execute a saved search and return limit results at the specified offset.
+     *
+     * @param uuid UUID of the saved search (returned from {@link #createSavedSearch(EventQuery)}.
+     * @param offset Offset within the search to return.
+     * @param limit Number of results to return.
+     * @return The result of the search.
+     * @throws ZepException If an exception occurs performing the saved query.
+     */
+    public EventSummaryResult savedSearch(String uuid, int offset, int limit) throws ZepException;
+
+    /**
+     * Executes a saved search and returns <code>limit</code> results at the specified <code>offset</code>.
+     * Only the UUIDs of the matching events are returned.
+     *
+     * @param uuid UUID of the saved search (returned from {@link #createSavedSearch(EventQuery)}.
+     * @param offset Offset within the search to return.
+     * @param limit Number of results to return.
+     * @return The result of the search.
+     * @throws ZepException If an exception occurs performing the saved query.
+     */
+    public EventSummaryResult savedSearchUuids(String uuid, int offset, int limit) throws ZepException;
+
+    /**
+     * Removes the saved search with the specified UUID.
+     *
+     * @param uuid UUID of saved search to remove.
+     * @return The UUID of the saved search (if it was removed), or null if it was not found.
+     * @throws ZepException If the saved search could not be deleted.
+     */
+    public String deleteSavedSearch(String uuid) throws ZepException;
 }

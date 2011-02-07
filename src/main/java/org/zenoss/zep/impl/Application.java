@@ -10,20 +10,11 @@
  */
 package org.zenoss.zep.impl;
 
-import static org.zenoss.zep.ConfigConstants.*;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
+import org.springframework.scheduling.TaskScheduler;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
@@ -34,17 +25,28 @@ import org.zenoss.zep.dao.Purgable;
 import org.zenoss.zep.events.ConfigUpdatedEvent;
 import org.zenoss.zep.index.EventIndexer;
 
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+
+import static org.zenoss.zep.ConfigConstants.*;
+
 /**
  * Represents core application logic for ZEP, including the scheduled aging and
  * purging of events.
  */
 public class Application implements ApplicationListener<ConfigUpdatedEvent> {
 
-    private static final Logger logger = LoggerFactory
-            .getLogger(Application.class);
+    private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
     private final int indexInterval;
-    private ScheduledThreadPoolExecutor threadPool = null;
+    @Autowired
+    private TaskScheduler scheduler;
     private ScheduledFuture<?> eventSummaryAger = null;
     private ScheduledFuture<?> eventSummaryArchiver = null;
     private ScheduledFuture<?> eventArchivePurger = null;
@@ -83,12 +85,9 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
         this.eventIndexer = eventIndexer;
     }
 
-    public synchronized void init() throws ZepException {
+    public void init() throws ZepException {
         logger.info("Initializing ZEP");
         this.config = new AppConfig(configDao.getConfig());
-        threadPool = new ScheduledThreadPoolExecutor(5);
-        threadPool.setKeepAliveTime(30L, TimeUnit.SECONDS);
-        threadPool.allowCoreThreadTimeOut(true);
         /*
          * We must initialize partitions first to ensure events have a partition
          * where they can be created before we start processing the queue. This
@@ -103,7 +102,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
         startEventIndexer();
     }
 
-    public synchronized void shutdown() throws InterruptedException {
+    public void shutdown() throws InterruptedException {
         cancelFuture(this.eventSummaryAger);
         this.eventSummaryAger = null;
 
@@ -118,9 +117,6 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
 
         cancelFuture(this.eventIndexerFuture);
         this.eventIndexer = null;
-
-        this.threadPool.shutdownNow();
-        this.threadPool.awaitTermination(0L, TimeUnit.SECONDS);
     }
 
     private void cancelFuture(Future<?> future) {
@@ -149,7 +145,8 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
 
         logger.info("Starting event indexing at interval: {} second(s)",
                 this.indexInterval);
-        this.eventIndexerFuture = this.threadPool.scheduleWithFixedDelay(
+        Date startTime = new Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(this.indexInterval));
+        this.eventIndexerFuture = scheduler.scheduleWithFixedDelay(
                 new ThreadRenamingRunnable(new Runnable() {
                     @Override
                     public void run() {
@@ -162,8 +159,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                             eventIndexer.markArchiveDirty();
                         }
                     }
-                }, "ZEP_EVENT_INDEXING_THREAD"), this.indexInterval,
-                this.indexInterval, TimeUnit.SECONDS);
+                }, "ZEP_EVENT_INDEXER"), startTime, TimeUnit.SECONDS.toMillis(this.indexInterval));
     }
 
     private void startEventSummaryAging() {
@@ -180,9 +176,9 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
         this.eventSummaryAger = null;
 
         if (duration > 0) {
-            logger.info("Starting event aging at interval: {} minute(s)",
-                    duration);
-            this.eventSummaryAger = this.threadPool.scheduleWithFixedDelay(
+            logger.info("Starting event aging at interval: {} minute(s)", duration);
+            Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
+            this.eventSummaryAger = scheduler.scheduleWithFixedDelay(
                     new ThreadRenamingRunnable(new Runnable() {
                         @Override
                         public void run() {
@@ -198,8 +194,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                                 logger.warn("Failed to age events", e);
                             }
                         }
-                    }, "ZEP_EVENT_AGING_THREAD"), 1L, duration,
-                    TimeUnit.MINUTES);
+                    }, "ZEP_EVENT_AGER"), startTime, TimeUnit.MINUTES.toMillis(duration));
         } else {
             logger.info("Event aging disabled");
         }
@@ -218,7 +213,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
         if (duration > 0) {
             logger.info("Starting event archiving at interval: {} days(s)",
                     duration);
-            this.eventSummaryArchiver = this.threadPool.scheduleWithFixedDelay(
+            this.eventSummaryArchiver = scheduler.scheduleWithFixedDelay(
                     new ThreadRenamingRunnable(new Runnable() {
                         @Override
                         public void run() {
@@ -234,8 +229,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                                 logger.warn("Failed to archive events", e);
                             }
                         }
-                    }, "ZEP_EVENT_ARCHIVING_THREAD"), 0L, 1L,
-                    EVENT_ARCHIVE_INTERVAL_UNIT);
+                    }, "ZEP_EVENT_ARCHIVER"), EVENT_ARCHIVE_INTERVAL_UNIT.toMillis(1));
         } else {
             logger.info("Event archiving disabled");
         }
@@ -244,7 +238,8 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     private ScheduledFuture<?> purge(final Purgable purgable,
             final int purgeDuration, final TimeUnit purgeUnit, long delayInMs,
             String threadName) {
-        return this.threadPool.scheduleWithFixedDelay(
+        final Date startTime = new Date(System.currentTimeMillis() + 60000L);
+        return scheduler.scheduleWithFixedDelay(
                 new ThreadRenamingRunnable(new Runnable() {
                     @Override
                     public void run() {
@@ -254,7 +249,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                             logger.warn("Failed purging", e);
                         }
                     }
-                }, threadName), 60000L, delayInMs, TimeUnit.MILLISECONDS);
+                }, threadName), startTime, delayInMs);
     }
 
     private void startEventArchivePurging() {
@@ -268,7 +263,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
         this.eventArchivePurger = purge(eventStoreDao, duration,
                 EVENT_ARCHIVE_PURGE_INTERVAL_UNIT,
                 eventArchiveDao.getPartitionIntervalInMs(),
-                "EVENT_ARCHIVE_PURGER");
+                "ZEP_EVENT_ARCHIVE_PURGER");
     }
 
     private void startEventPurging() {
@@ -281,7 +276,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
         cancelFuture(this.eventPurger);
         this.eventPurger = purge(eventDao, duration,
                 EVENT_OCCURRENCE_PURGE_INTERVAL_UNIT,
-                eventDao.getPartitionIntervalInMs(), "EVENT_PURGER");
+                eventDao.getPartitionIntervalInMs(), "ZEP_EVENT_PURGER");
     }
 
     @Override
@@ -381,40 +376,4 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
         }
     }
 
-    /**
-     * Renames threads while they are running, then restores the name back to
-     * the original.
-     */
-    private static class ThreadRenamingRunnable implements Runnable {
-
-        private final Runnable runnable;
-        private final String name;
-
-        public ThreadRenamingRunnable(Runnable runnable, String name) {
-            if (runnable == null || name == null) {
-                throw new NullPointerException();
-            }
-            this.runnable = runnable;
-            this.name = name;
-        }
-
-        @Override
-        public void run() {
-            final String previousName = Thread.currentThread().getName();
-            try {
-                Thread.currentThread().setName(this.name);
-            } catch (SecurityException e) {
-                logger.debug("Exception changing name", e);
-            }
-            try {
-                this.runnable.run();
-            } finally {
-                try {
-                    Thread.currentThread().setName(previousName);
-                } catch (SecurityException e) {
-                    logger.debug("Exception changing name", e);
-                }
-            }
-        }
-    }
 }

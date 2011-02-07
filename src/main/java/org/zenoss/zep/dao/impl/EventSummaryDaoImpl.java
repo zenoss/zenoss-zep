@@ -33,6 +33,8 @@ import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
+import org.zenoss.zep.index.EventIndexDao;
+import org.zenoss.zep.index.EventIndexer;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -70,6 +72,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     private volatile List<String> columnNames;
 
     private EventDaoHelper eventDaoHelper;
+    private EventIndexer eventIndexer;
 
     public EventSummaryDaoImpl(DataSource dataSource) throws MetaDataAccessException {
         this.dataSource = dataSource;
@@ -83,6 +86,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     public void setEventDaoHelper(EventDaoHelper eventDaoHelper) {
         this.eventDaoHelper = eventDaoHelper;
+    }
+
+    public void setEventIndexer(EventIndexer eventIndexer) {
+        this.eventIndexer = eventIndexer;
     }
 
     @Override
@@ -356,6 +363,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                     "es.element_sub_type_id=:_type_id AND es.element_sub_identifier=:_id";
             numRows += this.template.update(updateSql, fields);
         }
+        if (numRows > 0) {
+            eventIndexer.markSummaryDirty();
+        }
         return numRows;
     }
 
@@ -379,6 +389,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 "clear_fingerprint_hash=UNHEX(SHA1(CONCAT_WS('|',element_identifier,IFNULL(element_sub_identifier,''),event_class.name,IFNULL(event_key.name,'')))) " +
                 "WHERE element_sub_uuid=:_uuid";
         numRows += this.template.update(updateSql, fields);
+        if (numRows > 0) {
+            this.eventIndexer.markSummaryDirty();
+        }
         return numRows;
     }
 
@@ -565,6 +578,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         for (int updateCount : updateCounts) {
             numUpdated += updateCount;
         }
+        if (numUpdated > 0) {
+            this.eventIndexer.markSummaryDirty();
+        }
         return numUpdated;
     }
 
@@ -664,6 +680,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         final int updated = this.template.update(insertSql, fields);
         this.template.update("DELETE FROM event_summary WHERE uuid IN (:_uuids)", fields);
+        if (updated > 0) {
+            this.eventIndexer.markSummaryDirty();
+            this.eventIndexer.markArchiveDirty();
+        }
         return updated;
     }
 }

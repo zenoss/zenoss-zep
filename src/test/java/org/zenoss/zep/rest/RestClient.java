@@ -10,21 +10,13 @@
  */
 package org.zenoss.zep.rest;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.Closeable;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.HashMap;
-import java.util.Map;
-
-import javax.ws.rs.core.MediaType;
-
+import com.google.protobuf.Message;
 import org.apache.http.Header;
+import org.apache.http.HeaderIterator;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
@@ -35,7 +27,19 @@ import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.ProtobufConstants;
 
-import com.google.protobuf.Message;
+import javax.ws.rs.core.MediaType;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.Closeable;
+import java.io.IOException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
 
 public class RestClient implements Closeable {
     @SuppressWarnings("unused")
@@ -50,10 +54,23 @@ public class RestClient implements Closeable {
     public static class RestResponse {
         private final int responseCode;
         private final Message message;
+        private final Map<String,List<String>> headers;
 
-        public RestResponse(int responseCode, Message message) {
-            this.responseCode = responseCode;
+        public RestResponse(HttpResponse response, Message message) {
+            this.responseCode = response.getStatusLine().getStatusCode();
             this.message = message;
+            Map<String,List<String>> headers = new TreeMap<String,List<String>>(String.CASE_INSENSITIVE_ORDER);
+            HeaderIterator it = response.headerIterator();
+            while (it.hasNext()) {
+                Header header = it.nextHeader();
+                List<String> l = headers.get(header.getName());
+                if (l == null) {
+                    l = new ArrayList<String>();
+                    headers.put(header.getName(), l);
+                }
+                l.add(header.getValue());
+            }
+            this.headers = headers;
         }
 
         public int getResponseCode() {
@@ -62,6 +79,10 @@ public class RestClient implements Closeable {
 
         public Message getMessage() {
             return message;
+        }
+
+        public Map<String, List<String>> getHeaders() {
+            return Collections.unmodifiableMap(this.headers);
         }
     }
 
@@ -74,8 +95,10 @@ public class RestClient implements Closeable {
 
     private URI createURI(String path) throws IOException {
         try {
-            return new URI("http", null, host, Integer.valueOf(port), path,
-                    null, null);
+            if (path.startsWith("/")) {
+                return new URI("http", null, host, Integer.valueOf(port), path, null, null);
+            }
+            return new URI(path);
         } catch (URISyntaxException e) {
             throw new IOException(e);
         }
@@ -142,7 +165,7 @@ public class RestClient implements Closeable {
         } else if (response.getStatusLine().getStatusCode() != 404) {
             throw new IOException("Unexpected RC: " + rc);
         }
-        return new RestResponse(rc, msg);
+        return new RestResponse(response, msg);
     }
 
     public RestResponse getJson(String path) throws IOException {
@@ -172,8 +195,7 @@ public class RestClient implements Closeable {
         if (response.getEntity() != null) {
             msgRsp = createProtobufFromResponse(response);
         }
-        return new RestResponse(response.getStatusLine().getStatusCode(),
-                msgRsp);
+        return new RestResponse(response, msgRsp);
     }
 
     public RestResponse postJson(String path, Message msg) throws IOException {
@@ -204,8 +226,7 @@ public class RestClient implements Closeable {
         if (response.getEntity() != null) {
             msgRsp = createProtobufFromResponse(response);
         }
-        return new RestResponse(response.getStatusLine().getStatusCode(),
-                msgRsp);
+        return new RestResponse(response, msgRsp);
     }
 
     public RestResponse putJson(String path, Message msg) throws IOException {
@@ -215,6 +236,14 @@ public class RestClient implements Closeable {
     public RestResponse putProtobuf(String path, Message msg)
             throws IOException {
         return put(path, msg, ProtobufConstants.CONTENT_TYPE_PROTOBUF);
+    }
+
+    public RestResponse delete(String path) throws IOException {
+        HttpResponse response = this.client.execute(new HttpDelete(createURI(path)));
+        if (response.getEntity() != null) {
+            response.getEntity().consumeContent();
+        }
+        return new RestResponse(response, null);
     }
 
     @Override
