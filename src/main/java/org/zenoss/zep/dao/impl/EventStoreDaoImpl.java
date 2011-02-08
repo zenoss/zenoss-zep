@@ -13,6 +13,7 @@ package org.zenoss.zep.dao.impl;
 
 import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -142,6 +143,23 @@ public class EventStoreDaoImpl implements EventStoreDao {
         }
 
         return numUpdatedEvents;
+    }
+
+    @Override
+    @Transactional
+    public int updateDetails(String uuid, EventDetailSet details)
+            throws ZepException {
+        int numRows = eventSummaryDao.updateDetails(uuid, details);
+        if (numRows > 0) {
+            eventIndexer.markSummaryDirty();
+        }
+        else {
+            numRows = eventArchiveDao.updateDetails(uuid, details);
+            if (numRows > 0) {
+                eventIndexer.markArchiveDirty();
+            }
+        }
+        return numRows;
     }
 
     @Override

@@ -13,6 +13,7 @@ package org.zenoss.zep.dao.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -205,6 +206,25 @@ public class EventDaoHelper {
                 // Merge details with existing
                 EventDetail merged = EventDetail.newBuilder(existing).addAllValue(detail.getValueList()).build();
                 names.put(detail.getName(), merged);
+            }
+        }
+        return names.values();
+    }
+
+    private static Collection<EventDetail> updateDetails(
+            List<EventDetail> existingDetails, List<EventDetail> newDetails) {
+        Map<String, EventDetail> names = new LinkedHashMap<String, EventDetail>(existingDetails.size());
+        for (EventDetail detail : existingDetails) {
+            names.put(detail.getName(), detail);
+        }
+
+        for (EventDetail detail : newDetails) {
+            String detail_name = detail.getName();
+            if (detail.getValueCount() > 0) {
+                // unlike with merge, this routine overwrites existing detail values
+                names.put(detail_name, detail);
+            } else {
+                names.remove(detail_name);
             }
         }
         return names.values();
@@ -448,6 +468,62 @@ public class EventDaoHelper {
         } catch (IOException e) {
             throw new ZepException(e);
         }
+    }
+
+    public static int updateDetails(String tableName, String uuid, List<EventDetail> details, SimpleJdbcTemplate template)
+            throws ZepException {
+        Map<String, Object> fields = new HashMap<String, Object>();
+        fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
+        String selectSql = "SELECT details_json FROM " + tableName + " "
+                + "WHERE uuid = :uuid FOR UPDATE";
+
+        String currentDetailsJson = null;
+        try {
+            currentDetailsJson = template.queryForObject(selectSql, String.class, fields);
+            if (currentDetailsJson == null) {
+                currentDetailsJson = "[]";
+            }
+        } catch (IncorrectResultSizeDataAccessException irsdae) {
+            logger.warn("unexpected results size data access exception retrieving event summary {}: {}",
+                    uuid, irsdae);
+            return 0;
+        } catch (DataAccessException dae) {
+            logger.warn("unexpected data exception retrieving event summary {}: {}", uuid, dae);
+            return 0;
+        }
+
+        // extract current details from details_json
+        List<EventDetail> existingDetailList = new ArrayList<EventDetail>();
+        try {
+            existingDetailList.addAll(JsonFormat.mergeAllDelimitedFrom(currentDetailsJson,
+                                                                        EventDetail.getDefaultInstance()));
+        } catch (IOException e) {
+            throw new ZepException(e);
+        }
+
+        // update details with new values
+        Collection<EventDetail> listWithUpdates = EventDaoHelper.updateDetails(existingDetailList, details);
+
+        // serialize updated details to json
+        String updatedDetailsJson = null;
+        try {
+            updatedDetailsJson = JsonFormat.writeAllDelimitedAsString(listWithUpdates);
+        } catch (IOException ioe) {
+                throw new ZepException(ioe);
+        }
+
+        if (updatedDetailsJson != null) {
+            // update current event_summary record
+            fields.put(COLUMN_DETAILS_JSON, updatedDetailsJson);
+            fields.put(COLUMN_UPDATE_TIME, System.currentTimeMillis());
+            String updateSql = "UPDATE " + tableName + " SET details_json=:details_json, "
+                    + "update_time=:update_time "
+                    + "WHERE uuid = :uuid";
+
+            return template.update(updateSql, fields);
+        }
+
+        return 0;
     }
 
     public List<Integer> getSeverityIdsLessThan(EventSeverity severity) {

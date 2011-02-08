@@ -19,6 +19,7 @@ import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
+import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -412,6 +413,52 @@ public class EventSummaryDaoImplIT extends
         assertEquals("kww", summary.getNotes(0).getUserName());
         assertEquals("My Note", summary.getNotes(1).getMessage());
         assertEquals("pkw", summary.getNotes(1).getUserName());
+    }
+
+    @Test
+    public void testUpdateDetails() throws ZepException {
+        Event newEvent = createUniqueEvent();
+        newEvent = newEvent.toBuilder().clearDetails().build();
+        assertEquals(0, newEvent.getDetailsCount());
+        Event.Builder builder = newEvent.toBuilder();
+        builder.addDetails(EventDetail.newBuilder().setName("A").addValue("A").build());
+        builder.addDetails(EventDetail.newBuilder().setName("B").addValue("B").build());
+        builder.addDetails(EventDetail.newBuilder().setName("C").addValue("C").build());
+        newEvent = builder.build();
+
+        EventSummary summary = createSummaryNew(newEvent);
+        Event storedEvent = summary.getOccurrence(0);
+        assertEquals(3, storedEvent.getDetailsCount());
+
+        List<EventDetail> newDetailsList = new ArrayList<EventDetail>();
+        newDetailsList.add(EventDetail.newBuilder().setName("B").addValue("B1").build());
+        newDetailsList.add(EventDetail.newBuilder().setName("C").build());
+        newDetailsList.add(EventDetail.newBuilder().setName("D").addValue("D").build());
+        EventDetailSet newDetails = EventDetailSet.newBuilder().addAllDetails(newDetailsList).build();
+
+        // ensure update works correctly
+        assertEquals(1, eventSummaryDao.updateDetails(summary.getUuid(), newDetails));
+
+        // verify new contents of details
+        summary = eventSummaryDao.findByUuid(summary.getUuid());
+
+        List<EventDetail> resultDetails = summary.getOccurrence(0).getDetailsList();
+
+        assertEquals(3, resultDetails.size());
+
+        Map<String,String> resultDetailsMap = new HashMap<String, String>(resultDetails.size());
+        for (EventDetail ed : resultDetails) {
+            resultDetailsMap.put(ed.getName(), ed.getValue(0));
+        }
+
+        assertTrue(resultDetailsMap.containsKey("A"));
+        assertTrue(resultDetailsMap.containsKey("B"));
+        assertFalse(resultDetailsMap.containsKey("C"));
+        assertTrue(resultDetailsMap.containsKey("D"));
+
+        assertEquals(resultDetailsMap.get("A"), "A");
+        assertEquals(resultDetailsMap.get("B"), "B1");
+        assertEquals(resultDetailsMap.get("D"), "D");
     }
 
     private Event createOldEvent(long duration, TimeUnit unit,

@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -145,6 +146,13 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     public int addNote(String uuid, EventNote note) throws ZepException {
         return EventDaoHelper
                 .addNote(TABLE_EVENT_ARCHIVE, uuid, note, template);
+    }
+
+    @Override
+    @Transactional
+    public int updateDetails(String uuid, EventDetailSet details)
+            throws ZepException {
+        return EventDaoHelper.updateDetails(TABLE_EVENT_ARCHIVE, uuid, details.getDetailsList(), template);
     }
 
     @Override

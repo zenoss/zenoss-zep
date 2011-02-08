@@ -27,6 +27,7 @@ import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
+import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -473,6 +474,13 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @Transactional
     public int addNote(String uuid, EventNote note) throws ZepException {
         return EventDaoHelper.addNote(TABLE_EVENT_SUMMARY, uuid, note, template);
+    }
+
+    @Override
+    @Transactional
+    public int updateDetails(String uuid, EventDetailSet details)
+            throws ZepException {
+        return EventDaoHelper.updateDetails(TABLE_EVENT_SUMMARY, uuid, details.getDetailsList(), template);
     }
 
     private static class EventSummaryUpdateFields {

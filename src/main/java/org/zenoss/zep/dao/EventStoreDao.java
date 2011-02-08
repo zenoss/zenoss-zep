@@ -12,6 +12,7 @@
 package org.zenoss.zep.dao;
 
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -102,6 +103,23 @@ public interface EventStoreDao extends Purgable {
      *             If an error occurs.
      */
     public int addNote(String uuid, EventNote note) throws ZepException;
+
+    /**
+     * Updates the event with the specified UUID, to add/merge/update
+     * detail values given in details parameter.
+     *
+     * @param uuid
+     *            UUID of event to update.
+     * @param details
+     *            list of name-value pairs of details to add/merge/update
+     *            (setting a detail to '' or null will delete it from the
+     *            list of event details)
+     * @return The number of affected events.
+     * @throws ZepException
+     *             If an error occurs.
+     */
+    public int updateDetails(String uuid, EventDetailSet update)
+            throws ZepException;
 
     /**
      * Moves all events in the summary table not modified within the last aging

@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.ProtobufConstants;
 import org.zenoss.protobufs.util.Util.TimestampRange;
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventQuery;
@@ -422,6 +423,19 @@ public class EventsResource {
             }
         }
         return setBuilder.build();
+    }
+
+    @POST
+    @Path("{eventUuid}/details")
+    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    public Response updateEventDetails(@PathParam("eventUuid") String eventUuid, EventDetailSet details) throws ZepException {
+
+        int numRows = eventStoreDao.updateDetails(eventUuid, details);
+        if (numRows == 0) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
+
+        return Response.noContent().build();
     }
 
     private EventSummaryRequest eventSummaryRequestFromUriInfo(UriInfo info) throws ParseException {
