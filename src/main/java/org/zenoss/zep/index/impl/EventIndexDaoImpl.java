@@ -143,6 +143,15 @@ public class EventIndexDaoImpl implements EventIndexDao {
     }
 
     @Override
+    public void stageDelete(String eventUuid) throws ZepException {
+        try {
+            writer.deleteDocuments(new Term(FIELD_UUID, eventUuid));
+        } catch (IOException e) {
+            throw new ZepException(e);
+        }
+    }
+
+    @Override
     public void commit() throws ZepException {
         commit(false);
     }
@@ -191,6 +200,31 @@ public class EventIndexDaoImpl implements EventIndexDao {
             stage(event);
         }
         commit();
+    }
+
+    @Override
+    public void reindex() throws ZepException {
+        IndexSearcher searcher = null;
+        try {
+            logger.info("Re-indexing all previously indexed events");
+            searcher = getSearcher();
+            final IndexReader reader = searcher.getIndexReader();
+            int numDocs = reader.numDocs();
+            int numReindexed = 0;
+            for (int i = 0; i < numDocs; i++) {
+                if (!reader.isDeleted(i)) {
+                    EventSummary summary = this.eventIndexMapper.toEventSummary(reader.document(i, PROTO_SELECTOR));
+                    this.stage(summary);
+                    ++numReindexed;
+                }
+            }
+            logger.info("Completed re-indexing for {} events", numReindexed);
+            this.commit(true);
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        } finally {
+            returnSearcher(searcher);
+        }
     }
 
     // Load the serialized protobuf (entire event)

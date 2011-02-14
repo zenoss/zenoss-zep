@@ -59,11 +59,14 @@ CREATE TABLE `event_group`
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
-CREATE TABLE `index_version`
+CREATE TABLE `index_metadata`
 (
     `zep_instance` BINARY(16) NOT NULL,
     `index_name` VARCHAR(32) NOT NULL,
-    `last_index_time` BIGINT NOT NULL COMMENT 'Last event_summary.update_time that was indexed.',
+    `index_version` INTEGER NOT NULL COMMENT 'Version number of index. Used to determine when it should be rebuilt.',
+    `index_version_hash` BINARY(20) COMMENT 'Optional SHA-1 hash of index configuration. Used as secondary factor to determine if it should be rebuilt.',
+    `last_index_time` BIGINT NOT NULL COMMENT 'Last update_time that was indexed.',
+    `last_commit_time` BIGINT COMMENT 'Last update_time when the index was committed.',
     PRIMARY KEY (`zep_instance`, `index_name`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 

@@ -58,6 +58,15 @@ public interface EventIndexDao extends Purgable {
     public void stage(EventSummary event) throws ZepException;
 
     /**
+     * Stage an event to be deleted with a batch index. Must call commit() to
+     * write out changes.
+     *
+     * @param eventUuid UUID of event to delete from index.
+     * @throws ZepException If an error occurs.
+     */
+    public void stageDelete(String eventUuid) throws ZepException;
+
+    /**
      * Commit any staged changes to the index.
      * @throws ZepException If an error occurs.
      */
@@ -79,6 +88,15 @@ public interface EventIndexDao extends Purgable {
      *             If an event could not be indexed.
      */
     public void indexMany(List<EventSummary> events) throws ZepException;
+
+    /**
+     * Re-indexes all current events in the index using the latest index version and
+     * index details version. This is used when the index version or the index
+     * configuration changes.
+     *
+     * @throws ZepException If the index could not be rebuilt.
+     */
+    public void reindex() throws ZepException;
 
     /**
      * Retrieves event summary entries matching the specified query.

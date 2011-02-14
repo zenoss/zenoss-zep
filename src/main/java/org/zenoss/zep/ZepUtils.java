@@ -79,4 +79,22 @@ public final class ZepUtils {
                     EventSeverity.SEVERITY_WARNING,
                     EventSeverity.SEVERITY_ERROR,
                     EventSeverity.SEVERITY_CRITICAL));
+
+    /**
+     * Returns a hex string of the byte array.
+     *
+     * @param bytes Bytes to convert to hex.
+     * @return A hex string of the byte array.
+     */
+    public static String hexstr(byte[] bytes) {
+        StringBuilder sb = new StringBuilder(bytes.length * 2);
+        for (byte b : bytes) {
+            final String s = Integer.toHexString(b & 0xff);
+            if (s.length() == 1) {
+                sb.append('0');
+            }
+            sb.append(s);
+        }
+        return sb.toString();
+    }
 }
