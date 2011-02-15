@@ -12,7 +12,10 @@ package org.zenoss.zep.index.impl;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.ContextConfiguration;
@@ -20,6 +23,8 @@ import org.springframework.test.context.junit4.AbstractTransactionalJUnit4Spring
 import org.zenoss.protobufs.model.Model;
 import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventDetail;
+import org.zenoss.protobufs.zep.Zep.EventDetailFilter;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -36,6 +41,7 @@ import org.zenoss.zep.index.EventIndexDao;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -53,6 +59,9 @@ public class EventIndexDaoImplIT extends
     @Autowired
     @Qualifier("summary")
     public EventIndexDao eventIndexDao;
+
+
+    private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImplIT.class);
 
     @Before
     public void setUp() throws ZepException {
@@ -509,6 +518,135 @@ public class EventIndexDaoImplIT extends
                 .build();
         EventSummaryResult and_res = this.eventIndexDao.list(and_req);
         assertEquals(0, and_res.getEventsCount());
+    }
+
+    @Test
+    public void testDetailNumericFilter() throws ZepException {
+
+        // This detail is currently defined as an integer.
+        final String production_state_key = "zenoss.device.production_state";
+
+        // Test to make sure this string value gets correctly parsed into numeric value.
+        final String test_value1 = "1234";
+        createEventWithDetail(production_state_key, test_value1);
+
+        final String low_value = "103";
+        createEventWithDetail(production_state_key, low_value);
+
+        final String high_value = "4154";
+        createEventWithDetail(production_state_key, high_value);
+
+        final EventSummaryResult result = findResultForNumericDetail(production_state_key, test_value1);
+        assertEquals(1, result.getEventsCount());
+
+        final String test_value2 = "1234.0";
+        Exception expectedException = null;
+        try {
+            findResultForNumericDetail(production_state_key, test_value2);
+        } catch (RuntimeException e) {
+            expectedException = e;
+        }
+        assertNotNull("Querying with a float value against an integer value should fail.", expectedException);
+
+        // find the low_value and the test_value1
+        final String test_value3 = ":1235";
+        final EventSummaryResult result3 = findResultForNumericDetail(production_state_key, test_value3);
+        assertEquals(2, result3.getEventsCount());
+
+        // find the test_value1 and the high_value
+        final String test_value4 = "1233:";
+        final EventSummaryResult result4 = findResultForNumericDetail(production_state_key, test_value4);
+        assertEquals(2, result4.getEventsCount());
+
+        // test that these filters get converted to ranges correctly and that the ranges find the value, 1234.
+        // expecting: 1233-1235, 1239
+        final List<String> test_value5 = new ArrayList<String>();
+        test_value5.add("1233");
+        test_value5.add("1234");
+        test_value5.add("1235");
+        test_value5.add("1239");
+
+        final EventSummaryResult result5 = findResultForNumericDetails(production_state_key, test_value5);
+        assertEquals(1, result5.getEventsCount());
+
+        // test that this value gets converted to range correctly and that the range finds the value, 1234.
+        final List<String> test_value6 = new ArrayList<String>();
+        test_value6.add("1230:1239");
+        final EventSummaryResult result6 = findResultForNumericDetails(production_state_key, test_value6);
+        assertEquals(1, result6.getEventsCount());
+
+
+        // test the edge of a range is inclusive.
+        final List<String> test_value7 = new ArrayList<String>();
+        test_value7.add("1230:1234");
+        final EventSummaryResult result7 = findResultForNumericDetails(production_state_key, test_value7);
+        assertEquals(1, result7.getEventsCount());
+
+        // Just get ridiculous. Test out  of order, numbers within a range, singles that span a range boundary
+        // Produces:
+        //  queries=
+        //      [
+        //          details.zenoss.device.production_state:[4155 TO 2147483647],
+        //          details.zenoss.device.production_state:[-2147483648 TO 1234],
+        //          details.zenoss.device.production_state:[300 TO 300]
+        //          details.zenoss.device.production_state:[1232 TO 1233]
+        //          details.zenoss.device.production_state:[1235 TO 1236]
+        //          details.zenoss.device.production_state:[3467 TO 3467]
+        //      ]
+        //  }
+        final List<String> test_value8 = new ArrayList<String>();
+        test_value8.add("300"); // low ball
+        test_value8.add("1232"); // start a sequence
+        test_value8.add("1233");
+        test_value8.add("3467"); // throw something in 'out of order'
+        test_value8.add("4155:"); // does not include the highest value.
+        test_value8.add(":1234"); // everything up to this int, counting the previous sequence
+        test_value8.add("1235"); // continue the sequence over the previous range.
+        test_value8.add("1236"); // continue the sequence over the previous range.
+
+        // should find all but the highest test event, 4154
+        final EventSummaryResult result8 = findResultForNumericDetails(production_state_key, test_value8);
+        assertEquals(2, result8.getEventsCount());
+    }
+
+    @Test
+    @Ignore
+    public void testDetailStringFilter() throws ZepException {
+        // override the spring config to test a string detail
+    }
+
+    private EventSummary createEventWithDetail(String key, String val) throws ZepException {
+
+        final EventDetail.Builder detailBuilder = EventDetail.newBuilder();
+        detailBuilder.setName(key);
+        detailBuilder.addValue(val);
+        return createEventWithDetails(Collections.singletonList(detailBuilder.build()));
+    }
+
+    private EventSummary createEventWithDetails(List<EventDetail> details) throws ZepException {
+        final Event.Builder eventBuilder = Event.newBuilder(EventDaoImplIT.createSampleEvent());
+        eventBuilder.addAllDetails(details);
+        final Event event = eventBuilder.build();
+        EventSummary summary = createSummary(event, EventStatus.STATUS_NEW);
+        eventIndexDao.index(summary);
+        return summary;
+    }
+
+    private EventSummaryResult findResultForNumericDetail(String key, String val) throws ZepException {
+
+        return findResultForNumericDetails(key, Collections.singletonList(val));
+    }
+
+    private EventSummaryResult findResultForNumericDetails(String key, List<String> vals) throws ZepException {
+
+        final EventDetailFilter.Builder edFilterBuilder = EventDetailFilter.newBuilder();
+        edFilterBuilder.setKey(key);
+        edFilterBuilder.addAllValue(vals);
+
+        final EventDetailFilter edf = edFilterBuilder.build();
+        final EventFilter.Builder filter = EventFilter.newBuilder().addAllDetails(Collections.singletonList(edf));
+        EventSummaryRequest request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        return this.eventIndexDao.list(request);
     }
 
 }

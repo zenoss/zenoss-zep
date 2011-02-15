@@ -116,6 +116,7 @@
         <constructor-arg ref="luceneSummaryIndexWriter"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="eventIndexMapper" ref="eventIndexMapper" />
+        <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao"/>
     </bean>
 
     <bean id="luceneArchiveDir" class="org.apache.lucene.store.FSDirectory"
@@ -136,6 +137,7 @@
         <constructor-arg ref="eventSummaryIndexDao"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="eventIndexMapper" ref="eventIndexMapper" />
+        <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao"/>
     </bean>
 
     <bean id="eventStoreDao" class="org.zenoss.zep.dao.impl.EventStoreDaoImpl">
@@ -157,4 +159,6 @@
         <property name="pluginService" ref="pluginService"/>
         <property name="indexMetadataDao" ref="indexMetadataDao" />
     </bean>
+
+
 </beans>

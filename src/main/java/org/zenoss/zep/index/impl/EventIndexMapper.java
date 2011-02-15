@@ -69,7 +69,7 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_ACKNOWLEDGED_BY_USER_NAME, summary.getAcknowledgedByUserName(), Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
 
-        doc.add(new NumericField(FIELD_STATUS, Store.NO, true).setIntValue(summary.getStatus().getNumber()));        
+        doc.add(new NumericField(FIELD_STATUS, Store.NO, true).setIntValue(summary.getStatus().getNumber()));
         doc.add(new NumericField(FIELD_COUNT, Store.NO, true).setIntValue(summary.getCount()));
         doc.add(new NumericField(FIELD_LAST_SEEN_TIME, Store.NO, true).setLongValue(summary.getLastSeenTime()));
         doc.add(new NumericField(FIELD_FIRST_SEEN_TIME, Store.NO, true).setLongValue(summary.getFirstSeenTime()));
@@ -113,40 +113,65 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         // find details configured for indexing
-        Map<String, EventDetailItem> detailsConfig =
-                this.eventDetailsConfigDao.getEventDetailsIndexConfiguration();
+        Map<String, EventDetailItem> detailsConfig = this.eventDetailsConfigDao.getEventDetailsIndexConfiguration();
+
         List<EventDetail> evtDetails = event.getDetailsList();
-        for(EventDetail eDetail : evtDetails) {
+        for (EventDetail eDetail : evtDetails) {
             String detailName = eDetail.getName();
             EventDetailItem detailDefn = detailsConfig.get(detailName);
 
             if (detailDefn != null) {
                 String detailKeyName = DETAIL_INDEX_PREFIX + '.' + detailDefn.getKey();
 
-                for (String detvalue  : eDetail.getValueList()) {
+                for (String detailValue : eDetail.getValueList()) {
+
                     Fieldable field = null;
-                    switch(detailDefn.getType()) {
+
+                    switch (detailDefn.getType()) {
+
+                        case STRING:
+                            field = new Field(detailKeyName, detailValue, Store.NO, Index.NOT_ANALYZED_NO_NORMS);
+                            break;
+
                         case INTEGER:
                             try {
-                                int detIntValue = Integer.parseInt(detvalue);
-                                field = new NumericField(
-                                    detailKeyName, Store.NO, true).setIntValue(detIntValue);
+                                int intValue = Integer.parseInt(detailValue);
+                                field = new NumericField(detailKeyName, Store.NO, true).setIntValue(intValue);
                             } catch (Exception e) {
-                                // don't let an exception on one value keep others from indexing
-                                logger.warn("Invalid integer data reported for detail {}: {}",
-                                        detailName, detvalue);
+                                logger.warn("Invalid numeric(int) data reported for detail {}: {}", detailName, detailValue);
                             }
                             break;
 
-                        case STRING:
-                            field = new Field(
-                                detailKeyName, detvalue, Store.NO, Index.NOT_ANALYZED_NO_NORMS);
+                        case FLOAT:
+                            try {
+                                float floatValue = Float.parseFloat(detailValue);
+                                field = new NumericField(detailKeyName, Store.NO, true).setFloatValue(floatValue);
+                            } catch (Exception e) {
+                                logger.warn("Invalid numeric(float) data reported for detail {}: {}", detailName, detailValue);
+                            }
                             break;
 
-                        default:
-                            logger.warn("Configured detail {} uses unknown data type: {}, skipping",
-                                    detailName, detailDefn.getType());
+                        case LONG:
+                            try {
+                                long longValue = Long.parseLong(detailValue);
+                                field = new NumericField(detailKeyName, Store.NO, true).setLongValue(longValue);
+                            } catch (Exception e) {
+                                logger.warn("Invalid numeric(long) data reported for detail {}: {}", detailName, detailValue);
+                            }
                             break;
+
+                        case DOUBLE:
+                            try {
+                                double doubleValue = Double.parseDouble(detailValue);
+                                field = new NumericField(detailKeyName, Store.NO, true).setDoubleValue(doubleValue);
+                            } catch (Exception e) {
+                                logger.warn("Invalid numeric(double) data reported for detail {}: {}", detailName, detailValue);
+                            }
+
+                        default:
+                            logger.warn("Configured detail {} uses unknown data type: {}, skipping", detailName, detailDefn.getType());
+                            break;
+
                     }
 
                     if (field != null) {

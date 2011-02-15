@@ -46,6 +46,7 @@ import org.zenoss.zep.ConfigConstants;
 import org.zenoss.zep.Messages;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
+import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.impl.ThreadRenamingRunnable;
 import org.zenoss.zep.index.EventIndexDao;
 
@@ -83,12 +84,19 @@ public class EventIndexDaoImpl implements EventIndexDao {
     private final AtomicInteger eventsSinceOptimize = new AtomicInteger(0);
     private EventIndexMapper eventIndexMapper;
 
+    private EventDetailsConfigDao eventDetailsConfigDao;
+
     private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImpl.class);
 
     public EventIndexDaoImpl(String name, IndexWriter writer) throws IOException {
         this.name = name;
         this.writer = writer;
         this._searcher = new IndexSearcher(IndexReader.open(this.writer.getDirectory(), true));
+    }
+
+
+    public void setEventDetailsConfigDao(EventDetailsConfigDao eventDetailsConfigDao) {
+        this.eventDetailsConfigDao = eventDetailsConfigDao;
     }
 
     public void setEventIndexMapper(EventIndexMapper eim) {
@@ -493,6 +501,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         qb.addField(FIELD_UUID, filter.getUuidList(), FilterOperator.OR);
 
+        qb.addDetails(filter.getDetailsList(), this.eventDetailsConfigDao);
+        
         for (EventFilter subfilter : filter.getSubfilterList()) {
             qb.addSubquery(buildQueryFromFilter(reader, subfilter));
         }
