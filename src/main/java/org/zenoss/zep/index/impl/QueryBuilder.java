@@ -27,9 +27,6 @@ import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.WildcardQuery;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.util.ObjectUtils;
 import org.zenoss.protobufs.util.Util.TimestampRange;
 import org.zenoss.protobufs.zep.Zep.EventDetailFilter;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
@@ -54,9 +51,6 @@ import java.util.TreeSet;
 public class QueryBuilder {
     private final BooleanClause.Occur operator;
     private final List<Query> queries = new ArrayList<Query>();
-
-
-    private static final Logger logger = LoggerFactory.getLogger(QueryBuilder.class);
 
     public QueryBuilder() {
         this(FilterOperator.AND);
@@ -312,32 +306,6 @@ public class QueryBuilder {
         return this;
     }
 
-    public QueryBuilder addFieldOfLongs(String key, List<Long> values) {
-        if (!values.isEmpty()) {
-            final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
-            final BooleanQuery booleanQuery = new BooleanQuery();
-
-            // Condense adjacent values into one range
-            Collections.sort(values);
-            Iterator<Long> it = values.iterator();
-            Long from = it.next();
-            Long to = from;
-            while (it.hasNext()) {
-                Long value = it.next();
-                if (value == to + 1) {
-                    to = value;
-                } else {
-                    booleanQuery.add(NumericRangeQuery.newLongRange(key, from, to, true, true), occur);
-                    from = to = value;
-                }
-            }
-            booleanQuery.add(NumericRangeQuery.newLongRange(key, from, to, true, true), occur);
-
-            queries.add(booleanQuery);
-        }
-        return this;
-    }
-
     public QueryBuilder addFieldOfEnumNumbers(String key, List<? extends ProtocolMessageEnum> values) throws ZepException {
         List<Integer> valuesList = new ArrayList<Integer>(values.size());
         for (ProtocolMessageEnum e : values) {
@@ -421,16 +389,10 @@ public class QueryBuilder {
 
 
     public QueryBuilder addDetails(Collection<EventDetailFilter> filters, EventDetailsConfigDao eventDetailsConfig) throws ZepException {
-
-        Map<String, EventDetailItem> detailsConfig = eventDetailsConfig.getEventDetailsIndexConfiguration();
-
-
         if (!filters.isEmpty()) {
-
+            Map<String, EventDetailItem> detailsConfig = eventDetailsConfig.getInitialEventDetailItemsByName();
             for (EventDetailFilter edf : filters) {
-
                 QueryBuilder eventDetailQuery = new QueryBuilder(edf.getOp());
-
                 EventDetailItem detailConfig = detailsConfig.get(edf.getKey());
 
                 if (detailConfig == null) {
@@ -438,10 +400,7 @@ public class QueryBuilder {
                 }
 
                 String key = EventIndexMapper.DETAIL_INDEX_PREFIX + "." + detailConfig.getKey();
-
-
                 switch(detailConfig.getType()) {
-
                     case STRING:
                         eventDetailQuery.addWildcardFields(key, edf.getValueList(), Boolean.FALSE);
                         break;
@@ -477,12 +436,10 @@ public class QueryBuilder {
                     default:
                         throw new ZepException("Unsupported detail type: " + detailConfig.getType());
                 }
-
                 
                 if (!eventDetailQuery.queries.isEmpty()) {
                     this.addSubquery(eventDetailQuery.build());
                 }
-
             }
         }
         return this;
@@ -510,6 +467,7 @@ public class QueryBuilder {
         return new NumericValueHolder<T>(convertString(strLeft, clazz), convertString(strRight, clazz));
     }
 
+    @SuppressWarnings({"unchecked"})
     private static <T extends Number> T convertString(String strVal, Class<T> clazz) {
         if (strVal == null || strVal.isEmpty()) {
             return null;
@@ -521,7 +479,6 @@ public class QueryBuilder {
             throw new RuntimeException(e);
         }
     }
-
 
     private static class NumericValueHolder<T extends Number> {
         public T from = null;

@@ -242,4 +242,9 @@ CREATE TABLE `event_trigger_signal_spool`
     INDEX (`created`)
 ) ENGINE=InnoDB COMMENT='Spool for event flapping.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
-
+CREATE TABLE `event_detail_index_config`
+(
+    `detail_item_name` VARCHAR(255) NOT NULL COMMENT 'EventDetailItem.name',
+    `proto_json` MEDIUMTEXT NOT NULL COMMENT 'JSON serialized EventDetailItem',
+    PRIMARY KEY (`detail_item_name`)
+) ENGINE=InnoDB COMMENT='Event detail index configuration.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;

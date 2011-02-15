@@ -14,8 +14,6 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.ContextConfiguration;
@@ -34,6 +32,7 @@ import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.EventTagFilter;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.EventDaoImplIT;
@@ -59,9 +58,6 @@ public class EventIndexDaoImplIT extends
     @Autowired
     @Qualifier("summary")
     public EventIndexDao eventIndexDao;
-
-
-    private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImplIT.class);
 
     @Before
     public void setUp() throws ZepException {
@@ -524,7 +520,7 @@ public class EventIndexDaoImplIT extends
     public void testDetailNumericFilter() throws ZepException {
 
         // This detail is currently defined as an integer.
-        final String production_state_key = "zenoss.device.production_state";
+        final String production_state_key = ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE;
 
         // Test to make sure this string value gets correctly parsed into numeric value.
         final String test_value1 = "1234";

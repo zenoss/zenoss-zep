@@ -9,9 +9,10 @@
         </encoder>
     </appender>
     
-    <logger name="org.apache.solr" level="WARN" />
-    <logger name="org.springframework" level="WARN" />
-    <logger name="ch.qos.logback" level="WARN" />
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="ch.qos.logback" level="WARN"/>
+    <logger name="com.zenoss" level="${ZENOSS_LOG_LEVEL:-INFO}" />
+    <logger name="org.zenoss" level="${ZENOSS_LOG_LEVEL:-INFO}" />
 
     <root level="INFO">
         <appender-ref ref="STDOUT" />

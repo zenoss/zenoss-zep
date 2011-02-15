@@ -39,6 +39,7 @@ import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.protobufs.zep.Zep.Rule;
 import org.zenoss.protobufs.zep.Zep.Signal;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.EventSignalSpool;
@@ -92,9 +93,6 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
 
     // The maximum amount of time to wait between processing the signal spool.
     private static final long MAXIMUM_DELAY_MS = TimeUnit.SECONDS.toMillis(60);
-
-    public static final String PRODUCTION_STATE_DETAIL_KEY = "zenoss.device.production_state";
-    public static final String DEVICE_PRIORITY_DETAIL_KEY = "zenoss.device.priority";
 
     private TaskScheduler scheduler;
     private ScheduledFuture<?> spoolFuture;
@@ -273,7 +271,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
 
             for (EventDetail detail : event.getDetailsList()) {
                 final String detailName = detail.getName();
-                if (PRODUCTION_STATE_DETAIL_KEY.equals(detailName)) {
+                if (ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE.equals(detailName)) {
                     try {
                         int prodState = Integer.parseInt(detail.getValue(0));
                         devdict.put("production_state", new PyInteger(prodState));
@@ -281,7 +279,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                         logger.warn("Failed retrieving production state", e);
                     }
                 }
-                else if (DEVICE_PRIORITY_DETAIL_KEY.equals(detailName)) {
+                else if (ZepConstants.DETAIL_DEVICE_PRIORITY.equals(detailName)) {
                     try {
                         int priority = Integer.parseInt(detail.getValue(0));
                         devdict.put("priority", new PyInteger(priority));

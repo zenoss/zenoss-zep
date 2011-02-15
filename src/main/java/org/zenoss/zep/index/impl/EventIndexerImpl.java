@@ -113,7 +113,7 @@ public class EventIndexerImpl implements EventIndexer {
 
     private static byte[] calculateIndexVersionHash(EventDetailsConfigDao detailsConfigDao) throws ZepException {
         TreeMap<String,EventDetailItem> sorted = new TreeMap<String,EventDetailItem>();
-        sorted.putAll(detailsConfigDao.getEventDetailsIndexConfiguration());
+        sorted.putAll(detailsConfigDao.getInitialEventDetailItemsByName());
         StringBuilder indexConfigStr = new StringBuilder();
         for (EventDetailItem item : sorted.values()) {
             // Only key and type affect the indexing behavior - ignore changes to display name

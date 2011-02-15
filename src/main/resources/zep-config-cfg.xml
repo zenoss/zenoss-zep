@@ -50,14 +50,6 @@
         </property>
         <property name="ignoreResourceNotFound" value="true" />
     </bean>
-
-    <bean id="zepIndexDetailsConfig" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
-        <property name="locations">
-            <array>
-                <value>classpath:zenoss-zep-details.properties</value>
-            </array>
-        </property>
-    </bean>
     
     <bean id="zepInstance" class="org.zenoss.zep.impl.ZepInstanceImpl">
         <constructor-arg index="0" ref="zepConfig"/>

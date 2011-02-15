@@ -11,136 +11,98 @@
 package org.zenoss.zep.dao.impl;
 
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem.EventDetailType;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
-import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
 
-import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileFilter;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import javax.sql.DataSource;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 
 public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
 
-    private static final Logger logger = LoggerFactory.getLogger(EventDetailsConfigDaoImpl.class);
-    private Map<String, EventDetailItem> detailsItemMap;
-    private Properties indexDetailsConfig;
+    private final SimpleJdbcTemplate template;
+    private static final String COLUMN_DETAIL_ITEM_NAME = "detail_item_name";
+    private static final String COLUMN_PROTO_JSON = "proto_json";
+    private volatile Map<String,EventDetailItem> initialItems = null;
 
-    public void init() {
-        this.detailsItemMap = loadIndexDetails();
-        logger.debug("Indexed event details: " + this.detailsItemMap.values());
+    public EventDetailsConfigDaoImpl(DataSource ds) {
+        this.template = new SimpleJdbcTemplate(ds);
     }
-    
-    public void setIndexDetailsConfig(Properties indexDetailsConfig) {
-        this.indexDetailsConfig = indexDetailsConfig;
+
+    private void createDetailItem(String key, EventDetailType type, String name) throws ZepException {
+        EventDetailItem item = EventDetailItem.newBuilder().setKey(key).setType(type).setName(name).build();
+        create(item);
+    }
+
+    public void init() throws ZepException {
+        // Create default EventDetailItem objects in the database.
+        createDetailItem(ZepConstants.DETAIL_DEVICE_PRIORITY, EventDetailType.INTEGER, "Priority");
+        createDetailItem(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE, EventDetailType.INTEGER, "Production State");
+        this.initialItems = getEventDetailItemsByName();
     }
 
     @Override
-    public Map<String, EventDetailItem> getEventDetailsIndexConfiguration() throws ZepException {
-        return Collections.unmodifiableMap(this.detailsItemMap);
+    @Transactional
+    public void create(EventDetailItem item) throws ZepException {
+        final Map<String,Object> fields = new HashMap<String,Object>();
+        fields.put(COLUMN_DETAIL_ITEM_NAME, item.getKey());
+        fields.put(COLUMN_PROTO_JSON, DaoUtils.protobufToJson(item));
+        final String sql = "INSERT INTO event_detail_index_config (detail_item_name, proto_json) " +
+                "VALUES (:detail_item_name, :proto_json) ON DUPLICATE KEY UPDATE proto_json = VALUES(proto_json)";
+        this.template.update(sql, fields);
     }
 
-    private Map<String,EventDetailItem> loadIndexDetails() {
-        Map<String,EventDetailItem> indexDetailsMap = new HashMap<String,EventDetailItem>();
-        if (indexDetailsConfig != null) {
-            indexDetailsMap.putAll(loadIndexDetailsFromProperties(indexDetailsConfig));
-        }
-
-        String zenHome = System.getenv("ZENHOME");
-        if (zenHome == null) {
-            zenHome = System.getProperty("ZENHOME");
-            if (zenHome == null) {
-                zenHome = ".";
-            }
-        }
-        File basedir = new File(zenHome, "etc/zenoss-zep/details");
-        if (basedir.isDirectory()) {
-            File[] propFiles = basedir.listFiles(new FileFilter() {
-                @Override
-                public boolean accept(File pathname) {
-                    return pathname.isFile() && pathname.getName().endsWith(".properties");
-                }
-            });
-            if (propFiles != null) {
-                for (File file : propFiles) {
-                    Map<String,EventDetailItem> fileMap = loadIndexDetailsFromFile(file);
-                    for (Map.Entry<String,EventDetailItem> entry : fileMap.entrySet()) {
-                        if (!indexDetailsMap.containsKey(entry.getKey())) {
-                            indexDetailsMap.put(entry.getKey(), entry.getValue());
-                        }
-                        else {
-                            logger.warn("Duplicate index detail definition found for {} in {}",
-                                    entry.getKey(), file.getName());
-                        }
-                    }
-                }
-            }
-        }
-        return indexDetailsMap;
+    @Override
+    @Transactional
+    public int delete(String eventDetailName) throws ZepException {
+        final Map<String,String> fields = Collections.singletonMap(COLUMN_DETAIL_ITEM_NAME, eventDetailName);
+        final String sql = "DELETE FROM event_detail_index_config WHERE detail_item_name = :detail_item_name";
+        return this.template.update(sql, fields);
     }
 
-    private static Map<String,EventDetailItem> loadIndexDetailsFromFile(File file) {
-        InputStream is = null;
-        try {
-            Properties props = new Properties();
-            is = new BufferedInputStream(new FileInputStream(file));
-            props.load(is);
-            return loadIndexDetailsFromProperties(props);
-        } catch (IOException e) {
-            logger.warn("Failed to open properties file", e);
-        } finally {
-            ZepUtils.close(is);
-        }
-        return Collections.emptyMap();
+    @Override
+    @Transactional(readOnly = true)
+    public EventDetailItem findByName(String eventDetailName) throws ZepException {
+        final Map<String,String> fields = Collections.singletonMap(COLUMN_DETAIL_ITEM_NAME, eventDetailName);
+        final String sql = "SELECT proto_json FROM event_detail_index_config WHERE detail_item_name=:detail_item_name";
+        final List<EventDetailItem> items = this.template.query(sql, new RowMapper<EventDetailItem>() {
+            @Override
+            public EventDetailItem mapRow(ResultSet rs, int rowNum) throws SQLException {
+                return DaoUtils.protobufFromJson(rs.getString(COLUMN_PROTO_JSON), EventDetailItem.getDefaultInstance());
+            }
+        }, fields);
+        return (items.isEmpty()) ? null : items.get(0);
     }
 
-    private static Map<String,EventDetailItem> loadIndexDetailsFromProperties(Properties properties) {
-        Map<String, EventDetailItem> itemDetailsMap = new HashMap<String, EventDetailItem>();
-        for (Map.Entry<Object,Object> entry : properties.entrySet()) {
-            String key = (String) entry.getKey();
-            String val = (String) entry.getValue();
-            if (val.isEmpty()) {
-                logger.warn("Invalid property entry: {}", key);
-                continue;
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, EventDetailItem> getEventDetailItemsByName() throws ZepException {
+        final String sql = "SELECT proto_json FROM event_detail_index_config";
+        final Map<String, EventDetailItem> itemsByName = new HashMap<String, EventDetailItem>();
+        this.template.query(sql, new RowMapper<Object>() {
+            @Override
+            public Object mapRow(ResultSet rs, int rowNum) throws SQLException {
+                EventDetailItem item = DaoUtils.protobufFromJson(rs.getString(COLUMN_PROTO_JSON),
+                        EventDetailItem.getDefaultInstance());
+                itemsByName.put(item.getKey(), item);
+                return null;
             }
-            if (!key.endsWith(".key")) {
-                continue;
-            }
-            if (itemDetailsMap.containsKey(val)) {
-                logger.warn("Duplicate definition found for detail: {}", val);
-                continue;
-            }
-            EventDetailItem.Builder itemBuilder = EventDetailItem.newBuilder();
-            itemBuilder.setKey(val);
+        });
+        return itemsByName;
+    }
 
-            String prefix = key.substring(0, key.length()-4);
-            String typeStr = properties.getProperty(prefix + ".type");
-            if (typeStr != null) {
-                try {
-                    EventDetailType type = EventDetailType.valueOf(typeStr.toUpperCase());
-                    itemBuilder.setType(type);
-                } catch (Exception e) {
-                    logger.warn("Invalid type {} specified for {}", typeStr, prefix + ".type");
-                    continue;
-                }
-            }
-            String displayName = properties.getProperty(prefix + ".display_name");
-            if (displayName != null) {
-                itemBuilder.setName(displayName);
-            }
-
-            itemDetailsMap.put(val, itemBuilder.build());
-        }
-        return itemDetailsMap;
+    @Override
+    public Map<String, EventDetailItem> getInitialEventDetailItemsByName() throws ZepException {
+        return Collections.unmodifiableMap(this.initialItems);
     }
 }

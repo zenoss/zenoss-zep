@@ -113,7 +113,7 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         // find details configured for indexing
-        Map<String, EventDetailItem> detailsConfig = this.eventDetailsConfigDao.getEventDetailsIndexConfiguration();
+        Map<String, EventDetailItem> detailsConfig = this.eventDetailsConfigDao.getInitialEventDetailItemsByName();
 
         List<EventDetail> evtDetails = event.getDetailsList();
         for (EventDetail eDetail : evtDetails) {

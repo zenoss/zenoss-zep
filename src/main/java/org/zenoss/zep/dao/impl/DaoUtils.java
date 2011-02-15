@@ -10,11 +10,14 @@
  */
 package org.zenoss.zep.dao.impl;
 
+import com.google.protobuf.Message;
 import org.springframework.jdbc.support.DatabaseMetaDataCallback;
 import org.springframework.jdbc.support.JdbcUtils;
 import org.springframework.jdbc.support.MetaDataAccessException;
+import org.zenoss.protobufs.JsonFormat;
 
 import javax.sql.DataSource;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
@@ -214,4 +217,39 @@ public final class DaoUtils {
         });
         return columnNames;
     }
+
+    /**
+     * Converts the protobuf message to JSON (wrapping exceptions).
+     *
+     * @param message Protobuf message.
+     * @param <T> Type of protobuf.
+     * @return JSON string representation of protobuf.
+     * @throws RuntimeException If an exception occurs.
+     */
+    public static <T extends Message> String protobufToJson(T message) throws RuntimeException {
+        try {
+            return JsonFormat.writeAsString(message);
+        } catch (IOException e) {
+            throw new RuntimeException(e.getLocalizedMessage(), e);
+        }
+    }
+
+    /**
+     * Converts the JSON to the protobuf message (wrapping exceptions).
+     *
+     * @param json JSON string representation of protobuf.
+     * @param defaultInstance Default instance of protobuf.
+     * @param <T> Type of protobuf.
+     * @return The deserialized message from the JSON representation.
+     * @throws RuntimeException If an error occurs.
+     */
+    @SuppressWarnings({"unchecked"})
+    public static <T extends Message> T protobufFromJson(String json, T defaultInstance) throws RuntimeException {
+        try {
+            return (T) JsonFormat.merge(json, defaultInstance.newBuilderForType());
+        } catch (IOException e) {
+            throw new RuntimeException(e.getLocalizedMessage(), e);
+        }
+    }
+
 }

@@ -79,8 +79,8 @@
 
     <!-- Indexing DAO -->
     <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl"
-        init-method="init">
-        <property name="indexDetailsConfig" ref="zepIndexDetailsConfig" />
+            init-method="init">
+        <constructor-arg index="0" ref="dataSource" />
     </bean>
 
     <bean id="eventIndexMapper" class="org.zenoss.zep.index.impl.EventIndexMapper">
