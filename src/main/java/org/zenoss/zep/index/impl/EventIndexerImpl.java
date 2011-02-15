@@ -13,16 +13,16 @@ package org.zenoss.zep.index.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.EventPostProcessingPlugin;
-import org.zenoss.zep.EventPublisher;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
@@ -31,9 +31,11 @@ import org.zenoss.zep.dao.IndexMetadataDao;
 import org.zenoss.zep.dao.impl.DaoUtils;
 import org.zenoss.zep.dao.impl.EventDaoHelper;
 import org.zenoss.zep.dao.impl.EventSummaryRowMapper;
+import org.zenoss.zep.impl.ThreadRenamingRunnable;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
 
+import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -42,20 +44,25 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 public class EventIndexerImpl implements EventIndexer {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
-    
+
+    private final int indexInterval;
     private final NamedParameterJdbcTemplate template;
     private EventDaoHelper eventDaoHelper;
     private final Object indexLock = new Object();
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
     private PluginService pluginService;
-    private EventPublisher eventPublisher;
     private IndexMetadataDao indexMetadataDao;
 
     private final byte[] indexVersionHash;
@@ -73,8 +80,14 @@ public class EventIndexerImpl implements EventIndexer {
     // FIXME Include the archive partitioning columns to take advantage of pruning   
     private static final String sqlGetArchive = String.format(sqlTemplate, TABLE_EVENT_ARCHIVE);
 
-    public EventIndexerImpl(JdbcTemplate jdbcTemplate, EventDetailsConfigDao detailsConfigDao) throws ZepException {
-        this.template = new NamedParameterJdbcTemplate(jdbcTemplate);
+    @Autowired
+    private TaskScheduler scheduler;
+    private ScheduledFuture<?> eventIndexerFuture = null;
+
+    public EventIndexerImpl(int indexInterval, DataSource dataSource,
+                            EventDetailsConfigDao detailsConfigDao) throws ZepException {
+        this.indexInterval = indexInterval;
+        this.template = new NamedParameterJdbcTemplate(dataSource);
         this.indexVersionHash = calculateIndexVersionHash(detailsConfigDao);
     }
 
@@ -92,10 +105,6 @@ public class EventIndexerImpl implements EventIndexer {
     
     public void setPluginService(PluginService pluginService) {
         this.pluginService = pluginService;
-    }
-    
-    public void setEventPublisher(EventPublisher eventPublisher) {
-        this.eventPublisher = eventPublisher;
     }
 
     public void setIndexMetadataDao(IndexMetadataDao indexMetadataDao) {
@@ -121,10 +130,67 @@ public class EventIndexerImpl implements EventIndexer {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public void init() throws ZepException {
         rebuildIndex(this.eventSummaryIndexDao, TABLE_EVENT_SUMMARY);
         rebuildIndex(this.eventArchiveIndexDao, TABLE_EVENT_ARCHIVE);
+        startEventIndexer();
+    }
+
+    private void startEventIndexer() {
+        cancelFuture(this.eventIndexerFuture);
+        this.eventIndexerFuture = null;
+
+        logger.info("Starting event indexing at interval: {} second(s)", this.indexInterval);
+        Date startTime = new Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(this.indexInterval));
+        this.eventIndexerFuture = scheduler.scheduleWithFixedDelay(
+                new ThreadRenamingRunnable(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            index();
+                        } catch (Exception e) {
+                            logger.warn("Failed to index events", e);
+                            /* If we fail to index, make sure we retry again next time */
+                            markSummaryDirty();
+                            markArchiveDirty();
+                        }
+                    }
+                }, "ZEP_EVENT_INDEXER"), startTime, TimeUnit.SECONDS.toMillis(this.indexInterval));
+    }
+
+    @Override
+    @Transactional
+    public void shutdown() throws ZepException {
+        // Stop indexing process
+        cancelFuture(this.eventIndexerFuture);
+        
+        // Commit indexes on shutdown
+        {
+            final long lastTime = getLastIndexTime(this.eventSummaryIndexDao);
+            this.eventSummaryIndexDao.commit();
+            setNextIndexTime(this.eventSummaryIndexDao, lastTime, true);
+        }
+        {
+            final long lastTime = getLastIndexTime(this.eventArchiveIndexDao);
+            this.eventArchiveIndexDao.commit();
+            setNextIndexTime(this.eventArchiveIndexDao, lastTime, true);
+        }
+    }
+
+    private static void cancelFuture(Future<?> future) {
+        if (future != null) {
+            future.cancel(true);
+            try {
+                future.get();
+            } catch (CancellationException e) {
+                // Expected exception - we just canceled above
+            } catch (ExecutionException e) {
+                logger.warn("exception", e);
+            } catch (InterruptedException e) {
+                logger.debug("Interrupted", e);
+            }
+        }
     }
 
     private void rebuildIndex(final EventIndexDao dao, final String tableName)
@@ -295,11 +361,11 @@ public class EventIndexerImpl implements EventIndexer {
 
             logger.debug("Indexing events for {} with offset {}", dao.getName(), fields.get("offset"));
 
-            ResultSetIndexer indexer = new ResultSetIndexer(dao, this.pluginService.getPostProcessingPlugins(), this.eventPublisher);
+            ResultSetIndexer indexer = new ResultSetIndexer(dao, this.pluginService.getPostProcessingPlugins());
             indexResults = template.query(sql, fields, indexer);
 
             if (indexResults.lastUpdateTime > 0) {
-                setNextIndexTime(dao, indexResults.lastUpdateTime, true);
+                setNextIndexTime(dao, indexResults.lastUpdateTime, false);
             }
 
             i += 1;
@@ -311,18 +377,16 @@ public class EventIndexerImpl implements EventIndexer {
         else {
             logger.debug("Nothing to index.");
         }
-        setNextIndexTime(dao, now, true);
+        setNextIndexTime(dao, now, false);
     }
 
     protected class ResultSetIndexer implements ResultSetExtractor<Result> {
         private final EventIndexDao dao;
         private final List<EventPostProcessingPlugin> plugins;
-        private final EventPublisher publisher;
 
-        public ResultSetIndexer(EventIndexDao eventIndexDao, List<EventPostProcessingPlugin> plugins, EventPublisher publisher) {
+        public ResultSetIndexer(EventIndexDao eventIndexDao, List<EventPostProcessingPlugin> plugins) {
             this.dao = eventIndexDao;
             this.plugins = plugins;
-            this.publisher = publisher;
         }
 
         @Override
@@ -333,6 +397,12 @@ public class EventIndexerImpl implements EventIndexer {
 
                 EventSummary summary = mapper.mapRow(resultSet, resultSet.getRow());
                 result.lastUpdateTime = summary.getUpdateTime();
+
+                try {
+                    dao.stage(summary);
+                } catch (ZepException e) {
+                    throw new SQLException(e);
+                }
                 
                 for (EventPostProcessingPlugin plugin : this.plugins) {
                     try {
@@ -341,22 +411,6 @@ public class EventIndexerImpl implements EventIndexer {
                         // Post-processing plug-in failures are not fatal errors.
                         logger.warn("Failed to run post-processing plug-in on event", e);
                     }
-                }
-
-                try {
-                    dao.stage(summary);
-                    this.publisher.addEvent(summary);
-                } catch (ZepException e) {
-                    throw new SQLException(e);
-                }
-            }
-
-            if ( result.processed > 0 ) {
-                try {
-                    dao.commit();
-                    publisher.publish();
-                } catch (ZepException e) {
-                    throw new SQLException(e);
                 }
             }
             

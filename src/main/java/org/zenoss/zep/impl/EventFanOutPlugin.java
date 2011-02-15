@@ -10,85 +10,55 @@
  */
 package org.zenoss.zep.impl;
 
-import java.io.IOException;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.amqp.AmqpConnectionManager;
 import org.zenoss.amqp.AmqpException;
-import org.zenoss.amqp.BatchPublisher;
 import org.zenoss.amqp.ExchangeConfiguration;
 import org.zenoss.amqp.ZenossQueueConfig;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.zep.EventPublisher;
 import org.zenoss.zep.ZepException;
-import org.zenoss.zep.ZepUtils;
 
-import com.google.protobuf.Message;
+import java.io.IOException;
 
-public class EventPublisherImpl implements EventPublisher {
+public class EventFanOutPlugin extends AbstractPostProcessingPlugin {
 
-    private static final Logger logger = LoggerFactory
-            .getLogger(EventPublisherImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventFanOutPlugin.class);
+    private static final String ROUTING_KEY_PREFIX = "zenoss.zenevent.";
 
     private AmqpConnectionManager amqpConnectionManager;
-
-    private BatchPublisher<Message> publisher;
-
+    
     private final ExchangeConfiguration exchangeConfiguration;
 
-    public EventPublisherImpl() throws IOException {
+    public EventFanOutPlugin() throws IOException {
         this.exchangeConfiguration = ZenossQueueConfig.getConfig().getExchange(
                 "$ProcessedZenEvents");
     }
 
-    public void setAmqpConnectionManager(
-            AmqpConnectionManager amqpConnectionManager) {
+    public void setAmqpConnectionManager(AmqpConnectionManager amqpConnectionManager) {
         this.amqpConnectionManager = amqpConnectionManager;
     }
 
     @Override
-    public void addEvent(EventSummary event) throws ZepException {
-        if (this.publisher == null) {
-            try {
-                this.publisher = this.amqpConnectionManager
-                        .createBatchPublisher(this.exchangeConfiguration);
-            } catch (AmqpException e) {
-                ZepUtils.close(this.publisher);
-                this.publisher = null;
-                throw new ZepException(e.getLocalizedMessage(), e);
-            }
-        }
+    public void processEvent(EventSummary event) throws ZepException {
         final String eventClass = event.getOccurrence(0).getEventClass();
         try {
             logger.debug("Publishing event to fan-out exchange: {}", event);
-            this.publisher.publish(event, "zenoss.zenevent."
-                    + sanitizeEventClass(eventClass));
+            this.amqpConnectionManager.publish(this.exchangeConfiguration,
+                    ROUTING_KEY_PREFIX + sanitizeEventClass(eventClass), event);
         } catch (AmqpException e) {
-            ZepUtils.close(this.publisher);
-            this.publisher = null;
             throw new ZepException(e);
         }
     }
 
-    @Override
-    public void publish() throws ZepException {
-        try {
-            this.publisher.commit();
-        } catch (AmqpException e) {
-            ZepUtils.close(this.publisher);
-            this.publisher = null;
-            throw new ZepException(e.getLocalizedMessage(), e);
-        }
-    }
-
     private static String sanitizeEventClass(String eventClass) {
-        StringBuilder sb = new StringBuilder(eventClass.length());
+        final int length = eventClass.length();
+        final StringBuilder sb = new StringBuilder(length);
         int startIndex = 0;
         if (eventClass.charAt(0) == '/') {
             startIndex = 1;
         }
-        while (startIndex < eventClass.length()) {
+        while (startIndex < length) {
             char ch = Character.toLowerCase(eventClass.charAt(startIndex));
             if (ch == '/') {
                 sb.append('.');

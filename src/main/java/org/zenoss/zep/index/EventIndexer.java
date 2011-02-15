@@ -27,6 +27,14 @@ public interface EventIndexer {
     public void init() throws ZepException;
 
     /**
+     * Shuts down the event indexer. This will commit the indexes and update the
+     * last commit time in the database for the index.
+     *
+     * @throws ZepException If an exception occurs.
+     */
+    public void shutdown() throws ZepException;
+
+    /**
      * Performs an index if either the summary or archive is out of date.
      * 
      * @throws ZepException

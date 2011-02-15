@@ -20,6 +20,7 @@ import org.springframework.transaction.support.TransactionSynchronizationAdapter
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.zenoss.zep.dao.DaoCache;
 
+import javax.sql.DataSource;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -40,7 +41,8 @@ public class DaoCacheImpl implements DaoCache {
     private final DaoTableStringLruCache groupCache;
     private final DaoTableStringLruCache eventKeyCache;
 
-    public DaoCacheImpl(JdbcTemplate template) {
+    public DaoCacheImpl(DataSource ds) {
+        JdbcTemplate template = new JdbcTemplate(ds);
         this.eventClassCache = new DaoTableStringLruCache(template, "event_class");
         this.eventClassKeyCache = new DaoTableStringLruCache(template, "event_class_key");
         this.monitorCache = new DaoTableStringLruCache(template, "monitor");

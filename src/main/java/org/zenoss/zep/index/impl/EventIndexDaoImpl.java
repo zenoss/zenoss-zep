@@ -83,6 +83,10 @@ public class EventIndexDaoImpl implements EventIndexDao {
     private static final int OPTIMIZE_AT_NUM_EVENTS = 5000;
     private final AtomicInteger eventsSinceOptimize = new AtomicInteger(0);
     private EventIndexMapper eventIndexMapper;
+    
+    @Autowired
+    private TaskScheduler scheduler;
+    private final Map<String,SavedSearch> savedSearches = new ConcurrentHashMap<String,SavedSearch>();
 
     private EventDetailsConfigDao eventDetailsConfigDao;
 
@@ -91,7 +95,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
     public EventIndexDaoImpl(String name, IndexWriter writer) throws IOException {
         this.name = name;
         this.writer = writer;
-        this._searcher = new IndexSearcher(IndexReader.open(this.writer.getDirectory(), true));
+        // Use NRT reader.
+        this._searcher = new IndexSearcher(this.writer.getReader());
     }
 
 
@@ -173,7 +178,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
     }
 
-    private synchronized IndexSearcher getSearcher() {
+    private synchronized IndexSearcher getSearcher() throws IOException {
+        reopenReader();
         this._searcher.getIndexReader().incRef();
         return this._searcher;
     }
@@ -192,7 +198,6 @@ public class EventIndexDaoImpl implements EventIndexDao {
     public void commit(boolean forceOptimize) throws ZepException {
         try {
             this.writer.commit();
-            reopenReader();
             if ( forceOptimize || eventsSinceOptimize.get() >= OPTIMIZE_AT_NUM_EVENTS ) {
                 this.writer.optimize();
                 eventsSinceOptimize.set(0);
@@ -673,10 +678,6 @@ public class EventIndexDaoImpl implements EventIndexDao {
                     '}';
         }
     }
-
-    @Autowired
-    private TaskScheduler scheduler;
-    private final Map<String,SavedSearch> savedSearches = new ConcurrentHashMap<String,SavedSearch>();
 
     @Override
     public String createSavedSearch(EventQuery eventQuery) throws ZepException {

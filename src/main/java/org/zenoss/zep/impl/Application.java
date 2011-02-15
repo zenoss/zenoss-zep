@@ -23,7 +23,6 @@ import org.zenoss.zep.dao.EventDao;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.Purgable;
 import org.zenoss.zep.events.ConfigUpdatedEvent;
-import org.zenoss.zep.index.EventIndexer;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -44,14 +43,12 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
-    private final int indexInterval;
     @Autowired
     private TaskScheduler scheduler;
     private ScheduledFuture<?> eventSummaryAger = null;
     private ScheduledFuture<?> eventSummaryArchiver = null;
     private ScheduledFuture<?> eventArchivePurger = null;
     private ScheduledFuture<?> eventPurger = null;
-    private ScheduledFuture<?> eventIndexerFuture = null;
     private AppConfig oldConfig = null;
     private AppConfig config;
 
@@ -59,10 +56,8 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     private EventDao eventDao;
     private EventStoreDao eventStoreDao;
     private EventArchiveDao eventArchiveDao;
-    private EventIndexer eventIndexer;
 
-    public Application(int indexInterval) {
-        this.indexInterval = indexInterval;
+    public Application() {
     }
 
     public void setEventStoreDao(EventStoreDao eventStoreDao) {
@@ -81,10 +76,6 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
         this.eventDao = eventDao;
     }
 
-    public void setEventIndexer(EventIndexer eventIndexer) {
-        this.eventIndexer = eventIndexer;
-    }
-
     public void init() throws ZepException {
         logger.info("Initializing ZEP");
         this.config = new AppConfig(configDao.getConfig());
@@ -99,7 +90,6 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
         startEventSummaryArchiving();
         startEventArchivePurging();
         startEventPurging();
-        startEventIndexer();
     }
 
     public void shutdown() throws InterruptedException {
@@ -114,9 +104,6 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
 
         cancelFuture(this.eventPurger);
         this.eventPurger = null;
-
-        cancelFuture(this.eventIndexerFuture);
-        this.eventIndexer = null;
     }
 
     private void cancelFuture(Future<?> future) {
@@ -137,29 +124,6 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     private void initializePartitions() throws ZepException {
         eventArchiveDao.initializePartitions();
         eventDao.initializePartitions();
-    }
-
-    private void startEventIndexer() {
-        cancelFuture(this.eventIndexerFuture);
-        this.eventIndexerFuture = null;
-
-        logger.info("Starting event indexing at interval: {} second(s)",
-                this.indexInterval);
-        Date startTime = new Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(this.indexInterval));
-        this.eventIndexerFuture = scheduler.scheduleWithFixedDelay(
-                new ThreadRenamingRunnable(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            eventIndexer.index();
-                        } catch (Exception e) {
-                            logger.warn("Failed to index events", e);
-                            /* If we fail to index, make sure we retry again next time */
-                            eventIndexer.markSummaryDirty();
-                            eventIndexer.markArchiveDirty();
-                        }
-                    }
-                }, "ZEP_EVENT_INDEXER"), startTime, TimeUnit.SECONDS.toMillis(this.indexInterval));
     }
 
     private void startEventSummaryAging() {

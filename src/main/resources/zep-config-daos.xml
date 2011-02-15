@@ -27,10 +27,6 @@
         <property name="testOnBorrow" value="true" />
     </bean>
 
-    <bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
-        <constructor-arg ref="dataSource"/>
-    </bean>
-
     <!-- Partition configuration -->
     <bean id="partitionConfig" class="org.zenoss.zep.dao.impl.PartitionConfig">
         <constructor-arg index="0" ref="zepPartitioningProps"/>
@@ -70,7 +66,7 @@
     </bean>
     <bean id="daoCache" class="org.zenoss.zep.dao.impl.DaoCacheImpl"
           init-method="init">
-        <constructor-arg index="0" ref="jdbcTemplate"/>
+        <constructor-arg index="0" ref="dataSource"/>
     </bean>
     <bean id="configDao" class="org.zenoss.zep.dao.impl.ConfigDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
@@ -108,6 +104,7 @@
         <constructor-arg index="0" ref="luceneSummaryDir"/>
         <constructor-arg index="1" ref="luceneAnalyzer"/>
         <constructor-arg index="2" ref="luceneMaxFieldLength"/>
+        <property name="RAMBufferSizeMB" value="${zep.index.ram_buffer_size_mb:16.0}"/>
     </bean>
 
     <bean id="eventSummaryIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl">
@@ -128,6 +125,7 @@
         <constructor-arg index="0" ref="luceneArchiveDir"/>
         <constructor-arg index="1" ref="luceneAnalyzer"/>
         <constructor-arg index="2" ref="luceneMaxFieldLength"/>
+        <property name="RAMBufferSizeMB" value="${zep.index.ram_buffer_size_mb:16.0}"/>
     </bean>
 
     <bean id="eventArchiveIndexDao" class="org.zenoss.zep.index.impl.EventArchiveIndexDaoImpl">
@@ -149,13 +147,13 @@
     </bean>
 
     <bean id="eventIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl"
-            init-method="init">
-        <constructor-arg index="0" ref="jdbcTemplate"/>
-        <constructor-arg index="1" ref="eventDetailsConfigDao" />
+            init-method="init" destroy-method="shutdown">
+        <constructor-arg index="0" value="${zep.index.interval_seconds}"/>
+        <constructor-arg index="1" ref="dataSource"/>
+        <constructor-arg index="2" ref="eventDetailsConfigDao" />
         <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao" />
         <property name="eventArchiveIndexDao" ref="eventArchiveIndexDao" />
         <property name="eventDaoHelper" ref="eventDaoHelper"/>
-        <property name="eventPublisher" ref="eventPublisher"/>
         <property name="pluginService" ref="pluginService"/>
         <property name="indexMetadataDao" ref="indexMetadataDao" />
     </bean>
