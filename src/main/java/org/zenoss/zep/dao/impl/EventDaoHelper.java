@@ -22,6 +22,7 @@ import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
+import org.zenoss.protobufs.zep.Zep.EventDetail.EventDetailMergeBehavior;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventTag;
@@ -38,6 +39,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -195,15 +197,20 @@ public class EventDaoHelper {
         return tags;
     }
 
-    private static Collection<EventDetail> mergeDuplicateDetails(
-            List<EventDetail> details) {
+    /**
+     * Collapses duplicates in a list of event details.
+     *
+     * @param details Event details (may contain duplicate names).
+     * @return A collection of event details where duplicates are removed and values are appended.
+     */
+    private static Collection<EventDetail> mergeDuplicateDetails(List<EventDetail> details) {
         Map<String, EventDetail> names = new LinkedHashMap<String, EventDetail>(details.size());
         for (EventDetail detail : details) {
             EventDetail existing = names.get(detail.getName());
             if (existing == null) {
                 names.put(detail.getName(), detail);
             } else {
-                // Merge details with existing
+                // Append detail values to existing
                 EventDetail merged = EventDetail.newBuilder(existing).addAllValue(detail.getValueList()).build();
                 names.put(detail.getName(), merged);
             }
@@ -211,23 +218,53 @@ public class EventDaoHelper {
         return names.values();
     }
 
-    private static Collection<EventDetail> updateDetails(
-            List<EventDetail> existingDetails, List<EventDetail> newDetails) {
-        Map<String, EventDetail> names = new LinkedHashMap<String, EventDetail>(existingDetails.size());
-        for (EventDetail detail : existingDetails) {
-            names.put(detail.getName(), detail);
+    /**
+     * Merges the old and new event detail lists. Uses the EventDetailMergeBehavior setting
+     * to determine how details with the same name in both lists should be handled.
+     *
+     * @param oldDetails Old event details.
+     * @param newDetails New event details.
+     * @return A merged collections of event details.
+     */
+    static Collection<EventDetail> mergeDetails(List<EventDetail> oldDetails, List<EventDetail> newDetails) {
+        Map<String, EventDetail> detailsMap = new LinkedHashMap<String, EventDetail>(oldDetails.size() + newDetails.size());
+        for (EventDetail detail : oldDetails) {
+            detailsMap.put(detail.getName(), detail);
         }
-
-        for (EventDetail detail : newDetails) {
-            String detail_name = detail.getName();
-            if (detail.getValueCount() > 0) {
-                // unlike with merge, this routine overwrites existing detail values
-                names.put(detail_name, detail);
-            } else {
-                names.remove(detail_name);
+        for (EventDetail newDetail : newDetails) {
+            final EventDetailMergeBehavior mergeBehavior = newDetail.getMergeBehavior();
+            if (mergeBehavior == EventDetailMergeBehavior.REPLACE) {
+                // If a new detail specifies an empty value, it is removed
+                if (newDetail.getValueCount() == 0) {
+                    detailsMap.remove(newDetail.getName());
+                }
+                else {
+                    detailsMap.put(newDetail.getName(), newDetail);
+                }
+            }
+            else {
+                final EventDetail existing = detailsMap.get(newDetail.getName());
+                if (existing == null) {
+                    detailsMap.put(newDetail.getName(), newDetail);
+                }
+                else if (mergeBehavior == EventDetailMergeBehavior.APPEND) {
+                    final EventDetail.Builder merged = EventDetail.newBuilder(existing);
+                    merged.addAllValue(newDetail.getValueList());
+                    detailsMap.put(newDetail.getName(), merged.build());
+                }
+                else if (mergeBehavior == EventDetailMergeBehavior.UNIQUE) {
+                    final EventDetail.Builder merged = EventDetail.newBuilder(existing);
+                    final Set<String> newValues = new LinkedHashSet<String>(newDetail.getValueList());
+                    newValues.removeAll(existing.getValueList());
+                    merged.addAllValue(newValues);
+                    detailsMap.put(newDetail.getName(), merged.build());
+                }
+                else {
+                    logger.warn("Unsupported merge behavior: {}", mergeBehavior);
+                }
             }
         }
-        return names.values();
+        return detailsMap.values();
     }
 
     private void populateEventActorFields(EventActor actor,
@@ -474,45 +511,27 @@ public class EventDaoHelper {
             throws ZepException {
         Map<String, Object> fields = new HashMap<String, Object>();
         fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
-        String selectSql = "SELECT details_json FROM " + tableName + " "
-                + "WHERE uuid = :uuid FOR UPDATE";
+        final String selectSql = "SELECT details_json FROM " + tableName + " WHERE uuid = :uuid FOR UPDATE";
 
-        String currentDetailsJson = null;
+        final List<EventDetail> existingDetailList;
         try {
-            currentDetailsJson = template.queryForObject(selectSql, String.class, fields);
+            String currentDetailsJson = template.queryForObject(selectSql, String.class, fields);
             if (currentDetailsJson == null) {
                 currentDetailsJson = "[]";
             }
+            existingDetailList = JsonFormat.mergeAllDelimitedFrom(currentDetailsJson, EventDetail.getDefaultInstance());
         } catch (IncorrectResultSizeDataAccessException irsdae) {
-            logger.warn("unexpected results size data access exception retrieving event summary {}: {}",
-                    uuid, irsdae);
+            logger.debug("unexpected results size data access exception retrieving event summary", irsdae);
             return 0;
-        } catch (DataAccessException dae) {
-            logger.warn("unexpected data exception retrieving event summary {}: {}", uuid, dae);
-            return 0;
-        }
-
-        // extract current details from details_json
-        List<EventDetail> existingDetailList = new ArrayList<EventDetail>();
-        try {
-            existingDetailList.addAll(JsonFormat.mergeAllDelimitedFrom(currentDetailsJson,
-                                                                        EventDetail.getDefaultInstance()));
         } catch (IOException e) {
             throw new ZepException(e);
         }
-
+        
         // update details with new values
-        Collection<EventDetail> listWithUpdates = EventDaoHelper.updateDetails(existingDetailList, details);
-
+        Collection<EventDetail> listWithUpdates = EventDaoHelper.mergeDetails(existingDetailList, details);
         // serialize updated details to json
-        String updatedDetailsJson = null;
         try {
-            updatedDetailsJson = JsonFormat.writeAllDelimitedAsString(listWithUpdates);
-        } catch (IOException ioe) {
-                throw new ZepException(ioe);
-        }
-
-        if (updatedDetailsJson != null) {
+            final String updatedDetailsJson = JsonFormat.writeAllDelimitedAsString(listWithUpdates);
             // update current event_summary record
             fields.put(COLUMN_DETAILS_JSON, updatedDetailsJson);
             fields.put(COLUMN_UPDATE_TIME, System.currentTimeMillis());
@@ -521,9 +540,9 @@ public class EventDaoHelper {
                     + "WHERE uuid = :uuid";
 
             return template.update(updateSql, fields);
+        } catch (IOException ioe) {
+            throw new ZepException(ioe);
         }
-
-        return 0;
     }
 
     public List<Integer> getSeverityIdsLessThan(EventSeverity severity) {

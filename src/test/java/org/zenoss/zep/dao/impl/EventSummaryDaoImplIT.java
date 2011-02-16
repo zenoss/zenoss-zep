@@ -19,6 +19,7 @@ import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
+import org.zenoss.protobufs.zep.Zep.EventDetail.EventDetailMergeBehavior;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
@@ -127,8 +128,7 @@ public class EventSummaryDaoImplIT extends
         newEventBuilder.setMessage(event.getMessage() + random.nextInt(500));
         newEventBuilder.setSummary(event.getSummary() + random.nextInt(1000));
         newEventBuilder.clearDetails();
-        newEventBuilder.addDetails(EventDetail.newBuilder().setName("newname1")
-                .addValue("newvalue1").addValue("newvalue2"));
+        newEventBuilder.addDetails(createDetail("newname1", "newvalue1", "newvalue2"));
         Event newEvent = newEventBuilder.build();
 
         EventSummary newEventSummaryFromDb = createSummaryNew(newEvent);
@@ -255,10 +255,8 @@ public class EventSummaryDaoImplIT extends
         Event.Builder eventBuilder = Event.newBuilder();
         eventBuilder.setUuid(UUID.randomUUID().toString());
         eventBuilder.setCreatedTime(System.currentTimeMillis());
-        eventBuilder.addDetails(EventDetail.newBuilder().setName("foo")
-                .addValue("bar").addValue("baz").build());
-        eventBuilder.addDetails(EventDetail.newBuilder().setName("foo2")
-                .addValue("bar2").addValue("baz2").build());
+        eventBuilder.addDetails(createDetail("foo", "bar", "baz"));
+        eventBuilder.addDetails(createDetail("foo2", "bar2", "baz2"));
         eventBuilder.setActor(EventDaoImplIT.createSampleActor());
         eventBuilder.setAgent("agent");
         eventBuilder.setEventClass("/Unknown");
@@ -416,14 +414,12 @@ public class EventSummaryDaoImplIT extends
     }
 
     @Test
-    public void testUpdateDetails() throws ZepException {
+    public void testUpdateDetailsReplace() throws ZepException {
         Event newEvent = createUniqueEvent();
-        newEvent = newEvent.toBuilder().clearDetails().build();
-        assertEquals(0, newEvent.getDetailsCount());
-        Event.Builder builder = newEvent.toBuilder();
-        builder.addDetails(EventDetail.newBuilder().setName("A").addValue("A").build());
-        builder.addDetails(EventDetail.newBuilder().setName("B").addValue("B").build());
-        builder.addDetails(EventDetail.newBuilder().setName("C").addValue("C").build());
+        Event.Builder builder = Event.newBuilder(newEvent).clearDetails();
+        builder.addDetails(createDetail("A", "A"));
+        builder.addDetails(createDetail("B", "B"));
+        builder.addDetails(createDetail("C", "C"));
         newEvent = builder.build();
 
         EventSummary summary = createSummaryNew(newEvent);
@@ -431,9 +427,9 @@ public class EventSummaryDaoImplIT extends
         assertEquals(3, storedEvent.getDetailsCount());
 
         List<EventDetail> newDetailsList = new ArrayList<EventDetail>();
-        newDetailsList.add(EventDetail.newBuilder().setName("B").addValue("B1").build());
-        newDetailsList.add(EventDetail.newBuilder().setName("C").build());
-        newDetailsList.add(EventDetail.newBuilder().setName("D").addValue("D").build());
+        newDetailsList.add(createDetail("B", "B1"));
+        newDetailsList.add(createDetail("C"));
+        newDetailsList.add(createDetail("D", "D"));
         EventDetailSet newDetails = EventDetailSet.newBuilder().addAllDetails(newDetailsList).build();
 
         // ensure update works correctly
@@ -443,22 +439,76 @@ public class EventSummaryDaoImplIT extends
         summary = eventSummaryDao.findByUuid(summary.getUuid());
 
         List<EventDetail> resultDetails = summary.getOccurrence(0).getDetailsList();
-
         assertEquals(3, resultDetails.size());
 
-        Map<String,String> resultDetailsMap = new HashMap<String, String>(resultDetails.size());
-        for (EventDetail ed : resultDetails) {
-            resultDetailsMap.put(ed.getName(), ed.getValue(0));
-        }
+        Map<String, List<String>> resultDetailsMap = detailsToMap(resultDetails);
+        assertEquals(Collections.singletonList("A"), resultDetailsMap.get("A"));
+        assertEquals(Collections.singletonList("B1"), resultDetailsMap.get("B"));
+        assertEquals(Collections.singletonList("D"), resultDetailsMap.get("D"));
+    }
 
-        assertTrue(resultDetailsMap.containsKey("A"));
-        assertTrue(resultDetailsMap.containsKey("B"));
-        assertFalse(resultDetailsMap.containsKey("C"));
-        assertTrue(resultDetailsMap.containsKey("D"));
+    @Test
+    public void testUpdateDetailsAppend() throws ZepException {
+        Event newEvent = createUniqueEvent();
+        Event.Builder builder = Event.newBuilder(newEvent).clearDetails();
+        builder.addDetails(createDetail("A", "A"));
+        builder.addDetails(createDetail("B", "B"));
+        builder.addDetails(createDetail("C", "C"));
+        newEvent = builder.build();
 
-        assertEquals(resultDetailsMap.get("A"), "A");
-        assertEquals(resultDetailsMap.get("B"), "B1");
-        assertEquals(resultDetailsMap.get("D"), "D");
+        EventSummary summary = createSummaryNew(newEvent);
+        Event storedEvent = summary.getOccurrence(0);
+        assertEquals(3, storedEvent.getDetailsCount());
+
+        List<EventDetail> newDetailsList = new ArrayList<EventDetail>();
+        newDetailsList.add(createDetail("A", EventDetailMergeBehavior.APPEND, "A1", "A2"));
+        EventDetailSet newDetails = EventDetailSet.newBuilder().addAllDetails(newDetailsList).build();
+
+        // ensure update works correctly
+        assertEquals(1, eventSummaryDao.updateDetails(summary.getUuid(), newDetails));
+
+        // verify new contents of details
+        summary = eventSummaryDao.findByUuid(summary.getUuid());
+
+        List<EventDetail> resultDetails = summary.getOccurrence(0).getDetailsList();
+        assertEquals(3, resultDetails.size());
+
+        Map<String, List<String>> resultDetailsMap = detailsToMap(resultDetails);
+        assertEquals(Arrays.asList("A", "A1", "A2"), resultDetailsMap.get("A"));
+        assertEquals(Collections.singletonList("B"), resultDetailsMap.get("B"));
+        assertEquals(Collections.singletonList("C"), resultDetailsMap.get("C"));
+    }
+
+    @Test
+    public void testUpdateDetailsUnique() throws ZepException {
+        Event newEvent = createUniqueEvent();
+        Event.Builder builder = Event.newBuilder(newEvent).clearDetails();
+        builder.addDetails(createDetail("A", "A1", "A2", "A3"));
+        builder.addDetails(createDetail("B", "B"));
+        builder.addDetails(createDetail("C", "C"));
+        newEvent = builder.build();
+
+        EventSummary summary = createSummaryNew(newEvent);
+        Event storedEvent = summary.getOccurrence(0);
+        assertEquals(3, storedEvent.getDetailsCount());
+
+        List<EventDetail> newDetailsList = new ArrayList<EventDetail>();
+        newDetailsList.add(createDetail("A", EventDetailMergeBehavior.UNIQUE, "A4", "A1", "A5", "A2"));
+        EventDetailSet newDetails = EventDetailSet.newBuilder().addAllDetails(newDetailsList).build();
+
+        // ensure update works correctly
+        assertEquals(1, eventSummaryDao.updateDetails(summary.getUuid(), newDetails));
+
+        // verify new contents of details
+        summary = eventSummaryDao.findByUuid(summary.getUuid());
+
+        List<EventDetail> resultDetails = summary.getOccurrence(0).getDetailsList();
+        assertEquals(3, resultDetails.size());
+
+        Map<String, List<String>> resultDetailsMap = detailsToMap(resultDetails);
+        assertEquals(Arrays.asList("A1", "A2", "A3", "A4", "A5"), resultDetailsMap.get("A"));
+        assertEquals(Collections.singletonList("B"), resultDetailsMap.get("B"));
+        assertEquals(Collections.singletonList("C"), resultDetailsMap.get("C"));
     }
 
     private Event createOldEvent(long duration, TimeUnit unit,
@@ -543,11 +593,6 @@ public class EventSummaryDaoImplIT extends
     }
 
     @Test
-    public void testClearClasses() throws ZepException {
-
-    }
-
-    @Test
     public void testMergeDuplicateDetails() throws ZepException {
         String name = "dup1";
         String val1 = "dupval";
@@ -555,10 +600,8 @@ public class EventSummaryDaoImplIT extends
         String val3 = "dupval3";
         Event.Builder eventBuilder = Event.newBuilder(createUniqueEvent())
                 .clearDetails();
-        eventBuilder.addDetails(EventDetail.newBuilder().setName(name)
-                .addValue(val1).build());
-        eventBuilder.addDetails(EventDetail.newBuilder().setName(name)
-                .addValue(val2).addValue(val3).build());
+        eventBuilder.addDetails(createDetail(name, val1));
+        eventBuilder.addDetails(createDetail(name, val2, val3));
         Event event = eventBuilder.build();
         EventSummary summary = createSummaryNew(event);
         assertEquals(1, summary.getOccurrence(0).getDetailsCount());
@@ -717,14 +760,28 @@ public class EventSummaryDaoImplIT extends
         return detailsMap;
     }
 
+    private static EventDetail createDetail(String name, String... values) {
+        return createDetail(name, null, values);
+    }
+
+    private static EventDetail createDetail(String name, EventDetailMergeBehavior mergeBehavior, String... values) {
+        EventDetail.Builder detailBuilder = EventDetail.newBuilder();
+        detailBuilder.setName(name);
+        if (mergeBehavior != null) {
+            detailBuilder.setMergeBehavior(mergeBehavior);
+        }
+        for (String value : values) {
+            detailBuilder.addValue(value);
+        }
+        return detailBuilder.build();
+    }
+
     @Test
-    public void testMergeDetails() throws ZepException {
+    public void testMergeDetailsReplace() throws ZepException {
         Event.Builder eventBuilder = Event.newBuilder(createUniqueEvent());
         eventBuilder.clearDetails();
-        eventBuilder.addDetails(EventDetail.newBuilder().setName("foo")
-                .addValue("bar").addValue("baz").build());
-        eventBuilder.addDetails(EventDetail.newBuilder().setName("foo2")
-                .addValue("bar2").addValue("baz2").build());
+        eventBuilder.addDetails(createDetail("foo", "bar", "baz"));
+        eventBuilder.addDetails(createDetail("foo2", "bar2", "baz2"));
         final Event event = eventBuilder.build();
 
         EventSummary summary = createSummaryNew(event);
@@ -734,18 +791,74 @@ public class EventSummaryDaoImplIT extends
         Event.Builder newEventBuilder = Event.newBuilder(event);
         newEventBuilder.clearDetails();
         /* Update foo */
-        newEventBuilder.addDetails(EventDetail.newBuilder().setName("foo").addValue("foobar").
-                addValue("foobaz").build());
+        newEventBuilder.addDetails(createDetail("foo", "foobar", "foobaz"));
         /* Don't specify foo2 */
         /* Add a new detail foo3 */
-        newEventBuilder.addDetails(EventDetail.newBuilder().setName("foo3").addValue("foobar3").
-                addValue("foobaz3").build());
+        newEventBuilder.addDetails(createDetail("foo3", "foobar3", "foobaz3"));
         final Event newEvent = newEventBuilder.build();
 
         EventSummary newSummary = createSummaryNew(newEvent);
         assertEquals(2, newSummary.getCount());
         Map<String,List<String>> detailsMap = detailsToMap(newSummary.getOccurrence(0).getDetailsList());
         assertEquals(Arrays.asList("foobar","foobaz"), detailsMap.get("foo"));
+        assertEquals(Arrays.asList("bar2", "baz2"), detailsMap.get("foo2"));
+        assertEquals(Arrays.asList("foobar3", "foobaz3"), detailsMap.get("foo3"));
+    }
+
+    @Test
+    public void testMergeDetailsAppend() throws ZepException {
+        Event.Builder eventBuilder = Event.newBuilder(createUniqueEvent());
+        eventBuilder.clearDetails();
+        eventBuilder.addDetails(createDetail("foo", "bar", "baz"));
+        eventBuilder.addDetails(createDetail("foo2", "bar2", "baz2"));
+        final Event event = eventBuilder.build();
+
+        EventSummary summary = createSummaryNew(event);
+        compareEvents(event, summary.getOccurrence(0));
+
+        /* Add a new detail, don't specify an old one, and replace an existing one */
+        Event.Builder newEventBuilder = Event.newBuilder(event);
+        newEventBuilder.clearDetails();
+        /* Update foo */
+        newEventBuilder.addDetails(createDetail("foo", EventDetailMergeBehavior.APPEND, "bar", "foobar", "foobaz"));
+        /* Don't specify foo2 */
+        /* Add a new detail foo3 */
+        newEventBuilder.addDetails(createDetail("foo3", "foobar3", "foobaz3"));
+        final Event newEvent = newEventBuilder.build();
+
+        EventSummary newSummary = createSummaryNew(newEvent);
+        assertEquals(2, newSummary.getCount());
+        Map<String,List<String>> detailsMap = detailsToMap(newSummary.getOccurrence(0).getDetailsList());
+        assertEquals(Arrays.asList("bar", "baz", "bar", "foobar","foobaz"), detailsMap.get("foo"));
+        assertEquals(Arrays.asList("bar2", "baz2"), detailsMap.get("foo2"));
+        assertEquals(Arrays.asList("foobar3", "foobaz3"), detailsMap.get("foo3"));
+    }
+
+    @Test
+    public void testMergeDetailsUnique() throws ZepException {
+        Event.Builder eventBuilder = Event.newBuilder(createUniqueEvent());
+        eventBuilder.clearDetails();
+        eventBuilder.addDetails(createDetail("foo", "bar", "baz"));
+        eventBuilder.addDetails(createDetail("foo2", "bar2", "baz2"));
+        final Event event = eventBuilder.build();
+
+        EventSummary summary = createSummaryNew(event);
+        compareEvents(event, summary.getOccurrence(0));
+
+        /* Add a new detail, don't specify an old one, and replace an existing one */
+        Event.Builder newEventBuilder = Event.newBuilder(event);
+        newEventBuilder.clearDetails();
+        /* Update foo */
+        newEventBuilder.addDetails(createDetail("foo", EventDetailMergeBehavior.UNIQUE, "baz", "foobar", "foobaz"));
+        /* Don't specify foo2 */
+        /* Add a new detail foo3 */
+        newEventBuilder.addDetails(createDetail("foo3", "foobar3", "foobaz3"));
+        final Event newEvent = newEventBuilder.build();
+
+        EventSummary newSummary = createSummaryNew(newEvent);
+        assertEquals(2, newSummary.getCount());
+        Map<String,List<String>> detailsMap = detailsToMap(newSummary.getOccurrence(0).getDetailsList());
+        assertEquals(Arrays.asList("bar", "baz", "foobar","foobaz"), detailsMap.get("foo"));
         assertEquals(Arrays.asList("bar2", "baz2"), detailsMap.get("foo2"));
         assertEquals(Arrays.asList("foobar3", "foobaz3"), detailsMap.get("foo3"));
     }

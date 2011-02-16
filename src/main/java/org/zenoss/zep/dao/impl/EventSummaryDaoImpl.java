@@ -34,7 +34,6 @@ import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
-import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
 
 import javax.sql.DataSource;
@@ -49,7 +48,6 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -179,37 +177,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             }
         }
 
-        private String updateDetailsJson(String oldDetailsJson, String newDetailsJson) throws SQLException {
-            if (oldDetailsJson == null) {
-                return newDetailsJson;
-            }
-            if (newDetailsJson == null) {
-                return oldDetailsJson;
-            }
-
-            List<EventDetail> oldDetails;
+        private String mergeDetailsJson(String oldDetailsJson, String newDetailsJson) throws SQLException {
             try {
-                oldDetails = JsonFormat.mergeAllDelimitedFrom(oldDetailsJson, EventDetail.getDefaultInstance());
-            } catch (IOException e) {
-                throw new SQLException(e.getLocalizedMessage(), e);
-            }
-
-            List<EventDetail> newDetails;
-            try {
-                newDetails = JsonFormat.mergeAllDelimitedFrom(newDetailsJson, EventDetail.getDefaultInstance());
-            } catch (IOException e) {
-                throw new SQLException(e.getLocalizedMessage(), e);
-            }
-
-            Map<String,EventDetail> detailsMap = new LinkedHashMap<String,EventDetail>(oldDetails.size() + newDetails.size());
-            for (EventDetail oldDetail : oldDetails) {
-                detailsMap.put(oldDetail.getName(), oldDetail);
-            }
-            for (EventDetail newDetail : newDetails) {
-                detailsMap.put(newDetail.getName(), newDetail);
-            }
-            try {
-                return JsonFormat.writeAllDelimitedAsString(detailsMap.values());
+                List<EventDetail> oldDetails = JsonFormat.mergeAllDelimitedFrom(oldDetailsJson, EventDetail.getDefaultInstance());
+                List<EventDetail> newDetails = JsonFormat.mergeAllDelimitedFrom(newDetailsJson, EventDetail.getDefaultInstance());
+                return JsonFormat.writeAllDelimitedAsString(EventDaoHelper.mergeDetails(oldDetails, newDetails));
             } catch (IOException e) {
                 throw new SQLException(e.getLocalizedMessage(), e);
             }
@@ -273,7 +245,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 String oldDetailsJson = rs.getString(COLUMN_DETAILS_JSON);
                 String newDetailsJson = (String) this.fields.get(COLUMN_DETAILS_JSON);
                 if (newDetailsJson != null) {
-                    this.fields.put(COLUMN_DETAILS_JSON, updateDetailsJson(oldDetailsJson, newDetailsJson));
+                    this.fields.put(COLUMN_DETAILS_JSON, mergeDetailsJson(oldDetailsJson, newDetailsJson));
                     updateColumn(rs, COLUMN_DETAILS_JSON);
                 }
             }
@@ -282,7 +254,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 String oldDetailsJson = (String) this.fields.get(COLUMN_DETAILS_JSON);
                 String newDetailsJson = rs.getString(COLUMN_DETAILS_JSON);
                 if (oldDetailsJson != null) {
-                    this.fields.put(COLUMN_DETAILS_JSON, updateDetailsJson(oldDetailsJson, newDetailsJson));
+                    this.fields.put(COLUMN_DETAILS_JSON, mergeDetailsJson(oldDetailsJson, newDetailsJson));
                     updateColumn(rs, COLUMN_DETAILS_JSON);
                 }
             }
