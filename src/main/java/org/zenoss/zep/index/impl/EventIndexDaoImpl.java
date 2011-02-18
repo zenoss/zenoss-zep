@@ -42,8 +42,8 @@ import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
 import org.zenoss.protobufs.zep.Zep.EventTagFilter;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
-import org.zenoss.zep.ConfigConstants;
 import org.zenoss.zep.Messages;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
@@ -79,7 +79,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     @Autowired
     private Messages messages;
 
-    private int queryLimit = ConfigConstants.DEFAULT_QUERY_LIMIT;
+    private int queryLimit = ZepConstants.DEFAULT_QUERY_LIMIT;
     private static final int OPTIMIZE_AT_NUM_EVENTS = 5000;
     private final AtomicInteger eventsSinceOptimize = new AtomicInteger(0);
     private EventIndexMapper eventIndexMapper;

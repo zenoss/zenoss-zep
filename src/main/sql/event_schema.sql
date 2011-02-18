@@ -198,7 +198,7 @@ CREATE TABLE `event`
 CREATE TABLE `config`
 (
     `config_name` VARCHAR(64) NOT NULL,
-    `config_value` VARCHAR(255) NOT NULL,
+    `config_value` VARCHAR(4096) NOT NULL,
     PRIMARY KEY(config_name)
 ) ENGINE=InnoDB COMMENT='ZEP configuration data.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 

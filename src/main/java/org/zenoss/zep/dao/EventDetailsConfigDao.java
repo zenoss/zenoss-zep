@@ -54,12 +54,10 @@ public interface EventDetailsConfigDao {
      * in the EventDetails array field, for custom event data
      *
      * @return A map of event details configuration definitions, keyed by
-     * the detail name as it would be found in the EventDetails
-     * array (not necessarily the same name that will be used for
-     * indexing).
-     *
-     * @throws org.zenoss.zep.ZepException
-     *             If an error occurs.
+     *         the detail name as it would be found in the EventDetails
+     *         array (not necessarily the same name that will be used for
+     *         indexing).
+     * @throws org.zenoss.zep.ZepException If an error occurs.
      */
     public Map<String, EventDetailItem> getEventDetailItemsByName() throws ZepException;
 
@@ -68,7 +66,7 @@ public interface EventDetailsConfigDao {
      * items.
      *
      * @return A map of event details configuration definitions, keyed by
-     * the detail name.
+     *         the detail name.
      * @throws ZepException If an error occurs.
      */
     public Map<String, EventDetailItem> getInitialEventDetailItemsByName() throws ZepException;

@@ -34,7 +34,7 @@ import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
 import org.zenoss.protobufs.zep.Zep.EventTagSeverity;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
-import org.zenoss.zep.ConfigConstants;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.index.EventIndexDao;
@@ -72,7 +72,7 @@ import java.util.TimeZone;
 public class EventsResource {
     private static final Logger logger = LoggerFactory.getLogger(EventsResource.class);
 
-    private int queryLimit = ConfigConstants.DEFAULT_QUERY_LIMIT;
+    private int queryLimit = ZepConstants.DEFAULT_QUERY_LIMIT;
     private EventIndexer eventIndexer;
     private EventStoreDao eventStoreDao;
     private EventIndexDao eventSummaryIndexDao;

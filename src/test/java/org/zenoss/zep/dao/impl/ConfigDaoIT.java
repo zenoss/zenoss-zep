@@ -10,46 +10,42 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import static org.junit.Assert.*;
-
-import java.util.HashMap;
-import java.util.Map;
-
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.zenoss.protobufs.zep.Zep.EventSeverity;
+import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
 
-@ContextConfiguration({ "classpath:zep-config.xml" })
+import static org.junit.Assert.*;
+
+@ContextConfiguration({"classpath:zep-config.xml"})
 public class ConfigDaoIT extends AbstractTransactionalJUnit4SpringContextTests {
     @Autowired
     public ConfigDao configDao;
 
     @Test
     public void testConfig() throws ZepException {
-        assertTrue(configDao.getConfig().isEmpty());
+        ZepConfig.Builder builder = ZepConfig.newBuilder();
+        builder.setEventAgeDisableSeverity(EventSeverity.SEVERITY_CRITICAL);
+        builder.setEventAgeIntervalMinutes(60);
+        builder.setEventArchiveIntervalDays(7);
+        builder.setEventArchivePurgeIntervalDays(90);
+        builder.setEventOccurrencePurgeIntervalDays(30);
+        ZepConfig cnf = builder.build();
+        configDao.setConfig(cnf);
 
-        Map<String, String> cfg = new HashMap<String, String>();
-        cfg.put("name1", "val1");
-        cfg.put("name2", "val2");
-        configDao.setConfig(cfg);
+        assertEquals(cnf, configDao.getConfig());
 
-        assertEquals(cfg, configDao.getConfig());
-        assertEquals(cfg.get("name1"), configDao.getConfigValue("name1"));
-        configDao.removeConfigValue("name1");
-        assertNull(configDao.getConfigValue("name1"));
-        cfg.remove("name1");
-        cfg.remove("name2");
-        cfg.put("name3", "val3");
-        cfg.put("name4", "val4");
-        configDao.setConfig(cfg);
-        assertEquals(cfg, configDao.getConfig());
+        cnf = ZepConfig.newBuilder(cnf).setEventAgeIntervalMinutes(90).build();
+        configDao.setConfigValue("event_age_interval_minutes", cnf);
+        assertEquals(cnf, configDao.getConfig());
 
-        configDao.setConfigValue("name3", "val33");
-        assertEquals("val33", configDao.getConfigValue("name3"));
-        configDao.setConfigValue("name5", "val5");
-        assertEquals("val5", configDao.getConfigValue("name5"));
+        assertEquals(1, configDao.removeConfigValue("event_age_interval_minutes"));
+        assertEquals(0, configDao.removeConfigValue("event_age_interval_minutes"));
+        assertEquals(ZepConfig.getDefaultInstance().getEventAgeIntervalMinutes(),
+                     configDao.getConfig().getEventAgeIntervalMinutes());
     }
 }

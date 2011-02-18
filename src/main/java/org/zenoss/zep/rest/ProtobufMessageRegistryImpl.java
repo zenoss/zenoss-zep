@@ -24,6 +24,7 @@ import org.zenoss.protobufs.zep.Zep.EventSummaryUpdateResponse;
 import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscriptionSet;
+import org.zenoss.protobufs.zep.Zep.ZepConfig;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -48,7 +49,8 @@ public class ProtobufMessageRegistryImpl implements ProtobufMessageRegistry {
                 EventTagSeveritiesSet.getDefaultInstance(),
                 EventQuery.getDefaultInstance(),
                 EventDetailSet.getDefaultInstance(),
-                EventDetailItemSet.getDefaultInstance());
+                EventDetailItemSet.getDefaultInstance(),
+                ZepConfig.getDefaultInstance());
         for (Message message : messages) {
             messageByFullName.put(message.getDescriptorForType().getFullName(),
                     message);

@@ -14,8 +14,13 @@ package org.zenoss.zep;
 /**
  * Constants for ZEP.
  */
-public class ZepConstants {
+public final class ZepConstants {
     private ZepConstants() {}
+
+    /**
+     * The default query limit (can be overridden with a properties setting).
+     */
+    public static final int DEFAULT_QUERY_LIMIT = 1000;
 
     /**
      * Constant for the device priority stored in event details.

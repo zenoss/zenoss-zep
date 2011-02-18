@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.scheduling.TaskScheduler;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
+import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventArchiveDao;
@@ -25,15 +26,11 @@ import org.zenoss.zep.dao.Purgable;
 import org.zenoss.zep.events.ConfigUpdatedEvent;
 
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
-import static org.zenoss.zep.ConfigConstants.*;
 
 /**
  * Represents core application logic for ZEP, including the scheduled aging and
@@ -49,8 +46,8 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     private ScheduledFuture<?> eventSummaryArchiver = null;
     private ScheduledFuture<?> eventArchivePurger = null;
     private ScheduledFuture<?> eventPurger = null;
-    private AppConfig oldConfig = null;
-    private AppConfig config;
+    private ZepConfig oldConfig = null;
+    private ZepConfig config;
 
     private ConfigDao configDao;
     private EventDao eventDao;
@@ -78,7 +75,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
 
     public void init() throws ZepException {
         logger.info("Initializing ZEP");
-        this.config = new AppConfig(configDao.getConfig());
+        this.config = configDao.getConfig();
         /*
          * We must initialize partitions first to ensure events have a partition
          * where they can be created before we start processing the queue. This
@@ -127,11 +124,11 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     }
 
     private void startEventSummaryAging() {
-        final int duration = config.getEventSummaryAgingInterval();
-        final EventSeverity severity = config.getEventSummaryAgingSeverity();
+        final int duration = config.getEventAgeIntervalMinutes();
+        final EventSeverity severity = config.getEventAgeDisableSeverity();
         if (oldConfig != null
-                && duration == oldConfig.getEventSummaryAgingInterval()
-                && severity == oldConfig.getEventSummaryAgingSeverity()) {
+                && duration == oldConfig.getEventAgeIntervalMinutes()
+                && severity == oldConfig.getEventAgeDisableSeverity()) {
             logger.info("Event aging configuration not changed.");
             return;
         }
@@ -151,7 +148,7 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                                 int numAged;
                                 do {
                                     numAged = eventStoreDao.ageEvents(duration,
-                                            EVENT_AGE_INTERVAL_UNIT, severity,
+                                            TimeUnit.MINUTES, severity,
                                             100);
                                 } while (numAged > 0);
                             } catch (Exception e) {
@@ -165,9 +162,8 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     }
 
     private void startEventSummaryArchiving() {
-        final int duration = config.getEventSummaryArchiveInterval();
-        if (oldConfig != null
-                && duration == oldConfig.getEventSummaryArchiveInterval()) {
+        final int duration = config.getEventArchiveIntervalDays();
+        if (oldConfig != null && duration == oldConfig.getEventArchiveIntervalDays()) {
             logger.info("Event archiving configuration not changed.");
             return;
         }
@@ -187,21 +183,21 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
                                 do {
                                     numArchived = eventStoreDao.archive(
                                             duration,
-                                            EVENT_ARCHIVE_INTERVAL_UNIT, 100);
+                                            TimeUnit.DAYS, 100);
                                 } while (numArchived > 0);
                             } catch (Exception e) {
                                 logger.warn("Failed to archive events", e);
                             }
                         }
-                    }, "ZEP_EVENT_ARCHIVER"), EVENT_ARCHIVE_INTERVAL_UNIT.toMillis(1));
+                    }, "ZEP_EVENT_ARCHIVER"), TimeUnit.DAYS.toMillis(1));
         } else {
             logger.info("Event archiving disabled");
         }
     }
 
     private ScheduledFuture<?> purge(final Purgable purgable,
-            final int purgeDuration, final TimeUnit purgeUnit, long delayInMs,
-            String threadName) {
+                                     final int purgeDuration, final TimeUnit purgeUnit, long delayInMs,
+                                     String threadName) {
         final Date startTime = new Date(System.currentTimeMillis() + 60000L);
         return scheduler.scheduleWithFixedDelay(
                 new ThreadRenamingRunnable(new Runnable() {
@@ -217,127 +213,40 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     }
 
     private void startEventArchivePurging() {
-        final int duration = config.getEventArchivePurgingInterval();
+        final int duration = config.getEventArchivePurgeIntervalDays();
         if (oldConfig != null
-                && duration == oldConfig.getEventArchivePurgingInterval()) {
+                && duration == oldConfig.getEventArchivePurgeIntervalDays()) {
             logger.info("Event archive purging configuration not changed.");
             return;
         }
         cancelFuture(this.eventArchivePurger);
         this.eventArchivePurger = purge(eventStoreDao, duration,
-                EVENT_ARCHIVE_PURGE_INTERVAL_UNIT,
+                TimeUnit.DAYS,
                 eventArchiveDao.getPartitionIntervalInMs(),
                 "ZEP_EVENT_ARCHIVE_PURGER");
     }
 
     private void startEventPurging() {
-        final int duration = config.getEventOccurrencePurgingInterval();
+        final int duration = config.getEventOccurrencePurgeIntervalDays();
         if (oldConfig != null
-                && duration == oldConfig.getEventOccurrencePurgingInterval()) {
+                && duration == oldConfig.getEventOccurrencePurgeIntervalDays()) {
             logger.info("Event occurrence purging configuration not changed.");
             return;
         }
         cancelFuture(this.eventPurger);
         this.eventPurger = purge(eventDao, duration,
-                EVENT_OCCURRENCE_PURGE_INTERVAL_UNIT,
+                TimeUnit.DAYS,
                 eventDao.getPartitionIntervalInMs(), "ZEP_EVENT_PURGER");
     }
 
     @Override
     public synchronized void onApplicationEvent(ConfigUpdatedEvent event) {
-        logger.info("Configuration changed: {}", event.getConfig());
-        if (event.isMultiple()) {
-            this.config = new AppConfig(event.getConfig());
-        } else {
-            Map.Entry<String, String> cfg = event.getConfig().entrySet()
-                    .iterator().next();
-            String key = cfg.getKey();
-            String value = cfg.getValue();
-            if (value == null) {
-                this.config.remove(key);
-            } else {
-                this.config.put(key, value);
-            }
-        }
+        this.config = event.getConfig();
+        logger.info("Configuration changed: {}", this.config);
         startEventSummaryAging();
         startEventSummaryArchiving();
         startEventArchivePurging();
         startEventPurging();
-        this.oldConfig = new AppConfig(config.getConfig());
+        this.oldConfig = config;
     }
-
-    private static class AppConfig {
-        private final Map<String, String> config;
-
-        public AppConfig(Map<String, String> config) {
-            this.config = new HashMap<String, String>(config);
-        }
-
-        public Map<String, String> getConfig() {
-            return config;
-        }
-
-        public String remove(String key) {
-            return this.config.remove(key);
-        }
-
-        public void put(String key, String val) {
-            this.config.put(key, val);
-        }
-
-        public int getEventSummaryAgingInterval() {
-            return getConfigInt(config, CONFIG_EVENT_AGE_INTERVAL_MINUTES,
-                    DEFAULT_EVENT_AGE_INTERVAL_MINUTES);
-        }
-
-        public EventSeverity getEventSummaryAgingSeverity() {
-            EventSeverity severity = null;
-            String strAgingSeverity = config
-                    .get(CONFIG_EVENT_AGE_DISABLE_SEVERITY);
-            if (strAgingSeverity != null) {
-                try {
-                    severity = EventSeverity.valueOf(strAgingSeverity);
-                } catch (Exception e) {
-                    logger.warn("Invalid event aging value: {}", strAgingSeverity);
-                }
-            }
-            if (severity == null) {
-                severity = DEFAULT_EVENT_AGE_DISABLE_SEVERITY;
-            }
-            return severity;
-        }
-
-        public int getEventSummaryArchiveInterval() {
-            return getConfigInt(config, CONFIG_EVENT_ARCHIVE_INTERVAL_DAYS,
-                    DEFAULT_EVENT_ARCHIVE_INTERVAL_DAYS);
-        }
-
-        public int getEventArchivePurgingInterval() {
-            return getConfigInt(config,
-                    CONFIG_EVENT_ARCHIVE_PURGE_INTERVAL_DAYS,
-                    DEFAULT_EVENT_ARCHIVE_PURGE_INTERVAL_DAYS);
-        }
-
-        public int getEventOccurrencePurgingInterval() {
-            return getConfigInt(config,
-                    CONFIG_EVENT_OCCURRENCE_PURGE_INTERVAL_DAYS,
-                    DEFAULT_EVENT_OCCURRENCE_PURGE_INTERVAL_DAYS);
-        }
-
-        private static int getConfigInt(Map<String, String> config,
-                String configName, int defaultValue) {
-            int value = defaultValue;
-            String strValue = config.get(configName);
-            if (strValue != null) {
-                try {
-                    value = Integer.valueOf(strValue);
-                } catch (NumberFormatException nfe) {
-                    logger.warn("Invalid value {} for configuration entry {}",
-                            strValue, configName);
-                }
-            }
-            return value;
-        }
-    }
-
 }

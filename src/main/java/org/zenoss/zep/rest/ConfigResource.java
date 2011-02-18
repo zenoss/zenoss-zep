@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.zenoss.protobufs.ProtobufConstants;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventDetailItemSet;
+import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.zep.Messages;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
@@ -56,33 +57,21 @@ public class ConfigResource {
     }
 
     @GET
-    @Produces(MediaType.APPLICATION_JSON)
-    public Map<String, String> getConfig() throws ZepException {
+    @Produces({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
+    public ZepConfig getConfig() throws ZepException {
         return configDao.getConfig();
     }
 
-    @POST
-    @Consumes(MediaType.APPLICATION_JSON)
-    public void setConfig(Map<String, String> config) throws ZepException {
+    @PUT
+    @Consumes({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
+    public void setConfig(ZepConfig config) throws ZepException {
         configDao.setConfig(config);
     }
 
-    @GET
-    @Produces({ MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN })
+    @PUT
+    @Consumes({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
     @Path("{name}")
-    public Response getConfigValue(@PathParam("name") String name)
-            throws ZepException {
-        final String value = configDao.getConfigValue(name);
-        if (value == null) {
-            return Response.status(Status.NOT_FOUND).build();
-        }
-        return Response.ok(value).build();
-    }
-
-    @POST
-    @Consumes({ MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN })
-    @Path("{name}")
-    public void setConfigValue(@PathParam("name") String name, String value)
+    public void setConfigValue(@PathParam("name") String name, ZepConfig value)
             throws ZepException {
         configDao.setConfigValue(name, value);
     }
@@ -100,7 +89,7 @@ public class ConfigResource {
 
     @GET
     @Path("index_details")
-    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
     public EventDetailItemSet getIndexedDetails() throws ZepException {
         EventDetailItemSet.Builder setBuilder = EventDetailItemSet.newBuilder();
         Map<String, EventDetailItem> indexDetailsMap = this.detailsConfigDao.getEventDetailItemsByName();
@@ -110,14 +99,13 @@ public class ConfigResource {
 
     @GET
     @Path("index_details/{detail_name}")
-    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
     public Response getIndexedDetailByName(@PathParam("detail_name") String detailName) throws ZepException {
         EventDetailItem item = this.detailsConfigDao.findByName(detailName);
         final Response response;
         if (item == null) {
             response = Response.status(Status.NOT_FOUND).build();
-        }
-        else {
+        } else {
             response = Response.ok(item).build();
         }
         return response;
@@ -125,7 +113,7 @@ public class ConfigResource {
 
     @PUT
     @Path("index_details/{detail_name}")
-    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Consumes({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
     public Response createIndexedDetail(@PathParam("detail_name") String detailName, EventDetailItem item)
             throws ZepException {
         if (!detailName.equals(item.getKey())) {
@@ -138,7 +126,7 @@ public class ConfigResource {
 
     @POST
     @Path("index_details")
-    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Consumes({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
     public Response createIndexedDetails(EventDetailItemSet items) throws ZepException {
         if (items.getDetailsCount() == 0) {
             return Response.status(Status.BAD_REQUEST).build();
@@ -157,8 +145,7 @@ public class ConfigResource {
         final Response response;
         if (numRows == 0) {
             response = Response.status(Status.NOT_FOUND).build();
-        }
-        else {
+        } else {
             response = Response.noContent().build();
         }
         logger.info(messages.getMessage("restart_required"));

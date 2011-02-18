@@ -71,6 +71,7 @@
     <bean id="configDao" class="org.zenoss.zep.dao.impl.ConfigDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
         <constructor-arg index="1" ref="partitionConfig"/>
+        <property name="maxEventArchiveIntervalDays" value="${zep.max_event_archive_interval_days:30}" />
     </bean>
     <bean id="indexMetadataDao" class="org.zenoss.zep.dao.impl.IndexMetadataDaoImpl">
         <constructor-arg index="0" ref="dataSource" />

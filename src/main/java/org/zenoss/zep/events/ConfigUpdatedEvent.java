@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.Map;
 
 import org.springframework.context.ApplicationEvent;
+import org.zenoss.protobufs.zep.Zep.ZepConfig;
 
 public class ConfigUpdatedEvent extends ApplicationEvent {
     /**
@@ -21,32 +22,15 @@ public class ConfigUpdatedEvent extends ApplicationEvent {
      */
     private static final long serialVersionUID = 1L;
 
-    private final Map<String, String> config;
-    private final boolean multiple;
+    private final ZepConfig config;
 
-    public ConfigUpdatedEvent(Object source, String name) {
-        super(source);
-        this.config = Collections.singletonMap(name, null);
-        this.multiple = false;
-    }
-
-    public ConfigUpdatedEvent(Object source, String name, String value) {
-        super(source);
-        this.config = Collections.singletonMap(name, value);
-        this.multiple = false;
-    }
-
-    public ConfigUpdatedEvent(Object source, Map<String, String> config) {
+    public ConfigUpdatedEvent(Object source, ZepConfig config) {
         super(source);
         this.config = config;
-        this.multiple = true;
     }
 
-    public Map<String, String> getConfig() {
-        return Collections.unmodifiableMap(config);
+    public ZepConfig getConfig() {
+        return this.config;
     }
 
-    public boolean isMultiple() {
-        return multiple;
-    }
 }
