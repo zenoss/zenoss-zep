@@ -19,6 +19,7 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermEnum;
 import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.NumericRangeQuery;
@@ -27,6 +28,9 @@ import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.WildcardQuery;
+import org.apache.lucene.search.WildcardTermEnum;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.util.Util.TimestampRange;
 import org.zenoss.protobufs.zep.Zep.EventDetailFilter;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
@@ -45,10 +49,9 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.SortedSet;
-import java.util.TreeSet;
 
 public class QueryBuilder {
+    private static final Logger logger = LoggerFactory.getLogger(QueryBuilder.class);
     private final BooleanClause.Occur operator;
     private final List<Query> queries = new ArrayList<Query>();
 
@@ -79,6 +82,49 @@ public class QueryBuilder {
     }
 
     /**
+     * Remove all occurrences of the character from the end of the string.
+     *
+     * @param original The original string.
+     * @param toRemove The character to remove from the end.
+     * @return The modified string.
+     */
+    private static String removeTrailingChar(String original, char toRemove) {
+        int i;
+        for (i = original.length() - 1; i >= 0; i--) {
+            if (original.charAt(i) != toRemove) {
+                break;
+            }
+        }
+        return original.substring(0, i + 1);
+    }
+
+    /**
+     * Tokenizes the given query using the same behavior as when the field is analyzed.
+     *
+     * @param fieldName The field name in the index.
+     * @param analyzer The analyzer to use to tokenize the query.
+     * @param query The query to tokenize.
+     * @return The tokens from the query.
+     * @throws ZepException If an exception occur.
+     */
+    private static List<String> getTokens(String fieldName, Analyzer analyzer, String query) throws ZepException {
+        final List<String> tokens = new ArrayList<String>();
+        TokenStream ts = analyzer.tokenStream(fieldName, new StringReader(query));
+        TermAttribute term = ts.addAttribute(TermAttribute.class);
+        try {
+            while (ts.incrementToken()) {
+                tokens.add(term.term());
+            }
+            ts.end();
+            return tokens;
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        } finally {
+            ZepUtils.close(ts);
+        }
+    }
+
+    /**
      * Special case queries for identifier fields. Queries that are enclosed in quotes result in
      * an exact query for the string in the non-analyzed field. Queries that end in an asterisk
      * result in a prefix query in the non-analyzed field. Queries of a length less than
@@ -103,14 +149,8 @@ public class QueryBuilder {
                 final Query query;
 
                 // Strip off any trailing *
-                int i;
-                for (i = value.length() - 1; i > 0; i--) {
-                    if (value.charAt(i) != '*') {
-                        break;
-                    }
-                }
-                value = value.substring(0, i + 1);
-
+                value = removeTrailingChar(value, '*');
+                
                 final String unquoted = unquote(value);
 
                 if (value.isEmpty() || !unquoted.equals(value)) {
@@ -120,17 +160,9 @@ public class QueryBuilder {
                 } else {
                     final PhraseQuery pq = new PhraseQuery();
                     query = pq;
-                    TokenStream ts = analyzer.tokenStream(analyzedFieldName, new StringReader(value));
-                    TermAttribute term = ts.addAttribute(TermAttribute.class);
-                    try {
-                        while (ts.incrementToken()) {
-                            pq.add(new Term(analyzedFieldName, term.term()));
-                        }
-                        ts.end();
-                    } catch (IOException e) {
-                        throw new ZepException(e.getLocalizedMessage(), e);
-                    } finally {
-                        ZepUtils.close(ts);
+                    List<String> tokens = getTokens(analyzedFieldName, analyzer, value);
+                    for (String token : tokens) {
+                        pq.add(new Term(analyzedFieldName, token));
                     }
                 }
                 booleanQuery.add(query, occur);
@@ -138,6 +170,32 @@ public class QueryBuilder {
             queries.add(booleanQuery);
         }
         return this;
+    }
+
+    private static List<Term> getMatchingTerms(String fieldName, IndexReader reader, String value)
+            throws ZepException {
+        // Don't search for matches if text doesn't contain wildcards
+        if (value.indexOf('*') == -1 && value.indexOf('?') == -1) {
+            return Collections.singletonList(new Term(fieldName, value));
+        }
+
+        logger.debug("getMatchingTerms: field={}, value={}", fieldName, value);
+        List<Term> matches = new ArrayList<Term>();
+        TermEnum wildcardTermEnum = null;
+        try {
+            wildcardTermEnum = new WildcardTermEnum(reader, new Term(fieldName, value));
+            Term match;
+            while ((match = wildcardTermEnum.term()) != null) {
+                logger.debug("Match: {}", match.text());
+                matches.add(match);
+                wildcardTermEnum.next();
+            }
+            return matches;
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        } finally {
+            ZepUtils.close(wildcardTermEnum);
+        }
     }
 
     /**
@@ -183,56 +241,16 @@ public class QueryBuilder {
                     final MultiPhraseQuery pq = new MultiPhraseQuery();
                     query = pq;
 
-                    // Get all terms stored in index for this field
-                    TermEnum termEnum = null;
-                    TreeSet<String> allTerms = new TreeSet<String>(String.CASE_INSENSITIVE_ORDER);
-                    try {
-                        termEnum = reader.terms(new Term(analyzedFieldName, ""));
-                        do {
-                            Term term = termEnum.term();
-                            if (!analyzedFieldName.equals(term.field())) {
-                                break;
-                            }
-                            allTerms.add(term.text());
-                        } while (termEnum.next());
-                    } catch (IOException e) {
-                        throw new ZepException(e.getLocalizedMessage(), e);
-                    } finally {
-                        ZepUtils.close(termEnum);
-                    }
-
-                    TokenStream ts = analyzer.tokenStream(analyzedFieldName, new StringReader(value));
-                    TermAttribute term = ts.addAttribute(TermAttribute.class);
-                    try {
-                        while (ts.incrementToken()) {
-                            String t = term.term();
-                            if (t.endsWith("*")) {
-                                t = t.substring(0, t.length() - 1);
-
-                                List<Term> terms = new ArrayList<Term>();
-                                SortedSet<String> tailSet = allTerms.tailSet(t);
-                                for (String termText : tailSet) {
-                                    if (!termText.startsWith(t)) {
-                                        break;
-                                    }
-                                    terms.add(new Term(analyzedFieldName, termText));
-                                }
-
-                                // Ensure that we don't return results if term doesn't exist
-                                if (terms.isEmpty()) {
-                                    pq.add(new Term(analyzedFieldName, t));
-                                } else {
-                                    pq.add(terms.toArray(new Term[terms.size()]));
-                                }
-                            } else {
-                                pq.add(new Term(analyzedFieldName, term.term()));
-                            }
+                    List<String> tokens = getTokens(analyzedFieldName, analyzer, value);
+                    for (String token : tokens) {
+                        List<Term> terms = getMatchingTerms(analyzedFieldName, reader, token);
+                        // Ensure we don't return results if term doesn't exist
+                        if (terms.isEmpty()) {
+                            pq.add(new Term(analyzedFieldName, token));
                         }
-                        ts.end();
-                    } catch (IOException e) {
-                        throw new ZepException(e.getLocalizedMessage(), e);
-                    } finally {
-                        ZepUtils.close(ts);
+                        else {
+                            pq.add(terms.toArray(new Term[terms.size()]));
+                        }
                     }
                 }
                 booleanQuery.add(query, occur);
@@ -254,6 +272,85 @@ public class QueryBuilder {
                 booleanQuery.add(new WildcardQuery(new Term(key, value)), occur);
             }
             queries.add(booleanQuery);
+        }
+        return this;
+    }
+
+    public QueryBuilder addFullTextFields(String fieldName, Collection<String> values, IndexReader reader,
+                                          Analyzer analyzer) throws ZepException {
+        if (values.isEmpty()) {
+            return this;
+        }
+
+        BooleanQuery outerQuery = new BooleanQuery(); // SHOULD
+        for (String value : values) {
+            // If we encounter a term which starts with a quote, start a new multi-phrase query.
+            // If we are already in a multi-phrase query, add the term to the query (accounting
+            // for prefix queries). When we encounter a term which ends with a quote, end the
+            // multi-phrase query. All queries not enclosed in quotes are treated as normal
+            // prefix or term queries.
+            BooleanQuery innerQuery = new BooleanQuery(); // MUST
+            MultiPhraseQuery pq = null;
+            
+            List<String> tokens = getTokens(fieldName, analyzer, value);
+            for (String token : tokens) {
+                final boolean startsWithQuote = token.startsWith("\"");
+
+                if (startsWithQuote && pq == null) {
+                    token = token.substring(1);
+                    if (token.isEmpty()) {
+                        continue;
+                    }
+                    pq = new MultiPhraseQuery();
+                }
+
+                if (pq == null) {
+                    // We aren't in quoted string - just add as query on field
+                    innerQuery.add(new WildcardQuery(new Term(fieldName, token)), Occur.MUST);
+                }
+                else {
+                    final boolean endsWithQuote = token.endsWith("\"");
+                    // Remove trailing quote
+                    if (endsWithQuote) {
+                        token = token.substring(0, token.length() - 1);
+                    }
+                    List<Term> terms = getMatchingTerms(fieldName, reader, token);
+                    // Ensure we don't return results if term doesn't exist
+                    if (terms.isEmpty()) {
+                        pq.add(new Term(fieldName, token));
+                    }
+                    else {
+                        pq.add(terms.toArray(new Term[terms.size()]));
+                    }
+                    if (endsWithQuote) {
+                        innerQuery.add(pq, Occur.MUST);
+                        pq = null;
+                    }
+                }
+            }
+
+            // This could happen if phrase query is not terminated above (i.e.
+            // live search with query '"quick brown dog'. This shouldn't be an
+            // error to allow live searches to work as expected.
+            if (pq != null) {
+                innerQuery.add(pq, Occur.MUST);
+            }
+
+            int numClauses = innerQuery.clauses().size();
+            if (numClauses == 1) {
+                outerQuery.add(innerQuery.clauses().get(0).getQuery(), Occur.SHOULD);
+            }
+            else if (numClauses > 1) {
+                outerQuery.add(innerQuery, Occur.SHOULD);
+            }
+        }
+
+        int numClauses = outerQuery.clauses().size();
+        if (numClauses == 1) {
+            this.queries.add(outerQuery.clauses().get(0).getQuery());
+        }
+        else if (numClauses > 1) {
+            this.queries.add(outerQuery);
         }
         return this;
     }

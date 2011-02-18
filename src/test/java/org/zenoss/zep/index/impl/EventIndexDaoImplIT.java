@@ -41,6 +41,7 @@ import org.zenoss.zep.index.EventIndexDao;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -158,8 +159,7 @@ public class EventIndexDaoImplIT extends
 
     private EventSummary createEventWithSeverity(EventSeverity severity,
                                                  EventStatus status, String... tags) throws ZepException {
-        final Event.Builder eventBuilder = Event.newBuilder(EventDaoImplIT
-                .createSampleEvent());
+        final Event.Builder eventBuilder = Event.newBuilder(EventDaoImplIT.createSampleEvent());
         eventBuilder.setSeverity(severity);
         eventBuilder.clearTags();
         for (String tag : tags) {
@@ -643,6 +643,91 @@ public class EventIndexDaoImplIT extends
         final EventFilter.Builder filter = EventFilter.newBuilder().addAllDetails(Collections.singletonList(edf));
         EventSummaryRequest request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
         return this.eventIndexDao.list(request);
+    }
+
+    @Test
+    public void testSummaryPhrase() throws ZepException {
+        EventSummary event1 = createSummaryNew(Event.newBuilder(EventDaoImplIT.createSampleEvent())
+                .setSummary("Monkeys love to eat bananas").build());
+        EventSummary event2 = createSummaryNew(Event.newBuilder(EventDaoImplIT.createSampleEvent())
+                .setSummary("Bananas love to eat monkeys").build());
+        eventIndexDao.indexMany(Arrays.asList(event1, event2));
+
+        EventFilter filter = EventFilter.newBuilder().addEventSummary("\"eat bananas\"").build();
+        EventSummaryRequest request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        EventSummaryResult result = this.eventIndexDao.list(request);
+        assertEquals(1, result.getEventsCount());
+        assertEquals(event1, result.getEvents(0));
+
+        filter = EventFilter.newBuilder().addEventSummary("\"eat monkeys\"").build();
+        request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        result = this.eventIndexDao.list(request);
+        assertEquals(1, result.getEventsCount());
+        assertEquals(event2, result.getEvents(0));
+
+        // Test unterminated phrase query (from live search, etc.)
+        filter = EventFilter.newBuilder().addEventSummary("\"eat monkeys").build();
+        request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        result = this.eventIndexDao.list(request);
+        assertEquals(1, result.getEventsCount());
+        assertEquals(event2, result.getEvents(0));
+
+        // Test wildcard multi-term
+        filter = EventFilter.newBuilder().addEventSummary("\"eat monkey?\"").build();
+        request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        result = this.eventIndexDao.list(request);
+        assertEquals(1, result.getEventsCount());
+        assertEquals(event2, result.getEvents(0));
+
+        // Test wildcard multi-term
+        filter = EventFilter.newBuilder().addEventSummary("\"eat mon*ys\"").build();
+        request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        result = this.eventIndexDao.list(request);
+        assertEquals(1, result.getEventsCount());
+        assertEquals(event2, result.getEvents(0));
+
+        // AND query where both match
+        filter = EventFilter.newBuilder().addEventSummary("\"eat monkeys\" bananas").build();
+        request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        result = this.eventIndexDao.list(request);
+        assertEquals(1, result.getEventsCount());
+        assertEquals(event2, result.getEvents(0));
+
+        // AND query where one doesn't match
+        filter = EventFilter.newBuilder().addEventSummary("\"eat monkeys\" not-here").build();
+        request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        result = this.eventIndexDao.list(request);
+        assertEquals(0, result.getEventsCount());
+
+        // Test OR query where one doesn't match
+        filter = EventFilter.newBuilder().addEventSummary("\"eat monkeys\"").addEventSummary("not-here").build();
+        request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        result = this.eventIndexDao.list(request);
+        assertEquals(1, result.getEventsCount());
+        assertEquals(event2, result.getEvents(0));
+
+        filter = EventFilter.newBuilder().addEventSummary("\"eat mon*\" ban*").build();
+        request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        result = this.eventIndexDao.list(request);
+        assertEquals(1, result.getEventsCount());
+        assertEquals(event2, result.getEvents(0));
+
+        List<String> bothMatchQueries = Arrays.asList("\"bana*\"", "bananas monkeys", "bananas", "monkeys", "ban*", "mon*k*");
+        for (String bothMatchQuery : bothMatchQueries) {
+            filter = EventFilter.newBuilder().addEventSummary(bothMatchQuery).build();
+            request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+            result = this.eventIndexDao.list(request);
+            assertEquals(2, result.getEventsCount());
+            Map<String,EventSummary> expected = new HashMap<String,EventSummary>();
+            expected.put(event1.getUuid(), event1);
+            expected.put(event2.getUuid(), event2);
+            for (EventSummary resultSummary : result.getEventsList()) {
+                EventSummary e = expected.remove(resultSummary.getUuid());
+                assertNotNull(e);
+                assertEquals(e, resultSummary);
+            }
+            assertTrue(expected.isEmpty());
+        }
     }
 
 }
