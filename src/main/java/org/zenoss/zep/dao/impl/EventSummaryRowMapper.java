@@ -26,7 +26,6 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 
 public class EventSummaryRowMapper implements RowMapper<EventSummary> {
     private final EventDaoHelper helper;
-    private Set<String> fields = null;
 
     public EventSummaryRowMapper(EventDaoHelper eventDaoHelper) {
         this.helper = eventDaoHelper;
@@ -34,68 +33,35 @@ public class EventSummaryRowMapper implements RowMapper<EventSummary> {
 
     @Override
     public EventSummary mapRow(ResultSet rs, int rowNum) throws SQLException {
-        if (fields == null) {
-            fields = DaoUtils.getFieldsInResultSet(rs.getMetaData());
+        final EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
+        summaryBuilder.addOccurrence(helper.eventMapper(rs, true));
+        summaryBuilder.setUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID)));
+        summaryBuilder.setStatus(EventStatus.valueOf(rs.getInt(COLUMN_STATUS_ID)));
+        summaryBuilder.setFirstSeenTime(rs.getLong(COLUMN_FIRST_SEEN));
+        summaryBuilder.setStatusChangeTime(rs.getLong(COLUMN_STATUS_CHANGE));
+        summaryBuilder.setLastSeenTime(rs.getLong(COLUMN_LAST_SEEN));
+        summaryBuilder.setUpdateTime(rs.getLong(COLUMN_UPDATE_TIME));
+        summaryBuilder.setCount(rs.getInt(COLUMN_EVENT_COUNT));
+        byte[] acknowledgedByUserUuid = rs.getBytes(COLUMN_ACKNOWLEDGED_BY_USER_UUID);
+        if (acknowledgedByUserUuid != null) {
+            summaryBuilder.setAcknowledgedByUserUuid(DaoUtils.uuidFromBytes(acknowledgedByUserUuid));
         }
-        EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
-        summaryBuilder.addOccurrence(helper.eventMapper(rs, true, fields));
-        if (fields.contains(COLUMN_UUID)) {
-            summaryBuilder.setUuid(DaoUtils.uuidFromBytes(rs
-                    .getBytes(COLUMN_UUID)));
+        String acknowledgedByUserName = rs.getString(COLUMN_ACKNOWLEDGED_BY_USER_NAME);
+        if (acknowledgedByUserName != null) {
+            summaryBuilder.setAcknowledgedByUserName(acknowledgedByUserName);
         }
-        if (fields.contains(COLUMN_STATUS_ID)) {
-            summaryBuilder.setStatus(EventStatus.valueOf(rs
-                    .getInt(COLUMN_STATUS_ID)));
+        byte[] clearedByEventUuid = rs.getBytes(COLUMN_CLEARED_BY_EVENT_UUID);
+        if (clearedByEventUuid != null) {
+            summaryBuilder.setClearedByEventUuid(DaoUtils.uuidFromBytes(clearedByEventUuid));
         }
-        if (fields.contains(COLUMN_FIRST_SEEN)) {
-            summaryBuilder.setFirstSeenTime(rs.getLong(COLUMN_FIRST_SEEN));
-        }
-        if (fields.contains(COLUMN_STATUS_CHANGE)) {
-            summaryBuilder
-                    .setStatusChangeTime(rs.getLong(COLUMN_STATUS_CHANGE));
-        }
-        if (fields.contains(COLUMN_LAST_SEEN)) {
-            summaryBuilder.setLastSeenTime(rs.getLong(COLUMN_LAST_SEEN));
-        }
-        if (fields.contains(COLUMN_UPDATE_TIME)) {
-            summaryBuilder.setUpdateTime(rs.getLong(COLUMN_UPDATE_TIME));
-        }
-        if (fields.contains(COLUMN_EVENT_COUNT)) {
-            summaryBuilder.setCount(rs.getInt(COLUMN_EVENT_COUNT));
-        }
-        if (fields.contains(COLUMN_ACKNOWLEDGED_BY_USER_UUID)) {
-            byte[] acknowledgedByUserUuid = rs
-                    .getBytes(COLUMN_ACKNOWLEDGED_BY_USER_UUID);
-            if (acknowledgedByUserUuid != null) {
-                summaryBuilder.setAcknowledgedByUserUuid(DaoUtils
-                        .uuidFromBytes(acknowledgedByUserUuid));
-            }
-        }
-        if (fields.contains(COLUMN_ACKNOWLEDGED_BY_USER_NAME)) {
-            String acknowledgedByUserName = rs.getString(COLUMN_ACKNOWLEDGED_BY_USER_NAME);
-            if (acknowledgedByUserName != null) {
-                summaryBuilder.setAcknowledgedByUserName(acknowledgedByUserName);
-            }
-        }
-        if (fields.contains(COLUMN_CLEARED_BY_EVENT_UUID)) {
-            byte[] clearedByEventUuid = rs
-                    .getBytes(COLUMN_CLEARED_BY_EVENT_UUID);
-            if (clearedByEventUuid != null) {
-                summaryBuilder.setClearedByEventUuid(DaoUtils
-                        .uuidFromBytes(clearedByEventUuid));
-            }
-        }
-        if (fields.contains(COLUMN_NOTES_JSON)) {
-            String notesJson = rs.getString(COLUMN_NOTES_JSON);
-            if (notesJson != null) {
-                try {
-                    List<EventNote> notes = JsonFormat.mergeAllDelimitedFrom(
-                            "[" + notesJson + "]",
-                            EventNote.getDefaultInstance());
-                    summaryBuilder.addAllNotes(notes);
-                } catch (IOException e) {
-                    throw new SQLException(e);
-                }
+        String notesJson = rs.getString(COLUMN_NOTES_JSON);
+        if (notesJson != null) {
+            try {
+                List<EventNote> notes = JsonFormat.mergeAllDelimitedFrom("[" + notesJson + "]",
+                        EventNote.getDefaultInstance());
+                summaryBuilder.addAllNotes(notes);
+            } catch (IOException e) {
+                throw new SQLException(e);
             }
         }
         return summaryBuilder.build();

@@ -33,7 +33,6 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
     private final SimpleJdbcTemplate template;
     private static final String COLUMN_DETAIL_ITEM_NAME = "detail_item_name";
     private static final String COLUMN_PROTO_JSON = "proto_json";
-    private volatile Map<String,EventDetailItem> initialItems = null;
 
     public EventDetailsConfigDaoImpl(DataSource ds) {
         this.template = new SimpleJdbcTemplate(ds);
@@ -44,11 +43,12 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
         create(item);
     }
 
+    @Override
+    @Transactional
     public void init() throws ZepException {
         // Create default EventDetailItem objects in the database.
         createDetailItem(ZepConstants.DETAIL_DEVICE_PRIORITY, EventDetailType.INTEGER, "Priority");
         createDetailItem(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE, EventDetailType.INTEGER, "Production State");
-        this.initialItems = getEventDetailItemsByName();
     }
 
     @Override
@@ -99,10 +99,5 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
             }
         });
         return itemsByName;
-    }
-
-    @Override
-    public Map<String, EventDetailItem> getInitialEventDetailItemsByName() throws ZepException {
-        return Collections.unmodifiableMap(this.initialItems);
     }
 }

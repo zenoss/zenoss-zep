@@ -35,8 +35,7 @@ import com.google.protobuf.Descriptors.FieldDescriptor;
  */
 public class EventProcessorImpl implements EventProcessor {
 
-    private static final Logger logger = LoggerFactory
-            .getLogger(EventProcessorImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventProcessorImpl.class);
 
     private static final String EVENT_CLASS_UNKNOWN = "/Unknown";
 
@@ -64,8 +63,7 @@ public class EventProcessorImpl implements EventProcessor {
         final RawEvent rawEvent = zepRawEvent.getRawEvent();
         Map<FieldDescriptor, Object> values = rawEvent.getAllFields();
         for (Map.Entry<FieldDescriptor, Object> entry : values.entrySet()) {
-            FieldDescriptor eventFieldDesc = eventDesc.findFieldByName(entry
-                    .getKey().getName());
+            FieldDescriptor eventFieldDesc = eventDesc.findFieldByName(entry.getKey().getName());
             if (eventFieldDesc != null) {
                 eventBuilder.setField(eventFieldDesc, entry.getValue());
             }
@@ -102,8 +100,7 @@ public class EventProcessorImpl implements EventProcessor {
 
         Event event = eventFromRawEvent(zepRawEvent);
 
-        for (EventPreProcessingPlugin plugin : pluginService
-                .getPreProcessingPlugins()) {
+        for (EventPreProcessingPlugin plugin : pluginService.getPreProcessingPlugins()) {
             Event modified = plugin.processEvent(event, ctx);
             if (ctx.getStatus() == EventStatus.STATUS_DROPPED) {
                 logger.debug("Event dropped by {}", plugin.getName());
@@ -111,8 +108,7 @@ public class EventProcessorImpl implements EventProcessor {
             }
 
             if (modified != null && !modified.equals(event)) {
-                logger.debug("Event modified by {} as {}", plugin.getName(),
-                        modified);
+                logger.debug("Event modified by {} as {}", plugin.getName(), modified);
                 event = modified;
             }
         }

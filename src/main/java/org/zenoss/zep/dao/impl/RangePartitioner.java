@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Class used to simplify creation of range partitions on integer columns. This
@@ -88,6 +89,7 @@ public class RangePartitioner {
      * 
      * @return True if the database supports partitioning, false otherwise.
      */
+    @Transactional(readOnly = true)
     public boolean hasPartitioning() {
         boolean hasPartitioning = false;
         List<Map<String, String>> list = this.template.query(
@@ -122,6 +124,7 @@ public class RangePartitioner {
      * 
      * @return A list of all partitions found on the table.
      */
+    @Transactional(readOnly = true)
     public List<Partition> listPartitions() {
         List<Partition> partitions = new ArrayList<Partition>();
         List<Map<String, Object>> fields = this.template
@@ -212,6 +215,7 @@ public class RangePartitioner {
      *            The number of future partitions to create in the table.
      * @return The number of created partitions.
      */
+    @Transactional
     public int createPartitions(int pastPartitions, int futurePartitions) {
         final StringBuilder sb = new StringBuilder();
         final List<Partition> partitions = listPartitions();
@@ -261,6 +265,7 @@ public class RangePartitioner {
     /**
      * Removes all partitions on the specified table.
      */
+    @Transactional
     public void removeAllPartitions() {
         this.template.update(String.format(
                 "ALTER TABLE %s REMOVE PARTITIONING", this.tableName));
@@ -276,6 +281,7 @@ public class RangePartitioner {
      * @return The number of pruned partitions, or zero if no partitions were
      *         pruned.
      */
+    @Transactional
     public int dropPartitionsOlderThan(int duration, TimeUnit unit) {
         if (duration < 0) {
             throw new IllegalArgumentException("Duration must be >= 0");

@@ -12,7 +12,19 @@
 
     <bean id="scheduler" class="org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler">
         <property name="poolSize" value="10" />
-        <property name="threadNamePrefix" value="ZEP"/>
+        <property name="threadNamePrefix" value="ZEP-SCHEDULER"/>
+    </bean>
+
+    <bean id="rejectedExecutionHandler" class="java.util.concurrent.ThreadPoolExecutor$CallerRunsPolicy">
+    </bean>
+
+    <bean id="executor" class="org.springframework.scheduling.concurrent.ThreadPoolExecutorFactoryBean">
+        <property name="corePoolSize" value="${zep.executor.core_pool_size:#{T(java.lang.Runtime).getRuntime().availableProcessors()}}" />
+        <property name="maxPoolSize" value="${zep.executor.max_pool_size:#{T(java.lang.Runtime).getRuntime().availableProcessors()}}" />
+        <property name="threadNamePrefix" value="ZEP" />
+        <property name="waitForTasksToCompleteOnShutdown" value="true" />
+        <property name="queueCapacity" value="${zep.executor.queue_capacity:10}" />
+        <property name="rejectedExecutionHandler" ref="rejectedExecutionHandler" />
     </bean>
 
     <!-- CFG -->
@@ -39,12 +51,14 @@
 
     <bean id="eventQueueListener" class="org.zenoss.zep.impl.RawEventQueueListener"
           depends-on="application">
+        <property name="executorService" ref="executor" />
         <property name="connectionManager" ref="amqpConnectionManager"/>
         <property name="eventProcessor" ref="eventProcessor"/>
     </bean>
 
     <bean id="modelChangeEventQueueListener" class="org.zenoss.zep.impl.ModelChangeEventQueueListener"
           depends-on="application">
+        <property name="executorService" ref="executor" />
         <property name="connectionManager" ref="amqpConnectionManager"/>
         <property name="eventSummaryDao" ref="eventSummaryDao"/>
     </bean>
@@ -66,6 +80,9 @@
         <property name="eventDao" ref="eventDao"/>
         <property name="eventStoreDao" ref="eventStoreDao"/>
         <property name="eventArchiveDao" ref="eventArchiveDao"/>
+        <property name="eventIndexer" ref="eventIndexer"/>
+        <property name="indexIntervalSeconds" value="${zep.index.interval_seconds:1}" />
+        <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao" />
     </bean>
 
     <bean id="triggerPlugin" class="org.zenoss.zep.impl.TriggerPlugin">
@@ -78,7 +95,9 @@
 
     <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
         <property name="basenames">
-            <value>org.zenoss.zep.messages</value>
+            <array>
+                <value>org.zenoss.zep.messages</value>
+            </array>
         </property>
     </bean>
 

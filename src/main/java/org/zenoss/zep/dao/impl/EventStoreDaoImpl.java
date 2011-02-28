@@ -25,7 +25,6 @@ import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.index.EventIndexDao;
-import org.zenoss.zep.index.EventIndexer;
 
 import java.util.Collections;
 import java.util.List;
@@ -36,7 +35,6 @@ public class EventStoreDaoImpl implements EventStoreDao {
     private EventArchiveDao eventArchiveDao;
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
-    private EventIndexer eventIndexer;
 
     public EventStoreDaoImpl() {
     }
@@ -57,23 +55,16 @@ public class EventStoreDaoImpl implements EventStoreDao {
         this.eventArchiveIndexDao = eventIndexDao;
     }
 
-    public void setEventIndexer(EventIndexer eventIndexer) {
-        this.eventIndexer = eventIndexer;
-    }
-
     @Override
     @Transactional
-    public void create(Event event, EventContext eventContext) throws ZepException {
+    public String create(Event event, EventContext eventContext) throws ZepException {
+        final String uuid;
         if (event.getSeverity() == EventSeverity.SEVERITY_CLEAR) {
-            String uuid = this.eventSummaryDao.createClearEvent(event, eventContext.getClearClasses());
-            if (uuid != null) {
-                this.eventIndexer.markSummaryDirty();
-            }
+            uuid = this.eventSummaryDao.createClearEvent(event, eventContext.getClearClasses());
         } else {
-            this.eventSummaryDao.create(event, eventContext.getStatus());
-            this.eventIndexer.markSummaryDirty();
+            uuid = this.eventSummaryDao.create(event, eventContext.getStatus());
         }
-
+        return uuid;
     }
 
     @Override
@@ -138,10 +129,6 @@ public class EventStoreDaoImpl implements EventStoreDao {
             throw new ZepException("Invalid status for update: " + newStatus);
         }
 
-        if (numUpdatedEvents > 0) {
-            eventIndexer.markSummaryDirty();
-        }
-
         return numUpdatedEvents;
     }
 
@@ -150,14 +137,8 @@ public class EventStoreDaoImpl implements EventStoreDao {
     public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException {
         int numRows = eventSummaryDao.updateDetails(uuid, details);
-        if (numRows > 0) {
-            eventIndexer.markSummaryDirty();
-        }
-        else {
+        if (numRows == 0) {
             numRows = eventArchiveDao.updateDetails(uuid, details);
-            if (numRows > 0) {
-                eventIndexer.markArchiveDirty();
-            }
         }
         return numRows;
     }
@@ -166,36 +147,22 @@ public class EventStoreDaoImpl implements EventStoreDao {
     @Transactional
     public int ageEvents(long agingInterval, TimeUnit unit,
             EventSeverity maxSeverity, int limit) throws ZepException {
-        int numAged = eventSummaryDao.ageEvents(agingInterval, unit, maxSeverity, limit);
-        if (numAged > 0) {
-            eventIndexer.markSummaryDirty();
-        }
-        return numAged;
+        return eventSummaryDao.ageEvents(agingInterval, unit, maxSeverity, limit);
     }
 
     @Override
     @Transactional
     public int archive(long duration, TimeUnit unit, int limit)
             throws ZepException {
-        int numArchived = this.eventSummaryDao.archive(duration, unit, limit);
-        if (numArchived > 0) {
-            eventIndexer.markArchiveDirty();
-        }
-        return numArchived;
+        return this.eventSummaryDao.archive(duration, unit, limit);
     }
 
     @Override
     @Transactional
     public int addNote(String uuid, EventNote note) throws ZepException {
         int numRows = eventSummaryDao.addNote(uuid, note);
-        if (numRows > 0) {
-            eventIndexer.markSummaryDirty();
-        }
-        else {
+        if (numRows == 0) {
             numRows = eventArchiveDao.addNote(uuid, note);
-            if (numRows > 0) {
-                eventIndexer.markArchiveDirty();
-            }
         }
         return numRows;
     }

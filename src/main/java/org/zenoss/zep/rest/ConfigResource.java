@@ -10,17 +10,17 @@
  */
 package org.zenoss.zep.rest;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationEventPublisherAware;
 import org.zenoss.protobufs.ProtobufConstants;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventDetailItemSet;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
-import org.zenoss.zep.Messages;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
+import org.zenoss.zep.events.IndexDetailsUpdatedEvent;
+import org.zenoss.zep.events.ZepConfigUpdatedEvent;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -36,12 +36,12 @@ import javax.ws.rs.core.Response.Status;
 import java.util.Map;
 
 @Path("1.0/config")
-public class ConfigResource {
+public class ConfigResource implements ApplicationEventPublisherAware {
 
-    private static final Logger logger = LoggerFactory.getLogger(ConfigResource.class);
+    //private static final Logger logger = LoggerFactory.getLogger(ConfigResource.class);
     private ConfigDao configDao;
     private EventDetailsConfigDao detailsConfigDao;
-    private Messages messages;
+    private ApplicationEventPublisher applicationEventPublisher;
 
     public void setConfigDao(ConfigDao configDao) {
         this.configDao = configDao;
@@ -51,9 +51,9 @@ public class ConfigResource {
         this.detailsConfigDao = eventDetailsConfigDao;
     }
 
-    @Autowired
-    public void setMessages(Messages messages) {
-        this.messages = messages;
+    @Override
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @GET
@@ -65,7 +65,13 @@ public class ConfigResource {
     @PUT
     @Consumes({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
     public void setConfig(ZepConfig config) throws ZepException {
+        ZepConfig currentConfig = configDao.getConfig();
+        
         configDao.setConfig(config);
+
+        if (!currentConfig.equals(config)) {
+            this.applicationEventPublisher.publishEvent(new ZepConfigUpdatedEvent(this, config));
+        }
     }
 
     @PUT
@@ -73,17 +79,32 @@ public class ConfigResource {
     @Path("{name}")
     public void setConfigValue(@PathParam("name") String name, ZepConfig value)
             throws ZepException {
+        ZepConfig currentConfig = configDao.getConfig();
+
         configDao.setConfigValue(name, value);
+
+        ZepConfig newConfig = configDao.getConfig();
+        if (!currentConfig.equals(newConfig)) {
+            this.applicationEventPublisher.publishEvent(new ZepConfigUpdatedEvent(this, newConfig));
+        }
     }
 
     @DELETE
     @Path("{name}")
     public Response removeConfigValue(@PathParam("name") String name)
             throws ZepException {
+        ZepConfig currentConfig = configDao.getConfig();
+
         int result = this.configDao.removeConfigValue(name);
         if (result == 0) {
             return Response.status(Status.NOT_FOUND).build();
         }
+
+        ZepConfig newConfig = configDao.getConfig();
+        if (!currentConfig.equals(newConfig)) {
+            this.applicationEventPublisher.publishEvent(new ZepConfigUpdatedEvent(this, newConfig));
+        }
+        
         return Response.ok(Status.NO_CONTENT).build();
     }
 
@@ -119,9 +140,9 @@ public class ConfigResource {
         if (!detailName.equals(item.getKey())) {
             throw new ZepException(String.format("Detail name doesn't match URI: %s != %s", detailName, item.getKey()));
         }
-        this.detailsConfigDao.create(item);
-        logger.info(messages.getMessage("restart_required"));
-        return Response.status(Status.ACCEPTED).build();
+
+        EventDetailItemSet set = EventDetailItemSet.newBuilder().addDetails(item).build();
+        return createIndexedDetails(set);
     }
 
     @POST
@@ -131,10 +152,18 @@ public class ConfigResource {
         if (items.getDetailsCount() == 0) {
             return Response.status(Status.BAD_REQUEST).build();
         }
+
+        Map<String,EventDetailItem> currentItems = this.detailsConfigDao.getEventDetailItemsByName();
+        
         for (EventDetailItem item : items.getDetailsList()) {
             this.detailsConfigDao.create(item);
         }
-        logger.info(messages.getMessage("restart_required"));
+
+        Map<String,EventDetailItem> newItems = this.detailsConfigDao.getEventDetailItemsByName();
+        if (!currentItems.equals(newItems)) {
+            this.applicationEventPublisher.publishEvent(new IndexDetailsUpdatedEvent(this, newItems));
+        }
+        
         return Response.status(Status.ACCEPTED).build();
     }
 
@@ -147,8 +176,10 @@ public class ConfigResource {
             response = Response.status(Status.NOT_FOUND).build();
         } else {
             response = Response.noContent().build();
+            
+            Map<String,EventDetailItem> newItems = this.detailsConfigDao.getEventDetailItemsByName();
+            this.applicationEventPublisher.publishEvent(new IndexDetailsUpdatedEvent(this, newItems));
         }
-        logger.info(messages.getMessage("restart_required"));
         return response;
     }
 }

@@ -485,9 +485,9 @@ public class QueryBuilder {
     }
 
 
-    public QueryBuilder addDetails(Collection<EventDetailFilter> filters, EventDetailsConfigDao eventDetailsConfig) throws ZepException {
+    public QueryBuilder addDetails(Collection<EventDetailFilter> filters, Map<String,EventDetailItem> detailsConfig)
+            throws ZepException {
         if (!filters.isEmpty()) {
-            Map<String, EventDetailItem> detailsConfig = eventDetailsConfig.getInitialEventDetailItemsByName();
             for (EventDetailFilter edf : filters) {
                 QueryBuilder eventDetailQuery = new QueryBuilder(edf.getOp());
                 EventDetailItem detailConfig = detailsConfig.get(edf.getKey());

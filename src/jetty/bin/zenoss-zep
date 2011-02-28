@@ -14,6 +14,7 @@ JETTY_HOME="`dirname ${JETTY_BIN}`"
 #start app from jetty_home
 cd $JETTY_HOME
 
+JVM_ARGS="$JVM_ARGS -server"
 JVM_ARGS="$JVM_ARGS -DZENHOME=${JETTY_HOME}"
 JVM_ARGS="$JVM_ARGS -Djetty.logs=${JETTY_HOME}/log"
 

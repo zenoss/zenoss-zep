@@ -21,8 +21,6 @@ public class IndexMetadata {
     private String indexName;
     private int indexVersion;
     private byte[] indexVersionHash;
-    private long lastIndexTime;
-    private long lastCommitTime;
 
     public IndexMetadata() {
     }
@@ -59,22 +57,6 @@ public class IndexMetadata {
         this.indexVersionHash = indexDetailsHash;
     }
 
-    public long getLastIndexTime() {
-        return lastIndexTime;
-    }
-
-    public void setLastIndexTime(long lastIndexTime) {
-        this.lastIndexTime = lastIndexTime;
-    }
-
-    public long getLastCommitTime() {
-        return lastCommitTime;
-    }
-
-    public void setLastCommitTime(long lastCommitTime) {
-        this.lastCommitTime = lastCommitTime;
-    }
-
     @Override
     public String toString() {
         return "IndexMetadata{" +
@@ -82,8 +64,6 @@ public class IndexMetadata {
                 ", indexName='" + indexName + '\'' +
                 ", indexVersion=" + indexVersion +
                 ", indexVersionHash='" + ZepUtils.hexstr(indexVersionHash) + '\'' +
-                ", lastIndexTime=" + lastIndexTime +
-                ", lastCommitTime=" + lastCommitTime +
                 '}';
     }
 }

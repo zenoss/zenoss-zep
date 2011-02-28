@@ -66,8 +66,7 @@ public class EventTriggerSubscriptionDaoImpl implements
     }
 
     @SuppressWarnings("unused")
-    private static Logger logger = LoggerFactory
-            .getLogger(EventTriggerSubscriptionDaoImpl.class);
+    private static Logger logger = LoggerFactory.getLogger(EventTriggerSubscriptionDaoImpl.class);
 
     private final SimpleJdbcTemplate template;
     private final SimpleJdbcInsert insert;
@@ -157,6 +156,7 @@ public class EventTriggerSubscriptionDaoImpl implements
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<EventTriggerSubscription> findBySubscriberUuid(
             String subscriberUuid) throws ZepException {
         try {
@@ -171,6 +171,7 @@ public class EventTriggerSubscriptionDaoImpl implements
     }
 
     @Override
+    @Transactional
     public int updateSubscriptions(String subscriberUuid,
             List<EventTriggerSubscription> subscriptions) throws ZepException {
         final byte[] subscriberUuidBytes = DaoUtils.uuidToBytes(subscriberUuid);

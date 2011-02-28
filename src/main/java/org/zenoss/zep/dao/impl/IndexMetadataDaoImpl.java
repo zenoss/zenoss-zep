@@ -14,6 +14,7 @@ package org.zenoss.zep.dao.impl;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepInstance;
 import org.zenoss.zep.dao.IndexMetadata;
@@ -39,8 +40,6 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
     private static final String COLUMN_INDEX_NAME = "index_name";
     private static final String COLUMN_INDEX_VERSION = "index_version";
     private static final String COLUMN_INDEX_VERSION_HASH = "index_version_hash";
-    private static final String COLUMN_LAST_INDEX_TIME = "last_index_time";
-    private static final String COLUMN_LAST_COMMIT_TIME = "last_commit_time";
 
     public IndexMetadataDaoImpl(DataSource ds, ZepInstance instance) {
         this.template = new SimpleJdbcTemplate(ds);
@@ -48,12 +47,7 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
     }
 
     @Override
-    public long findMaxLastIndexTime() throws ZepException {
-        final String sql = "SELECT MAX(last_index_time) FROM index_metadata";
-        return this.template.queryForLong(sql);
-    }
-
-    @Override
+    @Transactional(readOnly = true)
     public IndexMetadata findIndexMetadata(String indexName) throws ZepException {
         final String sql = "SELECT * FROM index_metadata WHERE zep_instance=:zep_instance AND index_name=:index_name";
         Map<String,Object> fields = new HashMap<String,Object>();
@@ -67,8 +61,6 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
                 md.setIndexName(rs.getString(COLUMN_INDEX_NAME));
                 md.setIndexVersion(rs.getInt(COLUMN_INDEX_VERSION));
                 md.setIndexVersionHash(rs.getBytes(COLUMN_INDEX_VERSION_HASH));
-                md.setLastIndexTime(rs.getLong(COLUMN_LAST_INDEX_TIME));
-                md.setLastCommitTime(rs.getLong(COLUMN_LAST_COMMIT_TIME));
                 return md;
             }
         }, fields);
@@ -76,41 +68,7 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
     }
 
     @Override
-    public int updateIndexMetadata(String indexName, int indexVersion, byte[] indexVersionHash, long lastIndexTime,
-                                    boolean isCommit) throws ZepException {
-        final Map<String,Object> fields = new HashMap<String,Object>();
-        fields.put(COLUMN_ZEP_INSTANCE, zepInstanceBytes);
-        fields.put(COLUMN_INDEX_NAME, indexName);
-        fields.put(COLUMN_INDEX_VERSION, indexVersion);
-        fields.put(COLUMN_INDEX_VERSION_HASH, indexVersionHash);
-        fields.put(COLUMN_LAST_INDEX_TIME, lastIndexTime);
-
-        final String updateSql;
-        if (isCommit) {
-            updateSql = "UPDATE index_metadata SET index_version=:index_version,index_version_hash=:index_version_hash," +
-                    "last_index_time=:last_index_time,last_commit_time=:last_commit_time " +
-                    "WHERE zep_instance=:zep_instance AND index_name=:index_name";
-            fields.put(COLUMN_LAST_COMMIT_TIME, lastIndexTime);
-        }
-        else {
-            updateSql = "UPDATE index_metadata SET index_version=:index_version,index_version_hash=:index_version_hash," +
-                    "last_index_time=:last_index_time " +
-                    "WHERE zep_instance=:zep_instance AND index_name=:index_name";
-        }
-
-        try {
-            int numRows = this.template.update(updateSql, fields);
-            if (numRows == 0) {
-                final String insertSql = DaoUtils.createNamedInsert("index_metadata", fields.keySet());
-                numRows = this.template.update(insertSql, fields);
-            }
-            return numRows;
-        } catch (DataAccessException e) {
-            throw new ZepException(e.getLocalizedMessage(), e);
-        }
-    }
-
-    @Override
+    @Transactional
     public int updateIndexVersion(String indexName, int indexVersion, byte[] indexHash) throws ZepException {
         final Map<String,Object> fields = new HashMap<String,Object>();
         fields.put(COLUMN_ZEP_INSTANCE, zepInstanceBytes);
@@ -118,11 +76,12 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
         fields.put(COLUMN_INDEX_VERSION, indexVersion);
         fields.put(COLUMN_INDEX_VERSION_HASH, indexHash);
 
-        final String updateSql = "UPDATE index_metadata SET index_version=:index_version,index_version_hash=:index_version_hash" +
-                    " WHERE zep_instance=:zep_instance AND index_name=:index_name";
+        final String sql = "INSERT INTO index_metadata (zep_instance,index_name,index_version,index_version_hash) " +
+                "VALUES(:zep_instance,:index_name,:index_version,:index_version_hash) ON DUPLICATE KEY UPDATE " +
+                "index_version=VALUES(index_version),index_version_hash=VALUES(index_version_hash)";
 
         try {
-            return this.template.update(updateSql, fields);
+            return this.template.update(sql, fields);
         } catch (DataAccessException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
         }

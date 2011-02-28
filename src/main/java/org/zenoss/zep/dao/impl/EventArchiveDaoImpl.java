@@ -80,6 +80,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         fields.put(COLUMN_LAST_SEEN, created);
         fields.put(COLUMN_EVENT_COUNT, eventCount);
         fields.put(COLUMN_UPDATE_TIME, updateTime);
+        fields.put(COLUMN_INDEXED, 0);
         if (event.getSeverity() != EventSeverity.SEVERITY_CLEAR) {
             fields.put(COLUMN_CLEAR_FINGERPRINT_HASH,
                     EventDaoUtils.createClearHash(event));

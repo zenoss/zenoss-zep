@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.TaskScheduler;
+import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
@@ -46,7 +47,6 @@ import org.zenoss.zep.Messages;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
-import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.impl.ThreadRenamingRunnable;
 import org.zenoss.zep.index.EventIndexDao;
 
@@ -66,7 +66,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.zenoss.zep.index.impl.IndexConstants.*;
 
@@ -80,15 +79,11 @@ public class EventIndexDaoImpl implements EventIndexDao {
     private Messages messages;
 
     private int queryLimit = ZepConstants.DEFAULT_QUERY_LIMIT;
-    private static final int OPTIMIZE_AT_NUM_EVENTS = 5000;
-    private final AtomicInteger eventsSinceOptimize = new AtomicInteger(0);
-    private EventIndexMapper eventIndexMapper;
     
     @Autowired
     private TaskScheduler scheduler;
     private final Map<String,SavedSearch> savedSearches = new ConcurrentHashMap<String,SavedSearch>();
-
-    private EventDetailsConfigDao eventDetailsConfigDao;
+    protected Map<String,EventDetailItem> detailsConfig = Collections.emptyMap();
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImpl.class);
 
@@ -99,13 +94,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
         this._searcher = new IndexSearcher(this.writer.getReader());
     }
 
-
-    public void setEventDetailsConfigDao(EventDetailsConfigDao eventDetailsConfigDao) {
-        this.eventDetailsConfigDao = eventDetailsConfigDao;
-    }
-
-    public void setEventIndexMapper(EventIndexMapper eim) {
-        this.eventIndexMapper = eim;
+    @Override
+    public void setIndexDetails(Map<String, EventDetailItem> detailsConfig) {
+        this.detailsConfig = detailsConfig;
     }
 
     /**
@@ -144,12 +135,11 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void stage(EventSummary event) throws ZepException {
-        Document doc = this.eventIndexMapper.fromEventSummary(event);
+        Document doc = EventIndexMapper.fromEventSummary(event, this.detailsConfig);
         logger.debug("Indexing {}", event.getUuid());
 
         try {
             this.writer.updateDocument(new Term(FIELD_UUID, event.getUuid()), doc);
-            eventsSinceOptimize.incrementAndGet();
         } catch (IOException e) {
             throw new ZepException(e);
         }
@@ -198,9 +188,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
     public void commit(boolean forceOptimize) throws ZepException {
         try {
             this.writer.commit();
-            if ( forceOptimize || eventsSinceOptimize.get() >= OPTIMIZE_AT_NUM_EVENTS ) {
+            if (forceOptimize) {
                 this.writer.optimize();
-                eventsSinceOptimize.set(0);
             }
         } catch (IOException e) {
             throw new ZepException(e);
@@ -219,19 +208,19 @@ public class EventIndexDaoImpl implements EventIndexDao {
     public void reindex() throws ZepException {
         IndexSearcher searcher = null;
         try {
-            logger.info("Re-indexing all previously indexed events");
+            logger.info("Re-indexing all previously indexed events for: {}", this.name);
             searcher = getSearcher();
             final IndexReader reader = searcher.getIndexReader();
             int numDocs = reader.numDocs();
             int numReindexed = 0;
             for (int i = 0; i < numDocs; i++) {
                 if (!reader.isDeleted(i)) {
-                    EventSummary summary = this.eventIndexMapper.toEventSummary(reader.document(i, PROTO_SELECTOR));
+                    EventSummary summary = EventIndexMapper.toEventSummary(reader.document(i, PROTO_SELECTOR));
                     this.stage(summary);
                     ++numReindexed;
                 }
             }
-            logger.info("Completed re-indexing for {} events", numReindexed);
+            logger.info("Completed re-indexing {} events for: {}", numReindexed, this.name);
             this.commit(true);
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
@@ -299,7 +288,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
 
         for (int i = offset; i < docs.scoreDocs.length; i++) {
-            EventSummary summary = this.eventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector));
+            EventSummary summary = EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector));
             result.addEvents(summary);
         }
         return result.build();
@@ -343,7 +332,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             searcher = getSearcher();
             TopDocs docs = searcher.search(query, 1);
             if (docs.scoreDocs.length > 0) {
-                summary = this.eventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[0].doc));
+                summary = EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[0].doc));
             }
         } catch (IOException e) {
             throw new ZepException(e);
@@ -355,7 +344,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void clear() throws ZepException {
-        logger.info("Deleting all events");
+        logger.info("Deleting all events for: {}", this.name);
 
         try {
             this.writer.deleteAll();
@@ -506,7 +495,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         qb.addField(FIELD_UUID, filter.getUuidList(), FilterOperator.OR);
 
-        qb.addDetails(filter.getDetailsList(), this.eventDetailsConfigDao);
+        qb.addDetails(filter.getDetailsList(), this.detailsConfig);
         
         for (EventFilter subfilter : filter.getSubfilterList()) {
             qb.addSubquery(buildQueryFromFilter(reader, subfilter));

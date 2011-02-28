@@ -10,13 +10,12 @@
  */
 package org.zenoss.zep.events;
 
-import java.util.Collections;
-import java.util.Map;
-
-import org.springframework.context.ApplicationEvent;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
 
-public class ConfigUpdatedEvent extends ApplicationEvent {
+/**
+ * Application event sent when the ZEP configuration changes.
+ */
+public class ZepConfigUpdatedEvent extends ZepEvent {
     /**
      * 
      */
@@ -24,7 +23,7 @@ public class ConfigUpdatedEvent extends ApplicationEvent {
 
     private final ZepConfig config;
 
-    public ConfigUpdatedEvent(Object source, ZepConfig config) {
+    public ZepConfigUpdatedEvent(Object source, ZepConfig config) {
         super(source);
         this.config = config;
     }

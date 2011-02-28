@@ -10,8 +10,6 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
@@ -30,9 +28,7 @@ import java.util.Map;
 public class DaoCacheImpl implements DaoCache {
 
     private static final int DEFAULT_MAX_CACHE_ENTRIES = 500;
-    @SuppressWarnings("unused")
-    private static final Logger logger = LoggerFactory
-            .getLogger(DaoCacheImpl.class);
+    //private static final Logger logger = LoggerFactory.getLogger(DaoCacheImpl.class);
 
     private final DaoTableStringLruCache eventClassCache;
     private final DaoTableStringLruCache eventClassKeyCache;
@@ -105,6 +101,7 @@ public class DaoCacheImpl implements DaoCache {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public String getEventClassFromId(int id) {
         return getNameFromId(this.eventClassCache, id);
     }
@@ -116,6 +113,7 @@ public class DaoCacheImpl implements DaoCache {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public String getEventClassKeyFromId(int id) {
         return getNameFromId(this.eventClassKeyCache, id);
     }
@@ -127,6 +125,7 @@ public class DaoCacheImpl implements DaoCache {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public String getMonitorFromId(int id) {
         return getNameFromId(this.monitorCache, id);
     }
@@ -138,6 +137,7 @@ public class DaoCacheImpl implements DaoCache {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public String getAgentFromId(int id) {
         return getNameFromId(this.agentCache, id);
     }
@@ -149,6 +149,7 @@ public class DaoCacheImpl implements DaoCache {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public String getEventGroupFromId(int id) {
         return getNameFromId(this.groupCache, id);
     }
@@ -160,6 +161,7 @@ public class DaoCacheImpl implements DaoCache {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public String getEventKeyFromId(int id) {
         return getNameFromId(this.eventKeyCache, id);
     }
@@ -224,7 +226,6 @@ public class DaoCacheImpl implements DaoCache {
         }
 
         public void init() {
-            /* Default is to not prime cache */
             this.insert.compile();
         }
 

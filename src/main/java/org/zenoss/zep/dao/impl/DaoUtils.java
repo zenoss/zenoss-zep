@@ -24,14 +24,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.UUID;
 
 public final class DaoUtils {
@@ -109,16 +106,6 @@ public final class DaoUtils {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Must support SHA-1", e);
         }
-    }
-
-    public static Set<String> getFieldsInResultSet(ResultSetMetaData metaData)
-            throws SQLException {
-        final Set<String> fields = new TreeSet<String>();
-        final int count = metaData.getColumnCount();
-        for (int i = 1; i <= count; i++) {
-            fields.add(metaData.getColumnName(i));
-        }
-        return fields;
     }
 
     /**

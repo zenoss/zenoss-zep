@@ -25,7 +25,6 @@ import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
@@ -71,6 +70,7 @@ public class EventDaoImpl implements EventDao {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<Event> findBySummaryUuid(String summaryUuid) throws ZepException {
         final Map<String,byte[]> params = Collections.singletonMap(COLUMN_SUMMARY_UUID, DaoUtils.uuidToBytes(summaryUuid));
         return template.query("SELECT * FROM event WHERE summary_uuid=:summary_uuid",
@@ -78,6 +78,7 @@ public class EventDaoImpl implements EventDao {
     }
 
     @Override
+    @Transactional
     public void purge(int duration, TimeUnit unit) throws ZepException {
         dropPartitionsOlderThan(duration, unit);
         initializePartitions();
@@ -85,7 +86,6 @@ public class EventDaoImpl implements EventDao {
 
     private static class EventRowMapper implements RowMapper<Event> {
         private final EventDaoHelper helper;
-        private Set<String> fields = null;
 
         public EventRowMapper(EventDaoHelper helper) {
             this.helper = helper;
@@ -93,14 +93,12 @@ public class EventDaoImpl implements EventDao {
 
         @Override
         public Event mapRow(ResultSet rs, int rowNum) throws SQLException {
-            if (fields == null) {
-                fields = DaoUtils.getFieldsInResultSet(rs.getMetaData());
-            }
-            return this.helper.eventMapper(rs, false, fields);
+            return this.helper.eventMapper(rs, false);
         }
     }
 
     @Override
+    @Transactional
     public void initializePartitions() throws ZepException {
         this.partitioner.createPartitions(
                 this.partitionTableConfig.getInitialPastPartitions(),
@@ -108,6 +106,7 @@ public class EventDaoImpl implements EventDao {
     }
 
     @Override
+    @Transactional
     public int dropPartitionsOlderThan(int duration, TimeUnit unit)
             throws ZepException {
         return this.partitioner.dropPartitionsOlderThan(duration, unit);

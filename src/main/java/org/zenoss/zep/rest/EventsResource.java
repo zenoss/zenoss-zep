@@ -154,7 +154,7 @@ public class EventsResource {
     public Response createSavedSearchInternal(EventIndexDao indexDao, EventQuery query, @Context UriInfo ui)
             throws URISyntaxException, ZepException {
         // Make sure index is up to date with latest events prior to creating the saved search
-        this.eventIndexer.index(true);
+        this.eventIndexer.index();
         String uuid = indexDao.createSavedSearch(query);
         return Response.created(new URI(ui.getRequestUri().toString() + '/' + uuid)).build();
     }

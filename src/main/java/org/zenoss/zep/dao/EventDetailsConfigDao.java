@@ -21,6 +21,13 @@ import java.util.Map;
 public interface EventDetailsConfigDao {
 
     /**
+     * Populates the database with the default set of indexed details.
+     *
+     * @throws ZepException If an exception occurs.
+     */
+    public void init() throws ZepException;
+
+    /**
      * Creates the event detail item in the database (adds the specified event
      * detail to be indexed). If the detail item exists in the database, it will
      * be replaced.
@@ -60,14 +67,4 @@ public interface EventDetailsConfigDao {
      * @throws org.zenoss.zep.ZepException If an error occurs.
      */
     public Map<String, EventDetailItem> getEventDetailItemsByName() throws ZepException;
-
-    /**
-     * Returns the initial configuration of the indexed event detail
-     * items.
-     *
-     * @return A map of event details configuration definitions, keyed by
-     *         the detail name.
-     * @throws ZepException If an error occurs.
-     */
-    public Map<String, EventDetailItem> getInitialEventDetailItemsByName() throws ZepException;
 }

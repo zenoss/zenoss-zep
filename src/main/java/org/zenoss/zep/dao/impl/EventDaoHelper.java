@@ -36,6 +36,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -67,7 +68,6 @@ public class EventDaoHelper {
         this.daoCache = daoCache;
     }
 
-    @Transactional
     public Map<String, Object> createOccurrenceFields(Event event) throws ZepException {
         Map<String, Object> fields = new HashMap<String, Object>();
         fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(event.getUuid()));
@@ -289,206 +289,133 @@ public class EventDaoHelper {
         }
     }
 
-    public Event eventMapper(ResultSet rs, boolean isSummary, Set<String> fields)
+    public Event eventMapper(ResultSet rs, boolean isSummary)
             throws SQLException {
         Event.Builder eventBuilder = Event.newBuilder();
 
         if (isSummary) {
-            if (fields.contains(COLUMN_LAST_SEEN)) {
-                eventBuilder.setCreatedTime(rs.getLong(COLUMN_LAST_SEEN));
-            }
+            eventBuilder.setCreatedTime(rs.getLong(COLUMN_LAST_SEEN));
         } else {
-            if (fields.contains(COLUMN_CREATED)) {
-                eventBuilder.setCreatedTime(rs.getLong(COLUMN_CREATED));
-            }
-            if (fields.contains(COLUMN_UUID)) {
-                eventBuilder.setUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID)));
-            }
+            eventBuilder.setCreatedTime(rs.getLong(COLUMN_CREATED));
+            eventBuilder.setUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID)));
         }
 
-        if (fields.contains(COLUMN_FINGERPRINT)) {
-            eventBuilder.setFingerprint(rs.getString(COLUMN_FINGERPRINT));
+        eventBuilder.setFingerprint(rs.getString(COLUMN_FINGERPRINT));
+
+        int eventGroupId = rs.getInt(COLUMN_EVENT_GROUP_ID);
+        if (!rs.wasNull()) {
+            eventBuilder.setEventGroup(daoCache.getEventGroupFromId(eventGroupId));
         }
 
-        if (fields.contains(COLUMN_EVENT_GROUP_ID)) {
-            int eventGroupId = rs.getInt(COLUMN_EVENT_GROUP_ID);
-            if (!rs.wasNull()) {
-                eventBuilder.setEventGroup(daoCache.getEventGroupFromId(eventGroupId));
-            }
+        int eventClassId = rs.getInt(COLUMN_EVENT_CLASS_ID);
+        if (!rs.wasNull()) {
+            eventBuilder.setEventClass(daoCache.getEventClassFromId(eventClassId));
         }
 
-        if (fields.contains(COLUMN_EVENT_CLASS_ID)) {
-            int eventClassId = rs.getInt(COLUMN_EVENT_CLASS_ID);
-            if (!rs.wasNull()) {
-                eventBuilder.setEventClass(daoCache.getEventClassFromId(eventClassId));
-            }
+        int eventClassKeyId = rs.getInt(COLUMN_EVENT_CLASS_KEY_ID);
+        if (!rs.wasNull()) {
+            eventBuilder.setEventClassKey(daoCache.getEventClassKeyFromId(eventClassKeyId));
         }
 
-        if (fields.contains(COLUMN_EVENT_CLASS_KEY_ID)) {
-            int eventClassKeyId = rs.getInt(COLUMN_EVENT_CLASS_KEY_ID);
-            if (!rs.wasNull()) {
-                eventBuilder.setEventClassKey(daoCache.getEventClassKeyFromId(eventClassKeyId));
-            }
+        int eventKeyId = rs.getInt(COLUMN_EVENT_KEY_ID);
+        if (!rs.wasNull()) {
+            eventBuilder.setEventKey(daoCache.getEventKeyFromId(eventKeyId));
         }
 
-        if (fields.contains(COLUMN_EVENT_KEY_ID)) {
-            int eventKeyId = rs.getInt(COLUMN_EVENT_KEY_ID);
-            if (!rs.wasNull()) {
-                eventBuilder.setEventKey(daoCache.getEventKeyFromId(eventKeyId));
-            }
+        byte[] classMappingUuid = rs.getBytes(COLUMN_EVENT_CLASS_MAPPING_UUID);
+        if (classMappingUuid != null) {
+            eventBuilder.setEventClassMappingUuid(DaoUtils.uuidFromBytes(classMappingUuid));
         }
 
-        if (fields.contains(COLUMN_EVENT_CLASS_MAPPING_UUID)) {
-            byte[] classMappingUuid = rs.getBytes(COLUMN_EVENT_CLASS_MAPPING_UUID);
-            if (classMappingUuid != null) {
-                eventBuilder.setEventClassMappingUuid(DaoUtils.uuidFromBytes(classMappingUuid));
-            }
+        eventBuilder.setSeverity(EventSeverity.valueOf(rs.getInt(COLUMN_SEVERITY_ID)));
+
+        eventBuilder.setActor(deserializeEventActor(rs));
+
+        int monitorId = rs.getInt(COLUMN_MONITOR_ID);
+        if (!rs.wasNull()) {
+            eventBuilder.setMonitor(daoCache.getMonitorFromId(monitorId));
         }
 
-        if (fields.contains(COLUMN_SEVERITY_ID)) {
-            eventBuilder.setSeverity(EventSeverity.valueOf(rs.getInt(COLUMN_SEVERITY_ID)));
+        int agentId = rs.getInt(COLUMN_AGENT_ID);
+        if (!rs.wasNull()) {
+            eventBuilder.setAgent(daoCache.getAgentFromId(agentId));
         }
 
-        EventActor actor = deserializeEventActor(rs, fields);
-        if (actor != null) {
-            eventBuilder.setActor(actor);
+        int syslogFacility = rs.getInt(COLUMN_SYSLOG_FACILITY);
+        if (!rs.wasNull()) {
+            eventBuilder.setSyslogFacility(syslogFacility);
         }
 
-        if (fields.contains(COLUMN_MONITOR_ID)) {
-            int monitorId = rs.getInt(COLUMN_MONITOR_ID);
-            if (!rs.wasNull()) {
-                eventBuilder.setMonitor(daoCache.getMonitorFromId(monitorId));
-            }
+        int syslogPriority = rs.getInt(COLUMN_SYSLOG_PRIORITY);
+        if (!rs.wasNull()) {
+            eventBuilder.setSyslogPriority(EventDaoUtils.syslogPriorityFromInt(syslogPriority));
         }
 
-        if (fields.contains(COLUMN_AGENT_ID)) {
-            int agentId = rs.getInt(COLUMN_AGENT_ID);
-            if (!rs.wasNull()) {
-                eventBuilder.setAgent(daoCache.getAgentFromId(agentId));
-            }
+        int ntEventCode = rs.getInt(COLUMN_NT_EVENT_CODE);
+        if (!rs.wasNull()) {
+            eventBuilder.setNtEventCode(ntEventCode);
         }
 
-        if (fields.contains(COLUMN_SYSLOG_FACILITY)) {
-            int syslogFacility = rs.getInt(COLUMN_SYSLOG_FACILITY);
-            if (!rs.wasNull()) {
-                eventBuilder.setSyslogFacility(syslogFacility);
+        eventBuilder.setSummary(rs.getString(COLUMN_SUMMARY));
+
+        eventBuilder.setMessage(rs.getString(COLUMN_MESSAGE));
+
+        String detailsJson = rs.getString(COLUMN_DETAILS_JSON);
+        if (detailsJson != null && !detailsJson.isEmpty()) {
+            try {
+                List<EventDetail> details = JsonFormat.mergeAllDelimitedFrom(detailsJson, EventDetail.getDefaultInstance());
+                eventBuilder.addAllDetails(details);
+            } catch (IOException e) {
+                throw new SQLException(e);
             }
         }
 
-        if (fields.contains(COLUMN_SYSLOG_PRIORITY)) {
-            int syslogPriority = rs.getInt(COLUMN_SYSLOG_PRIORITY);
-            if (!rs.wasNull()) {
-                eventBuilder.setSyslogPriority(EventDaoUtils.syslogPriorityFromInt(syslogPriority));
-            }
-        }
-
-        if (fields.contains(COLUMN_NT_EVENT_CODE)) {
-            int ntEventCode = rs.getInt(COLUMN_NT_EVENT_CODE);
-            if (!rs.wasNull()) {
-                eventBuilder.setNtEventCode(ntEventCode);
-            }
-        }
-
-        if (fields.contains(COLUMN_SUMMARY)) {
-            eventBuilder.setSummary(rs.getString(COLUMN_SUMMARY));
-        }
-
-        if (fields.contains(COLUMN_MESSAGE)) {
-            eventBuilder.setMessage(rs.getString(COLUMN_MESSAGE));
-        }
-
-        if (fields.contains(COLUMN_DETAILS_JSON)) {
-            String json = rs.getString(COLUMN_DETAILS_JSON);
-            if (json != null && !json.isEmpty()) {
-                try {
-                    List<EventDetail> details = JsonFormat.mergeAllDelimitedFrom(json,
-                            EventDetail.getDefaultInstance());
-                    eventBuilder.addAllDetails(details);
-                } catch (IOException e) {
-                    throw new SQLException(e);
-                }
-            }
-        }
-
-        if (fields.contains(COLUMN_TAGS_JSON)) {
-            String json = rs.getString(COLUMN_TAGS_JSON);
-            if (json != null && !json.isEmpty()) {
-                try {
-                    List<EventTag> tags = JsonFormat.mergeAllDelimitedFrom(json, EventTag.getDefaultInstance());
-                    eventBuilder.addAllTags(tags);
-                } catch (IOException e) {
-                    throw new SQLException(e);
-                }
+        String tagsJson = rs.getString(COLUMN_TAGS_JSON);
+        if (tagsJson != null && !tagsJson.isEmpty()) {
+            try {
+                List<EventTag> tags = JsonFormat.mergeAllDelimitedFrom(tagsJson, EventTag.getDefaultInstance());
+                eventBuilder.addAllTags(tags);
+            } catch (IOException e) {
+                throw new SQLException(e);
             }
         }
 
         return eventBuilder.build();
     }
 
-    private EventActor deserializeEventActor(ResultSet rs, Set<String> fields)
+    private EventActor deserializeEventActor(ResultSet rs)
             throws SQLException {
-        byte[] elementUuid = null;
-        ModelElementType elementType = null;
-        String elementIdentifier = null;
-        byte[] subUuid = null;
-        ModelElementType subType = null;
-        String subIdentifier = null;
-
-        if (fields.contains(COLUMN_ELEMENT_UUID)) {
-            elementUuid = rs.getBytes(COLUMN_ELEMENT_UUID);
-        }
-        if (fields.contains(COLUMN_ELEMENT_TYPE_ID)) {
-            int elementTypeId = rs.getInt(COLUMN_ELEMENT_TYPE_ID);
-            if (!rs.wasNull()) {
-                elementType = ModelElementType.valueOf(elementTypeId);
-            }
-        }
-        if (fields.contains(COLUMN_ELEMENT_IDENTIFIER)) {
-            elementIdentifier = rs.getString(COLUMN_ELEMENT_IDENTIFIER);
+        EventActor.Builder actorBuilder = EventActor.newBuilder();
+        byte[] elementUuid = rs.getBytes(COLUMN_ELEMENT_UUID);
+        if (elementUuid != null) {
+            actorBuilder.setElementUuid(DaoUtils.uuidFromBytes(elementUuid));
         }
 
-        if (fields.contains(COLUMN_ELEMENT_SUB_UUID)) {
-            subUuid = rs.getBytes(COLUMN_ELEMENT_SUB_UUID);
-        }
-        if (fields.contains(COLUMN_ELEMENT_SUB_TYPE_ID)) {
-            int subTypeId = rs.getInt(COLUMN_ELEMENT_SUB_TYPE_ID);
-            if (!rs.wasNull()) {
-                subType = ModelElementType.valueOf(subTypeId);
-            }
-        }
-        if (fields.contains(COLUMN_ELEMENT_SUB_IDENTIFIER)) {
-            subIdentifier = rs.getString(COLUMN_ELEMENT_SUB_IDENTIFIER);
+        int elementTypeId = rs.getInt(COLUMN_ELEMENT_TYPE_ID);
+        if (!rs.wasNull()) {
+            actorBuilder.setElementTypeId(ModelElementType.valueOf(elementTypeId));
         }
 
-        final EventActor actor;
-        if (elementUuid == null && elementType == null
-                && elementIdentifier == null && subUuid == null
-                && subType == null && subIdentifier == null) {
-            actor = null;
-        } else {
-            EventActor.Builder actorBuilder = EventActor.newBuilder();
-            if (elementUuid != null) {
-                actorBuilder.setElementUuid(DaoUtils.uuidFromBytes(elementUuid));
-            }
-            if (elementType != null) {
-                actorBuilder.setElementTypeId(elementType);
-            }
-            if (elementIdentifier != null) {
-                actorBuilder.setElementIdentifier(elementIdentifier);
-            }
-
-            if (subUuid != null) {
-                actorBuilder.setElementSubUuid(DaoUtils.uuidFromBytes(subUuid));
-            }
-            if (subType != null) {
-                actorBuilder.setElementSubTypeId(subType);
-            }
-            if (subIdentifier != null) {
-                actorBuilder.setElementSubIdentifier(subIdentifier);
-            }
-            actor = actorBuilder.build();
+        String elementIdentifier = rs.getString(COLUMN_ELEMENT_IDENTIFIER);
+        if (elementIdentifier != null) {
+            actorBuilder.setElementIdentifier(elementIdentifier);
         }
-        return actor;
+
+        byte[] subUuid = rs.getBytes(COLUMN_ELEMENT_SUB_UUID);
+        if (subUuid != null) {
+            actorBuilder.setElementSubUuid(DaoUtils.uuidFromBytes(subUuid));
+        }
+
+        int subTypeId = rs.getInt(COLUMN_ELEMENT_SUB_TYPE_ID);
+        if (!rs.wasNull()) {
+            actorBuilder.setElementSubTypeId(ModelElementType.valueOf(subTypeId));
+        }
+
+        String subIdentifier = rs.getString(COLUMN_ELEMENT_SUB_IDENTIFIER);
+        if (subIdentifier != null) {
+            actorBuilder.setElementSubIdentifier(subIdentifier);
+        }
+        return actorBuilder.build();
     }
 
     public static int addNote(String tableName, String uuid, EventNote note, SimpleJdbcTemplate template)
@@ -500,8 +427,14 @@ public class EventDaoHelper {
         builder.setCreatedTime(System.currentTimeMillis());
         try {
             // Notes are expected to be returned in reverse order
-            final String sql = "UPDATE " + tableName + " SET notes_json=CONCAT_WS(',\n',?,notes_json) WHERE uuid=?";
-            return template.update(sql, JsonFormat.writeAsString(builder.build()), DaoUtils.uuidToBytes(uuid));
+            Map<String,Object> fields = new HashMap<String,Object>();
+            fields.put(COLUMN_UPDATE_TIME, System.currentTimeMillis());
+            fields.put(COLUMN_INDEXED, 0);
+            fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
+            fields.put(COLUMN_NOTES_JSON, JsonFormat.writeAsString(builder.build()));
+            final String sql = "UPDATE " + tableName + " SET update_time=:update_time,indexed=:indexed," +
+                    "notes_json=CONCAT_WS(',\n',:notes_json,notes_json) WHERE uuid=:uuid";
+            return template.update(sql, fields);
         } catch (IOException e) {
             throw new ZepException(e);
         }
@@ -517,9 +450,11 @@ public class EventDaoHelper {
         try {
             String currentDetailsJson = template.queryForObject(selectSql, String.class, fields);
             if (currentDetailsJson == null) {
-                currentDetailsJson = "[]";
+                existingDetailList = Collections.emptyList();
             }
-            existingDetailList = JsonFormat.mergeAllDelimitedFrom(currentDetailsJson, EventDetail.getDefaultInstance());
+            else {
+                existingDetailList = JsonFormat.mergeAllDelimitedFrom(currentDetailsJson, EventDetail.getDefaultInstance());
+            }
         } catch (IncorrectResultSizeDataAccessException irsdae) {
             logger.debug("unexpected results size data access exception retrieving event summary", irsdae);
             return 0;
@@ -535,9 +470,9 @@ public class EventDaoHelper {
             // update current event_summary record
             fields.put(COLUMN_DETAILS_JSON, updatedDetailsJson);
             fields.put(COLUMN_UPDATE_TIME, System.currentTimeMillis());
+            fields.put(COLUMN_INDEXED, 0);
             String updateSql = "UPDATE " + tableName + " SET details_json=:details_json, "
-                    + "update_time=:update_time "
-                    + "WHERE uuid = :uuid";
+                    + "update_time=:update_time,indexed=:indexed WHERE uuid = :uuid";
 
             return template.update(updateSql, fields);
         } catch (IOException ioe) {
@@ -545,7 +480,7 @@ public class EventDaoHelper {
         }
     }
 
-    public List<Integer> getSeverityIdsLessThan(EventSeverity severity) {
+    public static List<Integer> getSeverityIdsLessThan(EventSeverity severity) {
         final List<Integer> severityIds = new ArrayList<Integer>(ZepUtils.ORDERED_SEVERITIES.size() - 1);
         for (EventSeverity orderedSeverity : ZepUtils.ORDERED_SEVERITIES) {
             if (orderedSeverity == severity) {

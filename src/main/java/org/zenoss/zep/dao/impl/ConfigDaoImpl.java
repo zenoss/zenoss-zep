@@ -19,8 +19,6 @@ import org.apache.commons.codec.binary.Base64;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
@@ -31,7 +29,6 @@ import org.zenoss.protobufs.zep.Zep.ZepConfig.Builder;
 import org.zenoss.zep.Messages;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
-import org.zenoss.zep.events.ConfigUpdatedEvent;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -47,11 +44,10 @@ import java.util.concurrent.TimeUnit;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
 
-public class ConfigDaoImpl implements ConfigDao, ApplicationEventPublisherAware {
+public class ConfigDaoImpl implements ConfigDao {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigDao.class);
     private final SimpleJdbcTemplate template;
-    private ApplicationEventPublisher applicationEventPublisher;
     private Messages messages;
     private static final int MAX_PARTITIONS = 1000;
     private final int maxEventArchivePurgeIntervalDays;
@@ -75,12 +71,6 @@ public class ConfigDaoImpl implements ConfigDao, ApplicationEventPublisherAware 
         long partitionRange = config.getPartitionUnit().toMinutes(config.getPartitionDuration())
                 * MAX_PARTITIONS;
         return (int) TimeUnit.DAYS.convert(partitionRange, TimeUnit.MINUTES);
-    }
-
-    @Override
-    public void setApplicationEventPublisher(
-            ApplicationEventPublisher applicationEventPublisher) {
-        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Autowired
@@ -115,7 +105,6 @@ public class ConfigDaoImpl implements ConfigDao, ApplicationEventPublisherAware 
             final List<Object[]> records = configToRecords(config);
             if (!records.isEmpty()) {
                 this.template.batchUpdate(sql, records);
-                this.applicationEventPublisher.publishEvent(new ConfigUpdatedEvent(this, config));
             }
         } catch (DataAccessException e) {
             throw new ZepException(e);
@@ -123,6 +112,7 @@ public class ConfigDaoImpl implements ConfigDao, ApplicationEventPublisherAware 
     }
 
     @Override
+    @Transactional
     public int removeConfigValue(String name) throws ZepException {
         try {
             final String sql = "DELETE FROM config WHERE config_name=:config_name";
@@ -133,6 +123,7 @@ public class ConfigDaoImpl implements ConfigDao, ApplicationEventPublisherAware 
     }
 
     @Override
+    @Transactional
     public void setConfigValue(String name, ZepConfig config) throws ZepException {
         try {
             validateConfig(config);

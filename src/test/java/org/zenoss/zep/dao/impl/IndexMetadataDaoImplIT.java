@@ -45,34 +45,16 @@ public class IndexMetadataDaoImplIT extends AbstractTransactionalJUnit4SpringCon
         md.setIndexName("myindex");
         md.setIndexVersion(5);
         md.setIndexVersionHash(sha1);
-        md.setLastIndexTime(System.currentTimeMillis());
-        md.setLastCommitTime(md.getLastIndexTime());
         md.setZepInstance(zepInstance.getId());
 
         assertNull(indexMetadataDao.findIndexMetadata(md.getIndexName()));
 
-        indexMetadataDao.updateIndexMetadata(md.getIndexName(), md.getIndexVersion(), md.getIndexVersionHash(),
-                md.getLastIndexTime(), false);
+        indexMetadataDao.updateIndexVersion(md.getIndexName(), md.getIndexVersion(), md.getIndexVersionHash());
 
         IndexMetadata mdFromDb = indexMetadataDao.findIndexMetadata(md.getIndexName());
         assertArrayEquals(md.getIndexVersionHash(), mdFromDb.getIndexVersionHash());
         assertEquals(md.getIndexName(), mdFromDb.getIndexName());
         assertEquals(md.getIndexVersion(), mdFromDb.getIndexVersion());
-        assertEquals(0, mdFromDb.getLastCommitTime()); // isCommit was false
-        assertEquals(md.getLastIndexTime(), mdFromDb.getLastIndexTime());
-        assertEquals(md.getZepInstance(), mdFromDb.getZepInstance());
-
-        md.setLastIndexTime(System.currentTimeMillis());
-        md.setLastCommitTime(md.getLastIndexTime());
-        indexMetadataDao.updateIndexMetadata(md.getIndexName(), md.getIndexVersion(), md.getIndexVersionHash(),
-                md.getLastIndexTime(), true);
-
-        mdFromDb = indexMetadataDao.findIndexMetadata(md.getIndexName());
-        assertArrayEquals(md.getIndexVersionHash(), mdFromDb.getIndexVersionHash());
-        assertEquals(md.getIndexName(), mdFromDb.getIndexName());
-        assertEquals(md.getIndexVersion(), mdFromDb.getIndexVersion());
-        assertEquals(md.getLastIndexTime(), mdFromDb.getLastCommitTime()); // isCommit was true
-        assertEquals(md.getLastIndexTime(), mdFromDb.getLastIndexTime());
         assertEquals(md.getZepInstance(), mdFromDb.getZepInstance());
     }
 }

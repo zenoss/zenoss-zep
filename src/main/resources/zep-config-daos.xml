@@ -18,13 +18,19 @@
     <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
         <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
         <property name="url"
-                  value="jdbc:mysql://${zep.jdbc.hostname}/${zep.jdbc.dbname}?characterEncoding=UTF-8&amp;autoReconnect=true"/>
+                  value="jdbc:mysql://${zep.jdbc.hostname}/${zep.jdbc.dbname}?characterEncoding=UTF-8&amp;autoReconnect=true&amp;rewriteBatchedStatements=true"/>
         <property name="username" value="${zep.jdbc.username}"/>
         <property name="password" value="${zep.jdbc.password}"/>
-        <property name="initialSize" value="2" />
-        <property name="maxActive" value="10"/>
+        <property name="initialSize" value="${zep.jdbc.pool.initial_size:3}" />
+        <property name="maxActive" value="${zep.jdbc.pool.max_active:10}" />
+        <property name="testWhileIdle" value="true" />
+        <property name="testOnBorrow" value="false" />
+        <property name="testOnReturn" value="false" />
+        <property name="defaultAutoCommit" value="false" />
         <property name="validationQuery" value="SELECT 1" />
-        <property name="testOnBorrow" value="true" />
+        <property name="defaultTransactionIsolation" value="2" />
+        <property name="poolPreparedStatements" value="${zep.jdbc.pool.pool_prepared_statements:true}" />
+        <property name="maxOpenPreparedStatements" value="${zep.jdbc.max_open_prepared_statements:1000}" />
     </bean>
 
     <!-- Partition configuration -->
@@ -45,7 +51,6 @@
     </bean>
     <bean id="eventSummaryDao" class="org.zenoss.zep.dao.impl.EventSummaryDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
-        <property name="eventIndexer" ref="eventIndexer" />
         <property name="eventDaoHelper" ref="eventDaoHelper"/>
     </bean>
     <bean id="eventArchiveDao" class="org.zenoss.zep.dao.impl.EventArchiveDaoImpl">
@@ -64,8 +69,7 @@
     <bean id="eventTriggerSubscriptionDao" class="org.zenoss.zep.dao.impl.EventTriggerSubscriptionDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
     </bean>
-    <bean id="daoCache" class="org.zenoss.zep.dao.impl.DaoCacheImpl"
-          init-method="init">
+    <bean id="daoCache" class="org.zenoss.zep.dao.impl.DaoCacheImpl" init-method="init">
         <constructor-arg index="0" ref="dataSource"/>
     </bean>
     <bean id="configDao" class="org.zenoss.zep.dao.impl.ConfigDaoImpl">
@@ -79,13 +83,8 @@
     </bean>
 
     <!-- Indexing DAO -->
-    <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl"
-            init-method="init">
+    <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
-    </bean>
-
-    <bean id="eventIndexMapper" class="org.zenoss.zep.index.impl.EventIndexMapper">
-        <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao" />
     </bean>
 
     <bean id="luceneMaxFieldLength" class="org.apache.lucene.index.IndexWriter$MaxFieldLength">
@@ -113,8 +112,6 @@
         <constructor-arg value="event_summary"/>
         <constructor-arg ref="luceneSummaryIndexWriter"/>
         <property name="queryLimit" value="${zep.query.limit}" />
-        <property name="eventIndexMapper" ref="eventIndexMapper" />
-        <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao"/>
     </bean>
 
     <bean id="luceneArchiveDir" class="org.apache.lucene.store.FSDirectory"
@@ -135,8 +132,6 @@
         <constructor-arg ref="luceneArchiveIndexWriter"/>
         <constructor-arg ref="eventSummaryIndexDao"/>
         <property name="queryLimit" value="${zep.query.limit}" />
-        <property name="eventIndexMapper" ref="eventIndexMapper" />
-        <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao"/>
     </bean>
 
     <bean id="eventStoreDao" class="org.zenoss.zep.dao.impl.EventStoreDaoImpl">
@@ -144,20 +139,16 @@
         <property name="eventArchiveDao" ref="eventArchiveDao" />
         <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao" />
         <property name="eventArchiveIndexDao" ref="eventArchiveIndexDao" />
-        <property name="eventIndexer" ref="eventIndexer" />
     </bean>
 
-    <bean id="eventIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl"
-            init-method="init" destroy-method="shutdown">
-        <constructor-arg index="0" value="${zep.index.interval_seconds}"/>
-        <constructor-arg index="1" ref="dataSource"/>
-        <constructor-arg index="2" ref="eventDetailsConfigDao" />
+    <bean id="eventIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl">
+        <constructor-arg index="0" ref="dataSource"/>
         <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao" />
         <property name="eventArchiveIndexDao" ref="eventArchiveIndexDao" />
         <property name="eventDaoHelper" ref="eventDaoHelper"/>
         <property name="pluginService" ref="pluginService"/>
         <property name="indexMetadataDao" ref="indexMetadataDao" />
+        <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao"/>
     </bean>
-
 
 </beans>

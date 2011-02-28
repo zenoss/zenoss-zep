@@ -37,10 +37,12 @@ public interface EventStoreDao extends Purgable {
      *            The event occurrence.
      * @param eventContext
      *            The event context.
+     * @return The UUID of the created event. May be null if the event is a
+     *         clear event and didn't clear any events.
      * @throws org.zenoss.zep.ZepException
      *             If an error occurs.
      */
-    public void create(Event event, EventContext eventContext)
+    public String create(Event event, EventContext eventContext)
             throws ZepException;
 
     /**
@@ -118,7 +120,7 @@ public interface EventStoreDao extends Purgable {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int updateDetails(String uuid, EventDetailSet update)
+    public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException;
 
     /**

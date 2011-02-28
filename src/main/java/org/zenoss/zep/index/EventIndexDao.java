@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -239,4 +240,11 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException If the saved search could not be deleted.
      */
     public String deleteSavedSearch(String uuid) throws ZepException;
+
+    /**
+     * Sets the event detail item configuration to be used by the index dao.
+     *
+     * @param detailsConfig Event detail item configuration.
+     */
+    public void setIndexDetails(Map<String,EventDetailItem> detailsConfig);
 }

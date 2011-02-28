@@ -30,7 +30,6 @@ import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
-import org.zenoss.zep.dao.EventDetailsConfigDao;
 
 import java.util.List;
 import java.util.Map;
@@ -48,16 +47,10 @@ public class EventIndexMapper {
     }
 
     public static final String DETAIL_INDEX_PREFIX = "details";
-    private EventDetailsConfigDao eventDetailsConfigDao;
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexMapper.class);
 
-    public void setEventDetailsConfigDao(EventDetailsConfigDao eventDetailsConfigDao) {
-        this.eventDetailsConfigDao = eventDetailsConfigDao;
-    }
-
-    public Document fromEventSummary(EventSummary summary) throws ZepException {
-
+    public static Document fromEventSummary(EventSummary summary, Map<String,EventDetailItem> detailsConfig) throws ZepException {
         Document doc = new Document();
 
         // Store the entire serialized protobuf so we can reproduce the entire event from the index.
@@ -113,8 +106,6 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         // find details configured for indexing
-        Map<String, EventDetailItem> detailsConfig = this.eventDetailsConfigDao.getInitialEventDetailItemsByName();
-
         List<EventDetail> evtDetails = event.getDetailsList();
         for (EventDetail eDetail : evtDetails) {
             String detailName = eDetail.getName();
@@ -122,17 +113,12 @@ public class EventIndexMapper {
 
             if (detailDefn != null) {
                 String detailKeyName = DETAIL_INDEX_PREFIX + '.' + detailDefn.getKey();
-
                 for (String detailValue : eDetail.getValueList()) {
-
                     Fieldable field = null;
-
                     switch (detailDefn.getType()) {
-
                         case STRING:
                             field = new Field(detailKeyName, detailValue, Store.NO, Index.NOT_ANALYZED_NO_NORMS);
                             break;
-
                         case INTEGER:
                             try {
                                 int intValue = Integer.parseInt(detailValue);
@@ -141,7 +127,6 @@ public class EventIndexMapper {
                                 logger.warn("Invalid numeric(int) data reported for detail {}: {}", detailName, detailValue);
                             }
                             break;
-
                         case FLOAT:
                             try {
                                 float floatValue = Float.parseFloat(detailValue);
@@ -150,7 +135,6 @@ public class EventIndexMapper {
                                 logger.warn("Invalid numeric(float) data reported for detail {}: {}", detailName, detailValue);
                             }
                             break;
-
                         case LONG:
                             try {
                                 long longValue = Long.parseLong(detailValue);
@@ -159,7 +143,6 @@ public class EventIndexMapper {
                                 logger.warn("Invalid numeric(long) data reported for detail {}: {}", detailName, detailValue);
                             }
                             break;
-
                         case DOUBLE:
                             try {
                                 double doubleValue = Double.parseDouble(detailValue);
@@ -167,11 +150,9 @@ public class EventIndexMapper {
                             } catch (Exception e) {
                                 logger.warn("Invalid numeric(double) data reported for detail {}: {}", detailName, detailValue);
                             }
-
                         default:
                             logger.warn("Configured detail {} uses unknown data type: {}, skipping", detailName, detailDefn.getType());
                             break;
-
                     }
 
                     if (field != null) {
@@ -180,11 +161,10 @@ public class EventIndexMapper {
                 }
             }
         }
-
         return doc;
     }
 
-    public EventSummary toEventSummary(Document item) throws ZepException {
+    public static EventSummary toEventSummary(Document item) throws ZepException {
         EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
         try {
             final byte[] protobuf = item.getBinaryValue(FIELD_PROTOBUF);

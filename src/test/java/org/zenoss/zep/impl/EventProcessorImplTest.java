@@ -64,9 +64,8 @@ public class EventProcessorImplTest {
         Capture<Event> transformedEvent = new Capture<Event>();
         Capture<EventContext> transformedContext = new Capture<EventContext>();
 
-        eventStoreDao.create(capture(transformedEvent),
-                capture(transformedContext));
-        expectLastCall();
+        String uuid = UUID.randomUUID().toString();
+        expect(eventStoreDao.create(capture(transformedEvent), capture(transformedContext))).andReturn(uuid);
         expect(pluginService.getPreProcessingPlugins())
                 .andReturn(
                         Arrays.<EventPreProcessingPlugin> asList(
@@ -102,11 +101,9 @@ public class EventProcessorImplTest {
         Capture<Event> transformedEvent = new Capture<Event>();
         Capture<EventContext> transformedContext = new Capture<EventContext>();
 
-        eventStoreDao.create(capture(transformedEvent),
-                capture(transformedContext));
-        expectLastCall();
-        expect(pluginService.getPreProcessingPlugins()).andReturn(
-                Collections.<EventPreProcessingPlugin> emptyList());
+        String uuid = UUID.randomUUID().toString();
+        expect(eventStoreDao.create(capture(transformedEvent), capture(transformedContext))).andReturn(uuid);
+        expect(pluginService.getPreProcessingPlugins()).andReturn(Collections.<EventPreProcessingPlugin> emptyList());
         expectLastCall();
         replay(pluginService, eventStoreDao);
 

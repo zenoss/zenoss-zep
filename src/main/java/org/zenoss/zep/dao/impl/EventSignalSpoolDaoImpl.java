@@ -242,6 +242,7 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public long getNextFlushTime() throws ZepException {
         try {
             final String sql = "SELECT MIN(flush_time) FROM event_trigger_signal_spool";

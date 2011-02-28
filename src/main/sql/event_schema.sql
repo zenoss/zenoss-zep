@@ -65,8 +65,6 @@ CREATE TABLE `index_metadata`
     `index_name` VARCHAR(32) NOT NULL,
     `index_version` INTEGER NOT NULL COMMENT 'Version number of index. Used to determine when it should be rebuilt.',
     `index_version_hash` BINARY(20) COMMENT 'Optional SHA-1 hash of index configuration. Used as secondary factor to determine if it should be rebuilt.',
-    `last_index_time` BIGINT NOT NULL COMMENT 'Last update_time that was indexed.',
-    `last_commit_time` BIGINT COMMENT 'Last update_time when the index was committed.',
     PRIMARY KEY (`zep_instance`, `index_name`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
@@ -107,6 +105,7 @@ CREATE TABLE `event_summary`
     `details_json` MEDIUMTEXT COMMENT 'JSON encoded event details.',
     `tags_json` MEDIUMTEXT COMMENT 'JSON encoded event tags.',
     `notes_json` MEDIUMTEXT COMMENT 'JSON encoded event notes (formerly log).',
+    `indexed` TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (uuid),
     UNIQUE KEY (fingerprint_hash),
     FOREIGN KEY (`event_group_id`) REFERENCES `event_group` (`id`),
@@ -118,7 +117,7 @@ CREATE TABLE `event_summary`
     INDEX (`status_id`,`last_seen`),
     INDEX (`clear_fingerprint_hash`,`last_seen`),
     INDEX (`severity_id`,`last_seen`),
-    INDEX (`update_time`),
+    INDEX (`indexed`),
     INDEX (`element_uuid`,`element_type_id`,`element_identifier`),
     INDEX (`element_sub_uuid`,`element_sub_type_id`,`element_sub_identifier`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
@@ -160,8 +159,9 @@ CREATE TABLE `event_archive`
     `details_json` MEDIUMTEXT COMMENT 'JSON encoded event details.',
     `tags_json` MEDIUMTEXT COMMENT 'JSON encoded event tags.',
     `notes_json` MEDIUMTEXT COMMENT 'JSON encoded event notes (formerly log).',
+    `indexed` TINYINT NOT NULL DEFAULT 0,
     INDEX (`uuid`),
-    INDEX (`update_time`)
+    INDEX (`indexed`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 CREATE TABLE `event`

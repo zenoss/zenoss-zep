@@ -18,7 +18,7 @@ get_pid() {
 }
 
 run() {
-    exec java -jar ${JVM_ARGS} ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
+    exec java ${JVM_ARGS} -jar ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
 }
 
 start() {
@@ -30,7 +30,7 @@ start() {
         JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
         # Redirect stdout/stderr to separate log file
         JETTY_ARGS="$JETTY_ARGS etc/zenoss-zep/jetty/jetty-logging.xml"
-        java -jar ${JVM_ARGS} ${JETTYSTART_JAR} ${JETTY_ARGS} \
+        java ${JVM_ARGS} -jar ${JETTYSTART_JAR} ${JETTY_ARGS} \
         ${START_ARGS} > /dev/null 2>&1 &
         PID=$!
         disown $PID

@@ -174,8 +174,7 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         reqBuilder.setUpdateFields(updateFields);
         EventSummaryUpdateRequest req = reqBuilder.build();
 
-        EventSummaryUpdateResponse response = (EventSummaryUpdateResponse)
-                client.putProtobuf(location, req).getMessage();
+        EventSummaryUpdateResponse response = (EventSummaryUpdateResponse) client.putProtobuf(location, req).getMessage();
         assertEquals(EventSummaryUpdateRequest.newBuilder(req).setOffset(10).setEventQueryUuid(query_uuid).build(),
                 response.getNextRequest());
         assertEquals(uuids.size(), response.getTotal());

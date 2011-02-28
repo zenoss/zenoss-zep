@@ -21,9 +21,13 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventDao;
+import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.Purgable;
-import org.zenoss.zep.events.ConfigUpdatedEvent;
+import org.zenoss.zep.events.IndexDetailsUpdatedEvent;
+import org.zenoss.zep.events.ZepConfigUpdatedEvent;
+import org.zenoss.zep.events.ZepEvent;
+import org.zenoss.zep.index.EventIndexer;
 
 import java.util.Date;
 import java.util.concurrent.CancellationException;
@@ -36,7 +40,7 @@ import java.util.concurrent.TimeUnit;
  * Represents core application logic for ZEP, including the scheduled aging and
  * purging of events.
  */
-public class Application implements ApplicationListener<ConfigUpdatedEvent> {
+public class Application implements ApplicationListener<ZepEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
@@ -46,13 +50,18 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     private ScheduledFuture<?> eventSummaryArchiver = null;
     private ScheduledFuture<?> eventArchivePurger = null;
     private ScheduledFuture<?> eventPurger = null;
+    private ScheduledFuture<?> eventIndexerFuture = null;
     private ZepConfig oldConfig = null;
     private ZepConfig config;
+
+    private int indexIntervalSeconds = 1;
 
     private ConfigDao configDao;
     private EventDao eventDao;
     private EventStoreDao eventStoreDao;
     private EventArchiveDao eventArchiveDao;
+    private EventIndexer eventIndexer;
+    private EventDetailsConfigDao eventDetailsConfigDao;
 
     public Application() {
     }
@@ -72,10 +81,26 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     public void setEventDao(EventDao eventDao) {
         this.eventDao = eventDao;
     }
+    
+    public void setEventIndexer(EventIndexer eventIndexer) {
+        this.eventIndexer = eventIndexer;
+    }
+
+    public void setIndexIntervalSeconds(int indexIntervalSeconds) {
+        this.indexIntervalSeconds = indexIntervalSeconds;
+    }
+
+    public void setEventDetailsConfigDao(EventDetailsConfigDao eventDetailsConfigDao) {
+        this.eventDetailsConfigDao = eventDetailsConfigDao;
+    }
 
     public void init() throws ZepException {
         logger.info("Initializing ZEP");
         this.config = configDao.getConfig();
+
+        // Initialize the default event details
+        this.eventDetailsConfigDao.init();
+        
         /*
          * We must initialize partitions first to ensure events have a partition
          * where they can be created before we start processing the queue. This
@@ -87,25 +112,30 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
         startEventSummaryArchiving();
         startEventArchivePurging();
         startEventPurging();
+        startEventIndexer();
+        logger.info("Completed ZEP initialization");
     }
 
     public void shutdown() throws InterruptedException {
-        cancelFuture(this.eventSummaryAger);
-        this.eventSummaryAger = null;
+        cancelFuture(this.eventIndexerFuture);
+        this.eventIndexerFuture = null;
 
-        cancelFuture(this.eventSummaryArchiver);
-        this.eventSummaryArchiver = null;
+        cancelFuture(this.eventPurger);
+        this.eventPurger = null;
 
         cancelFuture(this.eventArchivePurger);
         this.eventArchivePurger = null;
 
-        cancelFuture(this.eventPurger);
-        this.eventPurger = null;
+        cancelFuture(this.eventSummaryArchiver);
+        this.eventSummaryArchiver = null;
+
+        cancelFuture(this.eventSummaryAger);
+        this.eventSummaryAger = null;
     }
 
     private void cancelFuture(Future<?> future) {
         if (future != null) {
-            future.cancel(true);
+            future.cancel(false);
             try {
                 future.get();
             } catch (CancellationException e) {
@@ -121,6 +151,28 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     private void initializePartitions() throws ZepException {
         eventArchiveDao.initializePartitions();
         eventDao.initializePartitions();
+    }
+
+    private void startEventIndexer() throws ZepException {
+        cancelFuture(this.eventIndexerFuture);
+        this.eventIndexerFuture = null;
+
+        // Rebuild the index if necessary.
+        this.eventIndexer.init();
+
+        logger.info("Starting event indexing at interval: {} second(s)", this.indexIntervalSeconds);
+        Date startTime = new Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(this.indexIntervalSeconds));
+        this.eventIndexerFuture = scheduler.scheduleWithFixedDelay(
+                new ThreadRenamingRunnable(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            eventIndexer.index();
+                        } catch (Exception e) {
+                            logger.warn("Failed to index events", e);
+                        }
+                    }
+                }, "ZEP_EVENT_INDEXER"), startTime, TimeUnit.SECONDS.toMillis(this.indexIntervalSeconds));
     }
 
     private void startEventSummaryAging() {
@@ -240,13 +292,23 @@ public class Application implements ApplicationListener<ConfigUpdatedEvent> {
     }
 
     @Override
-    public synchronized void onApplicationEvent(ConfigUpdatedEvent event) {
-        this.config = event.getConfig();
-        logger.info("Configuration changed: {}", this.config);
-        startEventSummaryAging();
-        startEventSummaryArchiving();
-        startEventArchivePurging();
-        startEventPurging();
-        this.oldConfig = config;
+    public synchronized void onApplicationEvent(ZepEvent event) {
+        if (event instanceof ZepConfigUpdatedEvent) {
+            ZepConfigUpdatedEvent configUpdatedEvent = (ZepConfigUpdatedEvent) event;
+            this.config = configUpdatedEvent.getConfig();
+            logger.info("Configuration changed: {}", this.config);
+            startEventSummaryAging();
+            startEventSummaryArchiving();
+            startEventArchivePurging();
+            startEventPurging();
+            this.oldConfig = config;
+        }
+        else if (event instanceof IndexDetailsUpdatedEvent) {
+            try {
+                startEventIndexer();
+            } catch (ZepException e) {
+                logger.warn("Failed to restart event indexing", e);
+            }
+        }
     }
 }
