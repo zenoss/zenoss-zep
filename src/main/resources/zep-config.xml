@@ -76,6 +76,7 @@
 
     <bean id="application" class="org.zenoss.zep.impl.Application"
           init-method="init" destroy-method="shutdown" depends-on="amqpConnectionManager">
+        <constructor-arg index="0" value="${zep.index.enabled:true}"/>
         <property name="configDao" ref="configDao"/>
         <property name="eventDao" ref="eventDao"/>
         <property name="eventStoreDao" ref="eventStoreDao"/>

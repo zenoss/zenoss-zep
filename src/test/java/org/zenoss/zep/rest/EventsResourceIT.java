@@ -149,12 +149,12 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
 
     @Test
     public void testUpdateEventSummary() throws ZepException, IOException {
-        List<String> uuids = new ArrayList<String>(20);
-        for (int i = 0; i < 20; i++) {
+        List<String> uuids = new ArrayList<String>(100);
+        for (int i = 0; i < 100; i++) {
             uuids.add(createSummaryNew(EventSummaryDaoImplIT.createUniqueEvent()).getUuid());
         }
 
-        // Update first 10
+        // Update first 50
         EventStatus status = EventStatus.STATUS_ACKNOWLEDGED;
         String ackUuid = UUID.randomUUID().toString();
         String ackName = "testuser123";
@@ -170,21 +170,22 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         final EventSummaryUpdate updateFields = EventSummaryUpdate.newBuilder()
                 .setAcknowledgedByUserUuid(ackUuid).setAcknowledgedByUserName(ackName).setStatus(status).build();
         EventSummaryUpdateRequest.Builder reqBuilder = EventSummaryUpdateRequest.newBuilder();
-        reqBuilder.setLimit(10);
+        reqBuilder.setLimit(50);
         reqBuilder.setUpdateFields(updateFields);
         EventSummaryUpdateRequest req = reqBuilder.build();
 
-        EventSummaryUpdateResponse response = (EventSummaryUpdateResponse) client.putProtobuf(location, req).getMessage();
-        assertEquals(EventSummaryUpdateRequest.newBuilder(req).setOffset(10).setEventQueryUuid(query_uuid).build(),
+        restResponse = client.putProtobuf(location, req);
+        EventSummaryUpdateResponse response = (EventSummaryUpdateResponse) restResponse.getMessage();
+        assertEquals(EventSummaryUpdateRequest.newBuilder(req).setOffset(50).setEventQueryUuid(query_uuid).build(),
                 response.getNextRequest());
         assertEquals(uuids.size(), response.getTotal());
-        assertEquals(10, response.getUpdated());
+        assertEquals(50, response.getUpdated());
 
-        // Repeat request for last 10
-        EventSummaryUpdateResponse newResponse = (EventSummaryUpdateResponse) client
-                .putProtobuf(location, response.getNextRequest()).getMessage();
+        // Repeat request for last 50
+        restResponse = client.putProtobuf(location, response.getNextRequest());
+        EventSummaryUpdateResponse newResponse = (EventSummaryUpdateResponse) restResponse.getMessage();
         assertFalse(newResponse.hasNextRequest());
-        assertEquals(10, response.getUpdated());
+        assertEquals(50, response.getUpdated());
         assertEquals(uuids.size(), response.getTotal());
 
         assertEquals(HttpStatus.SC_NO_CONTENT, client.delete(location).getResponseCode());

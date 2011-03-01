@@ -15,6 +15,7 @@ import org.apache.http.Header;
 import org.apache.http.HeaderIterator;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
+import org.apache.http.HttpStatus;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
@@ -84,6 +85,15 @@ public class RestClient implements Closeable {
         public Map<String, List<String>> getHeaders() {
             return Collections.unmodifiableMap(this.headers);
         }
+
+        @Override
+        public String toString() {
+            return "RestResponse{" +
+                    "responseCode=" + responseCode +
+                    ", message=" + message +
+                    ", headers=" + headers +
+                    '}';
+        }
     }
 
     public RestClient(Message... msgs) {
@@ -125,6 +135,7 @@ public class RestClient implements Closeable {
             throws IllegalStateException, IOException {
         HttpEntity entity = response.getEntity();
         Message msg = null;
+        int responseCode = response.getStatusLine().getStatusCode();
         Header fullNameHeader = response
                 .getFirstHeader(ProtobufConstants.HEADER_PROTOBUF_FULLNAME);
         if (fullNameHeader != null) {
@@ -139,14 +150,19 @@ public class RestClient implements Closeable {
             if (MediaType.APPLICATION_JSON.equals(contentType)) {
                 msg = JsonFormat.merge(response.getEntity().getContent(),
                         msgForBuild.newBuilderForType());
-            } else if (ProtobufConstants.CONTENT_TYPE_PROTOBUF
-                    .equals(contentType)) {
+            } else if (ProtobufConstants.CONTENT_TYPE_PROTOBUF.equals(contentType)) {
                 msg = msgForBuild.newBuilderForType()
                         .mergeFrom(response.getEntity().getContent()).build();
             } else {
                 throw new IOException("Unsupported content type: "
                         + contentType);
             }
+        }
+        else if (responseCode != HttpStatus.SC_NO_CONTENT && responseCode != HttpStatus.SC_CREATED) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            entity.writeTo(baos);
+            throw new IOException(String.format("Status code: %d, Response: %s", responseCode,
+                    baos.toString("UTF-8")));
         }
         entity.consumeContent();
         return msg;

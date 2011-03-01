@@ -58,6 +58,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -92,6 +93,14 @@ public class EventIndexDaoImpl implements EventIndexDao {
         this.writer = writer;
         // Use NRT reader.
         this._searcher = new IndexSearcher(this.writer.getReader());
+    }
+
+    public synchronized void shutdown() throws IOException {
+        for (Iterator<Map.Entry<String,SavedSearch>> it = savedSearches.entrySet().iterator(); it.hasNext(); ) {
+            it.next().getValue().close();
+            it.remove();
+        }
+        this._searcher.getIndexReader().close();
     }
 
     @Override

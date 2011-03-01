@@ -47,7 +47,6 @@ public class EventIndexerImpl implements EventIndexer {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
 
     private final NamedParameterJdbcTemplate template;
-    private final Object indexLock = new Object();
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
     private PluginService pluginService;
@@ -103,19 +102,17 @@ public class EventIndexerImpl implements EventIndexer {
 
     @Override
     @Transactional
-    public void init() throws ZepException {
-        synchronized (indexLock) {
-            Map<String,EventDetailItem> detailItems = this.eventDetailsConfigDao.getEventDetailItemsByName();
-            for (EventDetailItem item : detailItems.values()) {
-                logger.info("Indexed event detail: {}", item);
-            }
-            this.indexVersionHash = calculateIndexVersionHash(detailItems);
-            this.eventSummaryIndexDao.setIndexDetails(detailItems);
-            this.eventArchiveIndexDao.setIndexDetails(detailItems);
-
-            rebuildIndex(this.eventSummaryIndexDao, TABLE_EVENT_SUMMARY);
-            rebuildIndex(this.eventArchiveIndexDao, TABLE_EVENT_ARCHIVE);
+    public synchronized void init() throws ZepException {
+        Map<String,EventDetailItem> detailItems = this.eventDetailsConfigDao.getEventDetailItemsByName();
+        for (EventDetailItem item : detailItems.values()) {
+            logger.info("Indexed event detail: {}", item);
         }
+        this.indexVersionHash = calculateIndexVersionHash(detailItems);
+        this.eventSummaryIndexDao.setIndexDetails(detailItems);
+        this.eventArchiveIndexDao.setIndexDetails(detailItems);
+
+        rebuildIndex(this.eventSummaryIndexDao, TABLE_EVENT_SUMMARY);
+        rebuildIndex(this.eventArchiveIndexDao, TABLE_EVENT_ARCHIVE);
     }
 
     private void rebuildIndex(final EventIndexDao dao, final String tableName)
@@ -188,12 +185,10 @@ public class EventIndexerImpl implements EventIndexer {
 
     @Override
     @Transactional
-    public void index() throws ZepException {
-        synchronized (indexLock) {
-            // TODO: Separate indexing of summary and archive to prevent long-running transactions
-            doIndex(eventSummaryIndexDao, TABLE_EVENT_SUMMARY);
-            doIndex(eventArchiveIndexDao, TABLE_EVENT_ARCHIVE);
-        }
+    public synchronized void index() throws ZepException {
+        // TODO: Separate indexing of summary and archive to prevent long-running transactions
+        doIndex(eventSummaryIndexDao, TABLE_EVENT_SUMMARY);
+        doIndex(eventArchiveIndexDao, TABLE_EVENT_ARCHIVE);
     }
 
     private int doIndex(final EventIndexDao dao, final String tableName) throws ZepException {
@@ -226,7 +221,6 @@ public class EventIndexerImpl implements EventIndexer {
         });
 
         final int numIndexed = uuids.size();
-        logger.debug("Completed indexing {} events", numIndexed);
         if (numIndexed > 0) {
             dao.commit();
             
@@ -236,6 +230,8 @@ public class EventIndexerImpl implements EventIndexer {
             final String updateSql = "UPDATE " + tableName + " SET indexed=:indexed WHERE uuid IN (:_uuids)";
             template.update(updateSql, updateFields);
         }
+
+        logger.debug("Completed indexing {} events on {}", numIndexed, tableName);
 
         return numIndexed;
     }

@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.scheduling.TaskScheduler;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
@@ -56,6 +57,8 @@ public class Application implements ApplicationListener<ZepEvent> {
 
     private int indexIntervalSeconds = 1;
 
+    private final boolean enableIndexing;
+
     private ConfigDao configDao;
     private EventDao eventDao;
     private EventStoreDao eventStoreDao;
@@ -63,7 +66,8 @@ public class Application implements ApplicationListener<ZepEvent> {
     private EventIndexer eventIndexer;
     private EventDetailsConfigDao eventDetailsConfigDao;
 
-    public Application() {
+    public Application(boolean enableIndexing) {
+        this.enableIndexing = enableIndexing;
     }
 
     public void setEventStoreDao(EventStoreDao eventStoreDao) {
@@ -160,19 +164,23 @@ public class Application implements ApplicationListener<ZepEvent> {
         // Rebuild the index if necessary.
         this.eventIndexer.init();
 
-        logger.info("Starting event indexing at interval: {} second(s)", this.indexIntervalSeconds);
-        Date startTime = new Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(this.indexIntervalSeconds));
-        this.eventIndexerFuture = scheduler.scheduleWithFixedDelay(
-                new ThreadRenamingRunnable(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            eventIndexer.index();
-                        } catch (Exception e) {
-                            logger.warn("Failed to index events", e);
+        if (this.enableIndexing) {
+            logger.info("Starting event indexing at interval: {} second(s)", this.indexIntervalSeconds);
+            Date startTime = new Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(this.indexIntervalSeconds));
+            this.eventIndexerFuture = scheduler.scheduleWithFixedDelay(
+                    new ThreadRenamingRunnable(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                eventIndexer.index();
+                            } catch (TransientDataAccessException e) {
+                                logger.debug("Transient failure indexing events", e);
+                            } catch (Exception e) {
+                                logger.warn("Failed to index events", e);
+                            }
                         }
-                    }
-                }, "ZEP_EVENT_INDEXER"), startTime, TimeUnit.SECONDS.toMillis(this.indexIntervalSeconds));
+                    }, "ZEP_EVENT_INDEXER"), startTime, TimeUnit.SECONDS.toMillis(this.indexIntervalSeconds));
+        }
     }
 
     private void startEventSummaryAging() {

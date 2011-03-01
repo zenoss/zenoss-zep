@@ -107,7 +107,7 @@
         <property name="RAMBufferSizeMB" value="${zep.index.ram_buffer_size_mb:16.0}"/>
     </bean>
 
-    <bean id="eventSummaryIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl">
+    <bean id="eventSummaryIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl" destroy-method="shutdown">
         <qualifier value="summary"/>
         <constructor-arg value="event_summary"/>
         <constructor-arg ref="luceneSummaryIndexWriter"/>
@@ -126,7 +126,8 @@
         <property name="RAMBufferSizeMB" value="${zep.index.ram_buffer_size_mb:16.0}"/>
     </bean>
 
-    <bean id="eventArchiveIndexDao" class="org.zenoss.zep.index.impl.EventArchiveIndexDaoImpl">
+    <bean id="eventArchiveIndexDao" class="org.zenoss.zep.index.impl.EventArchiveIndexDaoImpl"
+          destroy-method="shutdown">
         <qualifier value="archive"/>
         <constructor-arg value="event_archive"/>
         <constructor-arg ref="luceneArchiveIndexWriter"/>

@@ -438,6 +438,11 @@
                                 <zep.jdbc.password>${zep.jdbc.password}</zep.jdbc.password>
                                 <zep.index.dir>${zep.test.index.dir}_it</zep.index.dir>
                                 <zep.amqp.uri>${zep.test.amqp.uri}</zep.amqp.uri>
+                                <!--
+                                Disable background indexing during integration testing. Having two instances
+                                of the indexer running at the same time is not supported.
+                                -->
+                                <zep.index.enabled>false</zep.index.enabled>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>
