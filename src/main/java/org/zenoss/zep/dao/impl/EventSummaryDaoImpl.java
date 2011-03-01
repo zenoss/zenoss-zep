@@ -17,7 +17,6 @@ import org.springframework.jdbc.core.PreparedStatementCreator;
 import org.springframework.jdbc.core.PreparedStatementCreatorFactory;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.SqlParameter;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.jdbc.support.MetaDataAccessException;
@@ -402,7 +401,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         if (limit <= 0) {
             throw new ZepException("Limit can't be negative: " + limit);
         }
-        List<Integer> severityIds = eventDaoHelper.getSeverityIdsLessThan(maxSeverity);
+        List<Integer> severityIds = EventDaoHelper.getSeverityIdsLessThan(maxSeverity);
         if (severityIds.isEmpty()) {
             logger.debug("Not aging events - max severity specified");
             return 0;
@@ -494,6 +493,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         updateFieldsMap.put(COLUMN_STATUS_CHANGE, now);
         updateFieldsMap.put(COLUMN_UPDATE_TIME, now);
         updateFieldsMap.put(COLUMN_INDEXED, 0);
+        updateFieldsMap.put("_uuids", DaoUtils.uuidsToBytes(uuids));
 
         /*
          * IGNORE duplicate key errors on update. This will occur if there is an active
@@ -515,7 +515,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         else {
             sb.append(",fingerprint_hash=UNHEX(SHA1(fingerprint))");
         }
-        sb.append(" WHERE uuid=:uuid");
+        sb.append(" WHERE uuid IN (:_uuids)");
 
         /*
          * This is required to support well-defined transitions between states. We only allow
@@ -530,22 +530,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             sb.append(StringUtils.collectionToCommaDelimitedString(currentStatusIds));
             sb.append(')');
         }
-        
-        MapSqlParameterSource[] batchFields = new MapSqlParameterSource[uuids.size()];
-        int index = 0;
-        for (String uuid : uuids) {
-            final MapSqlParameterSource params = new MapSqlParameterSource(updateFieldsMap);
-            params.addValue(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
-            batchFields[index] = params;
-            ++index;
-        }
-        int numUpdated = 0;
-        String updateSql = sb.toString();
-        int[] updateCounts = this.template.batchUpdate(updateSql, batchFields);
-        for (int updateCount : updateCounts) {
-            numUpdated += updateCount;
-        }
-        return numUpdated;
+
+        final String updateSql = sb.toString();
+        return this.template.update(updateSql, updateFieldsMap);
     }
 
     @Override
