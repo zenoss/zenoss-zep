@@ -496,7 +496,7 @@ public class QueryBuilder {
                     throw new ZepException("Event detail is not indexed: " + edf.getKey());
                 }
 
-                String key = EventIndexMapper.DETAIL_INDEX_PREFIX + "." + detailConfig.getKey();
+                String key = EventIndexMapper.DETAIL_INDEX_PREFIX + detailConfig.getKey();
                 switch(detailConfig.getType()) {
                     case STRING:
                         eventDetailQuery.addWildcardFields(key, edf.getValueList(), Boolean.FALSE);

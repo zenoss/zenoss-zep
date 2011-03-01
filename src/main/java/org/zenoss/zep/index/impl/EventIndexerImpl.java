@@ -192,8 +192,6 @@ public class EventIndexerImpl implements EventIndexer {
     }
 
     private int doIndex(final EventIndexDao dao, final String tableName) throws ZepException {
-        logger.debug("Indexing {} events", dao.getName());
-
         final Map<String,Integer> fields = Collections.singletonMap(COLUMN_INDEXED, 0);
 
         final String sql = "SELECT * FROM " + tableName + " WHERE indexed = :indexed FOR UPDATE";
@@ -229,9 +227,9 @@ public class EventIndexerImpl implements EventIndexer {
             updateFields.put("_uuids", uuids);
             final String updateSql = "UPDATE " + tableName + " SET indexed=:indexed WHERE uuid IN (:_uuids)";
             template.update(updateSql, updateFields);
-        }
 
-        logger.debug("Completed indexing {} events on {}", numIndexed, tableName);
+            logger.debug("Completed indexing {} events on {}", numIndexed, tableName);
+        }
 
         return numIndexed;
     }

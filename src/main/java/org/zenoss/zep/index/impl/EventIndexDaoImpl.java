@@ -398,7 +398,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
     }
 
-    private static Sort buildSort(List<EventSort> sortList) {
+    private Sort buildSort(List<EventSort> sortList) {
         if (sortList.isEmpty()) {
             return null;
         }
@@ -409,7 +409,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         return new Sort(fields.toArray(new SortField[fields.size()]));
     }
 
-    private static SortField createSortField(EventSort sort) {
+    private SortField createSortField(EventSort sort) {
         boolean reverse = (sort.getDirection() == Direction.DESCENDING);
         switch (sort.getField()) {
             case COUNT:
@@ -439,9 +439,36 @@ public class EventIndexDaoImpl implements EventIndexDao {
             case AGENT:
                 return new SortField(FIELD_AGENT, SortField.STRING, reverse);
             case MONITOR:
-                return new SortField(FIELD_MONITOR, SortField.STRING ,reverse);
+                return new SortField(FIELD_MONITOR, SortField.STRING, reverse);
             case UUID:
                 return new SortField(FIELD_UUID, SortField.STRING, reverse);
+            case DETAIL:
+                EventDetailItem item = this.detailsConfig.get(sort.getDetailKey());
+                if (item == null) {
+                    throw new IllegalArgumentException("Unknown event detail: " + sort.getDetailKey());
+                }
+                final String fieldName = EventIndexMapper.DETAIL_INDEX_PREFIX + sort.getDetailKey();
+                final int sortFieldType;
+                switch (item.getType()) {
+                    case DOUBLE:
+                        sortFieldType = SortField.DOUBLE;
+                        break;
+                    case INTEGER:
+                        sortFieldType = SortField.INT;
+                        break;
+                    case STRING:
+                        sortFieldType = SortField.STRING;
+                        break;
+                    case FLOAT:
+                        sortFieldType = SortField.FLOAT;
+                        break;
+                    case LONG:
+                        sortFieldType = SortField.LONG;
+                        break;
+                    default:
+                        throw new IllegalArgumentException("Unsupported detail type: " + item.getType());
+                }
+                return new SortField(fieldName, sortFieldType, reverse);
         }
         throw new IllegalArgumentException("Unsupported sort field: " + sort.getField());
     }

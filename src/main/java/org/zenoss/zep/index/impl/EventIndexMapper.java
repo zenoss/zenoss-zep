@@ -46,7 +46,7 @@ public class EventIndexMapper {
         return analyzer;
     }
 
-    public static final String DETAIL_INDEX_PREFIX = "details";
+    public static final String DETAIL_INDEX_PREFIX = "details.";
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexMapper.class);
 
@@ -112,7 +112,7 @@ public class EventIndexMapper {
             EventDetailItem detailDefn = detailsConfig.get(detailName);
 
             if (detailDefn != null) {
-                String detailKeyName = DETAIL_INDEX_PREFIX + '.' + detailDefn.getKey();
+                String detailKeyName = DETAIL_INDEX_PREFIX + detailDefn.getKey();
                 for (String detailValue : eDetail.getValueList()) {
                     Fieldable field = null;
                     switch (detailDefn.getType()) {

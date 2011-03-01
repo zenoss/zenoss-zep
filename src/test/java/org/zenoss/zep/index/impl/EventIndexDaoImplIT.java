@@ -25,6 +25,9 @@ import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventDetailFilter;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
+import org.zenoss.protobufs.zep.Zep.EventSort;
+import org.zenoss.protobufs.zep.Zep.EventSort.Direction;
+import org.zenoss.protobufs.zep.Zep.EventSort.Field;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
@@ -51,8 +54,7 @@ import java.util.UUID;
 import static org.junit.Assert.*;
 
 @ContextConfiguration({"classpath:zep-config.xml"})
-public class EventIndexDaoImplIT extends
-        AbstractTransactionalJUnit4SpringContextTests {
+public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
     @Autowired
     public EventSummaryDao eventSummaryDao;
 
@@ -612,7 +614,6 @@ public class EventIndexDaoImplIT extends
     }
 
     private EventSummary createEventWithDetail(String key, String val) throws ZepException {
-
         final EventDetail.Builder detailBuilder = EventDetail.newBuilder();
         detailBuilder.setName(key);
         detailBuilder.addValue(val);
@@ -728,6 +729,31 @@ public class EventIndexDaoImplIT extends
             }
             assertTrue(expected.isEmpty());
         }
+    }
+
+    @Test
+    public void testSortNumericFilter() throws ZepException {
+        final String production_state_key = ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE;
+
+        List<EventSummary> sorted = new ArrayList<EventSummary>();
+
+        sorted.add(createEventWithDetail(production_state_key, "5"));
+        sorted.add(createEventWithDetail(production_state_key, "10"));
+        sorted.add(createEventWithDetail(production_state_key, "25"));
+        sorted.add(createEventWithDetail(production_state_key, "500"));
+        sorted.add(createEventWithDetail(production_state_key, "1000"));
+
+        EventSort sort = EventSort.newBuilder().setField(Field.DETAIL).setDetailKey(production_state_key).build();
+        EventSummaryRequest request = EventSummaryRequest.newBuilder().addSort(sort).build();
+        EventSummaryResult result = this.eventIndexDao.list(request);
+        assertEquals(sorted, result.getEventsList());
+
+        sort = EventSort.newBuilder().setField(Field.DETAIL).setDetailKey(production_state_key)
+                .setDirection(Direction.DESCENDING).build();
+        request = EventSummaryRequest.newBuilder().addSort(sort).build();
+        result = this.eventIndexDao.list(request);
+        Collections.reverse(sorted);
+        assertEquals(sorted, result.getEventsList());
     }
 
 }
