@@ -282,11 +282,14 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
         logger.debug("Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[] { query, sort, offset, limit });
         final TopDocs docs;
+
+        // Lucene doesn't like querying for 0 documents - search for at least one here
+        final int numDocs = Math.max(limit + offset, 1);
         if (sort != null) {
-            docs = searcher.search(query, null, limit + offset, sort);
+            docs = searcher.search(query, null, numDocs, sort);
         }
         else {
-            docs = searcher.search(query, null, limit + offset);
+            docs = searcher.search(query, null, numDocs);
         }
         logger.debug("Found {} results", docs.totalHits);
         EventSummaryResult.Builder result = EventSummaryResult.newBuilder();
@@ -296,7 +299,10 @@ public class EventIndexDaoImpl implements EventIndexDao {
             result.setNextOffset(limit + offset);
         }
 
-        for (int i = offset; i < docs.scoreDocs.length; i++) {
+        // Return the number of results they asked for (the query has to return at least one match
+        // but the request may specified a limit of zero).
+        final int lastDocument = Math.min(limit + offset, docs.scoreDocs.length);
+        for (int i = offset; i < lastDocument; i++) {
             EventSummary summary = EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector));
             result.addEvents(summary);
         }

@@ -756,4 +756,18 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         assertEquals(sorted, result.getEventsList());
     }
 
+    @Test
+    public void testListZeroLimit() throws ZepException {
+        /* Create one event */
+        EventSummary event = createSummaryNew(EventDaoImplIT.createSampleEvent());
+        this.eventIndexDao.index(event);
+
+        EventSummaryRequest request = EventSummaryRequest.newBuilder().setLimit(0).build();
+        EventSummaryResult result = this.eventIndexDao.list(request);
+        assertEquals(0, result.getEventsCount());
+        assertEquals(0, result.getLimit());
+        assertEquals(0, result.getNextOffset());
+        assertEquals(1, result.getTotal());
+    }
+
 }
