@@ -14,7 +14,8 @@ JETTY_HOME="`dirname ${JETTY_BIN}`"
 #start app from jetty_home
 cd $JETTY_HOME
 
-JVM_ARGS="$JVM_ARGS -server"
+DEFAULT_ZEP_JVM_ARGS=${DEFAULT_ZEP_JVM_ARGS:-"-server -Xmx512m"}
+JVM_ARGS="$DEFAULT_ZEP_JVM_ARGS"
 JVM_ARGS="$JVM_ARGS -DZENHOME=${JETTY_HOME}"
 JVM_ARGS="$JVM_ARGS -Djetty.logs=${JETTY_HOME}/log"
 
