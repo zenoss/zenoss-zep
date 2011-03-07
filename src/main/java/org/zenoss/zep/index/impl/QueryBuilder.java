@@ -557,9 +557,6 @@ public class QueryBuilder {
         else {
             strLeft = value.substring(0, colonIndex);
             strRight = value.substring(colonIndex + 1);
-            if (strLeft.isEmpty() && strRight.isEmpty()) {
-                throw new ZepException("Invalid numeric range: " + value);
-            }
         }
         return new NumericValueHolder<T>(convertString(strLeft, clazz), convertString(strRight, clazz));
     }
