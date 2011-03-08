@@ -1,16 +1,18 @@
 /*
  * This program is part of Zenoss Core, an open source monitoring platform.
- * Copyright (C) 2010, Zenoss Inc.
- * 
+ * Copyright (C) 2011, Zenoss Inc.
+ *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 2 as published by
  * the Free Software Foundation.
- * 
+ *
  * For complete information please visit: http://www.zenoss.com/oss/
  */
 package org.zenoss.zep.dao.impl;
 
-import java.io.UnsupportedEncodingException;
+import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventActor;
+
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -19,57 +21,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import org.zenoss.protobufs.zep.Zep.Event;
-import org.zenoss.protobufs.zep.Zep.EventActor;
-import org.zenoss.protobufs.zep.Zep.SyslogPriority;
-
 public class EventDaoUtils {
     private static final Charset UTF8 = Charset.forName("UTF-8");
-
-    public static int syslogPriorityToInt(final SyslogPriority priority) {
-        switch (priority) {
-        case SYSLOG_PRIORITY_EMERG:
-            return 0;
-        case SYSLOG_PRIORITY_ALERT:
-            return 1;
-        case SYSLOG_PRIORITY_CRIT:
-            return 2;
-        case SYSLOG_PRIORITY_ERR:
-            return 3;
-        case SYSLOG_PRIORITY_WARNING:
-            return 4;
-        case SYSLOG_PRIORITY_NOTICE:
-            return 5;
-        case SYSLOG_PRIORITY_INFO:
-            return 6;
-        case SYSLOG_PRIORITY_DEBUG:
-            return 7;
-        }
-        throw new IllegalArgumentException("Invalid priority: " + priority);
-    }
-
-    public static SyslogPriority syslogPriorityFromInt(
-            final int priorityInt) {
-        switch (priorityInt) {
-        case 0:
-            return SyslogPriority.SYSLOG_PRIORITY_EMERG;
-        case 1:
-            return SyslogPriority.SYSLOG_PRIORITY_ALERT;
-        case 2:
-            return SyslogPriority.SYSLOG_PRIORITY_CRIT;
-        case 3:
-            return SyslogPriority.SYSLOG_PRIORITY_ERR;
-        case 4:
-            return SyslogPriority.SYSLOG_PRIORITY_WARNING;
-        case 5:
-            return SyslogPriority.SYSLOG_PRIORITY_NOTICE;
-        case 6:
-            return SyslogPriority.SYSLOG_PRIORITY_INFO;
-        case 7:
-            return SyslogPriority.SYSLOG_PRIORITY_DEBUG;
-        }
-        throw new IllegalArgumentException("Invalid priority: " + priorityInt);
-    }
 
     /**
      * Calculates a hash which is used to clear events. The clear hash is

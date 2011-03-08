@@ -26,6 +26,7 @@ import org.zenoss.protobufs.zep.Zep.EventDetail.EventDetailMergeBehavior;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventTag;
+import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.DaoCache;
@@ -133,7 +134,7 @@ public class EventDaoHelper {
 
         Integer syslogPriority = null;
         if (event.hasSyslogPriority()) {
-            syslogPriority = EventDaoUtils.syslogPriorityToInt(event.getSyslogPriority());
+            syslogPriority = event.getSyslogPriority().getNumber();
         }
         fields.put(COLUMN_SYSLOG_PRIORITY, syslogPriority);
 
@@ -348,7 +349,7 @@ public class EventDaoHelper {
 
         int syslogPriority = rs.getInt(COLUMN_SYSLOG_PRIORITY);
         if (!rs.wasNull()) {
-            eventBuilder.setSyslogPriority(EventDaoUtils.syslogPriorityFromInt(syslogPriority));
+            eventBuilder.setSyslogPriority(SyslogPriority.valueOf(syslogPriority));
         }
 
         int ntEventCode = rs.getInt(COLUMN_NT_EVENT_CODE);
