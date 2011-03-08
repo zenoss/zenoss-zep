@@ -73,7 +73,7 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_FINGERPRINT, event.getFingerprint(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_SUMMARY, event.getSummary(), Store.NO, Index.ANALYZED));
         doc.add(new Field(FIELD_SUMMARY_NOT_ANALYZED, event.getSummary(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-        doc.add(new NumericField(FIELD_SEVERITY, Store.YES, true).setIntValue(event.getSeverity().getNumber()));
+        doc.add(new NumericField(FIELD_SEVERITY, Store.NO, true).setIntValue(event.getSeverity().getNumber()));
 
         doc.add(new Field(FIELD_EVENT_CLASS, event.getEventClass(), Store.NO, Index.ANALYZED));
         // Store with a trailing slash to make lookups simpler
@@ -174,13 +174,8 @@ public class EventIndexMapper {
             else {
                 // Only other possible fields stored on index.
                 final String uuid = item.get(FIELD_UUID);
-                final String severityStr = item.get(FIELD_SEVERITY);
                 if (uuid != null) {
                     summaryBuilder.setUuid(uuid);
-                }
-                if (severityStr != null) {
-                    EventSeverity severity = EventSeverity.valueOf(Integer.valueOf(severityStr));
-                    summaryBuilder.addOccurrence(Event.newBuilder().setSeverity(severity).build());
                 }
             }
             return summaryBuilder.build();

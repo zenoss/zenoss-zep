@@ -14,7 +14,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.ProtobufConstants;
 import org.zenoss.protobufs.util.Util.TimestampRange;
-import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventNote;
@@ -29,9 +28,7 @@ import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdateRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdateResponse;
 import org.zenoss.protobufs.zep.Zep.EventTagFilter;
-import org.zenoss.protobufs.zep.Zep.EventTagSeverities;
 import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
-import org.zenoss.protobufs.zep.Zep.EventTagSeverity;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
 import org.zenoss.zep.ZepConstants;
@@ -64,7 +61,6 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.TimeZone;
 
@@ -338,91 +334,11 @@ public class EventsResource {
         return this.eventArchiveIndexDao.list(eventSummaryRequestFromUriInfo(ui));
     }
 
-    @GET
-    @Path("severities")
+    @POST
+    @Path("tag_severities")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    public EventTagSeveritiesSet listEventSeverities(@Context UriInfo ui)
-            throws ZepException {
-        final MultivaluedMap<String, String> queryParams = ui
-                .getQueryParameters();
-        Set<String> uuids = getQuerySet(queryParams, "tag");
-        return createTagSeverities(uuids);
-    }
-
-    private EventTagSeveritiesSet createTagSeverities(Set<String> uuids) throws ZepException {
-        EventTagSeveritiesSet.Builder setBuilder = EventTagSeveritiesSet.newBuilder();
-        if (!uuids.isEmpty()) {
-            Map<String, Map<EventSeverity, Integer>> counts = this.eventSummaryIndexDao.countSeverities(uuids);
-            for (Map.Entry<String, Map<EventSeverity, Integer>> entry : counts.entrySet()) {
-                EventTagSeverities.Builder sevsBuilder = EventTagSeverities
-                        .newBuilder().setTagUuid(entry.getKey());
-                for (Map.Entry<EventSeverity, Integer> severityEntry : entry.getValue().entrySet()) {
-                    sevsBuilder.addSeverities(EventTagSeverity.newBuilder()
-                            .setSeverity(severityEntry.getKey())
-                            .setCount(severityEntry.getValue()).build());
-                }
-                setBuilder.addSeverities(sevsBuilder.build());
-            }
-        }
-        return setBuilder.build();
-    }
-
-    @GET
-    @Path("device_issues")
-    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    public EventTagSeveritiesSet deviceIssues(@Context UriInfo ui)
-        throws ZepException {
-        // get the severity and statuses from the params
-        final MultivaluedMap<String, String> queryParams = ui.getQueryParameters();
-        final EnumSet<EventSeverity> severities = getQueryEnumSet(queryParams,
-                "severity", EventSeverity.class, "SEVERITY_");
-        final EnumSet<EventStatus> status = getQueryEnumSet(queryParams,
-                "status", EventStatus.class, "STATUS_");
-
-        // get all the event summaries that have the given severities
-        final EventFilter.Builder filterBuilder = EventFilter.newBuilder();
-        filterBuilder.addAllSeverity(severities);
-        filterBuilder.addAllStatus(status);
-
-        final EventSummaryRequest.Builder reqBuilder = EventSummaryRequest
-                .newBuilder();
-        reqBuilder.setEventFilter(filterBuilder.build());
-        Set<String> uuids =  new HashSet<String>();
-        EventSummaryResult list = this.eventSummaryIndexDao.list(reqBuilder.build());
-        for (EventSummary sum : list.getEventsList()) {
-            if (sum.getOccurrenceCount() > 0) {
-                // all occurrences should have the same actor so just look at the first
-                Event evt = sum.getOccurrence(0);
-                if (evt.hasActor() && evt.getActor().hasElementUuid()) {
-                    uuids.add(evt.getActor().getElementUuid());
-                }
-            }
-        }
-        // from the event summaries get return the severity tags (like list event severities)
-        return createTagSeverities(uuids);
-    }
-
-    @GET
-    @Path("worst_severity")
-    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
-    public EventTagSeveritiesSet listWorstEventSeverity(@Context UriInfo ui) throws ZepException {
-        final MultivaluedMap<String, String> queryParams = ui
-                .getQueryParameters();
-        Set<String> uuids = getQuerySet(queryParams, "tag");
-        EventTagSeveritiesSet.Builder setBuilder = EventTagSeveritiesSet
-                .newBuilder();
-        if (!uuids.isEmpty()) {
-            Map<String, EventSeverity> worstSeverities = this.eventSummaryIndexDao.findWorstSeverity(uuids);
-            for (Map.Entry<String, EventSeverity> entry : worstSeverities
-                    .entrySet()) {
-                EventTagSeverities.Builder sevsBuilder = EventTagSeverities
-                        .newBuilder().setTagUuid(entry.getKey());
-                sevsBuilder.addSeverities(EventTagSeverity.newBuilder()
-                        .setSeverity(entry.getValue()).build());
-                setBuilder.addSeverities(sevsBuilder.build());
-            }
-        }
-        return setBuilder.build();
+    public EventTagSeveritiesSet getEventTagSeverities(EventFilter filter) throws ZepException {
+        return this.eventSummaryIndexDao.getEventTagSeverities(filter);
     }
 
     @POST

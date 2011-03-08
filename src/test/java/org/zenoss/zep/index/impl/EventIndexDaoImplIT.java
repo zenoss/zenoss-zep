@@ -34,6 +34,9 @@ import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.EventTagFilter;
+import org.zenoss.protobufs.zep.Zep.EventTagSeverities;
+import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
+import org.zenoss.protobufs.zep.Zep.EventTagSeverity;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -174,33 +177,16 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     }
 
     @Test
-    public void findWorstSeverity() throws ZepException {
+    public void testGetEventTagSeverities() throws ZepException {
         String tag1 = UUID.randomUUID().toString();
         String tag2 = UUID.randomUUID().toString();
         String tag3 = UUID.randomUUID().toString();
-
-        /* Create error severity with two tags */
-        createEventWithSeverity(EventSeverity.SEVERITY_WARNING, EventStatus.STATUS_NEW, tag1, tag2);
-        /* Create critical severity with one tag */
-        createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW, tag2);
-        /* Create closed event with all three tags */
-        createEventWithSeverity(EventSeverity.SEVERITY_CRITICAL, EventStatus.STATUS_CLOSED, tag1, tag2, tag3);
-
-        Set<String> tags = new HashSet<String>();
-        tags.add(tag1);
-        tags.add(tag2);
-        tags.add(tag3);
-        Map<String, EventSeverity> worst = eventIndexDao.findWorstSeverity(tags);
-        assertEquals(EventSeverity.SEVERITY_WARNING, worst.get(tag1));
-        assertEquals(EventSeverity.SEVERITY_ERROR, worst.get(tag2));
-        assertNull(worst.get(tag3));
-    }
-
-    @Test
-    public void countSeverities() throws ZepException {
-        String tag1 = UUID.randomUUID().toString();
-        String tag2 = UUID.randomUUID().toString();
-        String tag3 = UUID.randomUUID().toString();
+        EventTagFilter.Builder tagFilterBuilder =  EventTagFilter.newBuilder();
+        tagFilterBuilder.addAllTagUuids(Arrays.asList(tag1, tag2, tag3));
+        EventFilter.Builder eventFilterBuilder = EventFilter.newBuilder();
+        eventFilterBuilder.addTagFilter(tagFilterBuilder.build());
+        eventFilterBuilder.addAllStatus(Arrays.asList(EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED));
+        EventFilter eventFilter = eventFilterBuilder.build();
 
         /* Create error severity with two tags */
         for (int i = 0; i < 5; i++) {
@@ -222,21 +208,39 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
                     EventStatus.STATUS_CLEARED, tag1, tag2, tag2);
         }
 
-        Set<String> tags = new HashSet<String>();
-        tags.add(tag1);
-        tags.add(tag2);
-        tags.add(tag3);
-        Map<String, Map<EventSeverity, Integer>> counts = eventIndexDao
-                .countSeverities(tags);
-        assertEquals(1, counts.get(tag1).size());
-        assertEquals(5, counts.get(tag1).get(EventSeverity.SEVERITY_ERROR)
-                .intValue());
-        assertEquals(2, counts.get(tag2).size());
-        assertEquals(5, counts.get(tag2).get(EventSeverity.SEVERITY_ERROR)
-                .intValue());
-        assertEquals(3, counts.get(tag2).get(EventSeverity.SEVERITY_CRITICAL)
-                .intValue());
-        assertNull(counts.get(tag3));
+        EventTagSeveritiesSet tagSeveritiesSet = eventIndexDao.getEventTagSeverities(eventFilter);
+        Map<String, EventTagSeverities> tagSeveritiesMap = new HashMap<String, EventTagSeverities>();
+        for (EventTagSeverities tagSeverities : tagSeveritiesSet.getSeveritiesList()) {
+            tagSeveritiesMap.put(tagSeverities.getTagUuid(), tagSeverities);
+        }
+
+        EventTagSeverities tag1Severities = tagSeveritiesMap.get(tag1);
+        assertEquals(5, tag1Severities.getTotal());
+        assertEquals(1, tag1Severities.getSeveritiesCount());
+        for (EventTagSeverity tagSeverity : tag1Severities.getSeveritiesList()) {
+            assertEquals(EventSeverity.SEVERITY_ERROR, tagSeverity.getSeverity());
+            assertEquals(5, tagSeverity.getCount());
+        }
+
+        EventTagSeverities tag2Severities = tagSeveritiesMap.get(tag2);
+        assertEquals(8, tag2Severities.getTotal());
+        assertEquals(2, tag2Severities.getSeveritiesCount());
+        for (EventTagSeverity tagSeverity : tag1Severities.getSeveritiesList()) {
+            switch (tagSeverity.getSeverity()) {
+                case SEVERITY_ERROR:
+                    assertEquals(5, tagSeverity.getCount());
+                    break;
+                case SEVERITY_CRITICAL:
+                    assertEquals(3, tagSeverity.getCount());
+                    break;
+                default:
+                    throw new RuntimeException("Unexpected severity: " + tagSeverity.getSeverity());
+            }
+        }
+
+        EventTagSeverities tag3Severities = tagSeveritiesMap.get(tag3);
+        assertEquals(0, tag3Severities.getTotal());
+        assertEquals(0, tag3Severities.getSeveritiesCount());
     }
 
     private EventSummaryRequest createTagRequest(FilterOperator op,
@@ -490,8 +494,8 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     @Test
     public void testEventFilterOperator() throws ZepException {
-        EventSummary event1 = createEventWithSeverity(EventSeverity.SEVERITY_INFO, EventStatus.STATUS_NEW);
-        EventSummary event2 = createEventWithSeverity(EventSeverity.SEVERITY_DEBUG, EventStatus.STATUS_CLOSED);
+        createEventWithSeverity(EventSeverity.SEVERITY_INFO, EventStatus.STATUS_NEW);
+        createEventWithSeverity(EventSeverity.SEVERITY_DEBUG, EventStatus.STATUS_CLOSED);
 
         // First test OR query with INFO or CLOSED; should return both events
         EventFilter.Builder or_filter = EventFilter.newBuilder()

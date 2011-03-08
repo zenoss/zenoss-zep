@@ -17,31 +17,37 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.Collector;
+import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
-import org.apache.lucene.search.TopFieldDocs;
+import org.apache.lucene.util.OpenBitSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.TaskScheduler;
+import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSort;
 import org.zenoss.protobufs.zep.Zep.EventSort.Direction;
-import org.zenoss.protobufs.zep.Zep.EventSort.Field;
-import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
+import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.EventTagFilter;
+import org.zenoss.protobufs.zep.Zep.EventTagSeverities;
+import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
+import org.zenoss.protobufs.zep.Zep.EventTagSeverity;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.zep.Messages;
 import org.zenoss.zep.ZepConstants;
@@ -59,10 +65,8 @@ import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
@@ -546,101 +550,125 @@ public class EventIndexDaoImpl implements EventIndexDao {
         return qb.build();
     }
 
-    private static final FieldSelector SEVERITY_SELECTOR = new SingleFieldSelector(FIELD_SEVERITY);
-    
-    private Map<EventSeverity,Integer> countSeveritiesForTag(String tag) throws ZepException {
-        QueryBuilder builder = new QueryBuilder();
-        builder.addField(IndexConstants.FIELD_TAGS, tag);
-        List<EventStatus> status = Arrays.asList(EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED);
-        builder.addFieldOfEnumNumbers(IndexConstants.FIELD_STATUS, status);
-        final Query query = builder.build();
+    private static class TagSeverities {
+        final String tagUuid;
+        private final Map<EventSeverity, Integer> severityCount = new EnumMap<EventSeverity,Integer>(EventSeverity.class);
+        private int total = 0;
 
+        public TagSeverities(String tagUuid) {
+            this.tagUuid = tagUuid;
+        }
+
+        public void updateSeverityCount(final EventSeverity severity, final int count) {
+            this.total += count;
+            Integer num = severityCount.get(severity);
+            if (num == null) {
+                num = 1;
+            }
+            else {
+                ++num;
+            }
+            this.severityCount.put(severity, num);
+        }
+
+        public EventTagSeverities toEventTagSeverities() {
+            EventTagSeverities.Builder builder = EventTagSeverities.newBuilder();
+            builder.setTagUuid(tagUuid);
+            for (Map.Entry<EventSeverity, Integer> entry : severityCount.entrySet()) {
+                builder.addSeverities(EventTagSeverity.newBuilder().setSeverity(entry.getKey())
+                    .setCount(entry.getValue()).build());
+            }
+            builder.setTotal(this.total);
+            return builder.build();
+        }
+    }
+
+    private EventTagSeveritiesSet tagSeveritiesMapToSet(Map<String, TagSeverities> tagSeveritiesMap) {
+        EventTagSeveritiesSet.Builder builder = EventTagSeveritiesSet.newBuilder();
+        for (TagSeverities tagSeverities : tagSeveritiesMap.values()) {
+            builder.addSeverities(tagSeverities.toEventTagSeverities());
+        }
+        return builder.build();
+    }
+
+    @Override
+    public EventTagSeveritiesSet getEventTagSeverities(EventFilter filter)
+            throws ZepException {
+        final Map<String, TagSeverities> tagSeveritiesMap = new HashMap<String, TagSeverities>();
+        final boolean hasTagsFilter = filter.getTagFilterCount() > 0;
+        for (EventTagFilter eventTagFilter: filter.getTagFilterList()) {
+            for (String eventTagUuid : eventTagFilter.getTagUuidsList()) {
+                tagSeveritiesMap.put(eventTagUuid, new TagSeverities(eventTagUuid));
+            }
+        }
         IndexSearcher searcher = null;
         try {
             searcher = getSearcher();
-            Map<EventSeverity, Integer> severities = null;
-            int maxDoc = searcher.maxDoc();
-            if (maxDoc > 0) {
-                TopDocs docs = searcher.search(query, maxDoc);
-                if (docs.scoreDocs.length > 0) {
-                    severities = new EnumMap<EventSeverity,Integer>(EventSeverity.class);
-                    for (ScoreDoc scoreDoc : docs.scoreDocs) {
-                        Document doc = searcher.doc(scoreDoc.doc, SEVERITY_SELECTOR);
-                        EventSeverity severity = EventSeverity.valueOf(Integer.valueOf(doc.get(FIELD_SEVERITY)));
-                        Integer count = severities.get(severity);
-                        if (count == null) {
-                            count = 1;
-                        } else {
-                            ++count;
+            final Query query = buildQueryFromFilter(searcher.getIndexReader(), filter);
+            final OpenBitSet docs = new OpenBitSet(searcher.maxDoc());
+            searcher.search(query, new Collector() {
+                private int docBase;
+
+                @Override
+                public void setScorer(Scorer scorer) throws IOException {
+                }
+
+                @Override
+                public void collect(int doc) throws IOException {
+                    docs.set(docBase + doc);
+                }
+
+                @Override
+                public void setNextReader(IndexReader reader, int docBase) throws IOException {
+                    this.docBase = docBase;
+                }
+
+                @Override
+                public boolean acceptsDocsOutOfOrder() {
+                    return true;
+                }
+            });
+            int docId;
+            final DocIdSetIterator it = docs.iterator();
+            while ((docId = it.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
+                final Document doc = searcher.doc(docId, PROTO_SELECTOR);
+                final EventSummary summary = EventIndexMapper.toEventSummary(doc);
+                final Event occurrence = summary.getOccurrence(0);
+                final EventActor actor = occurrence.getActor();
+                // Build tags from element_uuids - no tags specified in filter
+                if (!hasTagsFilter) {
+                    if (actor.hasElementUuid()) {
+                        TagSeverities tagSeverities = tagSeveritiesMap.get(actor.getElementUuid());
+                        if (tagSeverities == null) {
+                            tagSeverities = new TagSeverities(actor.getElementUuid());
+                            tagSeveritiesMap.put(tagSeverities.tagUuid, tagSeverities);
                         }
-                        severities.put(severity, count);
+                        tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount());
+                    }
+                }
+                // Build tag severities from passed in filter
+                else {
+                    List<String> uuids = Arrays.asList(actor.getElementUuid(), actor.getElementSubUuid());
+                    for (String uuid : uuids) {
+                        TagSeverities tagSeverities = tagSeveritiesMap.get(uuid);
+                        if (tagSeverities != null) {
+                            tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount());
+                        }
+                    }
+                    for (EventTag tag : occurrence.getTagsList()) {
+                        TagSeverities tagSeverities = tagSeveritiesMap.get(tag.getUuid());
+                        if (tagSeverities != null) {
+                            tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount());
+                        }
                     }
                 }
             }
-            return severities;
+            return tagSeveritiesMapToSet(tagSeveritiesMap);
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
         } finally {
             returnSearcher(searcher);
         }
-    }
-
-    @Override
-    public Map<String,Map<EventSeverity,Integer>> countSeverities(Set<String> tags)
-            throws ZepException {
-        Map<String,Map<EventSeverity,Integer>> severities = new HashMap<String, Map<EventSeverity,Integer>>(tags.size());
-        for (String tag : tags) {
-            Map<EventSeverity,Integer> tagSeverities = countSeveritiesForTag(tag);
-            if (tagSeverities != null) {
-                severities.put(tag, tagSeverities);
-            }
-        }
-        return severities;
-    }
-    
-    private EventSeverity findWorstSeverity(String tag) throws ZepException {
-        QueryBuilder builder = new QueryBuilder();
-        builder.addField(IndexConstants.FIELD_TAGS, tag);
-        List<EventStatus> status = Arrays.asList(EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED);
-        builder.addFieldOfEnumNumbers(IndexConstants.FIELD_STATUS, status);
-        final Query query = builder.build();
-
-        // Sort by worst severity
-        EventSort.Builder eventSortBuilder = EventSort.newBuilder();
-        eventSortBuilder.setDirection(Direction.DESCENDING);
-        eventSortBuilder.setField(Field.SEVERITY);
-        final EventSort eventSort = eventSortBuilder.build();
-        final Sort sort = buildSort(Collections.singletonList(eventSort));
-
-        IndexSearcher searcher = null;
-
-        try {
-            searcher = getSearcher();
-            TopFieldDocs docs = searcher.search(query, null, 1, sort);
-            EventSeverity severity = null;
-            if (docs.scoreDocs.length > 0) {
-                Document doc = searcher.doc(docs.scoreDocs[0].doc, SEVERITY_SELECTOR);
-                severity = EventSeverity.valueOf(Integer.valueOf(doc.get(FIELD_SEVERITY)));
-            }
-            return severity;
-        } catch (IOException e) {
-            throw new ZepException(e.getLocalizedMessage(), e);
-        } finally {
-            returnSearcher(searcher);
-        }
-    }
-
-    @Override
-    public Map<String, EventSeverity> findWorstSeverity(Set<String> tags)
-            throws ZepException {
-        Map<String,EventSeverity> severities = new LinkedHashMap<String, EventSeverity>(tags.size());
-        for (String tag : tags) {
-            EventSeverity worstSeverity = findWorstSeverity(tag);
-            if (worstSeverity != null) {
-                severities.put(tag, worstSeverity);
-            }
-        }
-        return severities;
     }
 
     private static class SavedSearch implements Closeable {
@@ -742,7 +770,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     }
 
     private void scheduleSearchTimeout(final SavedSearch search) throws ZepException {
-        logger.info("Scheduling saved search {} for expiration in {} seconds", search.getUuid(), search.getTimeout());
+        logger.debug("Scheduling saved search {} for expiration in {} seconds", search.getUuid(), search.getTimeout());
         Date d = new Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(search.getTimeout()));
         search.setTimeoutFuture(scheduler.schedule(new ThreadRenamingRunnable(new Runnable() {
             @Override

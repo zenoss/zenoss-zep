@@ -16,6 +16,7 @@ import org.zenoss.protobufs.rest.ProtobufMessageRegistry;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventDetailItemSet;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
+import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
@@ -52,7 +53,8 @@ public class ProtobufMessageRegistryImpl implements ProtobufMessageRegistry {
                 EventDetailSet.getDefaultInstance(),
                 EventDetailItemSet.getDefaultInstance(),
                 EventDetailItem.getDefaultInstance(),
-                ZepConfig.getDefaultInstance());
+                ZepConfig.getDefaultInstance(),
+                EventFilter.getDefaultInstance());
         for (Message message : messages) {
             messageByFullName.put(message.getDescriptorForType().getFullName(),
                     message);

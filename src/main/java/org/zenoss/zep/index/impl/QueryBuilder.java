@@ -21,12 +21,14 @@ import org.apache.lucene.index.TermEnum;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.MultiPhraseQuery;
 import org.apache.lucene.search.NumericRangeQuery;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TermsFilter;
 import org.apache.lucene.search.WildcardQuery;
 import org.apache.lucene.search.WildcardTermEnum;
 import org.slf4j.Logger;
@@ -38,7 +40,6 @@ import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
-import org.zenoss.zep.dao.EventDetailsConfigDao;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -65,11 +66,6 @@ public class QueryBuilder {
         } else {
             this.operator = BooleanClause.Occur.MUST;
         }
-    }
-
-    public QueryBuilder addField(String key, String value) {
-        queries.add(new TermQuery(new Term(key, value)));
-        return this;
     }
 
     private static String unquote(String str) {
@@ -361,18 +357,22 @@ public class QueryBuilder {
 
     public QueryBuilder addField(String key, List<String> values, FilterOperator op) {
         if (!values.isEmpty()) {
-            final BooleanClause.Occur occur;
-            final BooleanQuery booleanQuery = new BooleanQuery();
+            final Query query;
             if (op == FilterOperator.AND) {
-                occur = BooleanClause.Occur.MUST;
+                final BooleanClause.Occur occur = BooleanClause.Occur.MUST;
+                BooleanQuery bq = new BooleanQuery();
+                for (String value : values) {
+                    bq.add(new TermQuery(new Term(key, value)), occur);
+                }
+                query = bq;
             } else {
-                occur = BooleanClause.Occur.SHOULD;
+                TermsFilter filter = new TermsFilter();
+                for (String value : values) {
+                    filter.addTerm(new Term(key, value));
+                }
+                query = new ConstantScoreQuery(filter);
             }
-
-            for (String value : values) {
-                booleanQuery.add(new TermQuery(new Term(key, value)), occur);
-            }
-            queries.add(booleanQuery);
+            queries.add(query);
         }
         return this;
     }

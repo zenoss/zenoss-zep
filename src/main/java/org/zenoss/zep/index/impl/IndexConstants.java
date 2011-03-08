@@ -19,7 +19,7 @@ public class IndexConstants {
      * The version of the event index. This should be updated each time a new field
      * is added to the index or the way a field gets indexed changes.
      */
-    public static final int INDEX_VERSION = 1;
+    public static final int INDEX_VERSION = 2;
 
     public static final String FIELD_UUID = "uuid";
     public static final String FIELD_STATUS = "status";

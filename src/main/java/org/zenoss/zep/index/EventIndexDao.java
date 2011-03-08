@@ -11,18 +11,18 @@
 
 package org.zenoss.zep.index;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
+import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventQuery;
-import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
+import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.Purgable;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * DAO for Event Index.
@@ -174,31 +174,17 @@ public interface EventIndexDao extends Purgable {
     public void delete(EventSummaryRequest request) throws ZepException;
 
     /**
-     * Calculate the number of events in each severity type for each specified
-     * tag.
-     * 
-     * @param tags
-     *            The tags to calculate severities for.
-     * @return A Map of UUID to a map of event severity to the number of events
-     *         in that severity.
-     * @throws ZepException
-     *             If an error occurs.
+     * Returns event tag severities for the specified filter. If the filter specifies
+     * tags, then there will be one EventTagSeverities object returned in the
+     * set for each tag. If the filter doesn't specify tags, then there
+     * will be one EventTagSeverities object for each element_uuid which matches
+     * the filter.
+     *
+     * @param filter The filter used to query for tag severities information.
+     * @return The tag severities summary for each tag.
+     * @throws ZepException If an error occurs.
      */
-    public Map<String, Map<EventSeverity, Integer>> countSeverities(Set<String> tags) throws ZepException;
-
-    /**
-     * Calculates the worst severity event for each tag in the specified
-     * collection.
-     * 
-     * @param tags
-     *            The tags to determine the worst severity event for.
-     * @return A map of the tag to the worst severity event for the tag. Tags
-     *         which have no events are not returned in the mapping.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public Map<String, EventSeverity> findWorstSeverity(Set<String> tags)
-            throws ZepException;
+    public EventTagSeveritiesSet getEventTagSeverities(EventFilter filter) throws ZepException;
 
     /**
      * Creates a saved search with the given event query.
