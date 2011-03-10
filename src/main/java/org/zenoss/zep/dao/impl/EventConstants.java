@@ -10,16 +10,11 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import java.util.Collections;
-import java.util.LinkedHashSet;
-import java.util.Set;
-
 public class EventConstants {
     // Table names
     public static final String TABLE_EVENT = "event";
     public static final String TABLE_EVENT_ARCHIVE = "event_archive";
     public static final String TABLE_EVENT_SUMMARY = "event_summary";
-    public static final String TABLE_CLEAR_EVENTS = "clear_events";
 
     // Shared column names
     public static final String COLUMN_ELEMENT_SUB_IDENTIFIER = "element_sub_identifier";
@@ -70,7 +65,7 @@ public class EventConstants {
     public static final int MAX_ELEMENT_IDENTIFIER = 255;
     public static final int MAX_ELEMENT_SUB_IDENTIFIER = MAX_ELEMENT_IDENTIFIER;
     public static final int MAX_EVENT_CLASS = 128;
-    public static final int MAX_EVENT_CLASS_KEY = 32;
+    public static final int MAX_EVENT_CLASS_KEY = 128;
     public static final int MAX_EVENT_KEY = 128;
     public static final int MAX_MONITOR = 128;
     public static final int MAX_AGENT = 64;
