@@ -39,7 +39,7 @@ public class IndexConstants {
     public static final String FIELD_EVENT_CLASS_NOT_ANALYZED = "event_class_not_analyzed";
     public static final String FIELD_TAGS = "tag";
     public static final String FIELD_UPDATE_TIME = "update_time";
-    public static final String FIELD_ACKNOWLEDGED_BY_USER_NAME = "acknowledged_by_user_name";
+    public static final String FIELD_CURRENT_USER_NAME = "current_user_name";
     public static final String FIELD_AGENT = "agent";
     public static final String FIELD_MONITOR = "monitor";
     public static final String FIELD_PROTOBUF = "protobuf";

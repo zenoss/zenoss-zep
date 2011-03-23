@@ -117,7 +117,7 @@ public class EventStoreDaoImpl implements EventStoreDao {
             break;
         case STATUS_ACKNOWLEDGED:
             numUpdatedEvents = eventSummaryDao.acknowledge(uuids,
-                    update.getAcknowledgedByUserUuid(), update.getAcknowledgedByUserName());
+                    update.getCurrentUserUuid(), update.getCurrentUserName());
             break;
         case STATUS_CLOSED:
             numUpdatedEvents = eventSummaryDao.close(uuids);

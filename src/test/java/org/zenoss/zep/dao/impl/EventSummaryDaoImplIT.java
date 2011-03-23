@@ -114,8 +114,8 @@ public class EventSummaryDaoImplIT extends
                 eventSummaryFromDb.getStatusChangeTime());
         assertEquals(eventFromSummary.getCreatedTime(),
                 eventSummaryFromDb.getLastSeenTime());
-        assertFalse(eventSummaryFromDb.hasAcknowledgedByUserUuid());
-        assertFalse(eventSummaryFromDb.hasAcknowledgedByUserName());
+        assertFalse(eventSummaryFromDb.hasCurrentUserUuid());
+        assertFalse(eventSummaryFromDb.hasCurrentUserName());
         assertFalse(eventSummaryFromDb.hasClearedByEventUuid());
 
         /*
@@ -245,9 +245,9 @@ public class EventSummaryDaoImplIT extends
         assertEquals(MAX_MESSAGE, eventFromDb.getMessage().length());
 
         this.eventSummaryDao.acknowledge(Collections.singletonList(summary.getUuid()), UUID.randomUUID().toString(),
-                createRandomMaxString(MAX_ACKNOWLEDGED_BY_USER_NAME + 1));
+                createRandomMaxString(MAX_CURRENT_USER_NAME + 1));
         final EventSummary summaryFromDb = this.eventSummaryDao.findByUuid(summary.getUuid());
-        assertEquals(MAX_ACKNOWLEDGED_BY_USER_NAME, summaryFromDb.getAcknowledgedByUserName().length());
+        assertEquals(MAX_CURRENT_USER_NAME, summaryFromDb.getCurrentUserName().length());
     }
 
     public static Event createUniqueEvent() {
@@ -299,8 +299,8 @@ public class EventSummaryDaoImplIT extends
         long origStatusChange = summary.getStatusChangeTime();
         long origUpdateTime = summary.getUpdateTime();
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
-        assertFalse(summary.hasAcknowledgedByUserUuid());
-        assertFalse(summary.hasAcknowledgedByUserName());
+        assertFalse(summary.hasCurrentUserUuid());
+        assertFalse(summary.hasCurrentUserName());
 
         int numUpdated = eventSummaryDao.close(Collections.singletonList(summary.getUuid()));
         assertEquals(1, numUpdated);
@@ -316,8 +316,8 @@ public class EventSummaryDaoImplIT extends
         assertEquals(1, numUpdated);
         EventSummary origSummary = summary;
         summary = eventSummaryDao.findByUuid(summary.getUuid());
-        assertFalse(summary.hasAcknowledgedByUserUuid());
-        assertFalse(summary.hasAcknowledgedByUserName());
+        assertFalse(summary.hasCurrentUserUuid());
+        assertFalse(summary.hasCurrentUserName());
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
@@ -331,8 +331,8 @@ public class EventSummaryDaoImplIT extends
         long origStatusChange = summary.getStatusChangeTime();
         long origUpdateTime = summary.getUpdateTime();
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
-        assertFalse(summary.hasAcknowledgedByUserUuid());
-        assertFalse(summary.hasAcknowledgedByUserName());
+        assertFalse(summary.hasCurrentUserUuid());
+        assertFalse(summary.hasCurrentUserName());
 
         String userUuid = UUID.randomUUID().toString();
         String userName = "user" + random.nextInt(500);
@@ -341,8 +341,8 @@ public class EventSummaryDaoImplIT extends
                 Collections.singletonList(summary.getUuid()), userUuid, userName);
         assertEquals(1, numUpdated);
         summary = eventSummaryDao.findByUuid(summary.getUuid());
-        assertEquals(userUuid, summary.getAcknowledgedByUserUuid());
-        assertEquals(userName, summary.getAcknowledgedByUserName());
+        assertEquals(userUuid, summary.getCurrentUserUuid());
+        assertEquals(userName, summary.getCurrentUserName());
         assertEquals(EventStatus.STATUS_ACKNOWLEDGED, summary.getStatus());
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
@@ -356,8 +356,8 @@ public class EventSummaryDaoImplIT extends
         long origStatusChange = summary.getStatusChangeTime();
         long origUpdateTime = summary.getUpdateTime();
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
-        assertFalse(summary.hasAcknowledgedByUserUuid());
-        assertFalse(summary.hasAcknowledgedByUserName());
+        assertFalse(summary.hasCurrentUserUuid());
+        assertFalse(summary.hasCurrentUserName());
 
         EventSummary origSummary = summary;
         int numUpdated = eventSummaryDao.suppress(Collections
@@ -377,8 +377,8 @@ public class EventSummaryDaoImplIT extends
         long origStatusChange = summary.getStatusChangeTime();
         long origUpdateTime = summary.getUpdateTime();
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
-        assertFalse(summary.hasAcknowledgedByUserUuid());
-        assertFalse(summary.hasAcknowledgedByUserName());
+        assertFalse(summary.hasCurrentUserUuid());
+        assertFalse(summary.hasCurrentUserName());
 
         EventSummary origSummary = summary;
         int numUpdated = eventSummaryDao.close(Collections

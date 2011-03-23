@@ -168,7 +168,7 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         String query_uuid = location.substring(location.lastIndexOf('/') + 1);
 
         final EventSummaryUpdate updateFields = EventSummaryUpdate.newBuilder()
-                .setAcknowledgedByUserUuid(ackUuid).setAcknowledgedByUserName(ackName).setStatus(status).build();
+                .setCurrentUserUuid(ackUuid).setCurrentUserName(ackName).setStatus(status).build();
         EventSummaryUpdateRequest.Builder reqBuilder = EventSummaryUpdateRequest.newBuilder();
         reqBuilder.setLimit(50);
         reqBuilder.setUpdateFields(updateFields);
@@ -196,8 +196,8 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         assertEquals(uuids.size(), summaries.size());
         for (EventSummary summary : summaries) {
             assertEquals(status, summary.getStatus());
-            assertEquals(ackUuid, summary.getAcknowledgedByUserUuid());
-            assertEquals(ackName, summary.getAcknowledgedByUserName());
+            assertEquals(ackUuid, summary.getCurrentUserUuid());
+            assertEquals(ackName, summary.getCurrentUserName());
         }
     }
 
@@ -232,7 +232,7 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         String ackName = "testuser123";
 
         final EventSummaryUpdate updateFields = EventSummaryUpdate.newBuilder()
-                .setAcknowledgedByUserUuid(ackUuid).setAcknowledgedByUserName(ackName).setStatus(status).build();
+                .setCurrentUserUuid(ackUuid).setCurrentUserName(ackName).setStatus(status).build();
         EventSummaryUpdateRequest.Builder reqBuilder = EventSummaryUpdateRequest.newBuilder();
         reqBuilder.setLimit(10);
         reqBuilder.setUpdateFields(updateFields);
@@ -256,8 +256,8 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         for (EventSummary summary : summaries) {
             if (uuids.contains(summary.getUuid())) {
                 assertEquals(status, summary.getStatus());
-                assertEquals(ackUuid, summary.getAcknowledgedByUserUuid());
-                assertEquals(ackName, summary.getAcknowledgedByUserName());
+                assertEquals(ackUuid, summary.getCurrentUserUuid());
+                assertEquals(ackName, summary.getCurrentUserName());
             }
             else {
                 // Excluded UUIDs shouldn't have changed

@@ -53,8 +53,8 @@ public class EventConstants {
     public static final String COLUMN_STATUS_CHANGE = "status_change";
     public static final String COLUMN_LAST_SEEN = "last_seen";
     public static final String COLUMN_EVENT_COUNT = "event_count";
-    public static final String COLUMN_ACKNOWLEDGED_BY_USER_UUID = "acknowledged_by_user_uuid";
-    public static final String COLUMN_ACKNOWLEDGED_BY_USER_NAME = "acknowledged_by_user_name";
+    public static final String COLUMN_CURRENT_USER_UUID = "current_user_uuid";
+    public static final String COLUMN_CURRENT_USER_NAME = "current_user_name";
     public static final String COLUMN_CLEAR_FINGERPRINT_HASH = "clear_fingerprint_hash";
     public static final String COLUMN_CLEARED_BY_EVENT_UUID = "cleared_by_event_uuid";
     public static final String COLUMN_NOTES_JSON = "notes_json";
@@ -72,5 +72,5 @@ public class EventConstants {
     public static final int MAX_EVENT_GROUP = 64;
     public static final int MAX_SUMMARY = 255;
     public static final int MAX_MESSAGE = 4096;
-    public static final int MAX_ACKNOWLEDGED_BY_USER_NAME = 32;
+    public static final int MAX_CURRENT_USER_NAME = 32;
 }

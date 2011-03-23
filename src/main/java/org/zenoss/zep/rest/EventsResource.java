@@ -413,7 +413,7 @@ public class EventsResource {
         final Set<String> element_sub_identifier = getQuerySet(queryParams, prefix + "element_sub_identifier");
         final Set<String> uuids = getQuerySet(queryParams, prefix + "uuid");
         final Set<String> summary = getQuerySet(queryParams, prefix + "event_summary");
-        final Set<String> acknowledged_by_user = getQuerySet(queryParams, prefix + "acknowledged_by_user");
+        final Set<String> current_user = getQuerySet(queryParams, prefix + "current_user");
         final Set<String> tagUuids = getQuerySet(queryParams, prefix + "tag_uuids");
         final String tagUuidsOp = queryParams.getFirst(prefix + "tag_uuids_op");
         // TODO: EventDetailFilter
@@ -428,7 +428,7 @@ public class EventsResource {
         filterBuilder.addAllElementSubIdentifier(element_sub_identifier);
         filterBuilder.addAllUuid(uuids);
         filterBuilder.addAllEventSummary(summary);
-        filterBuilder.addAllAcknowledgedByUserName(acknowledged_by_user);
+        filterBuilder.addAllCurrentUserName(current_user);
 
         if (firstSeen != null) {
             filterBuilder.addFirstSeen(firstSeen);

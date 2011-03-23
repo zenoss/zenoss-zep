@@ -59,7 +59,7 @@ public class EventIndexMapper {
         // Store the UUID for more lightweight queries against the index
         doc.add(new Field(FIELD_UUID, summary.getUuid(), Store.YES, Index.NOT_ANALYZED_NO_NORMS));
 
-        doc.add(new Field(FIELD_ACKNOWLEDGED_BY_USER_NAME, summary.getAcknowledgedByUserName(), Store.NO,
+        doc.add(new Field(FIELD_CURRENT_USER_NAME, summary.getCurrentUserName(), Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
 
         doc.add(new NumericField(FIELD_STATUS, Store.NO, true).setIntValue(summary.getStatus().getNumber()));

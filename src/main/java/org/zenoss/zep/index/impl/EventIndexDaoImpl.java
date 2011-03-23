@@ -444,8 +444,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 return new SortField(FIELD_STATUS_CHANGE_TIME, SortField.LONG, reverse);
             case UPDATE_TIME:
                 return new SortField(FIELD_UPDATE_TIME, SortField.LONG, reverse);
-            case ACKNOWLEDGED_BY_USER_NAME:
-                return new SortField(FIELD_ACKNOWLEDGED_BY_USER_NAME, SortField.STRING, reverse);
+            case CURRENT_USER_NAME:
+                return new SortField(FIELD_CURRENT_USER_NAME, SortField.STRING, reverse);
             case AGENT:
                 return new SortField(FIELD_AGENT, SortField.STRING, reverse);
             case MONITOR:
@@ -516,7 +516,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         QueryBuilder qb = new QueryBuilder(filter.getOperator());
 
         qb.addRanges(FIELD_COUNT, filter.getCountRangeList());
-        qb.addWildcardFields(FIELD_ACKNOWLEDGED_BY_USER_NAME, filter.getAcknowledgedByUserNameList(), false);
+        qb.addWildcardFields(FIELD_CURRENT_USER_NAME, filter.getCurrentUserNameList(), false);
         qb.addIdentifierFields(FIELD_ELEMENT_IDENTIFIER, FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED,
                 filter.getElementIdentifierList(), this.writer.getAnalyzer());
         qb.addIdentifierFields(FIELD_ELEMENT_SUB_IDENTIFIER, FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED,

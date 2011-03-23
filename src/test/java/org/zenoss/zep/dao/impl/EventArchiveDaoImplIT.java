@@ -75,7 +75,7 @@ public class EventArchiveDaoImplIT extends
                 eventSummaryFromDb.getStatusChangeTime());
         assertEquals(eventFromSummary.getCreatedTime(),
                 eventSummaryFromDb.getLastSeenTime());
-        assertFalse(eventSummaryFromDb.hasAcknowledgedByUserUuid());
+        assertFalse(eventSummaryFromDb.hasCurrentUserUuid());
         assertFalse(eventSummaryFromDb.hasClearedByEventUuid());
 
         eventArchiveDao.delete(eventSummaryFromDb.getUuid());

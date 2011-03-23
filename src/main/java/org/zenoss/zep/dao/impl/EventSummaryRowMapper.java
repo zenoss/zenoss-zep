@@ -42,13 +42,13 @@ public class EventSummaryRowMapper implements RowMapper<EventSummary> {
         summaryBuilder.setLastSeenTime(rs.getLong(COLUMN_LAST_SEEN));
         summaryBuilder.setUpdateTime(rs.getLong(COLUMN_UPDATE_TIME));
         summaryBuilder.setCount(rs.getInt(COLUMN_EVENT_COUNT));
-        byte[] acknowledgedByUserUuid = rs.getBytes(COLUMN_ACKNOWLEDGED_BY_USER_UUID);
-        if (acknowledgedByUserUuid != null) {
-            summaryBuilder.setAcknowledgedByUserUuid(DaoUtils.uuidFromBytes(acknowledgedByUserUuid));
+        byte[] currentUserUuid = rs.getBytes(COLUMN_CURRENT_USER_UUID);
+        if (currentUserUuid != null) {
+            summaryBuilder.setCurrentUserUuid(DaoUtils.uuidFromBytes(currentUserUuid));
         }
-        String acknowledgedByUserName = rs.getString(COLUMN_ACKNOWLEDGED_BY_USER_NAME);
-        if (acknowledgedByUserName != null) {
-            summaryBuilder.setAcknowledgedByUserName(acknowledgedByUserName);
+        String currentUserName = rs.getString(COLUMN_CURRENT_USER_NAME);
+        if (currentUserName != null) {
+            summaryBuilder.setCurrentUserName(currentUserName);
         }
         byte[] clearedByEventUuid = rs.getBytes(COLUMN_CLEARED_BY_EVENT_UUID);
         if (clearedByEventUuid != null) {

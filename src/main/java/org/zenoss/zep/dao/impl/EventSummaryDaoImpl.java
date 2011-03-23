@@ -441,20 +441,20 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     private static class EventSummaryUpdateFields {
-        private String acknowledgedByUserUuid;
-        private String acknowledgedByUserName;
+        private String currentUserUuid;
+        private String currentUserName;
         private String clearedByEventUuid;
 
         public static final EventSummaryUpdateFields EMPTY_FIELDS = new EventSummaryUpdateFields();
 
         public Map<String,Object> toMap() {
             Map<String,Object> m = new HashMap<String,Object>();
-            byte[] ackUuidBytes = null;
-            if (this.acknowledgedByUserUuid != null) {
-                ackUuidBytes = DaoUtils.uuidToBytes(this.acknowledgedByUserUuid);
+            byte[] currentUuidBytes = null;
+            if (this.currentUserUuid != null) {
+                currentUuidBytes = DaoUtils.uuidToBytes(this.currentUserUuid);
             }
-            m.put(COLUMN_ACKNOWLEDGED_BY_USER_UUID, ackUuidBytes);
-            m.put(COLUMN_ACKNOWLEDGED_BY_USER_NAME, acknowledgedByUserName);
+            m.put(COLUMN_CURRENT_USER_UUID, currentUuidBytes);
+            m.put(COLUMN_CURRENT_USER_NAME, currentUserName);
 
             byte[] clearedUuidBytes = null;
             if (this.clearedByEventUuid != null) {
@@ -466,9 +466,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         public static EventSummaryUpdateFields createAcknowledged(String userUuid, String userName) {
             EventSummaryUpdateFields fields = new EventSummaryUpdateFields();
-            fields.acknowledgedByUserUuid = userUuid;
+            fields.currentUserUuid = userUuid;
             if (userName != null) {
-                fields.acknowledgedByUserName = DaoUtils.truncateStringToUtf8(userName, MAX_ACKNOWLEDGED_BY_USER_NAME);
+                fields.currentUserName = DaoUtils.truncateStringToUtf8(userName, MAX_CURRENT_USER_NAME);
             }
             return fields;
         }
@@ -501,8 +501,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
          */
         StringBuilder sb = new StringBuilder("UPDATE IGNORE event_summary SET status_id=:status_id,")
                 .append("status_change=:status_change,update_time=:update_time,indexed=:indexed,")
-                .append("acknowledged_by_user_uuid=:acknowledged_by_user_uuid,")
-                .append("acknowledged_by_user_name=:acknowledged_by_user_name,")
+                .append("current_user_uuid=:current_user_uuid,")
+                .append("current_user_name=:current_user_name,")
                 .append("cleared_by_event_uuid=:cleared_by_event_uuid");
         // When closing an event, give it a unique fingerprint hash
         if (CLOSED_STATUSES.contains(status)) {
