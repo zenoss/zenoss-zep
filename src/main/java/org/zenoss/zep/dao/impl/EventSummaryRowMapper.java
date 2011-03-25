@@ -20,6 +20,7 @@ import java.util.Set;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.zenoss.protobufs.JsonFormat;
+import org.zenoss.protobufs.zep.Zep.EventAuditLog;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -64,6 +65,17 @@ public class EventSummaryRowMapper implements RowMapper<EventSummary> {
                 throw new SQLException(e);
             }
         }
+        String auditJson = rs.getString(COLUMN_AUDIT_JSON);
+        if (auditJson != null) {
+            try {
+                List<EventAuditLog> auditLog = JsonFormat.mergeAllDelimitedFrom("[" + auditJson + "]",
+                        EventAuditLog.getDefaultInstance());
+                summaryBuilder.addAllAuditLog(auditLog);
+            } catch (IOException e) {
+                throw new SQLException(e);
+            }
+        }
+
         return summaryBuilder.build();
     }
 }

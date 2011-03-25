@@ -113,14 +113,16 @@ public class EventStoreDaoImpl implements EventStoreDao {
         }
         switch (newStatus) {
         case STATUS_NEW:
-            numUpdatedEvents = eventSummaryDao.reopen(uuids);
+            numUpdatedEvents = eventSummaryDao.reopen(uuids,
+                    update.getCurrentUserUuid(), update.getCurrentUserName());
             break;
         case STATUS_ACKNOWLEDGED:
             numUpdatedEvents = eventSummaryDao.acknowledge(uuids,
                     update.getCurrentUserUuid(), update.getCurrentUserName());
             break;
         case STATUS_CLOSED:
-            numUpdatedEvents = eventSummaryDao.close(uuids);
+            numUpdatedEvents = eventSummaryDao.close(uuids,
+                    update.getCurrentUserUuid(), update.getCurrentUserName());
             break;
         case STATUS_SUPPRESSED:
             numUpdatedEvents = eventSummaryDao.suppress(uuids);

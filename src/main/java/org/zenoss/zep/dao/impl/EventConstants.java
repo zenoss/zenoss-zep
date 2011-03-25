@@ -58,6 +58,7 @@ public class EventConstants {
     public static final String COLUMN_CLEAR_FINGERPRINT_HASH = "clear_fingerprint_hash";
     public static final String COLUMN_CLEARED_BY_EVENT_UUID = "cleared_by_event_uuid";
     public static final String COLUMN_NOTES_JSON = "notes_json";
+    public static final String COLUMN_AUDIT_JSON = "audit_json";
     public static final String COLUMN_INDEXED = "indexed";
 
     // Maximum lengths for CHAR/VARCHAR columns

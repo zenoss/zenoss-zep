@@ -173,11 +173,15 @@ public interface EventSummaryDao {
      * 
      * @param uuids
      *            The event UUIDs to return to {@link EventStatus#STATUS_NEW}.
+     * @param userUuid
+     *            The UUID of the user who acknowledged the event.
+     * @param userName
+     *            The name of the user who acknowledged the event.
      * @return The number of reopened events.
      * @throws ZepException
      *             If an error occurs.
      */
-    public int reopen(List<String> uuids) throws ZepException;
+    public int reopen(List<String> uuids, String userUuid, String userName) throws ZepException;
 
     /**
      * Acknowledges the events with event status of
@@ -214,11 +218,15 @@ public interface EventSummaryDao {
      * 
      * @param uuids
      *            UUIDs of events to close.
+     * @param userUuid
+     *            The UUID of the user who acknowledged the event.
+     * @param userName
+     *            The name of the user who acknowledged the event.
      * @return The number of closed events.
      * @throws ZepException
      *             If an error occurs.
      */
-    public int close(List<String> uuids) throws ZepException;
+    public int close(List<String> uuids, String userUuid, String userName) throws ZepException;
 
     /**
      * Archives events with the specified UUIDs.

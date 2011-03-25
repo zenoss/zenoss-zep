@@ -302,7 +302,10 @@ public class EventSummaryDaoImplIT extends
         assertFalse(summary.hasCurrentUserUuid());
         assertFalse(summary.hasCurrentUserName());
 
-        int numUpdated = eventSummaryDao.close(Collections.singletonList(summary.getUuid()));
+        String userUuid = UUID.randomUUID().toString();
+        String userName = "user" + random.nextInt(500);
+
+        int numUpdated = eventSummaryDao.close(Collections.singletonList(summary.getUuid()), userUuid, userName);
         assertEquals(1, numUpdated);
         summary = eventSummaryDao.findByUuid(summary.getUuid());
         assertEquals(EventStatus.STATUS_CLOSED, summary.getStatus());
@@ -312,7 +315,7 @@ public class EventSummaryDaoImplIT extends
         origUpdateTime = summary.getUpdateTime();
 
         /* Now reopen event */
-        numUpdated = eventSummaryDao.reopen(Collections.singletonList(summary.getUuid()));
+        numUpdated = eventSummaryDao.reopen(Collections.singletonList(summary.getUuid()), userUuid, userName);
         assertEquals(1, numUpdated);
         EventSummary origSummary = summary;
         summary = eventSummaryDao.findByUuid(summary.getUuid());
@@ -380,9 +383,11 @@ public class EventSummaryDaoImplIT extends
         assertFalse(summary.hasCurrentUserUuid());
         assertFalse(summary.hasCurrentUserName());
 
+        String userUuid = UUID.randomUUID().toString();
+        String userName = "user" + random.nextInt(500);
         EventSummary origSummary = summary;
         int numUpdated = eventSummaryDao.close(Collections
-                .singletonList(summary.getUuid()));
+                .singletonList(summary.getUuid()), userUuid, userName);
         assertEquals(1, numUpdated);
         summary = eventSummaryDao.findByUuid(summary.getUuid());
         assertEquals(EventStatus.STATUS_CLOSED, summary.getStatus());

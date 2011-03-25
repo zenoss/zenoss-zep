@@ -28,6 +28,7 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
+import org.zenoss.protobufs.zep.Zep.EventAuditLog;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -292,7 +293,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         final String uuid = create(event, EventStatus.STATUS_CLOSED);
 
-        final EventSummaryUpdateFields updateFields = EventSummaryUpdateFields.createCleared(uuid);
+        final EventSummaryUpdateFields updateFields = new EventSummaryUpdateFields();
+        updateFields.setClearedByEventUuid(uuid);
+        // TODO - get user data here
+        //updateFields.setCurrentUserUuid(userUuid);
+        //updateFields.setCurrentUserName(userName);
         update(clearedUuids, EventStatus.STATUS_CLEARED, updateFields, OPEN_STATUSES);
         return uuid;
     }
@@ -384,6 +389,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             EventStatus.STATUS_ACKNOWLEDGED, EventStatus.STATUS_SUPPRESSED);
     private static final EnumSet<EventStatus> CLOSED_STATUSES = EnumSet.of(EventStatus.STATUS_CLOSED,
             EventStatus.STATUS_AGED, EventStatus.STATUS_CLEARED);
+    private static final EnumSet<EventStatus> AUDIT_LOG_STATUSES = EnumSet.of(
+            EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED, EventStatus.STATUS_CLOSED,
+            EventStatus.STATUS_CLEARED);
 
     private static final List<Integer> CLOSED_STATUS_IDS = Arrays.asList(
             EventStatus.STATUS_AGED.getNumber(),
@@ -464,19 +472,16 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             return m;
         }
 
-        public static EventSummaryUpdateFields createAcknowledged(String userUuid, String userName) {
-            EventSummaryUpdateFields fields = new EventSummaryUpdateFields();
-            fields.currentUserUuid = userUuid;
-            if (userName != null) {
-                fields.currentUserName = DaoUtils.truncateStringToUtf8(userName, MAX_CURRENT_USER_NAME);
-            }
-            return fields;
+        public void setCurrentUserUuid(String currentUserUuid) {
+            this.currentUserUuid = currentUserUuid;
         }
 
-        public static EventSummaryUpdateFields createCleared(String clearedByEventUuid) {
-            EventSummaryUpdateFields fields = new EventSummaryUpdateFields();
-            fields.clearedByEventUuid = clearedByEventUuid;
-            return fields;
+        public void setCurrentUserName(String currentUserName) {
+            this.currentUserName = DaoUtils.truncateStringToUtf8(currentUserName, MAX_CURRENT_USER_NAME);
+        }
+
+        public void setClearedByEventUuid(String clearedByEventUuid) {
+            this.clearedByEventUuid = clearedByEventUuid;
         }
     }
 
@@ -499,11 +504,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
          * IGNORE duplicate key errors on update. This will occur if there is an active
          * event with the same fingerprint.
          */
-        StringBuilder sb = new StringBuilder("UPDATE IGNORE event_summary SET status_id=:status_id,")
-                .append("status_change=:status_change,update_time=:update_time,indexed=:indexed,")
-                .append("current_user_uuid=:current_user_uuid,")
-                .append("current_user_name=:current_user_name,")
-                .append("cleared_by_event_uuid=:cleared_by_event_uuid");
+        StringBuilder sb = new StringBuilder("UPDATE IGNORE event_summary SET status_id=:status_id")
+                .append(",status_change=:status_change,update_time=:update_time,indexed=:indexed")
+                .append(",current_user_uuid=:current_user_uuid")
+                .append(",current_user_name=:current_user_name")
+                .append(",cleared_by_event_uuid=:cleared_by_event_uuid");
         // When closing an event, give it a unique fingerprint hash
         if (CLOSED_STATUSES.contains(status)) {
             sb.append(",fingerprint_hash=UNHEX(SHA1(CONCAT_WS('|',fingerprint,:update_time)))");
@@ -515,6 +520,31 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         else {
             sb.append(",fingerprint_hash=UNHEX(SHA1(fingerprint))");
         }
+
+        /*
+         * If this is a significant status change, also add an audit note
+         */
+        if (AUDIT_LOG_STATUSES.contains(status)) {
+            EventAuditLog.Builder builder = EventAuditLog.newBuilder();
+            builder.setTimestamp(now);
+            builder.setNewStatus(status);
+            byte[] event_user_uuid_bytes = (byte[])updateFieldsMap.get(COLUMN_CURRENT_USER_UUID);
+            if (event_user_uuid_bytes != null) {
+                builder.setUserUuid(DaoUtils.uuidFromBytes(event_user_uuid_bytes));
+            }
+            String event_user = (String)updateFieldsMap.get(COLUMN_CURRENT_USER_NAME);
+            if (event_user != null) {
+                builder.setUserName(event_user);
+            }
+
+            try {
+                updateFieldsMap.put(COLUMN_AUDIT_JSON, JsonFormat.writeAsString(builder.build()));
+            } catch (IOException e) {
+                throw new ZepException(e);
+            }
+            sb.append(",audit_json=CONCAT_WS(',\n',:audit_json,audit_json)");
+        }
+
         sb.append(" WHERE uuid IN (:_uuids)");
 
         /*
@@ -541,8 +571,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             throws ZepException {
         /* NEW | SUPPRESSED -> ACKNOWLEDGED */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_NEW, EventStatus.STATUS_SUPPRESSED);
-        EventSummaryUpdateFields fields = EventSummaryUpdateFields.createAcknowledged(userUuid, userName);
-        return update(uuids, EventStatus.STATUS_ACKNOWLEDGED, fields, currentStatuses);
+        EventSummaryUpdateFields userfields = new EventSummaryUpdateFields();
+        userfields.setCurrentUserName(userName);
+        userfields.setCurrentUserUuid(userUuid);
+        return update(uuids, EventStatus.STATUS_ACKNOWLEDGED, userfields, currentStatuses);
     }
 
     @Override
@@ -570,20 +602,26 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @Transactional
-    public int close(List<String> uuids) throws ZepException {
+    public int close(List<String> uuids, String userUuid, String userName) throws ZepException {
         /* NEW | ACKNOWLEDGED | SUPPRESSED -> CLOSED */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED,
                 EventStatus.STATUS_SUPPRESSED);
-        return update(uuids, EventStatus.STATUS_CLOSED, EventSummaryUpdateFields.EMPTY_FIELDS, currentStatuses);
+        EventSummaryUpdateFields userfields = new EventSummaryUpdateFields();
+        userfields.setCurrentUserName(userName);
+        userfields.setCurrentUserUuid(userUuid);
+        return update(uuids, EventStatus.STATUS_CLOSED, userfields, currentStatuses);
     }
 
     @Override
     @Transactional
-    public int reopen(List<String> uuids) throws ZepException {
+    public int reopen(List<String> uuids, String userUuid, String userName) throws ZepException {
         /* CLOSED | CLEARED | AGED | ACKNOWLEDGED -> NEW */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_CLOSED, EventStatus.STATUS_CLEARED,
                 EventStatus.STATUS_AGED, EventStatus.STATUS_ACKNOWLEDGED);
-        return update(uuids, EventStatus.STATUS_NEW, EventSummaryUpdateFields.EMPTY_FIELDS, currentStatuses);
+        EventSummaryUpdateFields userfields = new EventSummaryUpdateFields();
+        userfields.setCurrentUserName(userName);
+        userfields.setCurrentUserUuid(userUuid);
+        return update(uuids, EventStatus.STATUS_NEW, userfields, currentStatuses);
     }
 
     @Override
