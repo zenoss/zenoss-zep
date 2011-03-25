@@ -319,8 +319,8 @@ public class EventSummaryDaoImplIT extends
         assertEquals(1, numUpdated);
         EventSummary origSummary = summary;
         summary = eventSummaryDao.findByUuid(summary.getUuid());
-        assertFalse(summary.hasCurrentUserUuid());
-        assertFalse(summary.hasCurrentUserName());
+        assertEquals(userUuid, summary.getCurrentUserUuid());
+        assertEquals(userName, summary.getCurrentUserName());
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
