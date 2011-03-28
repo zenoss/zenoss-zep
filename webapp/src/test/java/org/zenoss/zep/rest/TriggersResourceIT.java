@@ -10,14 +10,6 @@
  */
 package org.zenoss.zep.rest;
 
-import static org.junit.Assert.*;
-
-import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -28,6 +20,14 @@ import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscriptionSet;
 import org.zenoss.protobufs.zep.Zep.Rule;
 import org.zenoss.protobufs.zep.Zep.RuleType;
+
+import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+import static org.junit.Assert.*;
 
 public class TriggersResourceIT {
 

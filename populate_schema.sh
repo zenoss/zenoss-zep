@@ -61,6 +61,6 @@ fi
 exec $MYSQL <<EOF
 $DROP_DB create database $DBNAME;
 use $DBNAME;
-source $BASEDIR/src/main/sql/event_schema.sql
+source $BASEDIR/core/src/main/sql/event_schema.sql
 EOF
 RC=$?

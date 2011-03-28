@@ -2,17 +2,19 @@
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.zenoss.zep</groupId>
-    <artifactId>zenoss-zep</artifactId>
-    <packaging>war</packaging>
+    <artifactId>zep-parent</artifactId>
+    <packaging>pom</packaging>
     <version>1.0-SNAPSHOT</version>
-    <name>Zenoss Event Processor</name>
+    <name>Zenoss Event Processor Parent</name>
     <url>http://www.zenoss.com</url>
+    <modules>
+        <module>core</module>
+        <module>webapp</module>
+        <module>dist</module>
+    </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-        <jetty.version>7.2.1.v20101111</jetty.version>
-        <jetty.port>8084</jetty.port>
-        <jetty.stop.port>8094</jetty.stop.port>
         <!-- These properties are used for jetty:run. -->
         <zep.jdbc.hostname>localhost</zep.jdbc.hostname>
         <zep.jdbc.username>root</zep.jdbc.username>
@@ -24,65 +26,20 @@
         <zep.test.amqp.uri>amqp://zenoss:zenoss@localhost:5672/zenoss-test</zep.test.amqp.uri>
         <!-- Dependency Versions -->
         <version.jackson>1.6.3</version.jackson>
+        <version.jetty>7.2.1.v20101111</version.jetty>
+        <version.logback>0.9.26</version.logback>
+        <version.lucene>3.0.3</version.lucene>
         <version.mysql>5.1.14</version.mysql>
         <version.resteasy>2.0.1.GA</version.resteasy>
         <version.slf4j>1.6.1</version.slf4j>
         <version.spring>3.0.5.RELEASE</version.spring>
     </properties>
     <scm>
-        <connection>scm:svn:http://dev.zenoss.org/svn/zep/trunk</connection>
-        <developerConnection>scm:svn:http://dev.zenoss.org/svn/zep/trunk</developerConnection>
-        <url>http://dev.zenoss.org/trac/browser/zep</url>
+        <connection>scm:svn:http://dev.zenoss.com/svnint/trunk/core/zep</connection>
+        <developerConnection>scm:svn:http://dev.zenoss.com/svnint/trunk/core/zep</developerConnection>
+        <url>http://dev.zenoss.com/tracint/browser/trunk/core/zep</url>
     </scm>
     <dependencies>
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-core</artifactId>
-            <version>3.0.3</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-analyzers</artifactId>
-            <version>3.0.3</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-queries</artifactId>
-            <version>3.0.3</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.zenoss</groupId>
-            <artifactId>amqp-api</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.zenoss</groupId>
-            <artifactId>protobufs</artifactId>
-            <version>1.0-SNAPSHOT</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-context</artifactId>
-            <version>${version.spring}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>commons-logging</groupId>
-                    <artifactId>commons-logging</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
@@ -97,193 +54,6 @@
             <type>jar</type>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>jcl-over-slf4j</artifactId>
-            <version>${version.slf4j}</version>
-            <type>jar</type>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>${version.slf4j}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.jackson</groupId>
-            <artifactId>jackson-core-asl</artifactId>
-            <version>${version.jackson}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.jackson</groupId>
-            <artifactId>jackson-jaxrs</artifactId>
-            <version>${version.jackson}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.jackson</groupId>
-            <artifactId>jackson-xc</artifactId>
-            <version>${version.jackson}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.jackson</groupId>
-            <artifactId>jackson-mapper-asl</artifactId>
-            <version>${version.jackson}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-jaxrs</artifactId>
-            <version>${version.resteasy}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-simple</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-spring</artifactId>
-            <version>${version.resteasy}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.sun.xml.bind</groupId>
-                    <artifactId>jaxb-impl</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.sun.xml.stream</groupId>
-                    <artifactId>sjsxp</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-jackson-provider</artifactId>
-            <version>${version.resteasy}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-            <version>${version.spring}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-tx</artifactId>
-            <version>${version.spring}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <!--needed for assembly deployment-->
-        <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>servlet-api</artifactId>
-            <version>2.5</version>
-            <type>jar</type>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-deploy</artifactId>
-            <version>${jetty.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-start</artifactId>
-            <version>${jetty.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-test</artifactId>
-            <version>${version.spring}</version>
-            <type>jar</type>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-jdbc</artifactId>
-            <version>${version.spring}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>${version.mysql}</version>
-            <type>jar</type>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>commons-dbcp</groupId>
-            <artifactId>commons-dbcp</artifactId>
-            <version>1.4</version>
-            <type>jar</type>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>cglib</groupId>
-            <artifactId>cglib-nodep</artifactId>
-            <version>2.2</version>
-            <type>jar</type>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.zenoss</groupId>
-            <artifactId>jython</artifactId>
-            <version>2.5.2</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-        	<groupId>ch.qos.logback</groupId>
-        	<artifactId>logback-core</artifactId>
-        	<version>0.9.26</version>
-        	<type>jar</type>
-        	<scope>runtime</scope>
-        </dependency>
-        <dependency>
-        	<groupId>ch.qos.logback</groupId>
-        	<artifactId>logback-classic</artifactId>
-        	<version>0.9.26</version>
-        	<type>jar</type>
-        	<scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.janino</groupId>
-            <artifactId>janino</artifactId>
-            <version>2.5.16</version>
-            <type>jar</type>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-        	<groupId>org.slf4j</groupId>
-        	<artifactId>log4j-over-slf4j</artifactId>
-        	<version>${version.slf4j}</version>
-        	<type>jar</type>
-        	<scope>runtime</scope>
-        </dependency>
     </dependencies>
     <build>
         <plugins>
@@ -297,128 +67,6 @@
                 </configuration>
             </plugin>
             <plugin>
-                <artifactId>maven-assembly-plugin</artifactId>
-                <version>2.2</version>
-                <configuration>
-                    <descriptors>
-                        <descriptor>src/main/assembly/zenoss-zep-webapp.xml</descriptor>
-                    </descriptors>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>sql-maven-plugin</artifactId>
-                <version>1.4</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>mysql</groupId>
-                        <artifactId>mysql-connector-java</artifactId>
-                        <version>${version.mysql}</version>
-                        <type>jar</type>
-                        <scope>runtime</scope>
-                    </dependency>
-                </dependencies>
-                <configuration>
-                    <driver>com.mysql.jdbc.Driver</driver>
-                    <url>jdbc:mysql://${zep.jdbc.hostname}/${zep.test.jdbc.dbname}?characterEncoding=UTF-8</url>
-                    <username>${zep.jdbc.username}</username>
-                    <password>${zep.jdbc.password}</password>
-                    <settingsKey>zepTest</settingsKey>
-                    <skip>${maven.test.skip}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>drop-db-before-test</id>
-                        <phase>pre-integration-test</phase>
-                        <goals>
-                            <goal>execute</goal>
-                        </goals>
-                        <configuration>
-                            <url>jdbc:mysql://${zep.jdbc.hostname}?characterEncoding=UTF-8</url>
-                            <sqlCommand>DROP DATABASE IF EXISTS ${zep.test.jdbc.dbname}</sqlCommand>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>create-db</id>
-                        <phase>pre-integration-test</phase>
-                        <goals>
-                            <goal>execute</goal>
-                        </goals>
-                        <configuration>
-                            <url>jdbc:mysql://${zep.jdbc.hostname}?characterEncoding=UTF-8</url>
-                            <autocommit>true</autocommit>
-                            <sqlCommand>CREATE DATABASE ${zep.test.jdbc.dbname}</sqlCommand>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>create-schema</id>
-                        <phase>pre-integration-test</phase>
-                        <goals>
-                            <goal>execute</goal>
-                        </goals>
-                        <configuration>
-                            <srcFiles>
-                                <srcFile>src/main/sql/event_schema.sql</srcFile>
-                            </srcFiles>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
-                <groupId>org.mortbay.jetty</groupId>
-                <artifactId>jetty-maven-plugin</artifactId>
-                <version>${jetty.version}</version>
-                <configuration>
-                    <connectors>
-                        <connector implementation="org.eclipse.jetty.server.nio.SelectChannelConnector">
-                            <port>${jetty.port}</port>
-                            <maxIdleTime>60000</maxIdleTime>
-                            <requestHeaderSize>65536</requestHeaderSize>
-                        </connector>
-                    </connectors>
-                    <webAppConfig>
-                        <contextPath>/${project.artifactId}</contextPath>
-                    </webAppConfig>
-                    <scanIntervalSeconds>0</scanIntervalSeconds>
-                    <stopKey>STOP</stopKey>
-                    <stopPort>${jetty.stop.port}</stopPort>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>start-jetty</id>
-                        <phase>pre-integration-test</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                        <configuration>
-                            <daemon>true</daemon>
-                            <scanIntervalSeconds>0</scanIntervalSeconds>
-                            <systemProperties>
-                                <systemProperty>
-                                    <name>zep.jdbc.dbname</name>
-                                    <value>${zep.test.jdbc.dbname}</value>
-                                </systemProperty>
-                                <systemProperty>
-                                    <name>zep.index.dir</name>
-                                    <value>${zep.test.index.dir}</value>
-                                </systemProperty>
-                                <systemProperty>
-                                    <name>zep.amqp.uri</name>
-                                    <value>${zep.test.amqp.uri}</value>
-                                </systemProperty>
-                            </systemProperties>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>stop-jetty</id>
-                        <phase>post-integration-test</phase>
-                        <goals>
-                            <goal>stop</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>2.7</version>
@@ -428,34 +76,6 @@
                 </configuration>
             </plugin>
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <version>2.6</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                        <configuration>
-                            <systemPropertyVariables>
-                                <zep.jdbc.hostname>${zep.jdbc.hostname}</zep.jdbc.hostname>
-                                <zep.jdbc.dbname>${zep.test.jdbc.dbname}</zep.jdbc.dbname>
-                                <zep.jdbc.username>${zep.jdbc.username}</zep.jdbc.username>
-                                <zep.jdbc.password>${zep.jdbc.password}</zep.jdbc.password>
-                                <zep.index.dir>${zep.test.index.dir}_it</zep.index.dir>
-                                <zep.amqp.uri>${zep.test.amqp.uri}</zep.amqp.uri>
-                                <!--
-                                Disable background indexing during integration testing. Having two instances
-                                of the indexer running at the same time is not supported.
-                                -->
-                                <zep.index.enabled>false</zep.index.enabled>
-                            </systemPropertyVariables>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>versions-maven-plugin</artifactId>
                 <version>1.2</version>
@@ -463,7 +83,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.6</version>
+                <version>2.8</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -480,20 +100,6 @@
             </plugin>
         </plugins>
     </build>
-    <repositories>
-        <repository>
-            <id>jboss</id>
-            <url>http://repository.jboss.org/nexus/content/groups/public/</url>
-            <releases>
-                <enabled>true</enabled>
-                <updatePolicy>never</updatePolicy>
-            </releases>
-            <snapshots>
-                <enabled>true</enabled>
-                <updatePolicy>never</updatePolicy>
-            </snapshots>
-        </repository>
-    </repositories>
     <distributionManagement>
         <repository>
             <id>releases</id>
