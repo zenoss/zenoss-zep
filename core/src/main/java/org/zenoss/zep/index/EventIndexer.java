@@ -29,7 +29,9 @@ public interface EventIndexer {
     /**
      * Performs an index if either the summary or archive is out of date.
      *
+     * @param throughTime The timestamp through which events will be indexed.
+     * @return The number of indexed events.
      * @throws ZepException If an exception occurs.
      */
-    public void index() throws ZepException;
+    public int index(long throughTime) throws ZepException;
 }

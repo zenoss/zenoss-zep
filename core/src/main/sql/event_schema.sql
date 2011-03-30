@@ -118,7 +118,7 @@ CREATE TABLE `event_summary`
     INDEX (`status_id`,`last_seen`),
     INDEX (`clear_fingerprint_hash`,`last_seen`),
     INDEX (`severity_id`,`last_seen`),
-    INDEX (`indexed`),
+    INDEX (`update_time`,`indexed`),
     INDEX (`element_uuid`,`element_type_id`,`element_identifier`),
     INDEX (`element_sub_uuid`,`element_sub_type_id`,`element_sub_identifier`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
@@ -163,7 +163,7 @@ CREATE TABLE `event_archive`
     `audit_json` MEDIUMTEXT COMMENT 'JSON encoded event audit log.',
     `indexed` TINYINT NOT NULL DEFAULT 0,
     INDEX (`uuid`),
-    INDEX (`indexed`)
+    INDEX (`update_time`,`indexed`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 CREATE TABLE `event`

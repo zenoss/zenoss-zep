@@ -172,7 +172,11 @@ public class Application implements ApplicationListener<ZepEvent> {
                         @Override
                         public void run() {
                             try {
-                                eventIndexer.index();
+                                final long now = System.currentTimeMillis();
+                                int numIndexed;
+                                while ((numIndexed = eventIndexer.index(now)) > 0) {
+                                    logger.debug("Indexed {} events", numIndexed);
+                                }
                             } catch (TransientDataAccessException e) {
                                 logger.debug("Transient failure indexing events", e);
                             } catch (Exception e) {

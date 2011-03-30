@@ -46,6 +46,8 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 public class EventIndexerImpl implements EventIndexer {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
 
+    private static final int INDEX_LIMIT = 100;
+
     private final NamedParameterJdbcTemplate template;
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
@@ -185,16 +187,22 @@ public class EventIndexerImpl implements EventIndexer {
 
     @Override
     @Transactional
-    public synchronized void index() throws ZepException {
-        // TODO: Separate indexing of summary and archive to prevent long-running transactions
-        doIndex(eventSummaryIndexDao, TABLE_EVENT_SUMMARY);
-        doIndex(eventArchiveIndexDao, TABLE_EVENT_ARCHIVE);
+    public synchronized int index(long throughTime) throws ZepException {
+        int numIndexed = doIndex(eventSummaryIndexDao, TABLE_EVENT_SUMMARY, throughTime);
+        if (numIndexed == 0) {
+            numIndexed = doIndex(eventArchiveIndexDao, TABLE_EVENT_ARCHIVE, throughTime);
+        }
+        return numIndexed;
     }
 
-    private int doIndex(final EventIndexDao dao, final String tableName) throws ZepException {
-        final Map<String,Integer> fields = Collections.singletonMap(COLUMN_INDEXED, 0);
+    private int doIndex(final EventIndexDao dao, final String tableName, long throughTime) throws ZepException {
+        final Map<String,Object> fields = new HashMap<String,Object>();
+        fields.put(COLUMN_UPDATE_TIME, throughTime);
+        fields.put(COLUMN_INDEXED, 0);
+        fields.put("_limit", INDEX_LIMIT);
 
-        final String sql = "SELECT * FROM " + tableName + " WHERE indexed = :indexed FOR UPDATE";
+        final String sql = "SELECT * FROM " + tableName + " WHERE update_time <= :update_time AND indexed = :indexed" +
+                " LIMIT :_limit FOR UPDATE";
         final List<EventPostProcessingPlugin> plugins = this.pluginService.getPostProcessingPlugins();
         final List<byte[]> uuids = this.template.query(sql, fields, new RowMapper<byte[]>() {
             @Override
