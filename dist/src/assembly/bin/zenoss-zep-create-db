@@ -5,8 +5,10 @@ BASEDIR=`cd "$BASEDIR/.." && pwd`
 
 DBNAME=${DBNAME:-"zenoss_zep"}
 DBHOST=${DBHOST:-"localhost"}
-DBUSER=${DBUSER:-"root"}
-DBPASS=${DBPASS:-""}
+DBROOTUSER=${DBROOTUSER:-"root"}
+DBROOTPASS=${DBROOTPASS:-""}
+DBUSER=${DBUSER:-"zenoss"}
+DBPASS=${DBPASS:-"zenoss"}
 PROMPTPASS=0
 FORCE=0
 
@@ -15,8 +17,10 @@ usage() {
     echo ""
     echo "  --dbhost <dbhost> (default '$DBHOST')"
     echo "  --dbname <dbname> (default '$DBNAME')"
+    echo "  --dbrootuser <dbrootuser> (default '$DBROOTUSER')"
+    echo "  --dbrootpass <dbrootpass> (default '$DBROOTPASS')"
     echo "  --dbuser <dbuser> (default '$DBUSER')"
-    echo "  --dbpass <dbpass> (default '')"
+    echo "  --dbpass <dbpass> (default '$DBPASS')"
     echo "  --promptpass      (prompts for database password)"
     echo "  --force           (overwrites existing database)"
     echo ""
@@ -33,6 +37,14 @@ while [ $# -gt 0 ]; do
             ;;
         '--dbhost')
             DBHOST="$1"
+            shift
+            ;;
+        '--dbrootuser')
+            DBROOTUSER="$1"
+            shift
+            ;;
+        '--dbrootpass')
+            DBROOTPASS="$1"
             shift
             ;;
         '--dbuser')
@@ -60,9 +72,9 @@ if [ -n "$DBPASS" ] && [ $PROMPTPASS -gt 0 ]; then
 fi
 
 if [ $PROMPTPASS -gt 0 ]; then
-    set -- mysql --host="$DBHOST" --user="$DBUSER" --password
+    set -- mysql --host="$DBHOST" --user="$DBROOTUSER" --password
 else
-    set -- mysql --host="$DBHOST" --user="$DBUSER" --password="$DBPASS"
+    set -- mysql --host="$DBHOST" --user="$DBROOTUSER" --password="$DBROOTPASS"
 fi
 
 if [ $FORCE -gt 0 ]; then
@@ -71,6 +83,9 @@ fi
 
 exec "$@" <<EOF
 $DROP_DB create database $DBNAME;
+grant all on $DBNAME.* to '$DBUSER'@'$DBHOST' identified by '$DBPASS';
+grant all on $DBNAME.* to '$DBUSER'@'%' identified by '$DBPASS';
+flush privileges;
 use $DBNAME;
 source $BASEDIR/share/zenoss-zep/sql/event_schema.sql
 EOF
