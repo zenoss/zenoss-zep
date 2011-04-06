@@ -29,6 +29,7 @@ the Maven command-line. The available configuration properties and their
 default values are:
 
     * zep.jdbc.hostname: localhost
+    * zep.jdbc.port: 3306
     * zep.jdbc.dbname: zenoss_zep
     * zep.jdbc.username: root
     * zep.jdbc.password: <BLANK>

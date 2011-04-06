@@ -260,7 +260,7 @@
                 </dependencies>
                 <configuration>
                     <driver>com.mysql.jdbc.Driver</driver>
-                    <url>jdbc:mysql://${zep.jdbc.hostname}/${zep.test.jdbc.dbname}?characterEncoding=UTF-8</url>
+                    <url>jdbc:mysql://${zep.jdbc.hostname}:${zep.jdbc.port}/${zep.test.jdbc.dbname}?characterEncoding=UTF-8</url>
                     <username>${zep.jdbc.username}</username>
                     <password>${zep.jdbc.password}</password>
                     <settingsKey>zepTest</settingsKey>
@@ -274,7 +274,8 @@
                             <goal>execute</goal>
                         </goals>
                         <configuration>
-                            <url>jdbc:mysql://${zep.jdbc.hostname}?characterEncoding=UTF-8</url>
+                            <url>jdbc:mysql://${zep.jdbc.hostname}:${zep.jdbc.port}?characterEncoding=UTF-8</url>
+                            <autocommit>true</autocommit>
                             <sqlCommand>DROP DATABASE IF EXISTS ${zep.test.jdbc.dbname}</sqlCommand>
                         </configuration>
                     </execution>
@@ -285,7 +286,7 @@
                             <goal>execute</goal>
                         </goals>
                         <configuration>
-                            <url>jdbc:mysql://${zep.jdbc.hostname}?characterEncoding=UTF-8</url>
+                            <url>jdbc:mysql://${zep.jdbc.hostname}:${zep.jdbc.port}?characterEncoding=UTF-8</url>
                             <autocommit>true</autocommit>
                             <sqlCommand>CREATE DATABASE ${zep.test.jdbc.dbname}</sqlCommand>
                         </configuration>
@@ -317,6 +318,7 @@
                         <configuration>
                             <systemPropertyVariables>
                                 <zep.jdbc.hostname>${zep.jdbc.hostname}</zep.jdbc.hostname>
+                                <zep.jdbc.port>${zep.jdbc.port}</zep.jdbc.port>
                                 <zep.jdbc.dbname>${zep.test.jdbc.dbname}</zep.jdbc.dbname>
                                 <zep.jdbc.username>${zep.jdbc.username}</zep.jdbc.username>
                                 <zep.jdbc.password>${zep.jdbc.password}</zep.jdbc.password>

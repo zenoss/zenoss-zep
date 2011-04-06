@@ -18,7 +18,7 @@
     <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
         <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
         <property name="url"
-                  value="jdbc:mysql://${zep.jdbc.hostname}/${zep.jdbc.dbname}?characterEncoding=UTF-8&amp;autoReconnect=true&amp;rewriteBatchedStatements=true"/>
+                  value="jdbc:mysql://${zep.jdbc.hostname}:${zep.jdbc.port}/${zep.jdbc.dbname}?characterEncoding=UTF-8&amp;autoReconnect=true&amp;rewriteBatchedStatements=true"/>
         <property name="username" value="${zep.jdbc.username}"/>
         <property name="password" value="${zep.jdbc.password}"/>
         <property name="initialSize" value="${zep.jdbc.pool.initial_size:3}" />

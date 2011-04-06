@@ -17,6 +17,7 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <!-- These properties are used for jetty:run. -->
         <zep.jdbc.hostname>localhost</zep.jdbc.hostname>
+        <zep.jdbc.port>3306</zep.jdbc.port>
         <zep.jdbc.username>root</zep.jdbc.username>
         <zep.jdbc.password></zep.jdbc.password>
         <zep.jdbc.dbname>zenoss_zep</zep.jdbc.dbname>

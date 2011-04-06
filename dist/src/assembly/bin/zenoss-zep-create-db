@@ -5,6 +5,7 @@ BASEDIR=`cd "$BASEDIR/.." && pwd`
 
 DBNAME=${DBNAME:-"zenoss_zep"}
 DBHOST=${DBHOST:-"localhost"}
+DBPORT=${DBPORT:-"3306"}
 DBROOTUSER=${DBROOTUSER:-"root"}
 DBROOTPASS=${DBROOTPASS:-""}
 DBUSER=${DBUSER:-"zenoss"}
@@ -16,6 +17,7 @@ usage() {
     echo "Usage: $(basename "$0") [...]"
     echo ""
     echo "  --dbhost <dbhost> (default '$DBHOST')"
+    echo "  --dbport <dbport> (default '$DBPORT')"
     echo "  --dbname <dbname> (default '$DBNAME')"
     echo "  --dbrootuser <dbrootuser> (default '$DBROOTUSER')"
     echo "  --dbrootpass <dbrootpass> (default '$DBROOTPASS')"
@@ -33,6 +35,10 @@ while [ $# -gt 0 ]; do
     case "$ARG" in
         '--dbname')
             DBNAME="$1"
+            shift
+            ;;
+        '--dbport')
+            DBPORT="$1"
             shift
             ;;
         '--dbhost')
@@ -72,9 +78,9 @@ if [ -n "$DBPASS" ] && [ $PROMPTPASS -gt 0 ]; then
 fi
 
 if [ $PROMPTPASS -gt 0 ]; then
-    set -- mysql --host="$DBHOST" --user="$DBROOTUSER" --password
+    set -- mysql --host="$DBHOST" --port="$DBPORT" --user="$DBROOTUSER" --password
 else
-    set -- mysql --host="$DBHOST" --user="$DBROOTUSER" --password="$DBROOTPASS"
+    set -- mysql --host="$DBHOST" --port="$DBPORT" --user="$DBROOTUSER" --password="$DBROOTPASS"
 fi
 
 if [ $FORCE -gt 0 ]; then
