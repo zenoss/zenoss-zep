@@ -71,6 +71,9 @@ public class EventProcessorImpl implements EventProcessor {
         if (zepRawEvent.getTagsCount() > 0) {
             eventBuilder.addAllTags(zepRawEvent.getTagsList());
         }
+        if (!zepRawEvent.getEventClassMappingUuid().isEmpty()) {
+            eventBuilder.setEventClassMappingUuid(zepRawEvent.getEventClassMappingUuid());
+        }
         // Default to event class unknown.
         if (eventBuilder.getEventClass().isEmpty()) {
             eventBuilder.setEventClass(EVENT_CLASS_UNKNOWN);
