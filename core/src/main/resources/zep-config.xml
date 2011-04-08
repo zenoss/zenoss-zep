@@ -92,6 +92,7 @@
         <property name="eventSummaryDao" ref="eventSummaryDao"/>
         <property name="eventTriggerSubscriptionDao" ref="eventTriggerSubscriptionDao"/>
         <property name="connectionManager" ref="amqpConnectionManager"/>
+        <property name="eventStoreDao" ref="eventStoreDao"/>
     </bean>
 
     <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">

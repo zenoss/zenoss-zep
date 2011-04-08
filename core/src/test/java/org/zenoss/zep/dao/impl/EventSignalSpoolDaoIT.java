@@ -164,10 +164,8 @@ public class EventSignalSpoolDaoIT extends
         EventSignalSpool spool = EventSignalSpool.buildSpool(subscription,
                 eventSummary);
         dao.create(spool);
-        compareSpool(
-                spool,
-                dao.findByTriggerAndEventSummaryUuids(
-                        subscription.getTriggerUuid(), eventSummary.getUuid()));
+        compareSpool(spool,
+                dao.findBySubscriptionAndEventSummaryUuids(subscription.getUuid(), eventSummary.getUuid()));
     }
 
     @Test
@@ -194,5 +192,17 @@ public class EventSignalSpoolDaoIT extends
         for (EventSignalSpool dueSpool : due) {
             assertTrue(pastUuids.contains(dueSpool.getUuid()));
         }
+    }
+
+    @Test
+    public void testFindBySummaryUuid() throws ZepException {
+        EventTriggerSubscription subscription = createSubscription();
+        EventSummary eventSummary = createSampleSummary();
+        EventSignalSpool spool = EventSignalSpool.buildSpool(subscription, eventSummary);
+        dao.create(spool);
+        
+        List<EventSignalSpool> spools = dao.findAllByEventSummaryUuid(eventSummary.getUuid());
+        assertEquals(1, spools.size());
+        compareSpool(spool, spools.get(0));
     }
 }

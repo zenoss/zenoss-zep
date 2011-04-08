@@ -94,18 +94,18 @@ public interface EventSignalSpoolDao {
             throws ZepException;
 
     /**
-     * Finds the signal spool created for a specific trigger/event summary pair.
+     * Finds the signal spool created for a specific subscription/event summary pair.
      * 
-     * @param triggerUuid
-     *            UUID of matching EventTrigger
+     * @param subscriptionUuid
+     *            UUID of matching EventTriggerSubscription
      * @param eventSummaryUuid
      *            UUID of matching EventSummary
      * @return The signal spool item, or null if not found.
      * @throws ZepException
      *             If an error occurs looking up the signal spool item.
      */
-    public EventSignalSpool findByTriggerAndEventSummaryUuids(
-            String triggerUuid, String eventSummaryUuid) throws ZepException;
+    public EventSignalSpool findBySubscriptionAndEventSummaryUuids(
+            String subscriptionUuid, String eventSummaryUuid) throws ZepException;
 
     /**
      * Finds all signal spools due to be signaled.
@@ -115,6 +115,15 @@ public interface EventSignalSpoolDao {
      *             If an error occurs looking up the signal spool item.
      */
     public List<EventSignalSpool> findAllDue() throws ZepException;
+
+    /**
+     * Returns all spools for the given event summary UUID.
+     *
+     * @param eventSummaryUuid Event summary UUID.
+     * @return A list of all spools for the event summary UUID.
+     * @throws ZepException If an error occurs.
+     */
+    public List<EventSignalSpool> findAllByEventSummaryUuid(String eventSummaryUuid) throws ZepException;
 
     /**
      * Returns the next flush time in the spool.

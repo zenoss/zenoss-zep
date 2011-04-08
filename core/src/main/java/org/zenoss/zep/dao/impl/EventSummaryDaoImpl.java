@@ -32,6 +32,7 @@ import org.zenoss.protobufs.zep.Zep.EventAuditLog;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
 
@@ -106,7 +107,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
          * Closed events have a unique fingerprint_hash in summary to allow multiple rows
          * but only allow one active event (where the de-duplication occurs).
          */
-        if (CLOSED_STATUSES.contains(status)) {
+        if (ZepConstants.CLOSED_STATUSES.contains(status)) {
             String uniqueFingerprint = (String) fields.get(COLUMN_FINGERPRINT) + '|' + updateTime;
             fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1(uniqueFingerprint));
         }
@@ -298,7 +299,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         // TODO - get user data here
         //updateFields.setCurrentUserUuid(userUuid);
         //updateFields.setCurrentUserName(userName);
-        update(clearedUuids, EventStatus.STATUS_CLEARED, updateFields, OPEN_STATUSES);
+        update(clearedUuids, EventStatus.STATUS_CLEARED, updateFields, ZepConstants.OPEN_STATUSES);
         return uuid;
     }
 
@@ -385,10 +386,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 new EventSummaryRowMapper(this.eventDaoHelper), fields);
     }
 
-    private static final EnumSet<EventStatus> OPEN_STATUSES = EnumSet.of(EventStatus.STATUS_NEW,
-            EventStatus.STATUS_ACKNOWLEDGED, EventStatus.STATUS_SUPPRESSED);
-    private static final EnumSet<EventStatus> CLOSED_STATUSES = EnumSet.of(EventStatus.STATUS_CLOSED,
-            EventStatus.STATUS_AGED, EventStatus.STATUS_CLEARED);
     private static final EnumSet<EventStatus> AUDIT_LOG_STATUSES = EnumSet.of(
             EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED, EventStatus.STATUS_CLOSED,
             EventStatus.STATUS_CLEARED);
@@ -510,7 +507,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 .append(",current_user_name=:current_user_name")
                 .append(",cleared_by_event_uuid=:cleared_by_event_uuid");
         // When closing an event, give it a unique fingerprint hash
-        if (CLOSED_STATUSES.contains(status)) {
+        if (ZepConstants.CLOSED_STATUSES.contains(status)) {
             sb.append(",fingerprint_hash=UNHEX(SHA1(CONCAT_WS('|',fingerprint,:update_time)))");
         }
         /*
