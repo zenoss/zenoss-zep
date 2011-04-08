@@ -16,6 +16,7 @@ import org.python.core.PyFunction;
 import org.python.core.PyInteger;
 import org.python.core.PyObject;
 import org.python.core.PyString;
+import org.python.core.PyList;
 import org.python.core.PySyntaxError;
 import org.python.util.PythonInterpreter;
 import org.slf4j.Logger;
@@ -246,6 +247,19 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
             eventdict.put("severity", severityAsPyString.get(event.getSeverity()));
             eventdict.put("status", evtsummary.getStatus().getNumber());
 
+            if (event.hasEventClassKey()) {
+                eventdict.put("event_class_key", new PyString(event.getEventClassKey()));
+            }
+            if (event.hasSyslogPriority()) {
+                eventdict.put("syslog_priority", event.getSyslogPriority());
+            }
+            if (event.hasSyslogFacility()) {
+                eventdict.put("syslog_facility", event.getSyslogFacility());
+            }
+            if (event.hasNtEventCode()) {
+                eventdict.put("nt_event_code", event.getNtEventCode());
+            }
+
             if (event.hasActor()) {
                 EventActor actor = event.getActor();
 
@@ -292,7 +306,56 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                         logger.warn("Failed retrieving device priority", e);
                     }
                 }
+                else if (ZepConstants.DETAIL_DEVICE_CLASS.equals(detailName)) {
+                    try {
+                        // expect that this is a single-value detail.
+                        String device_class = String.valueOf(detail.getValue(0));
+                        devdict.put("device_class", new PyString(device_class));
+                    } catch (Exception e) {
+                        logger.warn("Failed retrieving device class", e);
+                    }
+                }
+                else if (ZepConstants.DETAIL_DEVICE_SYSTEMS.equals(detailName)) {
+                    try {
+                        // expect that this is a multi-value detail.
+                        List systems = detail.getValueList();
+                        devdict.put("systems", new PyList(systems));
+                    } catch (Exception e) {
+                        logger.warn("Failed retrieving device systems", e);
+                    }
+                }
+                else if (ZepConstants.DETAIL_DEVICE_GROUPS.equals(detailName)) {
+                    try {
+                        // expect that this is a multi-value detail.
+                        List groups = detail.getValueList();
+                        devdict.put("groups", new PyList(groups));
+                    } catch (Exception e) {
+                        logger.warn("Failed retrieving device groups", e);
+                    }
+                }
+                else if (ZepConstants.DETAIL_DEVICE_IP_ADDRESS.equals(detailName)) {
+                    try {
+                        // expect that this is a single-value detail.
+                        String ip_address = String.valueOf(detail.getValue(0));
+                        devdict.put("ip_address", new PyString(ip_address));
+                    } catch (Exception e) {
+                        logger.warn("Failed retrieving device ip address", e);
+                    }
+                }
+                else if (ZepConstants.DETAIL_DEVICE_LOCATION.equals(detailName)) {
+                    try {
+                        // expect that this is a single-value detail.
+                        String location = String.valueOf(detail.getValue(0));
+                        devdict.put("location", new PyString(location));
+                    } catch (Exception e) {
+                        logger.warn("Failed retrieving device location", e);
+                    }
+                }
             }
+        }
+
+        if (evtsummary.hasCurrentUserName()) {
+            eventdict.put("current_user_name", new PyString(evtsummary.getCurrentUserName()));
         }
 
         // add more data from the EventSummary itself
