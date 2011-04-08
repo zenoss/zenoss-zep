@@ -11,6 +11,12 @@
 
 package org.zenoss.zep;
 
+import org.zenoss.protobufs.zep.Zep.EventStatus;
+
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
+
 /**
  * Constants for ZEP.
  */
@@ -57,4 +63,15 @@ public final class ZepConstants {
      */
     public static final String DETAIL_DEVICE_LOCATION = "zenoss.device.location";
 
+    /**
+     * Open event statuses.
+     */
+    public static final Set<EventStatus> OPEN_STATUSES = Collections.unmodifiableSet(
+            EnumSet.of(EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED, EventStatus.STATUS_SUPPRESSED));
+
+    /**
+     * Closed event statuses.
+     */
+    public static final Set<EventStatus> CLOSED_STATUSES = Collections.unmodifiableSet(
+            EnumSet.of(EventStatus.STATUS_CLOSED, EventStatus.STATUS_AGED, EventStatus.STATUS_CLEARED));
 }
