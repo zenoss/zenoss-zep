@@ -81,6 +81,9 @@
         <constructor-arg index="0" ref="dataSource" />
         <constructor-arg index="1" ref="zepInstance" />
     </bean>
+    <bean id="heartbeatDao" class="org.zenoss.zep.dao.impl.HeartbeatDaoImpl">
+        <constructor-arg index="0" ref="dataSource" />
+    </bean>
 
     <!-- Indexing DAO -->
     <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl">

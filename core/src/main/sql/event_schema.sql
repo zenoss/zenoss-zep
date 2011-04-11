@@ -1,5 +1,5 @@
 -- This program is part of Zenoss Core, an open source monitoring platform.
--- Copyright (C) 2010, Zenoss Inc.
+-- Copyright (C) 2010-2011, Zenoss Inc.
 --
 -- This program is free software; you can redistribute it and/or modify it
 -- under the terms of the GNU General Public License version 2 as published by
@@ -8,6 +8,13 @@
 -- For complete information please visit: http://www.zenoss.com/oss/
 
 SET storage_engine=InnoDB;
+
+CREATE TABLE `schema_version`
+(
+    `version` INTEGER NOT NULL,
+    `installed_time` DATETIME NOT NULL,
+    PRIMARY KEY(version)
+) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 CREATE TABLE `event_class`
 (
@@ -250,3 +257,14 @@ CREATE TABLE `event_detail_index_config`
     `proto_json` MEDIUMTEXT NOT NULL COMMENT 'JSON serialized EventDetailItem',
     PRIMARY KEY (`detail_item_name`)
 ) ENGINE=InnoDB COMMENT='Event detail index configuration.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `daemon_heartbeat`
+(
+    `monitor` VARCHAR(255) NOT NULL COMMENT 'The monitor sending heartbeats.',
+    `daemon` VARCHAR(255) COMMENT 'The daemon sending heartbeats.',
+    `timeout_seconds` INTEGER NOT NULL COMMENT 'Amount of time in seconds before heartbeat events are sent.',
+    `last_time` BIGINT NOT NULL COMMENT 'Last time the heartbeat was received.',
+    PRIMARY KEY (`monitor`, `daemon`)
+) ENGINE=InnoDB COMMENT='Daemon heartbeats.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
+
+INSERT INTO `schema_version` (`version`, `installed_time`) VALUES(1, NOW());

@@ -49,6 +49,10 @@
         <property name="eventStoreDao" ref="eventStoreDao"/>
     </bean>
 
+    <bean id="eventPublisher" class="org.zenoss.zep.impl.EventPublisherImpl">
+        <property name="amqpConnectionManager" ref="amqpConnectionManager" />
+    </bean>
+
     <bean id="eventQueueListener" class="org.zenoss.zep.impl.RawEventQueueListener"
           depends-on="application">
         <property name="executorService" ref="executor" />
@@ -61,6 +65,16 @@
         <property name="executorService" ref="executor" />
         <property name="connectionManager" ref="amqpConnectionManager"/>
         <property name="eventSummaryDao" ref="eventSummaryDao"/>
+    </bean>
+
+    <bean id="heartbeatListener" class="org.zenoss.zep.impl.HeartbeatListener" depends-on="application">
+        <property name="connectionManager" ref="amqpConnectionManager" />
+        <property name="heartbeatDao" ref="heartbeatDao" />
+    </bean>
+    
+    <bean id="heartbeatProcessor" class="org.zenoss.zep.impl.HeartbeatProcessorImpl">
+        <property name="eventPublisher" ref="eventPublisher" />
+        <property name="heartbeatDao" ref="heartbeatDao" />
     </bean>
 
     <bean id="amqpServerUri" class="org.zenoss.amqp.AmqpServerUri" factory-method="createFromGlobalConf">
@@ -84,6 +98,7 @@
         <property name="eventIndexer" ref="eventIndexer"/>
         <property name="indexIntervalSeconds" value="${zep.index.interval_seconds:1}" />
         <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao" />
+        <property name="heartbeatProcessor" ref="heartbeatProcessor" />
     </bean>
 
     <bean id="triggerPlugin" class="org.zenoss.zep.impl.TriggerPlugin">

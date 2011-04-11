@@ -18,6 +18,7 @@ import org.springframework.dao.TransientDataAccessException;
 import org.springframework.scheduling.TaskScheduler;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
+import org.zenoss.zep.HeartbeatProcessor;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventArchiveDao;
@@ -52,6 +53,7 @@ public class Application implements ApplicationListener<ZepEvent> {
     private ScheduledFuture<?> eventArchivePurger = null;
     private ScheduledFuture<?> eventPurger = null;
     private ScheduledFuture<?> eventIndexerFuture = null;
+    private ScheduledFuture<?> heartbeatFuture = null;
     private ZepConfig oldConfig = null;
     private ZepConfig config;
 
@@ -65,6 +67,7 @@ public class Application implements ApplicationListener<ZepEvent> {
     private EventArchiveDao eventArchiveDao;
     private EventIndexer eventIndexer;
     private EventDetailsConfigDao eventDetailsConfigDao;
+    private HeartbeatProcessor heartbeatProcessor;
 
     public Application(boolean enableIndexing) {
         this.enableIndexing = enableIndexing;
@@ -98,6 +101,10 @@ public class Application implements ApplicationListener<ZepEvent> {
         this.eventDetailsConfigDao = eventDetailsConfigDao;
     }
 
+    public void setHeartbeatProcessor(HeartbeatProcessor heartbeatProcessor) {
+        this.heartbeatProcessor = heartbeatProcessor;
+    }
+
     public void init() throws ZepException {
         logger.info("Initializing ZEP");
         this.config = configDao.getConfig();
@@ -117,10 +124,14 @@ public class Application implements ApplicationListener<ZepEvent> {
         startEventArchivePurging();
         startEventPurging();
         startEventIndexer();
+        startHeartbeatProcessing();
         logger.info("Completed ZEP initialization");
     }
 
     public void shutdown() throws InterruptedException {
+        cancelFuture(this.heartbeatFuture);
+        this.heartbeatFuture = null;
+
         cancelFuture(this.eventIndexerFuture);
         this.eventIndexerFuture = null;
 
@@ -301,6 +312,22 @@ public class Application implements ApplicationListener<ZepEvent> {
         this.eventPurger = purge(eventDao, duration,
                 TimeUnit.DAYS,
                 eventDao.getPartitionIntervalInMs(), "ZEP_EVENT_PURGER");
+    }
+
+    private void startHeartbeatProcessing() {
+        cancelFuture(this.heartbeatFuture);
+        Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
+        this.heartbeatFuture = scheduler.scheduleWithFixedDelay(new ThreadRenamingRunnable(new Runnable() {
+            @Override
+            public void run() {
+                logger.debug("Processing heartbeats");
+                try {
+                    heartbeatProcessor.sendHeartbeatEvents();
+                } catch (Exception e) {
+                    logger.warn("Failed to process heartbeat events", e);
+                }
+            }
+        }, "ZEP_HEARTBEAT_PROCESSOR"), startTime, TimeUnit.SECONDS.toMillis(60));
     }
 
     @Override
