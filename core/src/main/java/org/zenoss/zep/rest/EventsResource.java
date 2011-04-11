@@ -239,7 +239,9 @@ public class EventsResource {
             uuids.add(summary.getUuid());
         }
         int numUpdated = this.eventStoreDao.update(uuids, request.getUpdateFields());
-
+        if (numUpdated > 0) {
+            indexFully();
+        }
         EventSummaryUpdateResponse.Builder response = EventSummaryUpdateResponse.newBuilder();
         if (result.hasNextOffset()) {
             EventSummaryUpdateRequest.Builder requestBuilder = EventSummaryUpdateRequest.newBuilder(request);
