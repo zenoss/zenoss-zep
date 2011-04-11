@@ -83,7 +83,7 @@ status() {
         exit 0
     else
         echo not running
-        exit 100
+        exit 3
     fi
 }
 
