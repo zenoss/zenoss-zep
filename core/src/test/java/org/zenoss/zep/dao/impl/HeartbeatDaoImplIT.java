@@ -24,6 +24,8 @@ public class HeartbeatDaoImplIT extends AbstractTransactionalJUnit4SpringContext
     private void findHeartbeat(DaemonHeartbeat hb, List<DaemonHeartbeat> heartbeats) throws ZepException {
         boolean found = false;
         for (DaemonHeartbeat heartbeat : heartbeats) {
+            // Clear last_time for comparisons
+            heartbeat = DaemonHeartbeat.newBuilder(heartbeat).clearLastTime().build();
             if (hb.getMonitor().equals(heartbeat.getMonitor()) &&
                 hb.getDaemon().equals(heartbeat.getDaemon())) {
                 assertEquals(hb, heartbeat);
