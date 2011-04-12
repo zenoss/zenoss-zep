@@ -58,6 +58,7 @@ public class Application implements ApplicationListener<ZepEvent> {
     private ZepConfig config;
 
     private int indexIntervalSeconds = 1;
+    private int heartbeatIntervalSeconds = 60;
 
     private final boolean enableIndexing;
 
@@ -103,6 +104,10 @@ public class Application implements ApplicationListener<ZepEvent> {
 
     public void setHeartbeatProcessor(HeartbeatProcessor heartbeatProcessor) {
         this.heartbeatProcessor = heartbeatProcessor;
+    }
+    
+    public void setHeartbeatIntervalSeconds(int heartbeatIntervalSeconds) {
+        this.heartbeatIntervalSeconds = heartbeatIntervalSeconds;
     }
 
     public void init() throws ZepException {
@@ -327,7 +332,7 @@ public class Application implements ApplicationListener<ZepEvent> {
                     logger.warn("Failed to process heartbeat events", e);
                 }
             }
-        }, "ZEP_HEARTBEAT_PROCESSOR"), startTime, TimeUnit.SECONDS.toMillis(60));
+        }, "ZEP_HEARTBEAT_PROCESSOR"), startTime, TimeUnit.SECONDS.toMillis(this.heartbeatIntervalSeconds));
     }
 
     @Override

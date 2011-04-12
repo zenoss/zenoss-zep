@@ -64,6 +64,11 @@ public final class ZepConstants {
     public static final String DETAIL_DEVICE_LOCATION = "zenoss.device.location";
 
     /**
+     * The constant representing devices in production.
+     */
+    public static final int PRODUCTION_STATE_PRODUCTION = 1000;
+
+    /**
      * Open event statuses.
      */
     public static final Set<EventStatus> OPEN_STATUSES = Collections.unmodifiableSet(
