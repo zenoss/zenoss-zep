@@ -40,20 +40,40 @@ public class HeartbeatDaoImplIT extends AbstractTransactionalJUnit4SpringContext
         this.simpleJdbcTemplate.update("DELETE FROM daemon_heartbeat");
     }
 
+    private static DaemonHeartbeat createHeartbeat(String monitor, String daemon, int timeoutSeconds) {
+        return DaemonHeartbeat.newBuilder().setMonitor(monitor).setDaemon(daemon).setTimeoutSeconds(timeoutSeconds)
+                .build();
+    }
+
     @Test
     public void testCreate() throws ZepException {
-        DaemonHeartbeat.Builder hbBuilder = DaemonHeartbeat.newBuilder();
-        hbBuilder.setMonitor("localhost");
-        hbBuilder.setDaemon("zenactiond");
-        hbBuilder.setTimeoutSeconds(90);
-        DaemonHeartbeat hb = hbBuilder.build();
+        DaemonHeartbeat hb = createHeartbeat("localhost", "zenactiond", 90);
         heartbeatDao.createHeartbeat(hb);
         findHeartbeat(hb, heartbeatDao.findAll());
 
         // Change timeout - tests ON DUPLICATE KEY UPDATE
-        hbBuilder.setTimeoutSeconds(900);
-        hb = hbBuilder.build();
+        hb = createHeartbeat("localhost", "zenactiond", 900);
         heartbeatDao.createHeartbeat(hb);
         findHeartbeat(hb, heartbeatDao.findAll());
+    }
+
+    @Test
+    public void testMonitor() throws ZepException {
+        DaemonHeartbeat localhost = createHeartbeat("localhost", "zenactiond", 90);
+        heartbeatDao.createHeartbeat(localhost);
+        DaemonHeartbeat devsvcs = createHeartbeat("devsvcs", "zenactiond", 90);
+        heartbeatDao.createHeartbeat(devsvcs);
+
+        assertEquals(1, heartbeatDao.findByMonitor("localhost").size());
+        findHeartbeat(localhost, heartbeatDao.findByMonitor("localhost"));
+
+        assertEquals(1, heartbeatDao.findByMonitor("devsvcs").size());
+        findHeartbeat(devsvcs, heartbeatDao.findByMonitor("devsvcs"));
+
+        assertEquals(1, heartbeatDao.deleteByMonitor("localhost"));
+        assertEquals(0, heartbeatDao.findByMonitor("localhost").size());
+
+        assertEquals(1, heartbeatDao.deleteByMonitor("devsvcs"));
+        assertEquals(0, heartbeatDao.findByMonitor("devsvcs").size());
     }
 }

@@ -18,6 +18,9 @@ get_pid() {
 }
 
 run() {
+    PID=$$
+    rm -f $PIDFILE
+    echo $PID > $PIDFILE
     exec java ${JVM_ARGS} -jar ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
 }
 

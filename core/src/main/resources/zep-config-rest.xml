@@ -25,6 +25,9 @@
         <property name="eventTriggerDao" ref="eventTriggerDao" />
         <property name="eventTriggerSubscriptionDao" ref="eventTriggerSubscriptionDao" />
     </bean>
+    <bean id="heartbeatsResource" class="org.zenoss.zep.rest.HeartbeatsResource">
+        <property name="heartbeatDao" ref="heartbeatDao" />
+    </bean>
     <bean id="protobufProvider" class="org.zenoss.protobufs.rest.ProtobufProvider">
         <property name="messageRegistry" ref="protobufMessageRegistry" />
     </bean>

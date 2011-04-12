@@ -21,6 +21,7 @@ import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,10 +61,33 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
     }
 
     @Override
-    @Transactional(readOnly=true)
+    @Transactional(readOnly = true)
     public List<DaemonHeartbeat> findAll() throws ZepException {
         final String sql = "SELECT * FROM daemon_heartbeat";
         return this.template.query(sql, MAPPER);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<DaemonHeartbeat> findByMonitor(String monitor) throws ZepException {
+        final Map<String,String> fields = Collections.singletonMap(COLUMN_MONITOR, monitor);
+        final String sql = "SELECT * FROM daemon_heartbeat WHERE monitor=:monitor";
+        return this.template.query(sql, MAPPER, fields);
+    }
+
+    @Override
+    @Transactional
+    public int deleteAll() throws ZepException {
+        final String sql = "DELETE FROM daemon_heartbeat";
+        return this.template.update(sql);
+    }
+
+    @Override
+    @Transactional
+    public int deleteByMonitor(String monitor) throws ZepException {
+        final Map<String,String> fields = Collections.singletonMap(COLUMN_MONITOR, monitor);
+        final String sql = "DELETE FROM daemon_heartbeat WHERE monitor=:monitor";
+        return this.template.update(sql, fields);
     }
 
     private static final RowMapper<DaemonHeartbeat> MAPPER = new RowMapper<DaemonHeartbeat>()

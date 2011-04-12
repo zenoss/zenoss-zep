@@ -35,4 +35,30 @@ public interface HeartbeatDao {
      * @throws ZepException If an exception occurs.
      */
     public List<DaemonHeartbeat> findAll() throws ZepException;
+
+    /**
+     * Returns all heartbeats in the ZEP database for the specified monitor.
+     *
+     * @param monitor The monitor name.
+     * @return List of all heartbeat records in the database for the specified monitor.
+     * @throws ZepException If an exception occurs.
+     */
+    public List<DaemonHeartbeat> findByMonitor(String monitor) throws ZepException;
+
+    /**
+     * Deletes all heartbeats in the ZEP database.
+     *
+     * @return The number of affected rows.
+     * @throws ZepException If an exception occurs.
+     */
+    public int deleteAll() throws ZepException;
+
+    /**
+     * Deletes all heartbeats in the ZEP database for the specified monitor.
+     *
+     * @param monitor The monitor name.
+     * @return The number of affected rows.
+     * @throws ZepException If an exception occurs.
+     */
+    public int deleteByMonitor(String monitor) throws ZepException;
 }
