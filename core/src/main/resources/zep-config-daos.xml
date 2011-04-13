@@ -147,6 +147,8 @@
 
     <bean id="eventIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl">
         <constructor-arg index="0" ref="dataSource"/>
+        <constructor-arg index="1" value="${zep.index.interval_seconds:1}" />
+        <constructor-arg index="2" value="${zep.index.interval_window:30}" />
         <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao" />
         <property name="eventArchiveIndexDao" ref="eventArchiveIndexDao" />
         <property name="eventDaoHelper" ref="eventDaoHelper"/>

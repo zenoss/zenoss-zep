@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.concurrent.TimeUnit;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
 
@@ -47,7 +48,7 @@ public class EventIndexerImpl implements EventIndexer {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
 
     private static final int INDEX_LIMIT = 100;
-
+    
     private final NamedParameterJdbcTemplate template;
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
@@ -56,9 +57,12 @@ public class EventIndexerImpl implements EventIndexer {
     private EventSummaryRowMapper eventSummaryRowMapper;
     private EventDetailsConfigDao eventDetailsConfigDao;
     private byte[] indexVersionHash;
+    private final long indexRangeMillis;
 
-    public EventIndexerImpl(DataSource dataSource) throws ZepException {
+    public EventIndexerImpl(DataSource dataSource, int indexIntervalSeconds, int indexIntervalWindow)
+            throws ZepException {
         this.template = new NamedParameterJdbcTemplate(dataSource);
+        this.indexRangeMillis = TimeUnit.SECONDS.toMillis(indexIntervalSeconds * indexIntervalWindow);
     }
 
     public void setEventSummaryIndexDao(EventIndexDao eventSummaryIndexDao) {
@@ -197,12 +201,13 @@ public class EventIndexerImpl implements EventIndexer {
 
     private int doIndex(final EventIndexDao dao, final String tableName, long throughTime) throws ZepException {
         final Map<String,Object> fields = new HashMap<String,Object>();
-        fields.put(COLUMN_UPDATE_TIME, throughTime);
+        fields.put("_min_update_time", throughTime - this.indexRangeMillis);
+        fields.put("_max_update_time", throughTime);
         fields.put(COLUMN_INDEXED, 0);
         fields.put("_limit", INDEX_LIMIT);
 
-        final String sql = "SELECT * FROM " + tableName + " WHERE update_time <= :update_time AND indexed = :indexed" +
-                " LIMIT :_limit FOR UPDATE";
+        final String sql = "SELECT * FROM " + tableName + " WHERE update_time > :_min_update_time AND " + 
+                "update_time <= :_max_update_time AND indexed = :indexed LIMIT :_limit FOR UPDATE";
         final List<EventPostProcessingPlugin> plugins = this.pluginService.getPostProcessingPlugins();
         final List<byte[]> uuids = this.template.query(sql, fields, new RowMapper<byte[]>() {
             @Override

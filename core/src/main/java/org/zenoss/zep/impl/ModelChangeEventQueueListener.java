@@ -36,11 +36,12 @@ public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
 
     private void processModelAdded(ModelEvent event) throws ZepException {
         final ModelElementType type = event.getModelType();
-        String id = null, uuid = null, parentUuid = null;
+        String id = null, uuid = null, parentId = null, parentUuid = null;
         switch (event.getModelType()) {
             case COMPONENT:
                 id = event.getComponent().getId();
                 uuid = event.getComponent().getUuid();
+                parentId = event.getComponent().getDevice().getId();
                 parentUuid = event.getComponent().getDevice().getUuid();
                 break;
             case DEVICE:
@@ -49,7 +50,12 @@ public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
                 break;
         }
         if (id != null && uuid != null) {
-            logger.info("Re-identifying events for {}", id);
+            if (parentId != null) {
+                logger.info("Re-identifying events for {}, {}", parentId, id);
+            }
+            else {
+                logger.info("Re-identifying events for {}", id);
+            }
             this.eventSummaryDao.reidentify(type, id, uuid, parentUuid);
         }
     }

@@ -122,9 +122,10 @@ CREATE TABLE `event_summary`
     FOREIGN KEY (`event_key_id`) REFERENCES `event_key` (`id`),
     FOREIGN KEY (`monitor_id`) REFERENCES `monitor` (`id`),
     FOREIGN KEY (`agent_id`) REFERENCES `agent` (`id`),
-    INDEX (`status_id`,`last_seen`),
-    INDEX (`clear_fingerprint_hash`,`last_seen`),
-    INDEX (`severity_id`,`last_seen`),
+    INDEX (`status_id`),
+    INDEX (`clear_fingerprint_hash`),
+    INDEX (`severity_id`),
+    INDEX (`last_seen`),
     INDEX (`update_time`,`indexed`),
     INDEX (`element_uuid`,`element_type_id`,`element_identifier`),
     INDEX (`element_sub_uuid`,`element_sub_type_id`,`element_sub_identifier`)
