@@ -198,3 +198,4 @@ public class EventSignalSpoolDaoIT extends
         assertEquals(1, spools.size());
         compareSpool(spool, spools.get(0));
     }
+}

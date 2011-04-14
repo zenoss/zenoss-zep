@@ -766,4 +766,4 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         assertEquals(0, result.getNextOffset());
         assertEquals(1, result.getTotal());
     }
-
+}
