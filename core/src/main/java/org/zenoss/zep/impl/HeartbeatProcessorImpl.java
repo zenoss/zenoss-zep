@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.impl;
 
@@ -26,7 +26,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Heartbeat processing logic.
@@ -40,9 +39,6 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
     private EventPublisher eventPublisher;
     private EventIndexDao eventIndexDao;
     private final EventSummaryRequest heartbeatRequest;
-    
-    // Send a clear event for each "up" daemon on startup
-    private final AtomicBoolean firstClearSent = new AtomicBoolean(false);
     
     public HeartbeatProcessorImpl() {
         EventSummaryRequest.Builder builder = EventSummaryRequest.newBuilder();
@@ -74,11 +70,18 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
             final boolean isClear = (expireTime > now);
             final Entry<String,String> entry = new SimpleImmutableEntry<String, String>(heartbeat.getMonitor(),
                     heartbeat.getDaemon());
-            if (!isClear || firstClearSent.compareAndSet(false, true) || currentHeartbeatEvents.contains(entry)) {
+            if (!isClear || currentHeartbeatEvents.remove(entry)) {
                 logger.debug("Publishing heartbeat event for: {}, isClear: {}", entry, isClear);
-                final RawEvent event = createHeartbeatEvent(heartbeat, now, isClear);
+                final RawEvent event = createHeartbeatEvent(heartbeat.getMonitor(), heartbeat.getDaemon(), now,
+                        isClear);
                 eventPublisher.publishRawEvent(event);
             }
+        }
+        
+        // We didn't find heartbeat records for events with outstanding warnings - send clears for them
+        for (Entry<String,String> entry : currentHeartbeatEvents) {
+            final RawEvent event = createHeartbeatEvent(entry.getKey(), entry.getValue(), now, true);
+            eventPublisher.publishRawEvent(event);
         }
     }
 
@@ -91,8 +94,8 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
      * @throws ZepException If an exception occurs.
      */
     private Set<Entry<String,String>> getCurrentHeartbeatEvents() throws ZepException {
-        Set<Entry<String,String>> events = new HashSet<Entry<String,String>>();
-        EventSummaryResult result = this.eventIndexDao.list(this.heartbeatRequest);
+        final Set<Entry<String,String>> events = new HashSet<Entry<String,String>>();
+        final EventSummaryResult result = this.eventIndexDao.list(this.heartbeatRequest);
         for (EventSummary summary : result.getEventsList()) {
             final Event occurrence = summary.getOccurrence(0);
             events.add(new SimpleImmutableEntry<String,String>(occurrence.getMonitor(), occurrence.getAgent()));
@@ -101,14 +104,13 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
         return events;
     }
 
-    private static RawEvent createHeartbeatEvent(DaemonHeartbeat heartbeat, long createdTime, boolean isClear) {
+    private static RawEvent createHeartbeatEvent(String monitor, String daemon, long createdTime, boolean isClear) {
         final RawEvent.Builder event = RawEvent.newBuilder();
         event.setUuid(UUID.randomUUID().toString());
         event.setCreatedTime(createdTime);
-        event.getActorBuilder().setElementIdentifier(heartbeat.getMonitor())
-                .setElementSubIdentifier(heartbeat.getDaemon());
-        event.setMonitor(heartbeat.getMonitor());
-        event.setAgent(heartbeat.getDaemon());
+        event.getActorBuilder().setElementIdentifier(monitor).setElementSubIdentifier(daemon);
+        event.setMonitor(monitor);
+        event.setAgent(daemon);
         // Per old behavior - alerting rules typically are configured to only fire
         // for devices in production. These events don't have a true "device" with
         // a production state a lot of the time, and so we have to set this manually.
@@ -116,11 +118,11 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
                 .addValue(Integer.toString(ZepConstants.PRODUCTION_STATE_PRODUCTION));
         if (isClear) {
             event.setSeverity(EventSeverity.SEVERITY_CLEAR);
-            event.setSummary(heartbeat.getMonitor() + " " + heartbeat.getDaemon() + " heartbeat clear");
+            event.setSummary(monitor + " " + daemon + " heartbeat clear");
         }
         else {
             event.setSeverity(EventSeverity.SEVERITY_ERROR);
-            event.setSummary(heartbeat.getMonitor() + " " + heartbeat.getDaemon() + " heartbeat failure");
+            event.setSummary(monitor + " " + daemon + " heartbeat failure");
         }
         event.setEventClass(STATUS_HEARTBEAT);
         return event.build();

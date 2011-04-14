@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.rest;
 
