@@ -1,3 +1,6 @@
+/*
+ * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ */
 package org.zenoss.zep.dao.impl;
 
 import org.junit.Before;

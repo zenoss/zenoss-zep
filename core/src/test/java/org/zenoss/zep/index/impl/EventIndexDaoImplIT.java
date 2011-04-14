@@ -1,12 +1,5 @@
 /*
- * This program is part of Zenoss Core, an open source monitoring platform.
- * Copyright (C) 2010, Zenoss Inc.
- * 
- * This program is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 as published by
- * the Free Software Foundation.
- * 
- * For complete information please visit: http://www.zenoss.com/oss/
+ * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.index.impl;
 
@@ -774,4 +767,3 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         assertEquals(1, result.getTotal());
     }
 
-}
