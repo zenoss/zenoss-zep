@@ -261,3 +261,4 @@ CREATE TABLE `daemon_heartbeat`
     PRIMARY KEY (`monitor`, `daemon`)
 ) ENGINE=InnoDB COMMENT='Daemon heartbeats.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
+INSERT INTO `schema_version` (`version`, `installed_time`) VALUES(1, NOW()); 
