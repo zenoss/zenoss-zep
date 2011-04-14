@@ -42,3 +42,4 @@ public class EventClassAnalyzer extends Analyzer {
         }
         return streams.result;
     }
+}

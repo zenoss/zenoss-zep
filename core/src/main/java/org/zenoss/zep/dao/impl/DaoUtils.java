@@ -231,4 +231,4 @@ public final class DaoUtils {
             throw new RuntimeException(e.getLocalizedMessage(), e);
         }
     }
-
+}

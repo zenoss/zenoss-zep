@@ -117,3 +117,4 @@ public class EventSignalSpool {
         spool.setUuid(UUID.randomUUID().toString());
         return spool;
     }
+}

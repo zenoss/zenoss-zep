@@ -71,3 +71,4 @@ public class EventSummaryRowMapper implements RowMapper<EventSummary> {
 
         return summaryBuilder.build();
     }
+}

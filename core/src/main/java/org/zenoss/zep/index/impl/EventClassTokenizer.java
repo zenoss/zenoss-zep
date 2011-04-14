@@ -19,3 +19,4 @@ public class EventClassTokenizer extends CharTokenizer {
     protected boolean isTokenChar(char c) {
         return (c != '/');
     }
+}
