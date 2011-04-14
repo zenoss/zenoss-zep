@@ -1,5 +1,9 @@
 #!/bin/bash
 
+#
+# Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+#
+
 DBNAME=${DBNAME:-"zenoss_zep"}
 DBHOST=${DBHOST:-"localhost"}
 DBUSER=${DBUSER:-"root"}

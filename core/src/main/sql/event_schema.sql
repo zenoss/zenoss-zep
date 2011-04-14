@@ -1,11 +1,4 @@
--- This program is part of Zenoss Core, an open source monitoring platform.
--- Copyright (C) 2010-2011, Zenoss Inc.
---
--- This program is free software; you can redistribute it and/or modify it
--- under the terms of the GNU General Public License version 2 as published by
--- the Free Software Foundation.
---
--- For complete information please visit: http://www.zenoss.com/oss/
+-- Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
 
 SET storage_engine=InnoDB;
 
@@ -268,4 +261,3 @@ CREATE TABLE `daemon_heartbeat`
     PRIMARY KEY (`monitor`, `daemon`)
 ) ENGINE=InnoDB COMMENT='Daemon heartbeats.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
-INSERT INTO `schema_version` (`version`, `installed_time`) VALUES(1, NOW());
