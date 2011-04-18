@@ -15,6 +15,7 @@ import java.util.concurrent.ScheduledFuture;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
 import org.zenoss.protobufs.model.Model.ModelElementType;

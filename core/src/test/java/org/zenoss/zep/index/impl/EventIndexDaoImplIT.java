@@ -627,12 +627,10 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     }
 
     private EventSummaryResult findResultForNumericDetail(String key, String val) throws ZepException {
-
         return findResultForNumericDetails(key, Collections.singletonList(val));
     }
 
     private EventSummaryResult findResultForNumericDetails(String key, List<String> vals) throws ZepException {
-
         final EventDetailFilter.Builder edFilterBuilder = EventDetailFilter.newBuilder();
         edFilterBuilder.setKey(key);
         edFilterBuilder.addAllValue(vals);
@@ -765,5 +763,207 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         assertEquals(0, result.getLimit());
         assertEquals(0, result.getNextOffset());
         assertEquals(1, result.getTotal());
+    }
+
+    @Test
+    public void testIpv4Sort() throws ZepException {
+        List<EventSummary> sorted = new ArrayList<EventSummary>();
+        sorted.add(createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.2"));
+        sorted.add(createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.10"));
+        sorted.add(createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.20"));
+
+        EventSort sort = EventSort.newBuilder().setField(Field.DETAIL)
+                .setDetailKey(ZepConstants.DETAIL_DEVICE_IP_ADDRESS).build();
+        EventSummaryRequest request = EventSummaryRequest.newBuilder().addSort(sort).build();
+        EventSummaryResult result = this.eventIndexDao.list(request);
+        assertEquals(sorted, result.getEventsList());
+
+        sort = EventSort.newBuilder(sort).setDirection(Direction.DESCENDING).build();
+        request = EventSummaryRequest.newBuilder().addSort(sort).build();
+        result = this.eventIndexDao.list(request);
+        Collections.reverse(sorted);
+        assertEquals(sorted, result.getEventsList());
+    }
+
+    @Test
+    public void testIpv6Sort() throws ZepException {
+        List<EventSummary> sorted = new ArrayList<EventSummary>();
+        sorted.add(createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::"));
+        sorted.add(createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::20"));
+        sorted.add(createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::1000"));
+
+        EventSort sort = EventSort.newBuilder().setField(Field.DETAIL)
+                .setDetailKey(ZepConstants.DETAIL_DEVICE_IP_ADDRESS).build();
+        EventSummaryRequest request = EventSummaryRequest.newBuilder().addSort(sort).build();
+        EventSummaryResult result = this.eventIndexDao.list(request);
+        assertEquals(sorted, result.getEventsList());
+
+        sort = EventSort.newBuilder(sort).setDirection(Direction.DESCENDING).build();
+        request = EventSummaryRequest.newBuilder().addSort(sort).build();
+        result = this.eventIndexDao.list(request);
+        Collections.reverse(sorted);
+        assertEquals(sorted, result.getEventsList());
+    }
+
+    @Test
+    public void testIpv4Before6Sort() throws ZepException {
+        List<EventSummary> sorted = new ArrayList<EventSummary>();
+        sorted.add(createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "0.0.0.0"));
+        sorted.add(createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.2"));
+        sorted.add(createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::"));
+        sorted.add(createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192f::"));
+
+        EventSort sort = EventSort.newBuilder().setField(Field.DETAIL)
+                .setDetailKey(ZepConstants.DETAIL_DEVICE_IP_ADDRESS).build();
+        EventSummaryRequest request = EventSummaryRequest.newBuilder().addSort(sort).build();
+        EventSummaryResult result = this.eventIndexDao.list(request);
+        assertEquals(sorted, result.getEventsList());
+
+        sort = EventSort.newBuilder(sort).setDirection(Direction.DESCENDING).build();
+        request = EventSummaryRequest.newBuilder().addSort(sort).build();
+        result = this.eventIndexDao.list(request);
+        Collections.reverse(sorted);
+        assertEquals(sorted, result.getEventsList());
+    }
+
+    private EventFilter createFilterForIpAddress(String value) {
+        EventFilter.Builder filterBuilder = EventFilter.newBuilder();
+        filterBuilder.addDetailsBuilder().setKey(ZepConstants.DETAIL_DEVICE_IP_ADDRESS).addValue(value);
+        return filterBuilder.build();
+    }
+
+    private void assertContainsEvents(EventSummaryResult result, EventSummary... summaries) {
+        final Map<String,EventSummary> summaryMap = new HashMap<String,EventSummary>();
+        for (EventSummary summary : summaries) {
+            summaryMap.put(summary.getUuid(), summary);
+        }
+        for (EventSummary event : result.getEventsList()) {
+            EventSummary expected = summaryMap.remove(event.getUuid());
+            assertEquals("Unable to find event in expected map: " + event, expected, event);
+        }
+        assertTrue("Expected empty map, still contains: " + summaryMap, summaryMap.isEmpty());
+    }
+
+    @Test
+    public void testIpv4RangeQuery() throws ZepException {
+        EventSummary ev5 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.5");
+        EventSummary ev6 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.6");
+        EventSummary ev7 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.7");
+        EventSummary ev9 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.9");
+
+        EventSummaryRequest request = EventSummaryRequest.newBuilder()
+                .setEventFilter(createFilterForIpAddress("192.168.1.5-192.168.1.7")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev5, ev6, ev7);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("192.168.1.5-7"))
+                .build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev5, ev6, ev7);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("192.168.1.5/24")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev5, ev6, ev7, ev9);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("192.168.1.5")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev5);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("192.168.1.7-10")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev7, ev9);
+    }
+    
+    @Test
+    public void testIpv6RangeQuery() throws ZepException {
+        EventSummary ev1 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffa0");
+        EventSummary ev2 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffa7");
+        EventSummary ev3 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffb0");
+        EventSummary ev4 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffc0");
+
+        EventSummaryRequest request = EventSummaryRequest.newBuilder()
+                .setEventFilter(createFilterForIpAddress("::ffa0-::ffb0")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2, ev3);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("::ffa0-ffb0"))
+                .build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2, ev3);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("::ffa0/120")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2, ev3, ev4);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("::ffa7")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev2);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("::ffb0-ffc0")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev3, ev4);
+    }
+    
+    @Test
+    public void testIpv4SubstringQuery() throws ZepException {
+        EventSummary ev1 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.2");
+        EventSummary ev2 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.200");
+        EventSummary ev3 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.3");
+        EventSummary ev4 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.1.2.3");
+        
+        EventSummaryRequest request = EventSummaryRequest.newBuilder()
+                .setEventFilter(createFilterForIpAddress("1.2")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev4);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("1.?"))
+                .build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev3, ev4);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("1.2*")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2, ev4);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("1.*")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2, ev3, ev4);
+    }
+    
+    @Test
+    public void testIpv6SubstringQuery() throws ZepException {
+        EventSummary ev1 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffa0:123");
+        EventSummary ev2 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffa1:123");
+        EventSummary ev3 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffa0:0");
+        
+        EventSummaryRequest request = EventSummaryRequest.newBuilder()
+                .setEventFilter(createFilterForIpAddress("ffa?")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2, ev3);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("0123"))
+                .build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("123")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2);
+
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("ffa0:0*")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev3);
+        
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("ffa?:1*")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2);
+    }
+    
+    @Test
+    public void testIpv6ExactMatch() throws ZepException {
+        EventSummary ev1 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::1");
+        EventSummaryRequest request = EventSummaryRequest.newBuilder()
+                .setEventFilter(createFilterForIpAddress("0:0:0:0:0:0:0:1")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1);
+        
+        request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("::1")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1);
+        
+        request = EventSummaryRequest.newBuilder()
+                .setEventFilter(createFilterForIpAddress("0000:0000:0000:0000:0000:0000:0000:0001")).build();
+        assertContainsEvents(this.eventIndexDao.list(request), ev1);
+    }
+    
+    @Test
+    public void testInvalidIpAddress() throws ZepException {
+        EventSummary ev1 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::1");
+        
+        List<String> invalid = Arrays.asList(":::", ":", "....", "not an ip");
+        for (String query : invalid) {
+            EventSummaryRequest request = EventSummaryRequest.newBuilder()
+                    .setEventFilter(createFilterForIpAddress(query)).build();
+            assertEquals(0, this.eventIndexDao.list(request).getEventsCount());
+        }
     }
 }

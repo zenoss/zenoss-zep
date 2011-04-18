@@ -36,5 +36,11 @@ public class IndexConstants {
     public static final String FIELD_AGENT = "agent";
     public static final String FIELD_MONITOR = "monitor";
     public static final String FIELD_PROTOBUF = "protobuf";
+    
+    // For IP_ADDRESS details
+    public static final String IP_ADDRESS_SORT_SUFFIX = "_sort";
+    public static final String IP_ADDRESS_TYPE_SUFFIX = "_type";
+    public static final String IP_ADDRESS_TYPE_4 = "4";
+    public static final String IP_ADDRESS_TYPE_6 = "6";
 }
 

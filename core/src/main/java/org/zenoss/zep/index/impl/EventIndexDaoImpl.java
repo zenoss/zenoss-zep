@@ -407,73 +407,96 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
         List<SortField> fields = new ArrayList<SortField>(sortList.size());
         for (EventSort sort : sortList) {
-            fields.add(createSortField(sort));
+            fields.addAll(createSortField(sort));
         }
         return new Sort(fields.toArray(new SortField[fields.size()]));
     }
 
-    private SortField createSortField(EventSort sort) {
+    private List<SortField> createSortField(EventSort sort) {
+        final List<SortField> sortFields = new ArrayList<SortField>(2);
         boolean reverse = (sort.getDirection() == Direction.DESCENDING);
         switch (sort.getField()) {
             case COUNT:
-                return new SortField(FIELD_COUNT, SortField.INT, reverse);
+                sortFields.add(new SortField(FIELD_COUNT, SortField.INT, reverse));
+                break;
             case ELEMENT_IDENTIFIER:
-                return new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse);
+                sortFields.add(new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse));
+                break;
             case ELEMENT_SUB_IDENTIFIER:
-                return new SortField(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse);
+                sortFields.add(new SortField(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse));
+                break;
             case EVENT_CLASS:
-                return new SortField(FIELD_EVENT_CLASS_NOT_ANALYZED, SortField.STRING, reverse);
+                sortFields.add(new SortField(FIELD_EVENT_CLASS_NOT_ANALYZED, SortField.STRING, reverse));
+                break;
             case EVENT_SUMMARY:
-                return new SortField(FIELD_SUMMARY_NOT_ANALYZED, SortField.STRING, reverse);
+                sortFields.add(new SortField(FIELD_SUMMARY_NOT_ANALYZED, SortField.STRING, reverse));
+                break;
             case FIRST_SEEN:
-                return new SortField(FIELD_FIRST_SEEN_TIME, SortField.LONG, reverse);
+                sortFields.add(new SortField(FIELD_FIRST_SEEN_TIME, SortField.LONG, reverse));
+                break;
             case LAST_SEEN:
-                return new SortField(FIELD_LAST_SEEN_TIME, SortField.LONG, reverse);
+                sortFields.add(new SortField(FIELD_LAST_SEEN_TIME, SortField.LONG, reverse));
+                break;
             case SEVERITY:
-                return new SortField(FIELD_SEVERITY, SortField.INT, reverse);
+                sortFields.add(new SortField(FIELD_SEVERITY, SortField.INT, reverse));
+                break;
             case STATUS:
-                return new SortField(FIELD_STATUS, SortField.INT, reverse);
+                sortFields.add(new SortField(FIELD_STATUS, SortField.INT, reverse));
+                break;
             case STATUS_CHANGE:
-                return new SortField(FIELD_STATUS_CHANGE_TIME, SortField.LONG, reverse);
+                sortFields.add(new SortField(FIELD_STATUS_CHANGE_TIME, SortField.LONG, reverse));
+                break;
             case UPDATE_TIME:
-                return new SortField(FIELD_UPDATE_TIME, SortField.LONG, reverse);
+                sortFields.add(new SortField(FIELD_UPDATE_TIME, SortField.LONG, reverse));
+                break;
             case CURRENT_USER_NAME:
-                return new SortField(FIELD_CURRENT_USER_NAME, SortField.STRING, reverse);
+                sortFields.add(new SortField(FIELD_CURRENT_USER_NAME, SortField.STRING, reverse));
+                break;
             case AGENT:
-                return new SortField(FIELD_AGENT, SortField.STRING, reverse);
+                sortFields.add(new SortField(FIELD_AGENT, SortField.STRING, reverse));
+                break;
             case MONITOR:
-                return new SortField(FIELD_MONITOR, SortField.STRING, reverse);
+                sortFields.add(new SortField(FIELD_MONITOR, SortField.STRING, reverse));
+                break;
             case UUID:
-                return new SortField(FIELD_UUID, SortField.STRING, reverse);
+                sortFields.add(new SortField(FIELD_UUID, SortField.STRING, reverse));
+                break;
             case DETAIL:
                 EventDetailItem item = this.detailsConfig.get(sort.getDetailKey());
                 if (item == null) {
                     throw new IllegalArgumentException("Unknown event detail: " + sort.getDetailKey());
                 }
                 final String fieldName = EventIndexMapper.DETAIL_INDEX_PREFIX + sort.getDetailKey();
-                final int sortFieldType;
                 switch (item.getType()) {
                     case DOUBLE:
-                        sortFieldType = SortField.DOUBLE;
+                        sortFields.add(new SortField(fieldName, SortField.DOUBLE, reverse));
                         break;
                     case INTEGER:
-                        sortFieldType = SortField.INT;
+                        sortFields.add(new SortField(fieldName, SortField.INT, reverse));
                         break;
                     case STRING:
-                        sortFieldType = SortField.STRING;
+                        sortFields.add(new SortField(fieldName, SortField.STRING, reverse));
                         break;
                     case FLOAT:
-                        sortFieldType = SortField.FLOAT;
+                        sortFields.add(new SortField(fieldName, SortField.FLOAT, reverse));
                         break;
                     case LONG:
-                        sortFieldType = SortField.LONG;
+                        sortFields.add(new SortField(fieldName, SortField.LONG, reverse));
+                        break;
+                    case IP_ADDRESS:
+                        // Sort IPv4 before IPv6
+                        sortFields.add(new SortField(fieldName + IP_ADDRESS_TYPE_SUFFIX, SortField.STRING, reverse));
+                        sortFields.add(new SortField(fieldName + IP_ADDRESS_SORT_SUFFIX, SortField.STRING, reverse));
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported detail type: " + item.getType());
                 }
-                return new SortField(fieldName, sortFieldType, reverse);
+                break;
         }
-        throw new IllegalArgumentException("Unsupported sort field: " + sort.getField());
+        if (sortFields.isEmpty()) {
+            throw new IllegalArgumentException("Unsupported sort field: " + sort.getField());
+        }
+        return sortFields;
     }
 
     private Query buildQuery(IndexReader reader, EventFilter filter, EventFilter exclusionFilter) throws ZepException {
@@ -534,7 +557,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         qb.addField(FIELD_UUID, filter.getUuidList(), FilterOperator.OR);
 
-        qb.addDetails(filter.getDetailsList(), this.detailsConfig);
+        qb.addDetails(filter.getDetailsList(), this.detailsConfig, reader);
         
         for (EventFilter subfilter : filter.getSubfilterList()) {
             qb.addSubquery(buildQueryFromFilter(reader, subfilter));

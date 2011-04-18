@@ -21,6 +21,7 @@ import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TermRangeQuery;
 import org.apache.lucene.search.TermsFilter;
 import org.apache.lucene.search.WildcardQuery;
 import org.apache.lucene.search.WildcardTermEnum;
@@ -33,6 +34,8 @@ import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
+import org.zenoss.zep.utils.IpRange;
+import org.zenoss.zep.utils.IpUtils;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -43,6 +46,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class QueryBuilder {
     private static final Logger logger = LoggerFactory.getLogger(QueryBuilder.class);
@@ -476,9 +481,61 @@ public class QueryBuilder {
         queries.add(subquery);
         return this;
     }
+    
+    private static final Pattern LEADING_ZEROS = Pattern.compile("0+(.*)");
+    
+    private static String removeLeadingZeros(String original) {
+        String ret = original;
+        final Matcher matcher = LEADING_ZEROS.matcher(original);
+        if (matcher.matches()) {
+            final String remaining = matcher.group(1);
+            if (remaining.isEmpty()) {
+                ret = "0";
+            }
+            else {
+                // Preserve leading zero if next character is non numeric
+                final char firstChar = Character.toLowerCase(remaining.charAt(0));
+                if ((firstChar < '0' || firstChar > '9') && (firstChar < 'a' || firstChar > 'f')) {
+                    ret = "0" + remaining;
+                }
+                else {
+                    ret = remaining;
+                }
+            }
+        }
+        return ret;
+    }
+    
+    private MultiPhraseQuery createIpAddressMultiPhraseQuery(String analyzedFieldName, IndexReader reader,
+                                                             List<String> tokens)
+            throws ZepException {
+        final MultiPhraseQuery pq = new MultiPhraseQuery();
+        for (String token : tokens) {
+            token = removeLeadingZeros(token);
+            List<Term> terms = getMatchingTerms(analyzedFieldName, reader, token);
+            if (terms.isEmpty()) {
+                pq.add(new Term(analyzedFieldName, token));
+            }
+            else {
+                pq.add(terms.toArray(new Term[terms.size()]));
+            }
+        }
+        return pq;
+    }
+    
+    private static List<String> splitRemoveEmpty(String src, String regex) {
+        final String[] tokens = src.split(regex);
+        final List<String> l = new ArrayList<String>(tokens.length);
+        for (String token : tokens) {
+            if (!token.isEmpty()) {
+                l.add(token);
+            }
+        }
+        return l;
+    }
 
-
-    public QueryBuilder addDetails(Collection<EventDetailFilter> filters, Map<String,EventDetailItem> detailsConfig)
+    public QueryBuilder addDetails(Collection<EventDetailFilter> filters, Map<String,EventDetailItem> detailsConfig,
+                                   IndexReader reader)
             throws ZepException {
         if (!filters.isEmpty()) {
             for (EventDetailFilter edf : filters) {
@@ -520,6 +577,63 @@ public class QueryBuilder {
                         for (String val : edf.getValueList()) {
                             NumericValueHolder<Double> valueHolder = parseNumericValue(val, Double.class);
                             eventDetailQuery.addRange(key, valueHolder.from, valueHolder.to);
+                        }
+                        break;
+
+                    case IP_ADDRESS:
+                        for (String val : edf.getValueList()) {
+                            val = unquote(val);
+                            try {
+                                // Try to parse as IP range
+                                IpRange range = IpUtils.parseRange(val);
+                                final String field = key + IndexConstants.IP_ADDRESS_SORT_SUFFIX;
+
+                                // If range only spans one IP address, search exact match on term
+                                if (range.getFrom().equals(range.getTo())) {
+                                    // Search for exact match on canonical field
+                                    final Term term = new Term(field, IpUtils.canonicalIpAddress(range.getFrom()));
+                                    eventDetailQuery.queries.add(new TermQuery(term));
+                                }
+                                else {
+                                    final String fromCanon = IpUtils.canonicalIpAddress(range.getFrom());
+                                    final String toCanon = IpUtils.canonicalIpAddress(range.getTo());
+                                    eventDetailQuery.queries.add(new TermRangeQuery(field, fromCanon, toCanon, true,
+                                            true));
+                                }
+                            } catch (IllegalArgumentException e) {
+                                // Didn't match IP range - try performing a substring match
+                                if (val.indexOf('.') >= 0) {
+                                    BooleanQuery bq = new BooleanQuery();
+                                    bq.add(new TermQuery(new Term(key + IndexConstants.IP_ADDRESS_TYPE_SUFFIX,
+                                                                  IndexConstants.IP_ADDRESS_TYPE_4)), Occur.MUST);
+                                    List<String> tokens = splitRemoveEmpty(val, "\\.");
+                                    if (!tokens.isEmpty()) {
+                                        bq.add(createIpAddressMultiPhraseQuery(key, reader, tokens), Occur.MUST);
+                                    }
+                                    else {
+                                        bq.add(new TermQuery(new Term(key, val)), Occur.MUST);
+                                    }
+                                    eventDetailQuery.queries.add(bq);
+                                }
+                                else if (val.indexOf(':') >= 0) {
+                                    BooleanQuery bq = new BooleanQuery();
+                                    bq.add(new TermQuery(new Term(key + IndexConstants.IP_ADDRESS_TYPE_SUFFIX,
+                                                                  IndexConstants.IP_ADDRESS_TYPE_6)), Occur.MUST);
+                                    List<String> tokens = splitRemoveEmpty(val, ":");
+                                    if (!tokens.isEmpty()) {
+                                        bq.add(createIpAddressMultiPhraseQuery(key, reader, tokens), Occur.MUST);
+                                    }
+                                    else {
+                                        bq.add(new TermQuery(new Term(key, val)), Occur.MUST);
+                                    }
+                                    eventDetailQuery.queries.add(bq);
+                                }
+                                else {
+                                    eventDetailQuery.queries.add(new WildcardQuery(new Term(key,
+                                            removeLeadingZeros(val))));
+                                }
+                                logger.warn(e.getLocalizedMessage());
+                            }
                         }
                         break;
 

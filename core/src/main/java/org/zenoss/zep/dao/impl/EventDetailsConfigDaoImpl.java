@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.dao.impl;
 
@@ -42,6 +42,7 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
         // Create default EventDetailItem objects in the database.
         createDetailItem(ZepConstants.DETAIL_DEVICE_PRIORITY, EventDetailType.INTEGER, "Priority");
         createDetailItem(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE, EventDetailType.INTEGER, "Production State");
+        createDetailItem(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, EventDetailType.IP_ADDRESS, "IP Address");
     }
 
     @Override
