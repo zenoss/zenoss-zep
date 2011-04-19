@@ -70,10 +70,11 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
             final boolean isClear = (expireTime > now);
             final Entry<String,String> entry = new SimpleImmutableEntry<String, String>(heartbeat.getMonitor(),
                     heartbeat.getDaemon());
-            if (!isClear || currentHeartbeatEvents.remove(entry)) {
-                logger.debug("Publishing heartbeat event for: {}, isClear: {}", entry, isClear);
+            final boolean hasCurrentHeartbeat = currentHeartbeatEvents.remove(entry);
+            if (!isClear || hasCurrentHeartbeat) {
                 final RawEvent event = createHeartbeatEvent(heartbeat.getMonitor(), heartbeat.getDaemon(), now,
                         isClear);
+                logger.debug("Publishing heartbeat event: {}", event);
                 eventPublisher.publishRawEvent(event);
             }
         }
