@@ -185,11 +185,15 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         for (int i = 0; i < 5; i++) {
             createEventWithSeverity(EventSeverity.SEVERITY_ERROR,
                     EventStatus.STATUS_NEW, tag1, tag2);
+            createEventWithSeverity(EventSeverity.SEVERITY_ERROR,
+                    EventStatus.STATUS_ACKNOWLEDGED, tag1, tag2);
         }
         /* Create critical severity with one tag */
         for (int i = 0; i < 3; i++) {
             createEventWithSeverity(EventSeverity.SEVERITY_CRITICAL,
                     EventStatus.STATUS_NEW, tag2);
+            createEventWithSeverity(EventSeverity.SEVERITY_CRITICAL,
+                    EventStatus.STATUS_ACKNOWLEDGED, tag2);
         }
         /* Create some closed events for all tags - these should be ignored. */
         for (int i = 0; i < 2; i++) {
@@ -208,23 +212,26 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         }
 
         EventTagSeverities tag1Severities = tagSeveritiesMap.get(tag1);
-        assertEquals(5, tag1Severities.getTotal());
+        assertEquals(10, tag1Severities.getTotal());
         assertEquals(1, tag1Severities.getSeveritiesCount());
         for (EventTagSeverity tagSeverity : tag1Severities.getSeveritiesList()) {
             assertEquals(EventSeverity.SEVERITY_ERROR, tagSeverity.getSeverity());
-            assertEquals(5, tagSeverity.getCount());
+            assertEquals(10, tagSeverity.getCount());
+            assertEquals(5, tagSeverity.getAcknowledgedCount());
         }
 
         EventTagSeverities tag2Severities = tagSeveritiesMap.get(tag2);
-        assertEquals(8, tag2Severities.getTotal());
+        assertEquals(16, tag2Severities.getTotal());
         assertEquals(2, tag2Severities.getSeveritiesCount());
         for (EventTagSeverity tagSeverity : tag1Severities.getSeveritiesList()) {
             switch (tagSeverity.getSeverity()) {
                 case SEVERITY_ERROR:
-                    assertEquals(5, tagSeverity.getCount());
+                    assertEquals(10, tagSeverity.getCount());
+                    assertEquals(5, tagSeverity.getAcknowledgedCount());
                     break;
                 case SEVERITY_CRITICAL:
-                    assertEquals(3, tagSeverity.getCount());
+                    assertEquals(6, tagSeverity.getCount());
+                    assertEquals(3, tagSeverity.getAcknowledgedCount());
                     break;
                 default:
                     throw new RuntimeException("Unexpected severity: " + tagSeverity.getSeverity());

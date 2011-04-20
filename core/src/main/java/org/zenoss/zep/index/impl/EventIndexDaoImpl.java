@@ -33,6 +33,7 @@ import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSort;
 import org.zenoss.protobufs.zep.Zep.EventSort.Direction;
+import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
@@ -565,34 +566,42 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         return qb.build();
     }
+    
+    private static class TagSeveritiesCount {
+        private int count = 0;
+        private int acknowledged_count = 0;
+    }
 
     private static class TagSeverities {
         final String tagUuid;
-        private final Map<EventSeverity, Integer> severityCount = new EnumMap<EventSeverity,Integer>(EventSeverity.class);
+        private final Map<EventSeverity, TagSeveritiesCount> severityCount =
+                new EnumMap<EventSeverity,TagSeveritiesCount>(EventSeverity.class);
         private int total = 0;
 
         public TagSeverities(String tagUuid) {
             this.tagUuid = tagUuid;
         }
 
-        public void updateSeverityCount(final EventSeverity severity, final int count) {
+        public void updateSeverityCount(final EventSeverity severity, final int count, boolean isAcknowledged) {
             this.total += count;
-            Integer num = severityCount.get(severity);
-            if (num == null) {
-                num = 1;
+            TagSeveritiesCount severitiesCount = severityCount.get(severity);
+            if (severitiesCount == null) {
+                severitiesCount = new TagSeveritiesCount();
+                this.severityCount.put(severity, severitiesCount);
             }
-            else {
-                ++num;
+            ++severitiesCount.count;
+            if (isAcknowledged) {
+                ++severitiesCount.acknowledged_count;
             }
-            this.severityCount.put(severity, num);
         }
 
         public EventTagSeverities toEventTagSeverities() {
             EventTagSeverities.Builder builder = EventTagSeverities.newBuilder();
             builder.setTagUuid(tagUuid);
-            for (Map.Entry<EventSeverity, Integer> entry : severityCount.entrySet()) {
+            for (Map.Entry<EventSeverity, TagSeveritiesCount> entry : severityCount.entrySet()) {
+                TagSeveritiesCount severitiesCount = entry.getValue();
                 builder.addSeverities(EventTagSeverity.newBuilder().setSeverity(entry.getKey())
-                    .setCount(entry.getValue()).build());
+                        .setCount(severitiesCount.count).setAcknowledgedCount(severitiesCount.acknowledged_count).build());
             }
             builder.setTotal(this.total);
             return builder.build();
@@ -649,6 +658,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             while ((docId = it.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
                 final Document doc = searcher.doc(docId, PROTO_SELECTOR);
                 final EventSummary summary = EventIndexMapper.toEventSummary(doc);
+                final boolean isAcknowledged = (summary.getStatus() == EventStatus.STATUS_ACKNOWLEDGED);
                 final Event occurrence = summary.getOccurrence(0);
                 final EventActor actor = occurrence.getActor();
                 // Build tags from element_uuids - no tags specified in filter
@@ -659,7 +669,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
                             tagSeverities = new TagSeverities(actor.getElementUuid());
                             tagSeveritiesMap.put(tagSeverities.tagUuid, tagSeverities);
                         }
-                        tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount());
+                        tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount(), isAcknowledged);
                     }
                 }
                 // Build tag severities from passed in filter
@@ -668,13 +678,15 @@ public class EventIndexDaoImpl implements EventIndexDao {
                     for (String uuid : uuids) {
                         TagSeverities tagSeverities = tagSeveritiesMap.get(uuid);
                         if (tagSeverities != null) {
-                            tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount());
+                            tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount(),
+                                    isAcknowledged);
                         }
                     }
                     for (EventTag tag : occurrence.getTagsList()) {
                         TagSeverities tagSeverities = tagSeveritiesMap.get(tag.getUuid());
                         if (tagSeverities != null) {
-                            tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount());
+                            tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount(),
+                                    isAcknowledged);
                         }
                     }
                 }
@@ -842,7 +854,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         if (search == null) {
             return null;
         }
-        logger.info("Deleting saved search: {}", uuid);
+        logger.debug("Deleting saved search: {}", uuid);
         try {
             search.close();
         } catch (IOException e) {
