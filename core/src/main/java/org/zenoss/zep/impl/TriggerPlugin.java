@@ -237,7 +237,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
             if (event.hasMonitor()) {
                 eventdict.put("monitor", new PyString(event.getMonitor()));
             }
-            eventdict.put("severity", severityAsPyString.get(event.getSeverity()));
+            eventdict.put("severity", event.getSeverity());
             eventdict.put("status", evtsummary.getStatus().getNumber());
 
             if (event.hasEventClassKey()) {
@@ -474,7 +474,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                 // Send signal immediately if no delay
                 else if (delaySeconds <= 0) {
                     if (!onlySendInitial) {
-                        logger.debug("send signal for event {}", eventSummary);
+                        logger.debug("delay <= 0 and not only send initial, send signal for event {}", eventSummary);
                         this.publishSignal(eventSummary, subscription);
                     }
                     else {
@@ -482,7 +482,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                             currentSpool = EventSignalSpool.buildSpool(subscription, eventSummary);
                             this.signalSpoolDao.create(currentSpool);
                             rescheduleSpool = true;
-                            logger.debug("send signal for event {}", eventSummary);
+                            logger.debug("delay <=0 and not spool exists, send signal for event {}", eventSummary);
                             this.publishSignal(eventSummary, subscription);
                         }
                         else {
