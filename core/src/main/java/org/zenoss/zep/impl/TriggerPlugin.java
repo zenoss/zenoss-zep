@@ -237,7 +237,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
             if (event.hasMonitor()) {
                 eventdict.put("monitor", new PyString(event.getMonitor()));
             }
-            eventdict.put("severity", event.getSeverity());
+            eventdict.put("severity", event.getSeverity().getNumber());
             eventdict.put("status", evtsummary.getStatus().getNumber());
 
             if (event.hasEventClassKey()) {

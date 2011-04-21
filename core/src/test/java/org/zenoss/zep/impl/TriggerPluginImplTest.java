@@ -84,7 +84,7 @@ public class TriggerPluginImplTest {
         String[] true_rules = {
                 "1 == 1",
                 "evt.message.startswith('TEST')",
-                "evt.severity == 'warning'",
+                "evt.severity == 3",
                 "evt.event_class == '/Defcon/1'",
                 "evt.count > 5",
                 "dev.name == 'BHM1000'",
