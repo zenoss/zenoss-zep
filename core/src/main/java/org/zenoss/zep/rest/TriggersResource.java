@@ -16,6 +16,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
 
+import org.jboss.resteasy.annotations.GZIP;
 import org.zenoss.protobufs.ProtobufConstants;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSet;
@@ -43,6 +44,7 @@ public class TriggersResource {
 
     @DELETE
     @Path("{triggerUuid}")
+    @GZIP
     public Response deleteTrigger(@PathParam("triggerUuid") String triggerUuid)
             throws ZepException {
         int numRows = this.eventTriggerDao.delete(triggerUuid);
@@ -54,8 +56,8 @@ public class TriggersResource {
 
     @GET
     @Path("{triggerUuid}")
-    @Produces({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
     public Response findTriggerByUuid(
             @PathParam("triggerUuid") String triggerUuid) throws ZepException {
         EventTrigger trigger = this.eventTriggerDao.findByUuid(triggerUuid);
@@ -67,8 +69,8 @@ public class TriggersResource {
 
     @GET
     @Path("/")
-    @Produces({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
     public EventTriggerSet findTriggers() throws ZepException {
         return EventTriggerSet.newBuilder()
                 .addAllTriggers(this.eventTriggerDao.findAll()).build();
@@ -76,8 +78,8 @@ public class TriggersResource {
 
     @PUT
     @Path("{triggerUuid}")
-    @Consumes({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
     public Response modifyTrigger(@PathParam("triggerUuid") String triggerUuid,
             EventTrigger trigger, @Context UriInfo info) throws ZepException {
         EventTrigger existing = this.eventTriggerDao.findByUuid(triggerUuid);
@@ -91,8 +93,8 @@ public class TriggersResource {
 
     @GET
     @Path("subscriptions")
-    @Produces({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
     public EventTriggerSubscriptionSet findAllSubscriptions()
             throws ZepException {
         return EventTriggerSubscriptionSet
@@ -103,8 +105,8 @@ public class TriggersResource {
 
     @GET
     @Path("subscriptions/{subscriber_uuid}")
-    @Produces({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
     public EventTriggerSubscriptionSet findSubscriptions(
             @PathParam("subscriber_uuid") String subscriberUuid)
             throws ZepException {
@@ -117,8 +119,8 @@ public class TriggersResource {
 
     @PUT
     @Path("subscriptions/{subscriber_uuid}")
-    @Consumes({ MediaType.APPLICATION_JSON,
-            ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
     public Response updateSubscriptions(
             @PathParam("subscriber_uuid") String subscriberUuid,
             EventTriggerSubscriptionSet subscriptions) throws ZepException {

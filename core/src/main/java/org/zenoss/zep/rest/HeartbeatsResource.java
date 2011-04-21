@@ -3,6 +3,7 @@
  */
 package org.zenoss.zep.rest;
 
+import org.jboss.resteasy.annotations.GZIP;
 import org.zenoss.protobufs.ProtobufConstants;
 import org.zenoss.protobufs.zep.Zep.DaemonHeartbeatSet;
 import org.zenoss.zep.ZepException;
@@ -31,6 +32,7 @@ public class HeartbeatsResource {
     @GET
     @Path("/")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
     public DaemonHeartbeatSet getAllHeartbeats() throws ZepException {
         DaemonHeartbeatSet.Builder dhb = DaemonHeartbeatSet.newBuilder();
         dhb.addAllHeartbeats(heartbeatDao.findAll());
@@ -40,6 +42,7 @@ public class HeartbeatsResource {
     @GET
     @Path("/{monitor}")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
     public DaemonHeartbeatSet getHeartbeatsForMonitor(@PathParam("monitor") String monitor) throws ZepException {
         DaemonHeartbeatSet.Builder dhb = DaemonHeartbeatSet.newBuilder();
         dhb.addAllHeartbeats(heartbeatDao.findByMonitor(monitor));
@@ -48,6 +51,7 @@ public class HeartbeatsResource {
 
     @DELETE
     @Path("/")
+    @GZIP
     public Response deleteAllHeartbeats() throws ZepException {
         heartbeatDao.deleteAll();
         return Response.noContent().build();
@@ -55,6 +59,7 @@ public class HeartbeatsResource {
 
     @DELETE
     @Path("/{monitor}")
+    @GZIP
     public Response deleteByMonitor(@PathParam("monitor") String monitor) throws ZepException {
         heartbeatDao.deleteByMonitor(monitor);
         return Response.noContent().build();

@@ -3,6 +3,7 @@
  */
 package org.zenoss.zep.rest;
 
+import org.jboss.resteasy.annotations.GZIP;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.zenoss.protobufs.ProtobufConstants;
@@ -51,12 +52,14 @@ public class ConfigResource implements ApplicationEventPublisherAware {
 
     @GET
     @Produces({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
+    @GZIP
     public ZepConfig getConfig() throws ZepException {
         return configDao.getConfig();
     }
 
     @PUT
     @Consumes({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
+    @GZIP
     public void setConfig(ZepConfig config) throws ZepException {
         ZepConfig currentConfig = configDao.getConfig();
         
@@ -70,6 +73,7 @@ public class ConfigResource implements ApplicationEventPublisherAware {
     @PUT
     @Consumes({MediaType.APPLICATION_JSON, MediaType.TEXT_PLAIN, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
     @Path("{name}")
+    @GZIP
     public void setConfigValue(@PathParam("name") String name, ZepConfig value)
             throws ZepException {
         ZepConfig currentConfig = configDao.getConfig();
@@ -84,6 +88,7 @@ public class ConfigResource implements ApplicationEventPublisherAware {
 
     @DELETE
     @Path("{name}")
+    @GZIP
     public Response removeConfigValue(@PathParam("name") String name)
             throws ZepException {
         ZepConfig currentConfig = configDao.getConfig();
@@ -104,6 +109,7 @@ public class ConfigResource implements ApplicationEventPublisherAware {
     @GET
     @Path("index_details")
     @Produces({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
+    @GZIP
     public EventDetailItemSet getIndexedDetails() throws ZepException {
         EventDetailItemSet.Builder setBuilder = EventDetailItemSet.newBuilder();
         Map<String, EventDetailItem> indexDetailsMap = this.detailsConfigDao.getEventDetailItemsByName();
@@ -114,6 +120,7 @@ public class ConfigResource implements ApplicationEventPublisherAware {
     @GET
     @Path("index_details/{detail_name}")
     @Produces({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
+    @GZIP
     public Response getIndexedDetailByName(@PathParam("detail_name") String detailName) throws ZepException {
         EventDetailItem item = this.detailsConfigDao.findByName(detailName);
         final Response response;
@@ -128,6 +135,7 @@ public class ConfigResource implements ApplicationEventPublisherAware {
     @PUT
     @Path("index_details/{detail_name}")
     @Consumes({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
+    @GZIP
     public Response createIndexedDetail(@PathParam("detail_name") String detailName, EventDetailItem item)
             throws ZepException {
         if (!detailName.equals(item.getKey())) {
@@ -141,6 +149,7 @@ public class ConfigResource implements ApplicationEventPublisherAware {
     @POST
     @Path("index_details")
     @Consumes({MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF})
+    @GZIP
     public Response createIndexedDetails(EventDetailItemSet items) throws ZepException {
         if (items.getDetailsCount() == 0) {
             return Response.status(Status.BAD_REQUEST).build();
@@ -162,6 +171,7 @@ public class ConfigResource implements ApplicationEventPublisherAware {
 
     @DELETE
     @Path("index_details/{detail_name}")
+    @GZIP
     public Response deleteIndexedDetail(@PathParam("detail_name") String detailName) throws ZepException {
         final int numRows = this.detailsConfigDao.delete(detailName);
         final Response response;
