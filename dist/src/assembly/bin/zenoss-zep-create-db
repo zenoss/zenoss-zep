@@ -1,7 +1,11 @@
 #!/bin/bash
 
+#
+# Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
+#
+
 BASEDIR=`dirname "$0"`
-BASEDIR=`cd "$BASEDIR/.." && pwd`
+BASEDIR=`cd "${BASEDIR}/.." && pwd`
 
 DBNAME=${DBNAME:-"zenoss_zep"}
 DBHOST=${DBHOST:-"localhost"}
@@ -10,29 +14,35 @@ DBROOTUSER=${DBROOTUSER:-"root"}
 DBROOTPASS=${DBROOTPASS:-""}
 DBUSER=${DBUSER:-"zenoss"}
 DBPASS=${DBPASS:-"zenoss"}
-PROMPTPASS=0
+SCHEMADIR=${SCHEMADIR:-"${BASEDIR}/share/zenoss-zep/sql/mysql"}
 FORCE=0
 
 usage() {
     echo "Usage: $(basename "$0") [...]"
     echo ""
-    echo "  --dbhost <dbhost> (default '$DBHOST')"
-    echo "  --dbport <dbport> (default '$DBPORT')"
-    echo "  --dbname <dbname> (default '$DBNAME')"
-    echo "  --dbrootuser <dbrootuser> (default '$DBROOTUSER')"
-    echo "  --dbrootpass <dbrootpass> (default '$DBROOTPASS')"
-    echo "  --dbuser <dbuser> (default '$DBUSER')"
-    echo "  --dbpass <dbpass> (default '$DBPASS')"
+    echo "  --dbhost <dbhost> (default '${DBHOST}')"
+    echo "  --dbport <dbport> (default '${DBPORT}')"
+    echo "  --dbname <dbname> (default '${DBNAME}')"
+    echo "  --dbrootuser <dbrootuser> (default '${DBROOTUSER}')"
+    echo "  --dbrootpass <dbrootpass> (default '${DBROOTPASS}')"
+    echo "  --dbuser <dbuser> (default '${DBUSER}')"
+    echo "  --dbpass <dbpass> (default '${DBPASS}')"
+    echo "  --schemadir <schemadir> (default '${SCHEMADIR}')"
     echo "  --promptpass      (prompts for database password)"
     echo "  --force           (overwrites existing database)"
     echo ""
     exit 0
 }
 
+sql_file() {
+    local rev=$1
+    printf "${SCHEMADIR}/%03d.sql" ${rev}
+}
+
 while [ $# -gt 0 ]; do
     ARG=$1
     shift
-    case "$ARG" in
+    case "${ARG}" in
         '--dbname')
             DBNAME="$1"
             shift
@@ -61,8 +71,9 @@ while [ $# -gt 0 ]; do
             DBPASS="$1"
             shift
             ;;
-        '--promptpass')
-            PROMPTPASS=1
+        '--schemadir')
+            SCHEMADIR="$1"
+            shift
             ;;
         '--force')
             FORCE=1
@@ -72,29 +83,44 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-if [ -n "$DBPASS" ] && [ $PROMPTPASS -gt 0 ]; then
-    echo "--dbpass and --promptpass are mutually exclusive"
-    usage
+MYSQL="mysql --batch --skip-column-names --host=${DBHOST} --port=${DBPORT} --user=${DBROOTUSER} --password=${DBROOTPASS}"
+
+if [ ${FORCE} -gt 0 ]; then
+    ${MYSQL} -e "DROP DATABASE IF EXISTS ${DBNAME}" || exit $?
 fi
 
-if [ $PROMPTPASS -gt 0 ]; then
-    set -- mysql --host="$DBHOST" --port="$DBPORT" --user="$DBROOTUSER" --password
-else
-    set -- mysql --host="$DBHOST" --port="$DBPORT" --user="$DBROOTUSER" --password="$DBROOTPASS"
-fi
-
-if [ $FORCE -gt 0 ]; then
-    DROP_DB="drop database if exists $DBNAME;"
-fi
-
-exec "$@" <<EOF
-$DROP_DB create database $DBNAME;
-grant all on $DBNAME.* to '$DBUSER'@'$DBHOST' identified by '$DBPASS';
-grant all on $DBNAME.* to '$DBUSER'@'%' identified by '$DBPASS';
-flush privileges;
-use $DBNAME;
-source $BASEDIR/share/zenoss-zep/sql/event_schema.sql
+${MYSQL} <<EOF
+CREATE DATABASE IF NOT EXISTS ${DBNAME};
+GRANT ALL ON ${DBNAME}.* TO '$DBUSER'@'$DBHOST' IDENTIFIED BY '$DBPASS';
+GRANT ALL ON ${DBNAME}.* TO '$DBUSER'@'%' IDENTIFIED BY '$DBPASS';
+FLUSH PRIVILEGES;
 EOF
 RC=$?
+if [ ${RC} -ne 0 ]; then
+    exit ${RC}
+fi
 
-exit $RC
+SCHEMAVERSION=`${MYSQL} "${DBNAME}" -e "SELECT MAX(version) FROM schema_version" 2>/dev/null`
+if [ -z "${SCHEMAVERSION}" ]; then
+    SCHEMAVERSION=0
+fi
+i=1
+while [ ${i} -lt 1000 ]; do
+    filename=`sql_file ${i}`
+    [[ ! -f "${filename}" ]] && break
+    if [ ${SCHEMAVERSION} -lt ${i} ]; then
+        echo "Applying schema version: ${i}"
+        ${MYSQL} <<EOF
+USE ${DBNAME};
+SOURCE ${filename};
+EOF
+        RC=$?
+        if [ ${RC} -ne 0 ]; then
+            exit ${RC}
+        fi
+        SCHEMAVERSION=${i}
+    fi
+    i=$((${i}+1))
+done
+echo "Schema version: ${SCHEMAVERSION}"
+exit 0

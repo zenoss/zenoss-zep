@@ -73,7 +73,7 @@
             <fileMode>644</fileMode>
             <outputDirectory>share/zenoss-zep/sql/</outputDirectory>
             <includes>
-                <include>*.sql</include>
+                <include>**/*.sql</include>
             </includes>
         </fileSet>
     </fileSets>

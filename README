@@ -47,12 +47,12 @@ $ mvn jetty:run -Dzep.jdbc.hostname=myhost.zenoss.loc -Dzep.jdbc.username=zenoss
 
 == Running ZEP from a standalone build ==
 
-$ mvn assembly:assembly
+$ mvn clean package
 $ mkdir -p ~/zep
-$ tar zxvf target/zenoss-zep-*-webapp.tar.gz -C ~/zep
+$ tar zxvf dist/target/zep-*-webapp.tar.gz -C ~/zep
 $ cd ~/zep
---> Edit 'etc/zenoss-zep.properties' and 'etc/zenoss-zep-plugins.properties' as
-    needed to configure ZEP.
+--> Edit 'etc/zenoss-zep/zenoss-zep.properties' and
+    'etc/zenoss-zep/zenoss-zep-plugins.properties' as needed to configure ZEP.
 $ ./bin/zenoss-zep-create-db
 $ ./bin/zenoss-zep start
 
@@ -62,4 +62,4 @@ and restart the ZEP daemon.
 
 == Running ZEP Unit and Integration Tests ==
 
-$ mvn verify
+$ mvn clean verify
