@@ -199,7 +199,7 @@ public class EventIndexerImpl implements EventIndexer {
         fields.put(COLUMN_INDEXED, 0);
         fields.put("_limit", INDEX_LIMIT);
 
-        final String sql = "SELECT * FROM " + tableName + " WHERE update_time > :_min_update_time AND " + 
+        final String sql = "SELECT * FROM " + tableName + " WHERE " + 
                 "update_time <= :_max_update_time AND indexed = :indexed LIMIT :_limit FOR UPDATE";
         final List<EventPostProcessingPlugin> plugins = this.pluginService.getPostProcessingPlugins();
         final List<byte[]> uuids = this.template.query(sql, fields, new RowMapper<byte[]>() {
