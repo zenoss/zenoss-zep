@@ -147,9 +147,6 @@ public class EventSummaryDaoImplIT extends
         combined.addAll(event.getDetailsList());
         combined.addAll(newEvent.getDetailsList());
         assertEquals(combined, newEventFromSummary.getDetailsList());
-
-        eventSummaryDao.delete(eventSummaryFromDb.getUuid());
-        assertNull(eventSummaryDao.findByUuid(eventSummaryFromDb.getUuid()));
     }
 
     @Test

@@ -51,7 +51,7 @@ public class EventArchiveDaoImplIT extends
     }
 
     private EventSummary createArchive(Event event) throws ZepException {
-        return eventArchiveDao.findByUuid(eventArchiveDao.create(event));
+        return eventArchiveDao.findByUuid(eventArchiveDao.create(event, EventStatus.STATUS_CLOSED));
     }
 
     @Test
@@ -70,9 +70,6 @@ public class EventArchiveDaoImplIT extends
                 eventSummaryFromDb.getLastSeenTime());
         assertFalse(eventSummaryFromDb.hasCurrentUserUuid());
         assertFalse(eventSummaryFromDb.hasClearedByEventUuid());
-
-        eventArchiveDao.delete(eventSummaryFromDb.getUuid());
-        assertNull(eventArchiveDao.findByUuid(eventSummaryFromDb.getUuid()));
     }
 
     public static Event createEvent() {

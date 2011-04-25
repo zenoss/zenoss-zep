@@ -8,9 +8,8 @@ import org.zenoss.zep.ZepException;
 
 /**
  * DAO for the metadata stored for the event indexing. This contains details
- * about the index name, version number of the index, a checksum calculated
- * of the version of the event index configuration, and timestamps
- * for the last time events were indexed and when the index was last committed.
+ * about the index name, version number of the index, and a checksum calculated
+ * of the version of the event index configuration.
  */
 public interface IndexMetadataDao {
     /**

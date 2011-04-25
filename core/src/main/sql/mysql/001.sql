@@ -16,14 +16,6 @@ CREATE TABLE `event_class`
     PRIMARY KEY (`id`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
-CREATE TABLE `element_event_summary`
-(
-    `element_uuid` BINARY(16) NOT NULL,
-    `severity_id` TINYINT NOT NULL,
-    `event_count` INTEGER NOT NULL,
-    PRIMARY KEY (`element_uuid`,`severity_id`)
-) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
-
 CREATE TABLE `event_class_key`
 (
     `id` INTEGER NOT NULL AUTO_INCREMENT,
@@ -82,11 +74,11 @@ CREATE TABLE `event_summary`
     `severity_id` TINYINT NOT NULL,
     `element_uuid` BINARY(16),
     `element_type_id` TINYINT,
-    `element_identifier` VARCHAR(255),
+    `element_identifier` VARCHAR(255) NOT NULL,
     `element_sub_uuid` BINARY(16),
     `element_sub_type_id` TINYINT,
     `element_sub_identifier` VARCHAR(255),
-    `update_time` BIGINT NOT NULL COMMENT 'Last time any modification was made to the event. Used to determine whether event should be re-indexed.',
+    `update_time` BIGINT NOT NULL COMMENT 'Last time any modification was made to the event.',
     `first_seen` BIGINT NOT NULL COMMENT 'UTC Time. First time that the event occurred.',
     `status_change` BIGINT NOT NULL COMMENT 'Last time that the event status changed.',
     `last_seen` BIGINT NOT NULL COMMENT 'UTC time. Most recent time that the event occurred.',
@@ -106,23 +98,29 @@ CREATE TABLE `event_summary`
     `tags_json` MEDIUMTEXT COMMENT 'JSON encoded event tags.',
     `notes_json` MEDIUMTEXT COMMENT 'JSON encoded event notes (formerly log).',
     `audit_json` MEDIUMTEXT COMMENT 'JSON encoded event audit log.',
-    `indexed` TINYINT NOT NULL DEFAULT 0,
     PRIMARY KEY (uuid),
     UNIQUE KEY (fingerprint_hash),
-    FOREIGN KEY (`event_group_id`) REFERENCES `event_group` (`id`),
-    FOREIGN KEY (`event_class_id`) REFERENCES `event_class` (`id`),
-    FOREIGN KEY (`event_class_key_id`) REFERENCES `event_class_key` (`id`),
-    FOREIGN KEY (`event_key_id`) REFERENCES `event_key` (`id`),
-    FOREIGN KEY (`monitor_id`) REFERENCES `monitor` (`id`),
-    FOREIGN KEY (`agent_id`) REFERENCES `agent` (`id`),
+    CONSTRAINT `fk_event_group_id` FOREIGN KEY (`event_group_id`) REFERENCES `event_group` (`id`),
+    CONSTRAINT `fk_event_class_id` FOREIGN KEY (`event_class_id`) REFERENCES `event_class` (`id`),
+    CONSTRAINT `fk_event_class_key_id` FOREIGN KEY (`event_class_key_id`) REFERENCES `event_class_key` (`id`),
+    CONSTRAINT `fk_event_key_id` FOREIGN KEY (`event_key_id`) REFERENCES `event_key` (`id`),
+    CONSTRAINT `fk_monitor_id` FOREIGN KEY (`monitor_id`) REFERENCES `monitor` (`id`),
+    CONSTRAINT `fk_agent_id` FOREIGN KEY (`agent_id`) REFERENCES `agent` (`id`),
     INDEX (`status_id`),
     INDEX (`clear_fingerprint_hash`),
     INDEX (`severity_id`),
     INDEX (`last_seen`),
-    INDEX (`update_time`,`indexed`),
     INDEX (`element_uuid`,`element_type_id`,`element_identifier`),
     INDEX (`element_sub_uuid`,`element_sub_type_id`,`element_sub_identifier`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `event_summary_index_queue`
+(
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uuid` BINARY(16) NOT NULL,
+    `update_time` BIGINT NOT NULL,
+    PRIMARY KEY(`id`)
+);
 
 CREATE TABLE `event_archive`
 (
@@ -138,11 +136,11 @@ CREATE TABLE `event_archive`
     `severity_id` TINYINT NOT NULL,
     `element_uuid` BINARY(16),
     `element_type_id` TINYINT,
-    `element_identifier` VARCHAR(255),
+    `element_identifier` VARCHAR(255) NOT NULL,
     `element_sub_uuid` BINARY(16),
     `element_sub_type_id` TINYINT,
     `element_sub_identifier` VARCHAR(255),
-    `update_time` BIGINT NOT NULL COMMENT 'Last time any modification was made to the event. Used to determine whether event should be re-indexed.',
+    `update_time` BIGINT NOT NULL COMMENT 'Last time any modification was made to the event.',
     `first_seen` BIGINT NOT NULL COMMENT 'UTC Time. First time that the event occurred.',
     `status_change` BIGINT NOT NULL COMMENT 'Last time that the event status changed.',
     `last_seen` BIGINT NOT NULL COMMENT 'UTC time. Most recent time that the event occurred.',
@@ -162,10 +160,16 @@ CREATE TABLE `event_archive`
     `tags_json` MEDIUMTEXT COMMENT 'JSON encoded event tags.',
     `notes_json` MEDIUMTEXT COMMENT 'JSON encoded event notes (formerly log).',
     `audit_json` MEDIUMTEXT COMMENT 'JSON encoded event audit log.',
-    `indexed` TINYINT NOT NULL DEFAULT 0,
-    INDEX (`uuid`),
-    INDEX (`update_time`,`indexed`)
+    INDEX (`uuid`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
+
+CREATE TABLE `event_archive_index_queue`
+(
+    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `uuid` BINARY(16) NOT NULL,
+    `update_time` BIGINT NOT NULL,
+    PRIMARY KEY(`id`)
+);
 
 CREATE TABLE `event`
 (
@@ -225,7 +229,7 @@ CREATE TABLE event_trigger_subscription
     repeat_seconds INTEGER NOT NULL DEFAULT 0,
     send_initial_occurrence TINYINT NOT NULL,
     PRIMARY KEY (uuid),
-    FOREIGN KEY (`event_trigger_uuid`) REFERENCES `event_trigger` (`uuid`) ON DELETE CASCADE,
+    CONSTRAINT `fk_event_trigger_uuid` FOREIGN KEY (`event_trigger_uuid`) REFERENCES `event_trigger` (`uuid`) ON DELETE CASCADE,
     UNIQUE INDEX (`event_trigger_uuid`,`subscriber_uuid`)
 ) ENGINE = InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
@@ -238,8 +242,8 @@ CREATE TABLE `event_trigger_signal_spool`
     `created` BIGINT NOT NULL,
     `event_count` INTEGER DEFAULT 1 NOT NULL COMMENT 'The number of times the event occurred while the signal was in the spool.',
     PRIMARY KEY (`uuid`),
-    FOREIGN KEY (`event_trigger_subscription_uuid`) REFERENCES `event_trigger_subscription` (`uuid`) ON DELETE CASCADE,
-    FOREIGN KEY (`event_summary_uuid`) REFERENCES `event_summary` (`uuid`) ON DELETE CASCADE,
+    CONSTRAINT `fk_event_trigger_subscription_uuid` FOREIGN KEY (`event_trigger_subscription_uuid`) REFERENCES `event_trigger_subscription` (`uuid`) ON DELETE CASCADE,
+    CONSTRAINT `fk_event_summary_uuid` FOREIGN KEY (`event_summary_uuid`) REFERENCES `event_summary` (`uuid`) ON DELETE CASCADE,
     UNIQUE INDEX (`event_trigger_subscription_uuid`, `event_summary_uuid`),
     INDEX (`flush_time`),
     INDEX (`created`)
@@ -260,5 +264,33 @@ CREATE TABLE `daemon_heartbeat`
     `last_time` BIGINT NOT NULL COMMENT 'Last time the heartbeat was received.',
     PRIMARY KEY (`monitor`, `daemon`)
 ) ENGINE=InnoDB COMMENT='Daemon heartbeats.' CHARACTER SET=utf8 COLLATE=utf8_general_ci;
+
+DELIMITER |
+
+CREATE TRIGGER `event_summary_index_queue_insert` AFTER INSERT ON `event_summary`
+  FOR EACH ROW BEGIN
+    INSERT INTO `event_summary_index_queue` SET uuid=NEW.uuid, update_time=NEW.update_time;
+  END;
+|
+
+CREATE TRIGGER `event_archive_index_queue_insert` AFTER INSERT ON `event_archive`
+  FOR EACH ROW BEGIN
+    INSERT INTO `event_archive_index_queue` SET uuid=NEW.uuid, update_time=NEW.update_time;
+  END;
+|
+
+CREATE TRIGGER `event_summary_index_queue_update` AFTER UPDATE ON `event_summary`
+  FOR EACH ROW BEGIN
+    INSERT INTO `event_summary_index_queue` SET uuid=NEW.uuid, update_time=NEW.update_time;
+  END;
+|
+
+CREATE TRIGGER `event_archive_index_queue_update` AFTER UPDATE ON `event_archive`
+  FOR EACH ROW BEGIN
+    INSERT INTO `event_archive_index_queue` SET uuid=NEW.uuid, update_time=NEW.update_time;
+  END;
+|
+
+DELIMITER ;
 
 INSERT INTO `schema_version` (`version`, `installed_time`) VALUES(1, NOW()); 

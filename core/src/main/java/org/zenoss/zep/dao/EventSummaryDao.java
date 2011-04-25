@@ -5,11 +5,8 @@ package org.zenoss.zep.dao;
 
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
-import org.zenoss.protobufs.zep.Zep.EventDetailSet;
-import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
-import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
 
 import java.util.List;
@@ -19,22 +16,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * DAO which provides an interface to the event summary table.
  */
-public interface EventSummaryDao {
-    /**
-     * Creates or updates a summary entry in the event summary table for the
-     * specified event occurrence.
-     * 
-     * @param event
-     *            The event occurrence.
-     * @param eventStatus
-     *            Initial status of the event (default is
-     *            {@link EventStatus#STATUS_NEW}).
-     * @return The UUID of the created (or updated) event.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public String create(Event event, EventStatus eventStatus)
-            throws ZepException;
+public interface EventSummaryDao extends EventSummaryBaseDao {
 
     /**
      * Creates a clear event with the specified clear classes.
@@ -76,69 +58,6 @@ public interface EventSummaryDao {
      * @throws ZepException If an exception occurred.
      */
     public int deidentify(String uuid) throws ZepException;
-
-    /**
-     * Deletes the summary entry with the specified UUID.
-     * 
-     * @param uuid
-     *            UUID of summary entry to delete.
-     * @return The number of rows affected by the query.
-     * @throws ZepException
-     *             If an exception occurs.
-     */
-    public int delete(String uuid) throws ZepException;
-
-    /**
-     * Finds the event summary entry with the specified UUID.
-     * 
-     * @param uuid
-     *            The UUID of the event summary entry.
-     * @return The event summary entry, or null if not found.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public EventSummary findByUuid(String uuid) throws ZepException;
-
-    /**
-     * Retrieves event summary entries with the specified UUIDs.
-     * 
-     * @param uuids
-     *            UUIDs to find.
-     * @return The matching event summary entries.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public List<EventSummary> findByUuids(List<String> uuids)
-            throws ZepException;
-
-    /**
-     * Add a note to the event.
-     *
-     * @param uuid The event UUID.
-     * @param note
-     *            The note to add.
-     * @return The number of rows affected by the query.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public int addNote(String uuid, EventNote note) throws ZepException;
-
-    /**
-     * Updates the event with the specified UUID, to add/merge/update
-     * detail values given in details parameter.
-     *
-     * @param uuid
-     *            UUID of event to update.
-     * @param details
-     *            list of name-value pairs of details to add/merge/update
-     *            (setting a detail to '' or null will delete it from the
-     *            list of event details)
-     * @return The number of affected events.
-     * @throws ZepException
-     *             If an error occurs.
-     */
-    public int updateDetails(String uuid, EventDetailSet details)
-            throws ZepException;
 
     /**
      * Ages events from the summary database which are older than the specified

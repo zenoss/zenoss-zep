@@ -146,7 +146,7 @@ public class EventsResource {
     public Response createSavedSearchInternal(EventIndexDao indexDao, EventQuery query, @Context UriInfo ui)
             throws URISyntaxException, ZepException {
         // Make sure index is up to date with latest events prior to creating the saved search
-        indexFully();
+        eventIndexer.indexFully();
         String uuid = indexDao.createSavedSearch(query);
         return Response.created(new URI(ui.getRequestUri().toString() + '/' + uuid)).build();
     }
@@ -241,7 +241,7 @@ public class EventsResource {
         }
         int numUpdated = this.eventStoreDao.update(uuids, request.getUpdateFields());
         if (numUpdated > 0) {
-            indexFully();
+            eventIndexer.indexFully();
         }
         EventSummaryUpdateResponse.Builder response = EventSummaryUpdateResponse.newBuilder();
         if (result.hasNextOffset()) {
@@ -269,14 +269,6 @@ public class EventsResource {
         return Response.ok(summary).build();
     }
 
-    private void indexFully() throws ZepException {
-        final long now = System.currentTimeMillis();
-        int numIndexed;
-        while ((numIndexed = eventIndexer.index(now)) > 0) {
-            logger.debug("Indexed {} events", numIndexed);
-        }
-    }
-
     @PUT
     @Path("{eventUuid}")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
@@ -291,7 +283,7 @@ public class EventsResource {
 
         int numRows = eventStoreDao.update(summary.getUuid(), update);
         if (numRows > 0) {
-            indexFully();
+            eventIndexer.indexFully();
         }
 
         return Response.noContent().build();

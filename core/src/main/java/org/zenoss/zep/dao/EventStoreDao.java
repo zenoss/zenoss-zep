@@ -39,17 +39,6 @@ public interface EventStoreDao extends Purgable {
             throws ZepException;
 
     /**
-     * Deletes the summary entry with the specified UUID.
-     * 
-     * @param uuid
-     *            UUID of summary entry to delete.
-     * @return The number of rows affected by the query.
-     * @throws ZepException
-     *             If an exception occurs.
-     */
-    public int delete(String uuid) throws ZepException;
-
-    /**
      * Finds the event summary entry with the specified UUID.
      * 
      * @param uuid

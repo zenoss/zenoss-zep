@@ -18,6 +18,7 @@ import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventDetail.EventDetailMergeBehavior;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
+import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepException;
@@ -423,10 +424,9 @@ public class EventDaoHelper {
             // Notes are expected to be returned in reverse order
             Map<String,Object> fields = new HashMap<String,Object>();
             fields.put(COLUMN_UPDATE_TIME, System.currentTimeMillis());
-            fields.put(COLUMN_INDEXED, 0);
             fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
             fields.put(COLUMN_NOTES_JSON, JsonFormat.writeAsString(builder.build()));
-            final String sql = "UPDATE " + tableName + " SET update_time=:update_time,indexed=:indexed," +
+            final String sql = "UPDATE " + tableName + " SET update_time=:update_time," +
                     "notes_json=CONCAT_WS(',\n',:notes_json,notes_json) WHERE uuid=:uuid";
             return template.update(sql, fields);
         } catch (IOException e) {
@@ -464,9 +464,8 @@ public class EventDaoHelper {
             // update current event_summary record
             fields.put(COLUMN_DETAILS_JSON, updatedDetailsJson);
             fields.put(COLUMN_UPDATE_TIME, System.currentTimeMillis());
-            fields.put(COLUMN_INDEXED, 0);
             String updateSql = "UPDATE " + tableName + " SET details_json=:details_json, "
-                    + "update_time=:update_time,indexed=:indexed WHERE uuid = :uuid";
+                    + "update_time=:update_time WHERE uuid = :uuid";
 
             return template.update(updateSql, fields);
         } catch (IOException ioe) {
@@ -483,5 +482,25 @@ public class EventDaoHelper {
             severityIds.add(orderedSeverity.getNumber());
         }
         return severityIds;
+    }
+    
+    @Transactional(readOnly = true)
+    public List<EventSummary> listBatch(SimpleJdbcTemplate template, String tableName, String startingUuid,
+                                        long maxUpdateTime, int limit)
+            throws ZepException {
+        final String sql;
+        final Map<String,Object> fields = new HashMap<String,Object>();
+        fields.put("_max_update_time", maxUpdateTime);
+        fields.put("_limit", limit);
+        
+        if (startingUuid == null) {
+            sql = "SELECT * FROM " + tableName + " WHERE update_time <= :_max_update_time ORDER BY uuid LIMIT :_limit";
+        }
+        else {
+            fields.put("_starting_uuid", DaoUtils.uuidToBytes(startingUuid));
+            sql = "SELECT * FROM " + tableName + " WHERE uuid > :_starting_uuid AND update_time <= :_max_update_time " + 
+                    "ORDER BY uuid LIMIT :_limit";
+        }
+        return template.query(sql, new EventSummaryRowMapper(this), fields);
     }
 }

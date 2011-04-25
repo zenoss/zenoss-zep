@@ -18,13 +18,20 @@ public interface EventIndexer {
      *             If an exception occurs.
      */
     public void init() throws ZepException;
-
+    
     /**
-     * Performs an index if either the summary or archive is out of date.
+     * Performs an index of events in the event summary and archive.
      *
-     * @param throughTime The timestamp through which events will be indexed.
      * @return The number of indexed events.
      * @throws ZepException If an exception occurs.
      */
-    public int index(long throughTime) throws ZepException;
+    public int index() throws ZepException;
+
+    /**
+     * Performs a full index through the current timestamp.
+     *
+     * @return The number of indexed events.
+     * @throws ZepException If an exception occurs.
+     */
+    public int indexFully() throws ZepException;
 }

@@ -61,22 +61,6 @@ public class EventStoreDaoImpl implements EventStoreDao {
     }
 
     @Override
-    @Transactional
-    public int delete(String uuid) throws ZepException {
-        int rows = eventSummaryDao.delete(uuid);
-        if (rows > 0) {
-            eventSummaryIndexDao.delete(uuid);
-        }
-        else {
-            rows = eventArchiveDao.delete(uuid);
-            if (rows > 0) {
-                eventArchiveIndexDao.delete(uuid);
-            }
-        }
-        return rows;
-    }
-
-    @Override
     @Transactional(readOnly = true)
     public EventSummary findByUuid(String uuid) throws ZepException {
         EventSummary summary = eventSummaryDao.findByUuid(uuid);

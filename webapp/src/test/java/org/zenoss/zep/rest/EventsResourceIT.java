@@ -69,7 +69,7 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
     }
 
     private EventSummary createArchive(Event event) throws ZepException {
-        return archiveDao.findByUuid(archiveDao.create(event));
+        return archiveDao.findByUuid(archiveDao.create(event, EventStatus.STATUS_CLOSED));
     }
 
     @Before

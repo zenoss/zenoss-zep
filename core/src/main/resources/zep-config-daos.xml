@@ -84,6 +84,16 @@
     <bean id="heartbeatDao" class="org.zenoss.zep.dao.impl.HeartbeatDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
     </bean>
+    <bean id="eventSummaryIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
+        <constructor-arg index="0" ref="dataSource" />
+        <constructor-arg index="1" value="false" />
+        <constructor-arg index="2" ref="eventDaoHelper" />
+    </bean>
+    <bean id="eventArchiveIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
+        <constructor-arg index="0" ref="dataSource" />
+        <constructor-arg index="1" value="true" />
+        <constructor-arg index="2" ref="eventDaoHelper" />
+    </bean>
 
     <!-- Indexing DAO -->
     <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl">
@@ -146,12 +156,14 @@
     </bean>
 
     <bean id="eventIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl">
-        <constructor-arg index="0" ref="dataSource"/>
-        <constructor-arg index="1" value="${zep.index.interval_seconds:1}" />
-        <constructor-arg index="2" value="${zep.index.interval_window:30}" />
+        <property name="eventSummaryDao" ref="eventSummaryDao" />
         <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao" />
+        <property name="eventSummaryQueueDao" ref="eventSummaryIndexQueueDao" />
+        
+        <property name="eventArchiveDao" ref="eventArchiveDao" />
         <property name="eventArchiveIndexDao" ref="eventArchiveIndexDao" />
-        <property name="eventDaoHelper" ref="eventDaoHelper"/>
+        <property name="eventArchiveQueueDao" ref="eventArchiveIndexQueueDao" />
+        
         <property name="pluginService" ref="pluginService"/>
         <property name="indexMetadataDao" ref="indexMetadataDao" />
         <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao"/>

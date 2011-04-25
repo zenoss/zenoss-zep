@@ -58,22 +58,20 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @Transactional
-    public String create(Event event) throws ZepException {
+    public String create(Event event, EventStatus eventStatus) throws ZepException {
         Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
         Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
         long created = (Long) fields.remove(COLUMN_CREATED);
         long updateTime = System.currentTimeMillis();
         final String uuid = UUID.randomUUID().toString();
-        final EventStatus status = EventStatus.STATUS_CLOSED;
         final int eventCount = 1;
         fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
-        fields.put(COLUMN_STATUS_ID, status.getNumber());
+        fields.put(COLUMN_STATUS_ID, eventStatus.getNumber());
         fields.put(COLUMN_FIRST_SEEN, created);
         fields.put(COLUMN_STATUS_CHANGE, created);
         fields.put(COLUMN_LAST_SEEN, created);
         fields.put(COLUMN_EVENT_COUNT, eventCount);
         fields.put(COLUMN_UPDATE_TIME, updateTime);
-        fields.put(COLUMN_INDEXED, 0);
         if (event.getSeverity() != EventSeverity.SEVERITY_CLEAR) {
             fields.put(COLUMN_CLEAR_FINGERPRINT_HASH,
                     EventDaoUtils.createClearHash(event));
@@ -85,13 +83,6 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         occurrenceFields.put(COLUMN_SUMMARY_UUID, fields.get(COLUMN_UUID));
         this.eventDaoHelper.insert(occurrenceFields);
         return uuid;
-    }
-
-    @Override
-    @Transactional
-    public int delete(String uuid) throws ZepException {
-        final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
-        return this.template.update("DELETE FROM event_archive WHERE uuid=:uuid", fields);
     }
 
     @Override
@@ -112,6 +103,12 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         return this.template.query(
                 "SELECT * FROM event_archive WHERE uuid IN(:uuids)",
                 new EventSummaryRowMapper(this.eventDaoHelper), fields);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<EventSummary> listBatch(String startingUuid, long maxUpdateTime, int limit) throws ZepException {
+        return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_ARCHIVE, startingUuid, maxUpdateTime, limit);
     }
 
     @Override

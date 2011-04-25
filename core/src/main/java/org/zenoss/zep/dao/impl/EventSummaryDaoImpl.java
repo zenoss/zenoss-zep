@@ -90,7 +90,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         fields.put(COLUMN_STATUS_ID, status.getNumber());
         fields.put(COLUMN_UPDATE_TIME, updateTime);
-        fields.put(COLUMN_INDEXED, 0);
         fields.put(COLUMN_FIRST_SEEN, created);
         fields.put(COLUMN_STATUS_CHANGE, created);
         fields.put(COLUMN_LAST_SEEN, created);
@@ -175,8 +174,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             rs.updateInt(COLUMN_EVENT_COUNT, rs.getInt(COLUMN_EVENT_COUNT) + 1);
             
             rs.updateLong(COLUMN_UPDATE_TIME, (Long)fields.get(COLUMN_UPDATE_TIME));
-            // Always modify indexed (for indexing)
-            rs.updateInt(COLUMN_INDEXED, 0);
             
             final long previousLastSeen = rs.getLong(COLUMN_LAST_SEEN);
             if (this.occurrence.getCreatedTime() >= previousLastSeen) {
@@ -307,10 +304,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put("_type_id", type.getNumber());
         fields.put("_id", id);
         fields.put(COLUMN_UPDATE_TIME, updateTime);
-        fields.put(COLUMN_INDEXED, 0);
 
         int numRows = 0;
-        String updateSql = "UPDATE event_summary SET element_uuid=:_uuid, update_time=:update_time,indexed=:indexed "
+        String updateSql = "UPDATE event_summary SET element_uuid=:_uuid, update_time=:update_time "
                 + "WHERE element_uuid IS NULL AND element_type_id=:_type_id AND element_identifier=:_id";
         numRows += this.template.update(updateSql, fields);
 
@@ -318,7 +314,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             fields.put("_parent_uuid", DaoUtils.uuidToBytes(parentUuid));
             updateSql = "UPDATE event_summary es INNER JOIN event_class ON es.event_class_id = event_class.id " +
                     "LEFT JOIN event_key ON es.event_key_id = event_key.id " +
-                    "SET element_sub_uuid=:_uuid, update_time=:update_time, indexed=:indexed, " +
+                    "SET element_sub_uuid=:_uuid, update_time=:update_time, " +
                     "clear_fingerprint_hash=UNHEX(SHA1(CONCAT_WS('|',:_uuid_str,event_class.name,IFNULL(event_key.name,'')))) " +
                     "WHERE es.element_uuid=:_parent_uuid AND es.element_sub_uuid IS NULL AND " +
                     "es.element_sub_type_id=:_type_id AND es.element_sub_identifier=:_id";
@@ -335,27 +331,19 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         Map<String,Object> fields = new HashMap<String,Object>();
         fields.put("_uuid", DaoUtils.uuidToBytes(uuid));
         fields.put(COLUMN_UPDATE_TIME, updateTime);
-        fields.put(COLUMN_INDEXED, 0);
 
         int numRows = 0;
-        String updateSql = "UPDATE event_summary SET element_uuid=NULL, update_time=:update_time, indexed=:indexed "
+        String updateSql = "UPDATE event_summary SET element_uuid=NULL, update_time=:update_time "
                 + "WHERE element_uuid=:_uuid";
         numRows += this.template.update(updateSql, fields);
 
         updateSql = "UPDATE event_summary es INNER JOIN event_class ON es.event_class_id = event_class.id " +
                 "LEFT JOIN event_key ON es.event_key_id = event_key.id " +
-                "SET element_sub_uuid=NULL, update_time=:update_time, indexed=:indexed, " +
+                "SET element_sub_uuid=NULL, update_time=:update_time, " +
                 "clear_fingerprint_hash=UNHEX(SHA1(CONCAT_WS('|',element_identifier,IFNULL(element_sub_identifier,''),event_class.name,IFNULL(event_key.name,'')))) " +
                 "WHERE element_sub_uuid=:_uuid";
         numRows += this.template.update(updateSql, fields);
         return numRows;
-    }
-
-    @Override
-    @Transactional
-    public int delete(String uuid) throws ZepException {
-        final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
-        return this.template.update("DELETE FROM event_summary WHERE uuid=:uuid", fields);
     }
 
     @Override
@@ -377,6 +365,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         Map<String, List<byte[]>> fields = Collections.singletonMap("uuids", DaoUtils.uuidsToBytes(uuids));
         return this.template.query("SELECT * FROM event_summary WHERE uuid IN(:uuids)",
                 new EventSummaryRowMapper(this.eventDaoHelper), fields);
+    }
+    
+    @Override
+    @Transactional(readOnly = true)
+    public List<EventSummary> listBatch(String startingUuid, long maxUpdateTime, int limit) throws ZepException {
+        return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_SUMMARY, startingUuid, maxUpdateTime, limit);
     }
 
     private static final EnumSet<EventStatus> AUDIT_LOG_STATUSES = EnumSet.of(
@@ -411,14 +405,13 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put(COLUMN_STATUS_ID, EventStatus.STATUS_AGED.getNumber());
         fields.put(COLUMN_STATUS_CHANGE, now);
         fields.put(COLUMN_UPDATE_TIME, now);
-        fields.put(COLUMN_INDEXED, 0);
         fields.put(COLUMN_LAST_SEEN, ageTs);
         fields.put("_severity_ids", severityIds);
         fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
         fields.put("_limit", limit);
 
         String updateSql = "UPDATE event_summary SET status_id=:status_id, "
-                + "status_change=:status_change, update_time=:update_time, indexed=:indexed "
+                + "status_change=:status_change, update_time=:update_time "
                 + "WHERE last_seen < :last_seen AND "
                 + "severity_id IN (:_severity_ids) AND "
                 + "status_id NOT IN (:_closed_status_ids) LIMIT :_limit";
@@ -487,7 +480,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         updateFieldsMap.put(COLUMN_STATUS_ID, status.getNumber());
         updateFieldsMap.put(COLUMN_STATUS_CHANGE, now);
         updateFieldsMap.put(COLUMN_UPDATE_TIME, now);
-        updateFieldsMap.put(COLUMN_INDEXED, 0);
         updateFieldsMap.put("_uuids", DaoUtils.uuidsToBytes(uuids));
 
         /*
@@ -495,7 +487,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
          * event with the same fingerprint.
          */
         StringBuilder sb = new StringBuilder("UPDATE IGNORE event_summary SET status_id=:status_id")
-                .append(",status_change=:status_change,update_time=:update_time,indexed=:indexed")
+                .append(",status_change=:status_change,update_time=:update_time")
                 .append(",current_user_uuid=:current_user_uuid")
                 .append(",current_user_name=:current_user_name")
                 .append(",cleared_by_event_uuid=:cleared_by_event_uuid");
@@ -638,7 +630,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         Map<String, Object> fields = new HashMap<String,Object>();
         fields.put(COLUMN_UPDATE_TIME, System.currentTimeMillis());
-        fields.put(COLUMN_INDEXED, 0);
         fields.put("_uuids", DaoUtils.uuidsToBytes(uuids));
         StringBuilder selectColumns = new StringBuilder();
 

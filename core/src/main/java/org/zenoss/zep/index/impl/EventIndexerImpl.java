@@ -6,68 +6,69 @@ package org.zenoss.zep.index.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.RowCallbackHandler;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.EventPostProcessingPlugin;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.EventArchiveDao;
+import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
+import org.zenoss.zep.dao.EventIndexQueueDao;
+import org.zenoss.zep.dao.EventSummaryBaseDao;
+import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.IndexMetadata;
 import org.zenoss.zep.dao.IndexMetadataDao;
 import org.zenoss.zep.dao.impl.DaoUtils;
-import org.zenoss.zep.dao.impl.EventDaoHelper;
-import org.zenoss.zep.dao.impl.EventSummaryRowMapper;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
 
-import javax.sql.DataSource;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
-import java.util.concurrent.TimeUnit;
-
-import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 public class EventIndexerImpl implements EventIndexer {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
 
-    private static final int INDEX_LIMIT = 100;
+    private static final int INDEX_LIMIT = 1000;
     
-    private final NamedParameterJdbcTemplate template;
+    private EventSummaryDao eventSummaryDao;
     private EventIndexDao eventSummaryIndexDao;
+    private EventIndexQueueDao eventSummaryQueueDao;
+    
+    private EventArchiveDao eventArchiveDao;
     private EventIndexDao eventArchiveIndexDao;
+    private EventIndexQueueDao eventArchiveQueueDao;
+    
     private PluginService pluginService;
     private IndexMetadataDao indexMetadataDao;
-    private EventSummaryRowMapper eventSummaryRowMapper;
     private EventDetailsConfigDao eventDetailsConfigDao;
     private byte[] indexVersionHash;
-    private final long indexRangeMillis;
 
-    public EventIndexerImpl(DataSource dataSource, int indexIntervalSeconds, int indexIntervalWindow)
-            throws ZepException {
-        this.template = new NamedParameterJdbcTemplate(dataSource);
-        this.indexRangeMillis = TimeUnit.SECONDS.toMillis(indexIntervalSeconds * indexIntervalWindow);
+    public void setEventSummaryDao(EventSummaryDao eventSummaryDao) {
+        this.eventSummaryDao = eventSummaryDao;
     }
-
+    
     public void setEventSummaryIndexDao(EventIndexDao eventSummaryIndexDao) {
         this.eventSummaryIndexDao = eventSummaryIndexDao;
+    }
+    
+    public void setEventSummaryQueueDao(EventIndexQueueDao eventSummaryQueueDao) {
+        this.eventSummaryQueueDao = eventSummaryQueueDao;
+    }
+    
+    public void setEventArchiveDao(EventArchiveDao eventArchiveDao) {
+        this.eventArchiveDao = eventArchiveDao;
     }
 
     public void setEventArchiveIndexDao(EventIndexDao eventIndexDao) {
         this.eventArchiveIndexDao = eventIndexDao;
     }
-
-    public void setEventDaoHelper(EventDaoHelper eventDaoHelper) {
-        this.eventSummaryRowMapper = new EventSummaryRowMapper(eventDaoHelper);
+    
+    public void setEventArchiveQueueDao(EventIndexQueueDao eventArchiveQueueDao) {
+        this.eventArchiveQueueDao = eventArchiveQueueDao;
     }
     
     public void setPluginService(PluginService pluginService) {
@@ -110,34 +111,34 @@ public class EventIndexerImpl implements EventIndexer {
         this.eventSummaryIndexDao.setIndexDetails(detailItems);
         this.eventArchiveIndexDao.setIndexDetails(detailItems);
 
-        rebuildIndex(this.eventSummaryIndexDao, TABLE_EVENT_SUMMARY);
-        rebuildIndex(this.eventArchiveIndexDao, TABLE_EVENT_ARCHIVE);
+        rebuildIndex(this.eventSummaryDao, this.eventSummaryIndexDao);
+        rebuildIndex(this.eventArchiveDao, this.eventArchiveIndexDao);
     }
 
-    private void rebuildIndex(final EventIndexDao dao, final String tableName)
+    private void rebuildIndex(final EventSummaryBaseDao baseDao, final EventIndexDao indexDao)
             throws ZepException {
-        final IndexMetadata indexMetadata = this.indexMetadataDao.findIndexMetadata(dao.getName());
-        final int numDocs = dao.getNumDocs();
+        final IndexMetadata indexMetadata = this.indexMetadataDao.findIndexMetadata(indexDao.getName());
+        final int numDocs = indexDao.getNumDocs();
         
         // Rebuild index if we detect that we have never indexed before.
         if (indexMetadata == null) {
             if (numDocs > 0) {
                 logger.info("Inconsistent state between index and database. Clearing index.");
-                dao.clear();
+                indexDao.clear();
             }
             /* Recreate the index */
-            recreateIndex(dao, tableName);
+            recreateIndex(baseDao, indexDao);
         }
         // Rebuild index if the version changed.
         else if (indexVersionChanged(indexMetadata)) {
-            dao.reindex();
-            this.indexMetadataDao.updateIndexVersion(dao.getName(), IndexConstants.INDEX_VERSION,
+            indexDao.reindex();
+            this.indexMetadataDao.updateIndexVersion(indexDao.getName(), IndexConstants.INDEX_VERSION,
                     this.indexVersionHash);
         }
         // Rebuild index if it has potentially been manually wiped from disk.
         else if (numDocs == 0) {
             /* Recreate the index */
-            recreateIndex(dao, tableName);
+            recreateIndex(baseDao, indexDao);
         }
     }
 
@@ -155,86 +156,83 @@ public class EventIndexerImpl implements EventIndexer {
         return changed;
     }
 
-    private void recreateIndex(final EventIndexDao dao, String tableName) throws ZepException {
-        logger.info("Recreating index for table {}", tableName);
+    private void recreateIndex(final EventSummaryBaseDao baseDao, final EventIndexDao indexDao) throws ZepException {
+        logger.info("Recreating index for table {}", indexDao.getName());
+        String startingUuid = null;
+        final long throughTime = System.currentTimeMillis();
+        int numIndexed = 0;
+        List<EventSummary> events;
         
-        final Map<String,Integer> fields = Collections.singletonMap(COLUMN_INDEXED, 1);
-        final String sql = "SELECT * FROM " + tableName + " WHERE indexed=:indexed";
-        
-        final int[] numRows = new int[1];
-        this.template.query(sql, fields, new RowCallbackHandler() {
-            @Override
-            public void processRow(ResultSet rs) throws SQLException {
-                final EventSummary summary = eventSummaryRowMapper.mapRow(rs, rs.getRow());
-                try {
-                    dao.stage(summary);
-                } catch (ZepException e) {
-                    throw new SQLException(e.getLocalizedMessage(), e);
-                }
-                ++numRows[0];
+        do {
+            events = baseDao.listBatch(startingUuid, throughTime, INDEX_LIMIT);
+            for (EventSummary event : events) {
+                indexDao.stage(event);
+                startingUuid = event.getUuid();
+                ++numIndexed;
             }
-        });
-        if (numRows[0] > 0) {
-            logger.info("Committing changes to index on table: {}", tableName);
-            dao.commit(true);
+        } while (!events.isEmpty());
+        
+        if (numIndexed > 0) {
+            logger.info("Committing changes to index on table: {}", indexDao.getName());
+            indexDao.commit(true);
         }
-        this.indexMetadataDao.updateIndexVersion(dao.getName(), IndexConstants.INDEX_VERSION, this.indexVersionHash);
-        logger.info("Finished recreating index for {} events on table: {}", numRows[0], tableName);
+        this.indexMetadataDao.updateIndexVersion(indexDao.getName(), IndexConstants.INDEX_VERSION,
+                this.indexVersionHash);
+        logger.info("Finished recreating index for {} events on table: {}", numIndexed, indexDao.getName());
+    }
+    
+    @Override
+    public synchronized int index() throws ZepException {
+        int totalIndexed = doIndex(eventSummaryQueueDao, eventSummaryIndexDao, -1L);
+        totalIndexed += doIndex(eventArchiveQueueDao, eventArchiveIndexDao, -1L);
+        return totalIndexed;
     }
 
     @Override
-    @Transactional
-    public synchronized int index(long throughTime) throws ZepException {
-        int numIndexed = doIndex(eventSummaryIndexDao, TABLE_EVENT_SUMMARY, throughTime);
-        if (numIndexed == 0) {
-            numIndexed = doIndex(eventArchiveIndexDao, TABLE_EVENT_ARCHIVE, throughTime);
-        }
-        return numIndexed;
+    public synchronized int indexFully() throws ZepException {
+        int totalIndexed = 0;
+        final long now = System.currentTimeMillis();
+        int numIndexed;
+        do {
+            numIndexed = doIndex(eventSummaryQueueDao, eventSummaryIndexDao, now);
+            numIndexed += doIndex(eventArchiveQueueDao, eventArchiveIndexDao, now);
+            totalIndexed += numIndexed;
+        } while (numIndexed > 0);
+        
+        return totalIndexed;
     }
 
-    private int doIndex(final EventIndexDao dao, final String tableName, long throughTime) throws ZepException {
-        final Map<String,Object> fields = new HashMap<String,Object>();
-        fields.put("_min_update_time", throughTime - this.indexRangeMillis);
-        fields.put("_max_update_time", throughTime);
-        fields.put(COLUMN_INDEXED, 0);
-        fields.put("_limit", INDEX_LIMIT);
-
-        final String sql = "SELECT * FROM " + tableName + " WHERE " + 
-                "update_time <= :_max_update_time AND indexed = :indexed LIMIT :_limit FOR UPDATE";
+    private int doIndex(final EventIndexQueueDao queueDao, final EventIndexDao indexDao, long throughTime)
+            throws ZepException {
         final List<EventPostProcessingPlugin> plugins = this.pluginService.getPostProcessingPlugins();
-        final List<byte[]> uuids = this.template.query(sql, fields, new RowMapper<byte[]>() {
+        
+        int numIndexed = queueDao.indexEvents(new EventIndexHandler() {
             @Override
-            public byte[] mapRow(ResultSet rs, int rowNum) throws SQLException {
-                final EventSummary summary = eventSummaryRowMapper.mapRow(rs, rowNum);
-                try {
-                    dao.stage(summary);
-                } catch (ZepException e) {
-                    throw new SQLException(e);
-                }
-
+            public void handle(EventSummary event) throws Exception {
+                indexDao.stage(event);
                 for (EventPostProcessingPlugin plugin : plugins) {
                     try {
-                        plugin.processEvent(summary);
+                        plugin.processEvent(event);
                     } catch (Exception e) {
                         // Post-processing plug-in failures are not fatal errors.
-                        logger.warn("Failed to run post-processing plug-in on event: " + summary, e);
+                        logger.warn("Failed to run post-processing plug-in on event: " + event, e);
                     }
                 }
-                return DaoUtils.uuidToBytes(summary.getUuid());
             }
-        });
 
-        final int numIndexed = uuids.size();
-        if (numIndexed > 0) {
-            dao.commit();
+            @Override
+            public void handleDeleted(String uuid) throws Exception {
+                indexDao.stageDelete(uuid);
+            }
             
-            final Map<String,Object> updateFields = new HashMap<String,Object>();
-            updateFields.put(COLUMN_INDEXED, 1);
-            updateFields.put("_uuids", uuids);
-            final String updateSql = "UPDATE " + tableName + " SET indexed=:indexed WHERE uuid IN (:_uuids)";
-            template.update(updateSql, updateFields);
-
-            logger.debug("Completed indexing {} events on {}", numIndexed, tableName);
+            @Override
+            public void handleComplete() throws Exception {
+                indexDao.commit();
+            }
+        }, INDEX_LIMIT, throughTime);
+        
+        if (numIndexed > 0) {
+            logger.debug("Completed indexing {} events on {}", numIndexed, indexDao.getName());            
         }
 
         return numIndexed;
