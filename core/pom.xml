@@ -246,33 +246,33 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>exec-maven-plugin</artifactId>
-                <version>1.2</version>
-                <configuration>
-                    <executable>bash</executable>
-                    <workingDirectory>${project.basedir}/..</workingDirectory>
-                    <arguments>
-                        <argument>./populate_schema.sh</argument>
-                        <argument>--dbhost</argument>
-                        <argument>${zep.jdbc.hostname}</argument>
-                        <argument>--dbport</argument>
-                        <argument>${zep.jdbc.port}</argument>
-                        <argument>--dbname</argument>
-                        <argument>${zep.test.jdbc.dbname}</argument>
-                        <argument>--dbrootuser</argument>
-                        <argument>${zep.jdbc.username}</argument>
-                        <argument>--dbrootpass</argument>
-                        <argument>${zep.jdbc.password}</argument>
-                        <argument>--force</argument>
-                    </arguments>
-                </configuration>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.6</version>
                 <executions>
                     <execution>
                         <id>create-test-schema</id>
                         <phase>pre-integration-test</phase>
+                        <configuration>
+                            <target>
+                                <exec executable="bash" dir="..">
+                                    <arg value="./populate_schema.sh" />
+                                    <arg value="--dbhost" />
+                                    <arg value="${zep.jdbc.hostname}" />
+                                    <arg value="--dbport" />
+                                    <arg value="${zep.jdbc.port}" />
+                                    <arg value="--dbname" />
+                                    <arg value="${zep.test.jdbc.dbname}" />
+                                    <arg value="--dbrootuser" />
+                                    <arg value="${zep.jdbc.username}" />
+                                    <arg value="--dbrootpass" />
+                                    <arg value="${zep.jdbc.password}" />
+                                    <arg value="--force" />
+                                </exec>
+                            </target>
+                        </configuration>
                         <goals>
-                            <goal>exec</goal>
+                            <goal>run</goal>
                         </goals>
                     </execution>
                 </executions>
