@@ -94,7 +94,7 @@ def main():
         parser.error('required property names not provided')
 
     if options.remove and options.update:
-        parser.error('options -u and -u are mutually exclusive')
+        parser.error('options -r and -u are mutually exclusive')
 
     if options.remove:
         remove_properties(args)
