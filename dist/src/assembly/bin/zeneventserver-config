@@ -25,15 +25,22 @@ def parse_properties(conf_file):
             yield (line.rstrip() + '\n', name)
 
 def create_tmpfile(path):
-    statinfo = os.stat(path)
-    (tmpfd,tmpname) = tempfile.mkstemp(suffix='.properties',dir=os.path.dirname(path),text=True)
-    # Clone permissions from original file
-    os.chmod(tmpname, statinfo.st_mode)
-    os.chown(tmpname, statinfo.st_uid, statinfo.st_gid)
-    return (tmpfd,tmpname)
+    paths = (path, path + '.example')
+    for p in paths:
+        try:
+            statinfo = os.stat(p)
+        except OSError:
+            continue
+        (tmpfd,tmpname) = tempfile.mkstemp(suffix='.conf',dir=os.path.dirname(p),text=True)
+        # Clone permissions from original file
+        os.chmod(tmpname, statinfo.st_mode)
+        os.chown(tmpname, statinfo.st_uid, statinfo.st_gid)
+        return (tmpfd,tmpname)
+
+    return tempfile.mkstemp(suffix='.conf', dir=os.path.dirname(path), text=True)
 
 def remove_properties(properties_to_remove):
-    filename = zenPath('etc', 'zenoss-zep', 'zenoss-zep.properties')
+    filename = zenPath('etc', 'zeneventserver.conf')
     (tmpfd,tmpname) = create_tmpfile(filename)
     output_file = os.fdopen(tmpfd, 'wb')
     found_properties = set()
@@ -53,7 +60,7 @@ def remove_properties(properties_to_remove):
             pass
 
 def update_properties(properties_dict):
-    filename = zenPath('etc', 'zenoss-zep', 'zenoss-zep.properties')
+    filename = zenPath('etc', 'zeneventserver.conf')
     (tmpfd,tmpname) = create_tmpfile(filename)
     output_file = os.fdopen(tmpfd, 'wb')
     found_properties = set()

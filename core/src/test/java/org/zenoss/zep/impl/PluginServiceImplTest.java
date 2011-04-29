@@ -41,7 +41,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         InputStream is = null;
         try {
             is = getClass().getResourceAsStream(
-                    "/test-zenoss-zep-plugins.properties");
+                    "/test-zeneventserver.conf");
             properties.load(is);
         } finally {
             if (is != null) {

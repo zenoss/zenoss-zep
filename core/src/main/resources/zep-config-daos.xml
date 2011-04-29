@@ -35,7 +35,7 @@
 
     <!-- Partition configuration -->
     <bean id="partitionConfig" class="org.zenoss.zep.dao.impl.PartitionConfig">
-        <constructor-arg index="0" ref="zepPartitioningProps"/>
+        <constructor-arg index="0" ref="zepConfig"/>
     </bean>
 
     <!-- DAO -->

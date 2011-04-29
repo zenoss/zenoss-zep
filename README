@@ -51,13 +51,12 @@ $ mvn clean package
 $ mkdir -p ~/zep
 $ tar zxvf dist/target/zep-*-webapp.tar.gz -C ~/zep
 $ cd ~/zep
---> Edit 'etc/zenoss-zep/zenoss-zep.properties' and
-    'etc/zenoss-zep/zenoss-zep-plugins.properties' as needed to configure ZEP.
-$ ./bin/zenoss-zep-create-db
-$ ./bin/zenoss-zep start
+--> Edit 'etc/zeneventserver.conf' as needed to configure ZEP.
+$ ./bin/zeneventserver-create-db
+$ ./bin/zeneventserver start
 
-ZEP will log any problems in 'log/zenoss-zep.log'. To update the logging
-configuration, edit the 'webapps/zenoss-zep/WEB-INF/classes/logback.xml' file
+ZEP will log any problems in 'log/zeneventserver.log'. To update the logging
+configuration, edit the 'webapps/zeneventserver/WEB-INF/classes/logback.xml' file
 and restart the ZEP daemon.
 
 == Running ZEP Unit and Integration Tests ==

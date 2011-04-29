@@ -54,7 +54,7 @@ public class ZepInstanceImpl implements ZepInstance {
             logger.warn("ZENHOME not specified. Not persisting ZEP instance id.");
             id = UUID.randomUUID().toString();
         } else {
-            File f = new File(zenHome, "etc/zenoss-zep/instance.properties");
+            File f = new File(zenHome, "etc/zeneventserver/instance.properties");
             Properties props = loadProperties(f);
             id = props.getProperty("id");
 

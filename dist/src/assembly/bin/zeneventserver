@@ -19,19 +19,19 @@ JVM_ARGS="$DEFAULT_ZEP_JVM_ARGS"
 JVM_ARGS="$JVM_ARGS -DZENHOME=${JETTY_HOME}"
 JVM_ARGS="$JVM_ARGS -Djetty.logs=${JETTY_HOME}/log"
 
-JETTY_ARGS="--ini=$JETTY_HOME/etc/zenoss-zep/jetty/jetty.ini"
+JETTY_ARGS="--ini=$JETTY_HOME/etc/zeneventserver/jetty/jetty.ini"
 
 VAR=${JETTY_HOME}/var
 mkdir -p ${VAR}/run
 
 #zenoss expects {daemonname}-{monitor} for pid file
 #zep only runs on localhost
-PIDFILE=${VAR}/zenoss-zep-localhost.pid
+PIDFILE=${VAR}/zeneventserver-localhost.pid
 CMD=$1
 
 JAVAEXE="java"
 
-. ${JETTY_BIN}/zenoss-zep-functions.sh
+. ${JETTY_BIN}/zeneventserver-functions.sh
 
 # Check for java
 JVERSION=`$JAVAEXE -version 2>&1 | grep "java version" | awk '{print $3}' | cut -d'"' -f2`

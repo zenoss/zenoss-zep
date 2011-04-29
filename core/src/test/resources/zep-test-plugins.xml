@@ -7,7 +7,7 @@
         class="org.springframework.beans.factory.config.PropertiesFactoryBean">
         <property name="locations">
             <array>
-                <value>classpath:test-zenoss-zep-plugins.properties</value>
+                <value>classpath:test-zeneventserver.conf</value>
             </array>
         </property>
     </bean>

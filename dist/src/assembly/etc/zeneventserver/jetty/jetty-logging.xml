@@ -13,7 +13,7 @@
     <New id="ServerLog" class="java.io.PrintStream">
       <Arg>
         <New class="org.eclipse.jetty.util.RolloverFileOutputStream">
-          <Arg><Property name="jetty.logs" default="./log"/>/zenoss-zep-stdio.yyyy_mm_dd.log</Arg>
+          <Arg><Property name="jetty.logs" default="./log"/>/zeneventserver-stdio.yyyy_mm_dd.log</Arg>
           <Arg type="boolean">true</Arg>
           <Arg type="int">7</Arg>
           <Arg><Call class="java.util.TimeZone" name="getTimeZone"><Arg>GMT</Arg></Call></Arg>

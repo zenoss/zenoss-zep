@@ -37,7 +37,7 @@
     <import resource="zep-config-rest.xml"/>
 
     <bean id="pluginService" class="org.zenoss.zep.impl.PluginServiceImpl">
-        <property name="pluginProperties" ref="zepPluginsConfig"/>
+        <property name="pluginProperties" ref="zepConfig"/>
     </bean>
 
     <bean id="eventFanOutPlugin" class="org.zenoss.zep.impl.EventFanOutPlugin">

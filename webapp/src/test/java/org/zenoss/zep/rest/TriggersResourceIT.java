@@ -24,7 +24,7 @@ import static org.junit.Assert.*;
 
 public class TriggersResourceIT {
 
-    private static final String TRIGGERS_URI = "/zenoss-zep/api/1.0/triggers";
+    private static final String TRIGGERS_URI = "/zeneventserver/api/1.0/triggers";
     private RestClient client;
 
     @Before

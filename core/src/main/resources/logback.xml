@@ -21,10 +21,10 @@
         </then>
         <else>
             <appender name="APPENDER" class="ch.qos.logback.core.rolling.RollingFileAppender">
-                <file>${ZENHOME:-.}/log/zenoss-zep.log</file>
+                <file>${ZENHOME:-.}/log/zeneventserver.log</file>
                 <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
                     <!-- daily rollover -->
-                    <fileNamePattern>${ZENHOME}/log/zenoss-zep.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+                    <fileNamePattern>${ZENHOME}/log/zeneventserver.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
                     <!-- keep 7 days' worth of history -->
                     <maxHistory>7</maxHistory>
                 </rollingPolicy>
@@ -35,7 +35,7 @@
         </else>
     </if>
 
-    <contextName>zenoss-zep</contextName>
+    <contextName>zeneventserver</contextName>
     <jmxConfigurator />
     <logger name="org.springframework" level="WARN"/>
     <logger name="ch.qos.logback" level="WARN"/>

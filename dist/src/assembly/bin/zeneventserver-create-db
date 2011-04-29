@@ -14,7 +14,7 @@ DBROOTUSER=${DBROOTUSER:-"root"}
 DBROOTPASS=${DBROOTPASS:-""}
 DBUSER=${DBUSER:-"zenoss"}
 DBPASS=${DBPASS:-"zenoss"}
-SCHEMADIR=${SCHEMADIR:-"${BASEDIR}/share/zenoss-zep/sql/mysql"}
+SCHEMADIR=${SCHEMADIR:-"${BASEDIR}/share/zeneventserver/sql/mysql"}
 FORCE=0
 
 usage() {

@@ -55,7 +55,7 @@
                         <configuration>
                             <appendAssemblyId>false</appendAssemblyId>
                             <descriptors>
-                                <descriptor>src/main/assembly/zenoss-zep-webapp.xml</descriptor>
+                                <descriptor>src/main/assembly/zeneventserver-webapp.xml</descriptor>
                             </descriptors>
                         </configuration>
                     </execution>

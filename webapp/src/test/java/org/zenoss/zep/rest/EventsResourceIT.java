@@ -43,7 +43,7 @@ import static org.junit.Assert.*;
 @ContextConfiguration({ "classpath:zep-config.xml" })
 public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
 
-    private static final String EVENTS_URI = "/zenoss-zep/api/1.0/events";
+    private static final String EVENTS_URI = "/zeneventserver/api/1.0/events";
 
     @Autowired
     public EventSummaryDao summaryDao;

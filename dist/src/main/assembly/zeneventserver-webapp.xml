@@ -33,7 +33,7 @@
                 <includes>
                     <include>org.zenoss.zep:zep-webapp:war</include>
                 </includes>
-                <outputDirectory>webapps/zenoss-zep</outputDirectory>
+                <outputDirectory>webapps/zeneventserver</outputDirectory>
                 <unpack>true</unpack>
             </binaries>
         </moduleSet>
@@ -71,7 +71,7 @@
             <directory>../core/src/main/sql</directory>
             <directoryMode>755</directoryMode>
             <fileMode>644</fileMode>
-            <outputDirectory>share/zenoss-zep/sql/</outputDirectory>
+            <outputDirectory>share/zeneventserver/sql/</outputDirectory>
             <includes>
                 <include>**/*.sql</include>
             </includes>

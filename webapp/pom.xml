@@ -84,7 +84,7 @@
                         </connector>
                     </connectors>
                     <webAppConfig>
-                        <contextPath>/zenoss-zep</contextPath>
+                        <contextPath>/zeneventserver</contextPath>
                     </webAppConfig>
                     <scanIntervalSeconds>0</scanIntervalSeconds>
                     <stopKey>STOP</stopKey>

@@ -18,7 +18,7 @@ public interface ZepInstance {
 
     /**
      * Returns the configuration properties loaded from the
-     * <code>zenoss-zep.properties</code> files.
+     * <code>zeneventserver.properties</code> files.
      * 
      * @return The configuration properties for this ZEP instance.
      */
