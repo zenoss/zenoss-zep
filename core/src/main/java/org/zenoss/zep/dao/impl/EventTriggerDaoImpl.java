@@ -1,17 +1,7 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.dao.impl;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-
-import javax.sql.DataSource;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +16,16 @@ import org.zenoss.protobufs.zep.Zep.RuleType;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.EventTriggerDao;
+
+import javax.sql.DataSource;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 public class EventTriggerDaoImpl implements EventTriggerDao {
     private static final String TABLE_EVENT_TRIGGER = "event_trigger";
@@ -80,20 +80,22 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     @Override
     @Transactional
     public int delete(String uuidStr) throws ZepException {
-        return this.template.update("DELETE FROM event_trigger WHERE uuid=?",
-                DaoUtils.uuidToBytes(uuidStr));
+        final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuidStr));
+        return this.template.update("DELETE FROM event_trigger WHERE uuid=:uuid", fields);
     }
 
     @Override
     @Transactional(readOnly = true)
     public EventTrigger findByUuid(String uuidStr) throws ZepException {
         final byte[] uuidBytes = DaoUtils.uuidToBytes(uuidStr);
-        String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,sub.repeat_seconds "
+        final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, uuidBytes);
+        String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,"
+                + "sub.repeat_seconds,sub.send_initial_occurrence "
                 + "FROM event_trigger "
                 + "LEFT JOIN event_trigger_subscription AS sub ON event_trigger.uuid = sub.event_trigger_uuid "
-                + "WHERE event_trigger.uuid=?";
-        List<EventTrigger> triggers = this.template.getJdbcOperations().query(
-                sql, new EventTriggerExtractor(), uuidBytes);
+                + "WHERE event_trigger.uuid=:uuid";
+        List<EventTrigger> triggers = this.template.getNamedParameterJdbcOperations().query(
+                sql, fields, new EventTriggerExtractor());
         EventTrigger trigger = null;
         if (!triggers.isEmpty()) {
             trigger = triggers.get(0);
@@ -104,7 +106,8 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     @Override
     @Transactional(readOnly = true)
     public List<EventTrigger> findAll() throws ZepException {
-        String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,sub.repeat_seconds "
+        String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,"
+                + "sub.repeat_seconds,sub.send_initial_occurrence "
                 + "FROM event_trigger "
                 + "LEFT JOIN event_trigger_subscription AS sub ON event_trigger.uuid = sub.event_trigger_uuid";
         try {
@@ -118,7 +121,8 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     @Override
     @Transactional(readOnly = true)
     public List<EventTrigger> findAllEnabled() throws ZepException {
-        String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,sub.repeat_seconds "
+        String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,"
+                + "sub.repeat_seconds,sub.send_initial_occurrence "
                 + "FROM event_trigger "
                 + "LEFT JOIN event_trigger_subscription AS sub ON event_trigger.uuid = sub.event_trigger_uuid "
                 + "WHERE event_trigger.enabled <> 0";
@@ -218,6 +222,8 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
                             .setRepeatSeconds(rs
                                     .getInt(EventTriggerSubscriptionDaoImpl.COLUMN_REPEAT_SECONDS));
                     subBuilder.setTriggerUuid(uuid);
+                    subBuilder.setSendInitialOccurrence(rs.getBoolean(
+                            EventTriggerSubscriptionDaoImpl.COLUMN_SEND_INITIAL_OCCURRENCE));
                     triggerBuilder.addSubscriptions(subBuilder.build());
                 }
             }
