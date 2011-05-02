@@ -90,9 +90,9 @@ public class EventDaoImplIT extends AbstractTransactionalJUnit4SpringContextTest
     public void testCreateAllFields() throws ZepException {
         Event event = createSampleEvent();
         String summaryUuid = summaryDao.create(event, EventStatus.STATUS_NEW);
+        event = Event.newBuilder(event).setSummaryUuid(summaryUuid).build();
 
         Event eventFromDb = eventDao.findByUuid(event.getUuid());
-        assertEquals(event.getUuid(), eventFromDb.getUuid());
         assertEquals(event, eventFromDb);
 
         List<Event> occurrences = eventDao.findBySummaryUuid(summaryUuid);

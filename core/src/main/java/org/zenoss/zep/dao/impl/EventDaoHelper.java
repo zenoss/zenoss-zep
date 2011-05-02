@@ -293,6 +293,7 @@ public class EventDaoHelper {
         } else {
             eventBuilder.setCreatedTime(rs.getLong(COLUMN_CREATED));
             eventBuilder.setUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID)));
+            eventBuilder.setSummaryUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_SUMMARY_UUID)));
         }
 
         eventBuilder.setFingerprint(rs.getString(COLUMN_FINGERPRINT));

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.rest;
 
@@ -7,6 +7,7 @@ import com.google.protobuf.ExtensionRegistry;
 import com.google.protobuf.Message;
 import org.zenoss.protobufs.rest.ProtobufMessageRegistry;
 import org.zenoss.protobufs.zep.Zep.DaemonHeartbeatSet;
+import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventDetailItemSet;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
@@ -49,7 +50,8 @@ public class ProtobufMessageRegistryImpl implements ProtobufMessageRegistry {
                 EventDetailItem.getDefaultInstance(),
                 ZepConfig.getDefaultInstance(),
                 EventFilter.getDefaultInstance(),
-                DaemonHeartbeatSet.getDefaultInstance());
+                DaemonHeartbeatSet.getDefaultInstance(),
+                Event.getDefaultInstance());
         for (Message message : messages) {
             messageByFullName.put(message.getDescriptorForType().getFullName(),
                     message);

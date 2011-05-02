@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.rest;
 
@@ -8,6 +8,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.ProtobufConstants;
 import org.zenoss.protobufs.util.Util.TimestampRange;
+import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventNote;
@@ -27,6 +28,7 @@ import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.EventDao;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
@@ -67,6 +69,7 @@ public class EventsResource {
     private EventStoreDao eventStoreDao;
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
+    private EventDao eventDao;
 
     public void setQueryLimit(int limit) {
         if (limit > 0) {
@@ -91,6 +94,10 @@ public class EventsResource {
 
     public void setEventArchiveIndexDao(EventIndexDao eventArchiveIndexDao) {
         this.eventArchiveIndexDao = eventArchiveIndexDao;
+    }
+
+    public void setEventDao(EventDao eventDao) {
+        this.eventDao = eventDao;
     }
 
     private static Set<String> getQuerySet(MultivaluedMap<String, String> params, String name) {
@@ -357,13 +364,24 @@ public class EventsResource {
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
     public Response updateEventDetails(@PathParam("eventUuid") String eventUuid, EventDetailSet details) throws ZepException {
-
         int numRows = eventStoreDao.updateDetails(eventUuid, details);
         if (numRows == 0) {
             return Response.status(Status.NOT_FOUND).build();
         }
 
         return Response.noContent().build();
+    }
+
+    @GET
+    @Path("occurrences/{eventUuid}")
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
+    public Response getEventOccurrence(@PathParam("eventUuid") String eventUuid) throws ZepException {
+        Event event = eventDao.findByUuid(eventUuid);
+        if (event == null) {
+            return Response.status(Status.NOT_FOUND).build();
+        }
+        return Response.ok(event).build();
     }
 
     private EventSummaryRequest eventSummaryRequestFromUriInfo(UriInfo info) throws ParseException {
