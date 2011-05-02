@@ -232,34 +232,34 @@ public class Application implements ApplicationListener<ZepEvent> {
     }
 
     private void startEventSummaryArchiving() {
-        final int duration = config.getEventArchiveIntervalDays();
-        if (oldConfig != null && duration == oldConfig.getEventArchiveIntervalDays()) {
+        final int duration = config.getEventArchiveIntervalMinutes();
+        if (oldConfig != null && duration == oldConfig.getEventArchiveIntervalMinutes()) {
             logger.info("Event archiving configuration not changed.");
             return;
         }
 
+        final Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
         cancelFuture(this.eventSummaryArchiver);
         this.eventSummaryArchiver = null;
         if (duration > 0) {
-            logger.info("Starting event archiving at interval: {} days(s)",
-                    duration);
+            logger.info("Starting event archiving at interval: {} minutes(s)", duration);
             this.eventSummaryArchiver = scheduler.scheduleWithFixedDelay(
                     new ThreadRenamingRunnable(new Runnable() {
                         @Override
                         public void run() {
-                            logger.info("Archiving events");
                             try {
                                 int numArchived;
                                 do {
-                                    numArchived = eventStoreDao.archive(
-                                            duration,
-                                            TimeUnit.DAYS, 100);
+                                    numArchived = eventStoreDao.archive(duration, TimeUnit.MINUTES, 100);
+                                    if (numArchived > 0) {
+                                        logger.info("Archived {} events", numArchived);
+                                    }
                                 } while (numArchived > 0);
                             } catch (Exception e) {
                                 logger.warn("Failed to archive events", e);
                             }
                         }
-                    }, "ZEP_EVENT_ARCHIVER"), TimeUnit.DAYS.toMillis(1));
+                    }, "ZEP_EVENT_ARCHIVER"), startTime, TimeUnit.MINUTES.toMillis(duration));
         } else {
             logger.info("Event archiving disabled");
         }

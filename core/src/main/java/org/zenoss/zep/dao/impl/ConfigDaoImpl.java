@@ -45,7 +45,7 @@ public class ConfigDaoImpl implements ConfigDao {
     private static final int MAX_PARTITIONS = 1000;
     private final int maxEventArchivePurgeIntervalDays;
     private final int maxEventOccurrenceDays;
-    private int maxEventArchiveIntervalDays = 30;
+    private int maxEventArchiveIntervalMinutes = 30 * 24 * 60;
 
     private static final String COLUMN_CONFIG_NAME = "config_name";
     private static final String COLUMN_CONFIG_VALUE = "config_value";
@@ -71,8 +71,8 @@ public class ConfigDaoImpl implements ConfigDao {
         this.messages = messages;
     }
 
-    public void setMaxEventArchiveIntervalDays(int maxEventArchiveIntervalDays) {
-        this.maxEventArchiveIntervalDays = maxEventArchiveIntervalDays;
+    public void setMaxEventArchiveIntervalMinutes(int maxEventArchiveIntervalDays) {
+        this.maxEventArchiveIntervalMinutes = maxEventArchiveIntervalDays;
     }
 
     @Override
@@ -157,10 +157,10 @@ public class ConfigDaoImpl implements ConfigDao {
                     maxEventOccurrenceDays));
         }
 
-        int eventArchiveIntervalDays = config.getEventArchiveIntervalDays();
-        if (eventArchiveIntervalDays < 1 || eventArchiveIntervalDays > maxEventArchiveIntervalDays) {
+        int eventArchiveIntervalMinutes = config.getEventArchiveIntervalMinutes();
+        if (eventArchiveIntervalMinutes < 1 || eventArchiveIntervalMinutes > maxEventArchiveIntervalMinutes) {
             throw new ZepException(messages.getMessage("invalid_event_archive_interval", 1,
-                    maxEventArchiveIntervalDays));
+                    maxEventArchiveIntervalMinutes));
         }
     }
 
