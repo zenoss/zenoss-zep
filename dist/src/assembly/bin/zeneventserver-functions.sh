@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #
-# Copyright (c) 2010 Zenoss, Inc. All Rights Reserved.
+# Copyright (c) 2010-2011 Zenoss, Inc. All Rights Reserved.
 #
 
 JETTYSTART_JAR=`ls -1 ${JETTY_HOME}/lib/jetty-start*.jar`
@@ -24,7 +24,34 @@ run() {
     exec java ${JVM_ARGS} -jar ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
 }
 
+# Waits for the process to be started (assumes when the ZEP port is listening the
+# application has started up completely).
+wait_for_startup() {
+    local port=$1
+    local timeout=60
+    local elapsed=0
+    echo -n "Waiting for zeneventserver to start"
+    while [ "${elapsed}" -lt "${timeout}" ]; do
+        netstat -an | awk '$6 ~ /LISTEN/ { print $4 }' | grep "[.:]${port}$" > /dev/null
+        if [ $? -eq 0 ]; then
+            break
+        fi
+        echo -n "."
+        sleep 1
+        elapsed=$((${elapsed}+1))
+    done
+    echo ""
+    if [ ${timeout} -eq ${elapsed} ]; then
+        echo "zeneventserver failed to start within ${timeout} seconds." >&2
+        echo "Please check the following log file for more details: " >&2
+        echo "  ${ZENHOME}/log/zeneventserver.log" >&2
+        return 1
+    fi
+    return 0
+}
+
 start() {
+    local port=$1
     local pid=`get_pid`
     if [ -n "$pid" ]; then
         echo is already running
@@ -39,6 +66,7 @@ start() {
         disown $PID
         rm -f $PIDFILE
         echo $PID > $PIDFILE
+        wait_for_startup ${port}
     fi
 }
 
@@ -46,7 +74,7 @@ stop() {
     local pid=`get_pid`
     if [ -n "$pid" ]; then
         echo stopping...
-        local timeout=120 # 30 seconds
+        local timeout=240 # 60 seconds
         local has_fp_sleep=
         kill -HUP $pid
         while [ $timeout -gt 0 ]; do
@@ -71,7 +99,7 @@ stop() {
             fi
         done
         if [ -n "$pid" ]; then
-            kill -9 "$pid"
+            kill -9 "$pid" || return 1
         fi
         rm -f $PIDFILE
     else
@@ -94,19 +122,21 @@ generic() {
     CMD=$1
     shift
 
+    ZEP_PORT=8084
     while getopts "p:v:" flag
     do
         case "$flag" in
             p)
                 case "$OPTARG" in
                     [1-9][0-9]*)
+                        ZEP_PORT=${OPTARG}
                         ;;
                     *)
                         echo "Invalid argument for $flag: $OPTARG" >&2
                         exit 1
                         ;;
                 esac
-                JVM_ARGS="$JVM_ARGS -Djetty.port=$OPTARG"
+                JVM_ARGS="${JVM_ARGS} -Djetty.port=${ZEP_PORT}"
                 ;;
             v)
                 OPTARG=`echo "$OPTARG" | tr "[:lower:]" "[:upper:]"`
@@ -141,14 +171,14 @@ generic() {
 
     case "$CMD" in
         start)
-            start "$@"
+            start ${ZEP_PORT}
             ;;
         stop)
             stop
             ;;
         restart)
             stop
-            start "$@"
+            start ${ZEP_PORT}
             ;;
         status)
             status
