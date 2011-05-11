@@ -66,7 +66,6 @@ public abstract class AbstractEventQueueListener extends QueueListener {
                     handle(message.getBody());
                     consumer.ackMessage(message);
                 } catch (Exception e) {
-                    logger.debug("Failed processing message", e);
                     if (isTransientException(e)) {
                         /* Re-queue the message if we get a temporary database failure */
                         logger.debug("Transient database exception", e);
@@ -74,11 +73,11 @@ public abstract class AbstractEventQueueListener extends QueueListener {
                         rejectMessage(consumer, message, true);
                     } else if (!message.getEnvelope().isRedeliver()) {
                         /* Attempt one redelivery of the message */
-                        logger.debug("Re-queueing message: {}", message);
+                        logger.debug("First failure processing message: " + message, e);
                         rejectMessage(consumer, message, true);
                     } else {
                         /* TODO: Dead letter queue or other safety net? */
-                        logger.warn("Rejecting message: {}", message);
+                        logger.warn("Failed processing message: " + message, e);
                         rejectMessage(consumer, message, false);
                     }
                 }

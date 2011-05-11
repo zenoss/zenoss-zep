@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.dao.impl;
 
@@ -160,8 +160,15 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         private String mergeDetailsJson(String oldDetailsJson, String newDetailsJson) throws SQLException {
             try {
-                List<EventDetail> oldDetails = JsonFormat.mergeAllDelimitedFrom(oldDetailsJson, EventDetail.getDefaultInstance());
-                List<EventDetail> newDetails = JsonFormat.mergeAllDelimitedFrom(newDetailsJson, EventDetail.getDefaultInstance());
+                List<EventDetail> oldDetails = Collections.emptyList();
+                if (oldDetailsJson != null) {
+                    oldDetails = JsonFormat.mergeAllDelimitedFrom(oldDetailsJson, EventDetail.getDefaultInstance());
+                }
+
+                List<EventDetail> newDetails = Collections.emptyList();
+                if (newDetailsJson != null) {
+                    newDetails = JsonFormat.mergeAllDelimitedFrom(newDetailsJson, EventDetail.getDefaultInstance());
+                }
                 return JsonFormat.writeAllDelimitedAsString(EventDaoHelper.mergeDetails(oldDetails, newDetails));
             } catch (IOException e) {
                 throw new SQLException(e.getLocalizedMessage(), e);

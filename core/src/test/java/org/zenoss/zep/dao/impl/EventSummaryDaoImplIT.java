@@ -870,4 +870,19 @@ public class EventSummaryDaoImplIT extends
         assertEquals(0, this.eventSummaryDao.findByUuids(uuids).size());
         assertEquals(uuids.size(), this.eventArchiveDao.findByUuids(uuids).size());
     }
+
+    @Test
+    public void testMergeDetailsNull() throws ZepException {
+        Event firstEvent = Event.newBuilder(createUniqueEvent()).clearDetails().build();
+
+        EventSummary firstSummary = createSummaryNew(firstEvent);
+        assertEquals(0, firstSummary.getOccurrence(0).getDetailsCount());
+
+        Event secondEvent = Event.newBuilder(firstEvent).addDetails(createDetail("detail1", "A"))
+                .setCreatedTime(System.currentTimeMillis()).build();
+        EventSummary secondSummary = createSummaryNew(secondEvent);
+        assertEquals(firstSummary.getUuid(), secondSummary.getUuid());
+        assertEquals(1, secondSummary.getOccurrence(0).getDetailsCount());
+        assertEquals(secondEvent.getDetailsList(), secondSummary.getOccurrence(0).getDetailsList());
+    }
 }
