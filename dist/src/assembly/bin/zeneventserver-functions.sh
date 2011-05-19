@@ -28,7 +28,7 @@ run() {
 # application has started up completely).
 wait_for_startup() {
     local port=$1
-    local timeout=60
+    local timeout=${ZENOSS_STARTUP_TIMEOUT}
     local elapsed=0
     echo -n "Waiting for zeneventserver to start"
     while [ "${elapsed}" -lt "${timeout}" ]; do
@@ -74,7 +74,7 @@ stop() {
     local pid=`get_pid`
     if [ -n "$pid" ]; then
         echo stopping...
-        local timeout=240 # 60 seconds
+        local timeout=$((${ZENOSS_STARTUP_TIMEOUT}*4))
         local has_fp_sleep=
         kill -HUP $pid
         while [ $timeout -gt 0 ]; do
