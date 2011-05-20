@@ -534,8 +534,11 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         qb.addRanges(FIELD_COUNT, filter.getCountRangeList());
         qb.addWildcardFields(FIELD_CURRENT_USER_NAME, filter.getCurrentUserNameList(), false);
+
+
         qb.addIdentifierFields(FIELD_ELEMENT_IDENTIFIER, FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED,
                 filter.getElementIdentifierList(), this.writer.getAnalyzer());
+
         qb.addIdentifierFields(FIELD_ELEMENT_SUB_IDENTIFIER, FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED,
                 filter.getElementSubIdentifierList(), this.writer.getAnalyzer());
         qb.addField(FIELD_FINGERPRINT, filter.getFingerprintList());

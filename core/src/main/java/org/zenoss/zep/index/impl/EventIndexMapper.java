@@ -69,7 +69,7 @@ public class EventIndexMapper {
         Event event = summary.getOccurrence(0);
         doc.add(new Field(FIELD_FINGERPRINT, event.getFingerprint(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_SUMMARY, event.getSummary(), Store.NO, Index.ANALYZED));
-        doc.add(new Field(FIELD_SUMMARY_NOT_ANALYZED, event.getSummary(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_SUMMARY_NOT_ANALYZED, event.getSummary().toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new NumericField(FIELD_SEVERITY, Store.NO, true).setIntValue(event.getSeverity().getNumber()));
 
         doc.add(new Field(FIELD_EVENT_CLASS, event.getEventClass(), Store.NO, Index.ANALYZED));
@@ -91,7 +91,7 @@ public class EventIndexMapper {
 
         String id = actor.getElementIdentifier();
         doc.add(new Field(FIELD_ELEMENT_IDENTIFIER, id, Store.NO, Index.ANALYZED_NO_NORMS));
-        doc.add(new Field(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, id, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, id.toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         String subUuid = actor.getElementSubUuid();
         if (subUuid != null && !subUuid.isEmpty()) {
@@ -100,7 +100,7 @@ public class EventIndexMapper {
 
         String subId = actor.getElementSubIdentifier();
         doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER, subId, Store.NO, Index.ANALYZED_NO_NORMS));
-        doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId.toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         // find details configured for indexing
         List<EventDetail> evtDetails = event.getDetailsList();

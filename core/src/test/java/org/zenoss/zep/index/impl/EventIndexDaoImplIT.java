@@ -318,6 +318,65 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         }
     }
 
+    public static Zep.EventSummary createSampleSummary(EventSummary summary, String elementId) {
+        Event occurrence = Event.newBuilder(summary.getOccurrence(0)).setActor(
+                createSampleActor(elementId, "myCompName")).build();
+        return EventSummary.newBuilder(summary).clearOccurrence().addOccurrence(occurrence).build();
+    }
+
+    @Test
+    public void testIdentifierSortInsensitive() throws ZepException {
+
+        EventSummary summarya = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+        summarya = createSampleSummary(summarya, "a_device.zenoss.loc");
+        eventIndexDao.index(summarya);
+
+        EventSummary summaryB = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+        summaryB = createSampleSummary(summaryB, "B_device.zenoss.loc");
+        eventIndexDao.index(summaryB);
+
+        EventSummary summaryx = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+        summaryx = createSampleSummary(summaryx, "x_device.zenoss.loc");
+        eventIndexDao.index(summaryx);
+
+        EventSummary summaryZ = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
+        summaryZ = createSampleSummary(summaryZ, "Z_device.zenoss.loc");
+        eventIndexDao.index(summaryZ);
+
+        
+        EventSort.Builder sortBuilder = EventSort.newBuilder();
+        sortBuilder.setField(Field.ELEMENT_IDENTIFIER);
+        sortBuilder.setDirection(Direction.DESCENDING);
+
+        EventSummaryRequest.Builder reqBuilder = EventSummaryRequest.newBuilder();
+        reqBuilder.addSort(sortBuilder.build());
+
+        EventSummaryResult result = eventIndexDao.list(reqBuilder.build());
+
+        assertEquals(4, result.getEventsCount());
+        
+        assertEquals(summaryZ, result.getEvents(0));
+        assertEquals(summaryx, result.getEvents(1));
+        assertEquals(summaryB, result.getEvents(2));
+        assertEquals(summarya, result.getEvents(3));
+
+        EventSort.Builder sortBuilderAsc = EventSort.newBuilder();
+        sortBuilderAsc.setField(Field.ELEMENT_IDENTIFIER);
+        sortBuilderAsc.setDirection(Direction.ASCENDING);
+
+        EventSummaryRequest.Builder reqBuilderAsc = EventSummaryRequest.newBuilder();
+        reqBuilderAsc.addSort(sortBuilderAsc.build());
+
+        EventSummaryResult resultAsc = eventIndexDao.list(reqBuilderAsc.build());
+
+        assertEquals(4, resultAsc.getEventsCount());
+
+        assertEquals(summarya, resultAsc.getEvents(0));
+        assertEquals(summaryB, resultAsc.getEvents(1));
+        assertEquals(summaryx, resultAsc.getEvents(2));
+        assertEquals(summaryZ, resultAsc.getEvents(3));
+    }
+
     @Test
     public void testIdentifier() throws ZepException {
         EventSummary summary = createEventWithSeverity(EventSeverity.SEVERITY_ERROR, EventStatus.STATUS_NEW);
@@ -327,7 +386,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         eventIndexDao.index(summary);
 
         List<String> queries = Arrays.asList("tes*", "test", "test-jboss*", "zenoss", "loc", "test-jboss*",
-                "test-jboss.zenoss.loc", "\"test-jboss.zenoss.loc\"", "noss");
+                "test-jboss.zenoss.loc", "\"test-jboss.zenoss.loc\"", "noss", "\"TEST-jBoss.Zenoss.lOc\"");
         for (String query : queries) {
             EventFilter.Builder filterBuilder = EventFilter.newBuilder();
             filterBuilder.addElementIdentifier(query);

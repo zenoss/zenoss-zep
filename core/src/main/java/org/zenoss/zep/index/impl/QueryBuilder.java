@@ -148,7 +148,7 @@ public class QueryBuilder {
                 final String unquoted = unquote(value);
 
                 if (value.isEmpty() || !unquoted.equals(value)) {
-                    query = new TermQuery(new Term(nonAnalyzedFieldName, unquoted));
+                    query = new TermQuery(new Term(nonAnalyzedFieldName, unquoted.toLowerCase()));
                 } else if (value.length() < IdentifierAnalyzer.MIN_NGRAM_SIZE) {
                     query = new PrefixQuery(new Term(analyzedFieldName, value));
                 } else {
