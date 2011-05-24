@@ -18,6 +18,7 @@ DEFAULT_ZEP_JVM_ARGS=${DEFAULT_ZEP_JVM_ARGS:-"-server -Xmx512m"}
 JVM_ARGS="$DEFAULT_ZEP_JVM_ARGS"
 JVM_ARGS="$JVM_ARGS -DZENHOME=${JETTY_HOME}"
 JVM_ARGS="$JVM_ARGS -Djetty.logs=${JETTY_HOME}/log"
+JVM_ARGS="$JVM_ARGS -Dlogback.configurationFile=${JETTY_HOME}/etc/zeneventserver/logback.xml"
 ZENOSS_STARTUP_TIMEOUT=${ZENOSS_STARTUP_TIMEOUT:-"180"}
 
 JETTY_ARGS="--ini=$JETTY_HOME/etc/zeneventserver/jetty/jetty.ini"

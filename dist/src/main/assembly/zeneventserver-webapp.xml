@@ -76,6 +76,15 @@
                 <include>**/*.sql</include>
             </includes>
         </fileSet>
+        <fileSet>
+            <directory>../core/src/main/resources</directory>
+            <directoryMode>755</directoryMode>
+            <fileMode>644</fileMode>
+            <outputDirectory>etc/zeneventserver/</outputDirectory>
+            <includes>
+                <include>**/logback.xml</include>
+            </includes>
+        </fileSet>
     </fileSets>
 
 </assembly>
