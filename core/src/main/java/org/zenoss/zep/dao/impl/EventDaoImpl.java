@@ -7,9 +7,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventDao;
 
 import javax.sql.DataSource;
@@ -47,14 +48,14 @@ public class EventDaoImpl implements EventDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int delete(String uuid) throws ZepException {
         final Map<String,byte[]> params = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
         return this.template.update("DELETE FROM event WHERE uuid=:uuid", params);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public Event findByUuid(String uuid) throws ZepException {
         final Map<String,byte[]> params = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
         List<Event> events = template.query("SELECT * FROM event WHERE uuid=:uuid",
@@ -63,7 +64,7 @@ public class EventDaoImpl implements EventDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<Event> findBySummaryUuid(String summaryUuid) throws ZepException {
         final Map<String,byte[]> params = Collections.singletonMap(COLUMN_SUMMARY_UUID, DaoUtils.uuidToBytes(summaryUuid));
         return template.query("SELECT * FROM event WHERE summary_uuid=:summary_uuid",
@@ -71,7 +72,7 @@ public class EventDaoImpl implements EventDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void purge(int duration, TimeUnit unit) throws ZepException {
         dropPartitionsOlderThan(duration, unit);
         initializePartitions();
@@ -91,7 +92,7 @@ public class EventDaoImpl implements EventDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void initializePartitions() throws ZepException {
         this.partitioner.createPartitions(
                 this.partitionTableConfig.getInitialPastPartitions(),
@@ -99,7 +100,7 @@ public class EventDaoImpl implements EventDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int dropPartitionsOlderThan(int duration, TimeUnit unit)
             throws ZepException {
         return this.partitioner.dropPartitionsOlderThan(duration, unit);

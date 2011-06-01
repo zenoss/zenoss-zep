@@ -3,6 +3,13 @@
  */
 package org.zenoss.zep.dao.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -16,12 +23,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Class used to simplify creation of range partitions on integer columns. This
@@ -82,7 +83,7 @@ public class RangePartitioner {
      * 
      * @return True if the database supports partitioning, false otherwise.
      */
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public boolean hasPartitioning() {
         boolean hasPartitioning = false;
         List<Map<String, String>> list = this.template.query(
@@ -117,7 +118,7 @@ public class RangePartitioner {
      * 
      * @return A list of all partitions found on the table.
      */
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<Partition> listPartitions() {
         List<Partition> partitions = new ArrayList<Partition>();
         List<Map<String, Object>> fields = this.template
@@ -208,7 +209,7 @@ public class RangePartitioner {
      *            The number of future partitions to create in the table.
      * @return The number of created partitions.
      */
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int createPartitions(int pastPartitions, int futurePartitions) {
         final StringBuilder sb = new StringBuilder();
         final List<Partition> partitions = listPartitions();
@@ -258,7 +259,7 @@ public class RangePartitioner {
     /**
      * Removes all partitions on the specified table.
      */
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void removeAllPartitions() {
         this.template.update(String.format(
                 "ALTER TABLE %s REMOVE PARTITIONING", this.tableName));
@@ -274,7 +275,7 @@ public class RangePartitioner {
      * @return The number of pruned partitions, or zero if no partitions were
      *         pruned.
      */
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int dropPartitionsOlderThan(int duration, TimeUnit unit) {
         if (duration < 0) {
             throw new IllegalArgumentException("Duration must be >= 0");

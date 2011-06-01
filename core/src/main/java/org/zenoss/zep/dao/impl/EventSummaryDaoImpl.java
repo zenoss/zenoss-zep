@@ -13,20 +13,21 @@ import org.springframework.jdbc.core.SqlParameter;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.jdbc.support.MetaDataAccessException;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventAuditLog;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
-import org.zenoss.protobufs.zep.Zep.EventAuditLog;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSummaryDao;
 
 import javax.sql.DataSource;
@@ -80,7 +81,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public String create(Event event, EventStatus status) throws ZepException {
         final Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
         final Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
@@ -257,7 +258,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public String createClearEvent(Event event, Set<String> clearClasses)
             throws ZepException {
         final List<byte[]> clearHashes = EventDaoUtils.createClearHashes(event, clearClasses);
@@ -301,7 +302,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int reidentify(ModelElementType type, String id, String uuid, String parentUuid) throws ZepException {
         long updateTime = System.currentTimeMillis();
 
@@ -331,7 +332,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int deidentify(String uuid) throws ZepException {
         long updateTime = System.currentTimeMillis();
 
@@ -354,7 +355,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public EventSummary findByUuid(String uuid) throws ZepException {
         final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
         List<EventSummary> summaries = this.template.query("SELECT * FROM event_summary WHERE uuid=:uuid",
@@ -363,7 +364,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<EventSummary> findByUuids(final List<String> uuids)
             throws ZepException {
         if (uuids.isEmpty()) {
@@ -375,7 +376,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
     
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<EventSummary> listBatch(String startingUuid, long maxUpdateTime, int limit) throws ZepException {
         return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_SUMMARY, startingUuid, maxUpdateTime, limit);
     }
@@ -390,7 +391,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             EventStatus.STATUS_CLOSED.getNumber());
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int ageEvents(long agingInterval, TimeUnit unit,
             EventSeverity maxSeverity, int limit) throws ZepException {
         long agingIntervalMs = unit.toMillis(agingInterval);
@@ -426,13 +427,13 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int addNote(String uuid, EventNote note) throws ZepException {
         return EventDaoHelper.addNote(TABLE_EVENT_SUMMARY, uuid, note, template);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException {
         return EventDaoHelper.updateDetails(TABLE_EVENT_SUMMARY, uuid, details.getDetailsList(), template);
@@ -555,7 +556,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int acknowledge(List<String> uuids, String userUuid, String userName)
             throws ZepException {
         /* NEW | SUPPRESSED -> ACKNOWLEDGED */
@@ -567,7 +568,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int archive(long duration, TimeUnit unit, int limit)
             throws ZepException {
         final long updateTime = System.currentTimeMillis();
@@ -590,7 +591,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int close(List<String> uuids, String userUuid, String userName) throws ZepException {
         /* NEW | ACKNOWLEDGED | SUPPRESSED -> CLOSED */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED,
@@ -602,7 +603,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int reopen(List<String> uuids, String userUuid, String userName) throws ZepException {
         /* CLOSED | CLEARED | AGED | ACKNOWLEDGED -> NEW */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_CLOSED, EventStatus.STATUS_CLEARED,
@@ -614,7 +615,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int suppress(List<String> uuids) throws ZepException {
         /* NEW -> SUPPRESSED */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_NEW);
@@ -622,7 +623,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int archive(List<String> uuids) throws ZepException {
         if (uuids.isEmpty()) {
             return 0;

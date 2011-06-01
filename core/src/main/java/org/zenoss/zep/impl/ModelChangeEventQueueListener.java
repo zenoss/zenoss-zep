@@ -5,11 +5,11 @@ package org.zenoss.zep.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.modelevents.Modelevents.ModelEvent;
 import org.zenoss.protobufs.modelevents.Modelevents.ModelEventList;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSummaryDao;
 
 public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
@@ -86,7 +86,7 @@ public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void handle(com.google.protobuf.Message message) throws Exception {
         if (!(message instanceof ModelEventList)) {
             logger.warn("Unexpected message type: {}", message);

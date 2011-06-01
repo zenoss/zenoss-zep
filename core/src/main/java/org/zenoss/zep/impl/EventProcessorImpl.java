@@ -3,11 +3,10 @@
  */
 package org.zenoss.zep.impl;
 
-import java.util.Map;
-
+import com.google.protobuf.Descriptors.Descriptor;
+import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.RawEvent;
@@ -17,10 +16,10 @@ import org.zenoss.zep.EventPreProcessingPlugin;
 import org.zenoss.zep.EventProcessor;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventStoreDao;
 
-import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Descriptors.FieldDescriptor;
+import java.util.Map;
 
 /**
  * Default implementation of {@link EventProcessor} which uses
@@ -75,7 +74,7 @@ public class EventProcessorImpl implements EventProcessor {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void processEvent(ZepRawEvent zepRawEvent) throws ZepException {
         logger.debug("processEvent: event={}", zepRawEvent);
 

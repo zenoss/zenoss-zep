@@ -4,7 +4,6 @@
 
 package org.zenoss.zep.dao.impl;
 
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
@@ -14,6 +13,8 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
 import org.zenoss.zep.EventContext;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.EventSummaryDao;
@@ -26,7 +27,6 @@ import java.util.concurrent.TimeUnit;
 public class EventStoreDaoImpl implements EventStoreDao {
     private EventSummaryDao eventSummaryDao;
     private EventArchiveDao eventArchiveDao;
-    private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
 
     public EventStoreDaoImpl() {
@@ -40,16 +40,12 @@ public class EventStoreDaoImpl implements EventStoreDao {
         this.eventArchiveDao = eventArchiveDao;
     }
 
-    public void setEventSummaryIndexDao(EventIndexDao eventSummaryIndexDao) {
-        this.eventSummaryIndexDao = eventSummaryIndexDao;
-    }
-
     public void setEventArchiveIndexDao(EventIndexDao eventIndexDao) {
         this.eventArchiveIndexDao = eventIndexDao;
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public String create(Event event, EventContext eventContext) throws ZepException {
         final String uuid;
         if (event.getSeverity() == EventSeverity.SEVERITY_CLEAR) {
@@ -61,7 +57,7 @@ public class EventStoreDaoImpl implements EventStoreDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public EventSummary findByUuid(String uuid) throws ZepException {
         EventSummary summary = eventSummaryDao.findByUuid(uuid);
         if (summary == null) {
@@ -71,14 +67,14 @@ public class EventStoreDaoImpl implements EventStoreDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int update(String uuid, EventSummaryUpdate update)
             throws ZepException {
         return update(Collections.singletonList(uuid), update);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int update(List<String> uuids, EventSummaryUpdate update)
             throws ZepException {
 
@@ -112,7 +108,7 @@ public class EventStoreDaoImpl implements EventStoreDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException {
         int numRows = eventSummaryDao.updateDetails(uuid, details);
@@ -123,21 +119,21 @@ public class EventStoreDaoImpl implements EventStoreDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int ageEvents(long agingInterval, TimeUnit unit,
             EventSeverity maxSeverity, int limit) throws ZepException {
         return eventSummaryDao.ageEvents(agingInterval, unit, maxSeverity, limit);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int archive(long duration, TimeUnit unit, int limit)
             throws ZepException {
         return this.eventSummaryDao.archive(duration, unit, limit);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int addNote(String uuid, EventNote note) throws ZepException {
         int numRows = eventSummaryDao.addNote(uuid, note);
         if (numRows == 0) {
@@ -147,7 +143,7 @@ public class EventStoreDaoImpl implements EventStoreDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void purge(int duration, TimeUnit unit) throws ZepException {
         eventArchiveDao.purge(duration, unit);
         eventArchiveIndexDao.purge(duration, unit);

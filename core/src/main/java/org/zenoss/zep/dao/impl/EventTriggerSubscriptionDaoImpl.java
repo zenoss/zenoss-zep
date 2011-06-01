@@ -4,6 +4,19 @@
 
 package org.zenoss.zep.dao.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
+import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
+import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
+
+import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -11,19 +24,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import javax.sql.DataSource;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
-import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
-import org.zenoss.zep.ZepException;
-import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
 
 public class EventTriggerSubscriptionDaoImpl implements
         EventTriggerSubscriptionDao {
@@ -85,7 +85,7 @@ public class EventTriggerSubscriptionDaoImpl implements
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public String create(EventTriggerSubscription evtTriggerSubscription)
             throws ZepException {
         if (evtTriggerSubscription.getDelaySeconds() < 0
@@ -108,7 +108,7 @@ public class EventTriggerSubscriptionDaoImpl implements
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int delete(String uuid) throws ZepException {
         try {
             return this.template.update(String.format(
@@ -121,7 +121,7 @@ public class EventTriggerSubscriptionDaoImpl implements
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<EventTriggerSubscription> findAll() throws ZepException {
         try {
             final String sql = String.format("SELECT * FROM %s",
@@ -134,7 +134,7 @@ public class EventTriggerSubscriptionDaoImpl implements
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public EventTriggerSubscription findByUuid(String uuid) throws ZepException {
         try {
             List<EventTriggerSubscription> subs = this.template.query(String
@@ -149,7 +149,7 @@ public class EventTriggerSubscriptionDaoImpl implements
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<EventTriggerSubscription> findBySubscriberUuid(
             String subscriberUuid) throws ZepException {
         try {
@@ -164,7 +164,7 @@ public class EventTriggerSubscriptionDaoImpl implements
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int updateSubscriptions(String subscriberUuid,
             List<EventTriggerSubscription> subscriptions) throws ZepException {
         final byte[] subscriberUuidBytes = DaoUtils.uuidToBytes(subscriberUuid);

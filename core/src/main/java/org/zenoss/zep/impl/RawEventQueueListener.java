@@ -5,9 +5,9 @@ package org.zenoss.zep.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.EventProcessor;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 
 public class RawEventQueueListener extends AbstractEventQueueListener {
 
@@ -25,7 +25,7 @@ public class RawEventQueueListener extends AbstractEventQueueListener {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void handle(com.google.protobuf.Message message) throws Exception {
         if (!(message instanceof ZepRawEvent)) {
             logger.warn("Unexpected message type: {}", message);

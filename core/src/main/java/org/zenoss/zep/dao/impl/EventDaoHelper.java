@@ -9,7 +9,6 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
@@ -23,6 +22,8 @@ import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.DaoCache;
 
 import javax.sql.DataSource;
@@ -165,7 +166,7 @@ public class EventDaoHelper {
         return fields;
     }
 
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void insert(Map<String,Object> occurrenceFields) throws ZepException {
         try {
             this.insert.execute(occurrenceFields);
@@ -485,7 +486,7 @@ public class EventDaoHelper {
         return severityIds;
     }
     
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<EventSummary> listBatch(SimpleJdbcTemplate template, String tableName, String startingUuid,
                                         long maxUpdateTime, int limit)
             throws ZepException {

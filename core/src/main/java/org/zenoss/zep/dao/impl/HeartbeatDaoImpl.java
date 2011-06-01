@@ -5,9 +5,10 @@ package org.zenoss.zep.dao.impl;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.DaemonHeartbeat;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.HeartbeatDao;
 
 import javax.sql.DataSource;
@@ -38,7 +39,7 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void createHeartbeat(DaemonHeartbeat heartbeat) throws ZepException {
         final long now = System.currentTimeMillis();
         final String sql = "INSERT INTO daemon_heartbeat (monitor, daemon, timeout_seconds, last_time)" +
@@ -54,14 +55,14 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<DaemonHeartbeat> findAll() throws ZepException {
         final String sql = "SELECT * FROM daemon_heartbeat";
         return this.template.query(sql, MAPPER);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<DaemonHeartbeat> findByMonitor(String monitor) throws ZepException {
         final Map<String,String> fields = Collections.singletonMap(COLUMN_MONITOR, monitor);
         final String sql = "SELECT * FROM daemon_heartbeat WHERE monitor=:monitor";
@@ -69,14 +70,14 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int deleteAll() throws ZepException {
         final String sql = "DELETE FROM daemon_heartbeat";
         return this.template.update(sql);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int deleteByMonitor(String monitor) throws ZepException {
         final Map<String,String> fields = Collections.singletonMap(COLUMN_MONITOR, monitor);
         final String sql = "DELETE FROM daemon_heartbeat WHERE monitor=:monitor";

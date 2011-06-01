@@ -5,9 +5,9 @@ package org.zenoss.zep.dao.impl;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventIndexQueueDao;
 
@@ -42,13 +42,13 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
     }
     
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int indexEvents(final EventIndexHandler handler, final int limit) throws ZepException {
         return indexEvents(handler, limit, -1L);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int indexEvents(final EventIndexHandler handler, final int limit,
                            final long maxUpdateTime) throws ZepException {
         final Map<String,Object> selectFields = new HashMap<String,Object>();

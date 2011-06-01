@@ -8,12 +8,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.protobufs.zep.Zep.Rule;
 import org.zenoss.protobufs.zep.Zep.RuleType;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.EventTriggerDao;
 
@@ -52,7 +53,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void create(EventTrigger trigger) throws ZepException {
         final Map<String, Object> fields = triggerToFields(trigger);
         try {
@@ -78,14 +79,14 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int delete(String uuidStr) throws ZepException {
         final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuidStr));
         return this.template.update("DELETE FROM event_trigger WHERE uuid=:uuid", fields);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public EventTrigger findByUuid(String uuidStr) throws ZepException {
         final byte[] uuidBytes = DaoUtils.uuidToBytes(uuidStr);
         final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, uuidBytes);
@@ -104,7 +105,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<EventTrigger> findAll() throws ZepException {
         String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,"
                 + "sub.repeat_seconds,sub.send_initial_occurrence "
@@ -119,7 +120,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<EventTrigger> findAllEnabled() throws ZepException {
         String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,"
                 + "sub.repeat_seconds,sub.send_initial_occurrence "
@@ -134,9 +135,8 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
         }
     }
 
-
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int modify(EventTrigger trigger) throws ZepException {
         final Map<String, Object> fields = triggerToFields(trigger);
         final StringBuilder fieldsSql = new StringBuilder();

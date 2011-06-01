@@ -3,21 +3,9 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import static org.zenoss.zep.dao.impl.EventConstants.*;
-
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
-import javax.sql.DataSource;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
@@ -25,7 +13,19 @@ import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventArchiveDao;
+
+import javax.sql.DataSource;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
+import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 public class EventArchiveDaoImpl implements EventArchiveDao {
 
@@ -57,7 +57,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public String create(Event event, EventStatus eventStatus) throws ZepException {
         Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
         Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
@@ -86,7 +86,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public EventSummary findByUuid(String uuid) throws ZepException {
         final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
         List<EventSummary> summaries = this.template.query("SELECT * FROM event_archive WHERE uuid=:uuid",
@@ -95,7 +95,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<EventSummary> findByUuids(List<String> uuids)
             throws ZepException {
         Map<String, List<byte[]>> fields = Collections.singletonMap("uuids",
@@ -106,20 +106,20 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public List<EventSummary> listBatch(String startingUuid, long maxUpdateTime, int limit) throws ZepException {
         return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_ARCHIVE, startingUuid, maxUpdateTime, limit);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int dropPartitionsOlderThan(int duration, TimeUnit unit)
             throws ZepException {
         return this.partitioner.dropPartitionsOlderThan(duration, unit);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void initializePartitions() throws ZepException {
         this.partitioner.createPartitions(
                 this.partitionTableConfig.getInitialPastPartitions(),
@@ -133,21 +133,21 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int addNote(String uuid, EventNote note) throws ZepException {
         return EventDaoHelper
                 .addNote(TABLE_EVENT_ARCHIVE, uuid, note, template);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException {
         return EventDaoHelper.updateDetails(TABLE_EVENT_ARCHIVE, uuid, details.getDetailsList(), template);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void purge(int duration, TimeUnit unit) throws ZepException {
         dropPartitionsOlderThan(duration, unit);
         initializePartitions();

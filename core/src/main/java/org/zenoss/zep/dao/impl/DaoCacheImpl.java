@@ -6,9 +6,10 @@ package org.zenoss.zep.dao.impl;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.DaoCache;
 
 import javax.sql.DataSource;
@@ -88,73 +89,73 @@ public class DaoCacheImpl implements DaoCache {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int getEventClassId(String eventClass) {
         return getIdFromName(this.eventClassCache, eventClass);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public String getEventClassFromId(int id) {
         return getNameFromId(this.eventClassCache, id);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int getEventClassKeyId(String eventClassKey) {
         return getIdFromName(this.eventClassKeyCache, eventClassKey);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public String getEventClassKeyFromId(int id) {
         return getNameFromId(this.eventClassKeyCache, id);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int getMonitorId(String monitor) {
         return getIdFromName(this.monitorCache, monitor);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public String getMonitorFromId(int id) {
         return getNameFromId(this.monitorCache, id);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int getAgentId(String agent) {
         return getIdFromName(this.agentCache, agent);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public String getAgentFromId(int id) {
         return getNameFromId(this.agentCache, id);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int getEventGroupId(String eventGroup) {
         return getIdFromName(this.groupCache, eventGroup);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public String getEventGroupFromId(int id) {
         return getNameFromId(this.groupCache, id);
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int getEventKeyId(String eventKey) {
         return getIdFromName(this.eventKeyCache, eventKey);
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public String getEventKeyFromId(int id) {
         return getNameFromId(this.eventKeyCache, id);
     }

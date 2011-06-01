@@ -6,11 +6,12 @@ package org.zenoss.zep.dao.impl;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem.EventDetailType;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
 
 import javax.sql.DataSource;
@@ -37,7 +38,7 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void init() throws ZepException {
         // Create default EventDetailItem objects in the database.
         createDetailItem(ZepConstants.DETAIL_DEVICE_PRIORITY, EventDetailType.INTEGER, "Priority");
@@ -46,7 +47,7 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void create(EventDetailItem item) throws ZepException {
         final Map<String,Object> fields = new HashMap<String,Object>();
         fields.put(COLUMN_DETAIL_ITEM_NAME, item.getKey());
@@ -57,7 +58,7 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int delete(String eventDetailName) throws ZepException {
         final Map<String,String> fields = Collections.singletonMap(COLUMN_DETAIL_ITEM_NAME, eventDetailName);
         final String sql = "DELETE FROM event_detail_index_config WHERE detail_item_name = :detail_item_name";
@@ -65,7 +66,7 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public EventDetailItem findByName(String eventDetailName) throws ZepException {
         final Map<String,String> fields = Collections.singletonMap(COLUMN_DETAIL_ITEM_NAME, eventDetailName);
         final String sql = "SELECT proto_json FROM event_detail_index_config WHERE detail_item_name=:detail_item_name";
@@ -79,7 +80,7 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public Map<String, EventDetailItem> getEventDetailItemsByName() throws ZepException {
         final String sql = "SELECT proto_json FROM event_detail_index_config";
         final Map<String, EventDetailItem> itemsByName = new HashMap<String, EventDetailItem>();

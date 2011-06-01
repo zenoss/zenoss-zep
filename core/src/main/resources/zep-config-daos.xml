@@ -151,7 +151,6 @@
     <bean id="eventStoreDao" class="org.zenoss.zep.dao.impl.EventStoreDaoImpl">
         <property name="eventSummaryDao" ref="eventSummaryDao" />
         <property name="eventArchiveDao" ref="eventArchiveDao" />
-        <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao" />
         <property name="eventArchiveIndexDao" ref="eventArchiveIndexDao" />
     </bean>
 

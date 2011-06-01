@@ -7,9 +7,10 @@ package org.zenoss.zep.dao.impl;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepInstance;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.IndexMetadata;
 import org.zenoss.zep.dao.IndexMetadataDao;
 
@@ -40,7 +41,7 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public IndexMetadata findIndexMetadata(String indexName) throws ZepException {
         final String sql = "SELECT * FROM index_metadata WHERE zep_instance=:zep_instance AND index_name=:index_name";
         Map<String,Object> fields = new HashMap<String,Object>();
@@ -61,7 +62,7 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int updateIndexVersion(String indexName, int indexVersion, byte[] indexHash) throws ZepException {
         final Map<String,Object> fields = new HashMap<String,Object>();
         fields.put(COLUMN_ZEP_INSTANCE, zepInstanceBytes);

@@ -6,15 +6,15 @@ package org.zenoss.zep.index.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.EventPostProcessingPlugin;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventArchiveDao;
-import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
+import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventIndexQueueDao;
 import org.zenoss.zep.dao.EventSummaryBaseDao;
 import org.zenoss.zep.dao.EventSummaryDao;
@@ -101,7 +101,7 @@ public class EventIndexerImpl implements EventIndexer {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public synchronized void init() throws ZepException {
         Map<String,EventDetailItem> detailItems = this.eventDetailsConfigDao.getEventDetailItemsByName();
         for (EventDetailItem item : detailItems.values()) {

@@ -15,12 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.protobufs.zep.Zep.ZepConfig.Builder;
 import org.zenoss.zep.Messages;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.annotations.TransactionalReadOnly;
+import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.ConfigDao;
 
 import javax.sql.DataSource;
@@ -76,7 +77,7 @@ public class ConfigDaoImpl implements ConfigDao {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @TransactionalReadOnly
     public ZepConfig getConfig() throws ZepException {
         try {
             final String sql = "SELECT * FROM config";
@@ -89,7 +90,7 @@ public class ConfigDaoImpl implements ConfigDao {
     }
     
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void setConfig(ZepConfig config) throws ZepException {
         try {
             validateConfig(config);
@@ -105,7 +106,7 @@ public class ConfigDaoImpl implements ConfigDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public int removeConfigValue(String name) throws ZepException {
         try {
             final String sql = "DELETE FROM config WHERE config_name=:config_name";
@@ -116,7 +117,7 @@ public class ConfigDaoImpl implements ConfigDao {
     }
 
     @Override
-    @Transactional
+    @TransactionalRollbackAllExceptions
     public void setConfigValue(String name, ZepConfig config) throws ZepException {
         try {
             validateConfig(config);
