@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.dao.impl;
 
@@ -9,9 +9,9 @@ import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
-import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
@@ -30,8 +30,7 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @SuppressWarnings("unused")
-    private static Logger logger = LoggerFactory
-            .getLogger(EventArchiveDaoImpl.class);
+    private static Logger logger = LoggerFactory.getLogger(EventArchiveDaoImpl.class);
 
     private final SimpleJdbcTemplate template;
 
@@ -59,6 +58,10 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @Override
     @TransactionalRollbackAllExceptions
     public String create(Event event, EventStatus eventStatus) throws ZepException {
+        if (!ZepConstants.CLOSED_STATUSES.contains(eventStatus)) {
+            throw new ZepException("Invalid status for event in event archive: " + eventStatus);
+        }
+
         Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
         Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
         long created = (Long) fields.remove(COLUMN_CREATED);
@@ -72,10 +75,6 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         fields.put(COLUMN_LAST_SEEN, created);
         fields.put(COLUMN_EVENT_COUNT, eventCount);
         fields.put(COLUMN_UPDATE_TIME, updateTime);
-        if (event.getSeverity() != EventSeverity.SEVERITY_CLEAR) {
-            fields.put(COLUMN_CLEAR_FINGERPRINT_HASH,
-                    EventDaoUtils.createClearHash(event));
-        }
 
         this.template.update(DaoUtils.createNamedInsert(TABLE_EVENT_ARCHIVE, fields.keySet()), fields);
 
@@ -135,8 +134,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int addNote(String uuid, EventNote note) throws ZepException {
-        return EventDaoHelper
-                .addNote(TABLE_EVENT_ARCHIVE, uuid, note, template);
+        return EventDaoHelper.addNote(TABLE_EVENT_ARCHIVE, uuid, note, template);
     }
 
     @Override
@@ -151,5 +149,32 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     public void purge(int duration, TimeUnit unit) throws ZepException {
         dropPartitionsOlderThan(duration, unit);
         initializePartitions();
+    }
+
+    @Override
+    @TransactionalRollbackAllExceptions
+    public void importEvent(EventSummary eventSummary) throws ZepException {
+        // Possible race condition here for inserting multiple events with the same UUID into archive, but unable
+        // to create primary key or unique constraint on table without changing partitioning behavior. Other possible
+        // options including locking the table on insert, using MySQL application locking, or creating a separate table
+        // to store the unique contraints, but for now we live with the fact that there can be more than one event with
+        // the same UUID in the event archive for imported events and try to avoid it by performing import operations
+        // from one thread.
+        if (findByUuid(eventSummary.getUuid()) != null) {
+            throw new ZepException("Existing UUID found in database for event summary: " + eventSummary.getUuid());
+        }
+        if (!ZepConstants.CLOSED_STATUSES.contains(eventSummary.getStatus())) {
+            throw new ZepException("Invalid status for event in event archive: " + eventSummary.getStatus());
+        }
+
+        final long updateTime = System.currentTimeMillis();
+        final EventSummary.Builder summaryBuilder = EventSummary.newBuilder(eventSummary);
+        final Event.Builder eventBuilder = summaryBuilder.getOccurrenceBuilder(0);
+        summaryBuilder.setUpdateTime(updateTime);
+        EventDaoHelper.addMigrateUpdateTimeDetail(eventBuilder, updateTime);
+
+        final EventSummary summary = summaryBuilder.build();
+        final Map<String,Object> fields = this.eventDaoHelper.createImportedSummaryFields(summary);
+        this.template.update(DaoUtils.createNamedInsert(TABLE_EVENT_ARCHIVE, fields.keySet()), fields);
     }
 }

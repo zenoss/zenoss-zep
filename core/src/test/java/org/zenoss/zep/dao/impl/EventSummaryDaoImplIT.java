@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.dao.impl;
 
@@ -11,6 +11,7 @@ import org.springframework.test.context.junit4.AbstractTransactionalJUnit4Spring
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
+import org.zenoss.protobufs.zep.Zep.EventAuditLog;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventDetail.EventDetailMergeBehavior;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
@@ -20,6 +21,7 @@ import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventDao;
@@ -861,14 +863,28 @@ public class EventSummaryDaoImplIT extends
     @Test
     public void testArchive() throws ZepException {
         EventSummary summary1 = createSummaryNew(createUniqueEvent());
-        EventSummary summary2 = createSummaryNew(createUniqueEvent());
-        EventSummary summary3 = createSummaryNew(createUniqueEvent());
+        EventSummary summary2 = createSummary(createUniqueEvent(), EventStatus.STATUS_CLOSED);
+        EventSummary summary3 = createSummary(createUniqueEvent(), EventStatus.STATUS_CLEARED);
 
         List<String> uuids = Arrays.asList(summary1.getUuid(), summary2.getUuid(), summary3.getUuid());
         int numArchived = this.eventSummaryDao.archive(uuids);
-        assertEquals(uuids.size(), numArchived);
-        assertEquals(0, this.eventSummaryDao.findByUuids(uuids).size());
-        assertEquals(uuids.size(), this.eventArchiveDao.findByUuids(uuids).size());
+        assertEquals(uuids.size()-1, numArchived);
+        List<EventSummary> summaries = this.eventSummaryDao.findByUuids(uuids);
+        assertEquals(1, summaries.size());
+        assertEquals(summary1, summaries.get(0));
+
+        List<EventSummary> archived = this.eventArchiveDao.findByUuids(uuids);
+        assertEquals(2, archived.size());
+        boolean found2 = false, found3 = false;
+        for (EventSummary archivedSummary : archived) {
+            if (summary2.getUuid().equals(archivedSummary.getUuid())) {
+                found2 = true;
+            }
+            else if (summary3.getUuid().equals(archivedSummary.getUuid())) {
+                found3 = true;
+            }
+        }
+        assertTrue(found2 && found3);
     }
 
     @Test
@@ -884,5 +900,77 @@ public class EventSummaryDaoImplIT extends
         assertEquals(firstSummary.getUuid(), secondSummary.getUuid());
         assertEquals(1, secondSummary.getOccurrence(0).getDetailsCount());
         assertEquals(secondEvent.getDetailsList(), secondSummary.getOccurrence(0).getDetailsList());
+    }
+
+    public static EventSummary createRandomSummary() {
+        Random r = new Random();
+        Event event = EventDaoImplIT.createSampleEvent();
+        EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
+        summaryBuilder.addOccurrence(event);
+        summaryBuilder.addAuditLog(EventAuditLog.newBuilder().setNewStatus(EventStatus.STATUS_ACKNOWLEDGED)
+                .setTimestamp(System.currentTimeMillis()).setUserName("pkw").setUserUuid(UUID.randomUUID().toString()));
+        summaryBuilder.addAuditLog(EventAuditLog.newBuilder().setNewStatus(EventStatus.STATUS_CLOSED)
+                .setTimestamp(System.currentTimeMillis()).setUserName("pkw2")
+                .setUserUuid(UUID.randomUUID().toString()));
+        summaryBuilder.setClearedByEventUuid(UUID.randomUUID().toString());
+        summaryBuilder.setCount(r.nextInt(1000)+1);
+        summaryBuilder.setStatus(EventStatus.STATUS_CLEARED);
+        summaryBuilder.setCurrentUserName("pkw3");
+        summaryBuilder.setCurrentUserUuid(UUID.randomUUID().toString());
+        summaryBuilder.setFirstSeenTime(System.currentTimeMillis() - 5000);
+        summaryBuilder.setLastSeenTime(System.currentTimeMillis());
+        summaryBuilder.setStatusChangeTime(System.currentTimeMillis());
+        summaryBuilder.setUuid(UUID.randomUUID().toString());
+        summaryBuilder.addNotes(EventNote.newBuilder().setCreatedTime(System.currentTimeMillis()-100).setMessage("Note 1")
+                .setUserName("pkw4").setUserUuid(UUID.randomUUID().toString()));
+        summaryBuilder.addNotes(EventNote.newBuilder().setCreatedTime(System.currentTimeMillis()).setMessage("Note 2")
+                .setUserName("pkw5").setUserUuid(UUID.randomUUID().toString()));
+        return summaryBuilder.build();
+    }
+
+    public static void compareImported(EventSummary original, EventSummary imported) {
+        // First, verify migrate_update_time == update_time in imported event
+        final long updateTime = imported.getUpdateTime();
+        int migratedDetailIndex = -1;
+        for (int detailIndex = 0; detailIndex < imported.getOccurrence(0).getDetailsCount(); detailIndex++) {
+            EventDetail detail = imported.getOccurrence(0).getDetails(detailIndex);
+            if (ZepConstants.DETAIL_MIGRATE_UPDATE_TIME.equals(detail.getName())) {
+                // No duplicate details
+                assertEquals(-1, migratedDetailIndex);
+                migratedDetailIndex = detailIndex;
+                assertEquals(Arrays.asList(Long.toString(updateTime)), detail.getValueList());
+            }
+        }
+        assertTrue(migratedDetailIndex >= 0);
+
+        // Import process creates a detail and also updates the update_time on the protobuf - clear these fields
+        // so that comparison can work on all the rest of the fields.
+        EventSummary.Builder importedBuilder = EventSummary.newBuilder(imported);
+        Event.Builder occurrenceBuilder = importedBuilder.getOccurrenceBuilder(0);
+        importedBuilder.clearUpdateTime();
+        occurrenceBuilder.removeDetails(migratedDetailIndex);
+
+        // Original event has a generated UUID on the occurrence but we don't store an occurrence for migrated events -
+        // clear it and the created_time to enable comparison.
+        EventSummary.Builder originalBuilder = EventSummary.newBuilder(original);
+        Event.Builder originalOccurrenceBuilder = originalBuilder.getOccurrenceBuilder(0);
+        originalOccurrenceBuilder.clearUuid();
+        originalOccurrenceBuilder.setCreatedTime(occurrenceBuilder.getCreatedTime());
+
+        assertEquals(originalBuilder.build(), importedBuilder.build());
+    }
+
+    @Test
+    public void testImportEvent() throws ZepException {
+        EventSummary summary = EventSummaryDaoImplIT.createRandomSummary();
+        this.eventSummaryDao.importEvent(summary);
+        compareImported(summary, this.eventSummaryDao.findByUuid(summary.getUuid()));
+        // Verify we can't insert an event more than once
+        try {
+            this.eventSummaryDao.importEvent(summary);
+            fail("Expected duplicate import event to fail");
+        } catch (ZepException e) {
+            // Expected
+        }
     }
 }

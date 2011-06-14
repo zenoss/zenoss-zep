@@ -122,5 +122,4 @@ EOF
     fi
     i=$((${i}+1))
 done
-echo "Schema version: ${SCHEMAVERSION}"
 exit 0

@@ -81,4 +81,13 @@ public interface EventSummaryBaseDao {
      * @throws ZepException If an exception occurs.
      */
     public List<EventSummary> listBatch(String startingUuid, long maxUpdateTime, int limit) throws ZepException;
+
+    /**
+     * Method used to import a migrated event summary object from Zenoss 3.1.x to the new event
+     * schema.
+     *
+     * @param eventSummary Event summary to import.
+     * @throws ZepException If an exception occurs importing the event.
+     */
+    public void importEvent(EventSummary eventSummary) throws ZepException;
 }

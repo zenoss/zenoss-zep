@@ -62,7 +62,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private final PreparedStatementCreatorFactory psFactory;
 
-    private volatile List<String> columnNames;
+    private volatile List<String> archiveColumnNames;
 
     private EventDaoHelper eventDaoHelper;
 
@@ -103,6 +103,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         if (ZepConstants.CLOSED_STATUSES.contains(status)) {
             String uniqueFingerprint = (String) fields.get(COLUMN_FINGERPRINT) + '|' + updateTime;
             fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1(uniqueFingerprint));
+        }
+        else {
+            fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1((String)fields.get(COLUMN_FINGERPRINT)));
         }
         if (event.getSeverity() != EventSeverity.SEVERITY_CLEAR) {
             fields.put(COLUMN_CLEAR_FINGERPRINT_HASH, EventDaoUtils.createClearHash(event));
@@ -628,9 +631,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         if (uuids.isEmpty()) {
             return 0;
         }
-        if (this.columnNames == null) {
+        if (this.archiveColumnNames == null) {
             try {
-                this.columnNames = DaoUtils.getColumnNames(this.dataSource, TABLE_EVENT_SUMMARY);
+                this.archiveColumnNames = DaoUtils.getColumnNames(this.dataSource, TABLE_EVENT_ARCHIVE);
             } catch (MetaDataAccessException e) {
                 throw new ZepException(e.getLocalizedMessage(), e);
             }
@@ -639,9 +642,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         Map<String, Object> fields = new HashMap<String,Object>();
         fields.put(COLUMN_UPDATE_TIME, System.currentTimeMillis());
         fields.put("_uuids", DaoUtils.uuidsToBytes(uuids));
+        fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
         StringBuilder selectColumns = new StringBuilder();
 
-        for (Iterator<String> it = this.columnNames.iterator(); it.hasNext();) {
+        for (Iterator<String> it = this.archiveColumnNames.iterator(); it.hasNext();) {
             String columnName = it.next();
             if (fields.containsKey(columnName)) {
                 selectColumns.append(':').append(columnName);
@@ -653,11 +657,51 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             }
         }
 
-        String insertSql = String.format("INSERT INTO event_archive (%s) SELECT %s FROM event_summary WHERE uuid IN (:_uuids)",
-                StringUtils.collectionToCommaDelimitedString(this.columnNames), selectColumns);
+        String insertSql = String.format("INSERT INTO event_archive (%s) SELECT %s FROM event_summary" +
+                " WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
+                StringUtils.collectionToCommaDelimitedString(this.archiveColumnNames), selectColumns);
 
         final int updated = this.template.update(insertSql, fields);
-        this.template.update("DELETE FROM event_summary WHERE uuid IN (:_uuids)", fields);
+        this.template.update("DELETE FROM event_summary WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
+                fields);
         return updated;
+    }
+
+    @Override
+    @TransactionalRollbackAllExceptions
+    public void importEvent(EventSummary eventSummary) throws ZepException {
+        final long updateTime = System.currentTimeMillis();
+        final EventSummary.Builder summaryBuilder = EventSummary.newBuilder(eventSummary);
+        final Event.Builder eventBuilder = summaryBuilder.getOccurrenceBuilder(0);
+        summaryBuilder.setUpdateTime(updateTime);
+        EventDaoHelper.addMigrateUpdateTimeDetail(eventBuilder, updateTime);
+
+        final EventSummary summary = summaryBuilder.build();
+        final Map<String,Object> fields = this.eventDaoHelper.createImportedSummaryFields(summary);
+
+        /*
+         * Closed events have a unique fingerprint_hash in summary to allow multiple rows
+         * but only allow one active event (where the de-duplication occurs).
+         */
+        if (ZepConstants.CLOSED_STATUSES.contains(eventSummary.getStatus())) {
+            String uniqueFingerprint = (String) fields.get(COLUMN_FINGERPRINT) + '|' + updateTime;
+            fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1(uniqueFingerprint));
+        }
+        else {
+            fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1((String)fields.get(COLUMN_FINGERPRINT)));
+        }
+
+        if (eventSummary.getOccurrence(0).getSeverity() != EventSeverity.SEVERITY_CLEAR) {
+            fields.put(COLUMN_CLEAR_FINGERPRINT_HASH, EventDaoUtils.createClearHash(eventSummary.getOccurrence(0)));
+        }
+
+        // Create event summary entry - if we get a duplicate key exception just skip importing this event as it
+        // either has already been imported or there is already an active event with the same fingerprint.
+        try {
+            this.insert.execute(fields);
+        } catch (DuplicateKeyException e) {
+            logger.warn("Event already found in event summary - skipping: {}", eventSummary.getUuid());
+            throw new ZepException(e.getLocalizedMessage(), e);
+        }
     }
 }

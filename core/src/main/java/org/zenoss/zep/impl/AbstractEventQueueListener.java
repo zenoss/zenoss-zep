@@ -35,7 +35,7 @@ public abstract class AbstractEventQueueListener extends QueueListener {
         connectionManager.addListener(queueCfg, this);
     }
 
-    private static boolean isTransientException(Exception e) {
+    protected static boolean isTransientException(Exception e) {
         boolean isTransient = false;
         Throwable t = e;
         while (t != null) {

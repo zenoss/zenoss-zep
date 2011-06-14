@@ -1,8 +1,9 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.dao.impl;
 
+import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -20,6 +21,7 @@ import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
@@ -35,6 +37,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -66,9 +69,10 @@ public class EventDaoHelper {
 
     public Map<String, Object> createOccurrenceFields(Event event) throws ZepException {
         Map<String, Object> fields = new HashMap<String, Object>();
-        fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(event.getUuid()));
+        if (event.hasUuid()) {
+            fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(event.getUuid()));
+        }
         String fingerprint = DaoUtils.truncateStringToUtf8(event.getFingerprint(), MAX_FINGERPRINT);
-        fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1(fingerprint));
         fields.put(COLUMN_FINGERPRINT, fingerprint);
 
         Integer eventGroupId = null;
@@ -504,5 +508,75 @@ public class EventDaoHelper {
                     "ORDER BY uuid LIMIT :_limit";
         }
         return template.query(sql, new EventSummaryRowMapper(this), fields);
+    }
+
+    /**
+     * Adds the {@link ZepConstants#DETAIL_MIGRATE_UPDATE_TIME} detail to the event occurrence.
+     *
+     * @param eventBuilder Event builder.
+     * @param updateTime Update time to use as value for event detail.
+     */
+    public static void addMigrateUpdateTimeDetail(Event.Builder eventBuilder, long updateTime) {
+        // Add migrate_update_time detail
+        final int detailsCount = eventBuilder.getDetailsCount();
+        for (int i = 0; i < detailsCount; i++) {
+            EventDetail detail = eventBuilder.getDetails(i);
+            // Clear out existing detail if it exists
+            if (ZepConstants.DETAIL_MIGRATE_UPDATE_TIME.equals(detail.getName())) {
+                eventBuilder.getDetailsBuilder(i).clearValue();
+            }
+        }
+        eventBuilder.addDetails(EventDetail.newBuilder().setName(ZepConstants.DETAIL_MIGRATE_UPDATE_TIME)
+                .addValue(Long.toString(updateTime)));
+    }
+
+    private static String collectionToJsonDelimited(List<? extends Message> messages) throws ZepException {
+        if (messages.isEmpty()) {
+            return null;
+        }
+        final StringBuilder sb = new StringBuilder();
+        try {
+            for (Iterator<? extends Message> it = messages.iterator(); it.hasNext(); ) {
+                sb.append(JsonFormat.writeAsString(it.next()));
+                if (it.hasNext()) {
+                    sb.append(",\n");
+                }
+            }
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Creates a map of column names to values suitable for inserting into the event_summary and event_archive tables.
+     *
+     * @param summary Event summary to be created.
+     * @return Map of field names to values.
+     * @throws ZepException If the summary can't be serialized.
+     */
+    public Map<String,Object> createImportedSummaryFields(EventSummary summary) throws ZepException {
+        final Map<String, Object> fields = createOccurrenceFields(summary.getOccurrence(0));
+        // Field doesn't exist in event_summary/event_archive
+        fields.remove(COLUMN_CREATED);
+        fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(summary.getUuid()));
+        fields.put(COLUMN_STATUS_ID, summary.getStatus().getNumber());
+        fields.put(COLUMN_UPDATE_TIME, summary.getUpdateTime());
+        fields.put(COLUMN_FIRST_SEEN, summary.getFirstSeenTime());
+        fields.put(COLUMN_STATUS_CHANGE, summary.getStatusChangeTime());
+        fields.put(COLUMN_LAST_SEEN, summary.getLastSeenTime());
+        fields.put(COLUMN_EVENT_COUNT, summary.getCount());
+        if (summary.hasCurrentUserUuid()) {
+            fields.put(COLUMN_CURRENT_USER_UUID, DaoUtils.uuidToBytes(summary.getCurrentUserUuid()));
+        }
+        if (summary.hasCurrentUserName()) {
+            fields.put(COLUMN_CURRENT_USER_NAME, summary.getCurrentUserName());
+        }
+        if (summary.hasClearedByEventUuid()) {
+            fields.put(COLUMN_CLEARED_BY_EVENT_UUID, DaoUtils.uuidToBytes(summary.getClearedByEventUuid()));
+        }
+        fields.put(COLUMN_NOTES_JSON, EventDaoHelper.collectionToJsonDelimited(summary.getNotesList()));
+        fields.put(COLUMN_AUDIT_JSON, EventDaoHelper.collectionToJsonDelimited(summary.getAuditLogList()));
+        return fields;
     }
 }

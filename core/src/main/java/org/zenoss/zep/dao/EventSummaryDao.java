@@ -141,7 +141,7 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
     public int close(List<String> uuids, String userUuid, String userName) throws ZepException;
 
     /**
-     * Archives events with the specified UUIDs.
+     * Archives closed events with the specified UUIDs.
      *
      * @param uuids UUIDs of events to move to the archive.
      * @return The number of archived events.

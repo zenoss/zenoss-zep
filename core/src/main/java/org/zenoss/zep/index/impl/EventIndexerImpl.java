@@ -6,10 +6,13 @@ package org.zenoss.zep.index.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.EventPostProcessingPlugin;
 import org.zenoss.zep.PluginService;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventArchiveDao;
@@ -202,6 +205,35 @@ public class EventIndexerImpl implements EventIndexer {
         return totalIndexed;
     }
 
+    /**
+     * When migrating events from Zenoss 3.1.x to ZEP, a detail is added to the event which is set to the initial
+     * update_time value for the event. Since these events have already been processed by an earlier release of
+     * Zenoss, we don't want to run post-processing on these events including triggers / fan-out.
+     *
+     * @param event The event.
+     * @return True if post-processing should run on the event, false otherwise.
+     */
+    private static boolean shouldRunPostprocessing(EventSummary event) {
+        boolean shouldRun = true;
+        final Event occurrence = event.getOccurrence(0);
+        final List<EventDetail> details = occurrence.getDetailsList();
+        for (EventDetail detail : details) {
+            if (ZepConstants.DETAIL_MIGRATE_UPDATE_TIME.equals(detail.getName())) {
+                final List<String> values = detail.getValueList();
+                if (values.size() == 1) {
+                    try {
+                        long migrate_update_time = Long.valueOf(values.get(0));
+                        shouldRun = (migrate_update_time != event.getUpdateTime());
+                    } catch (NumberFormatException nfe) {
+                        logger.warn("Invalid value for detail {}: {}", detail.getName(), values);
+                    }
+                }
+                break;
+            }
+        }
+        return shouldRun;
+    }
+
     private int doIndex(final EventIndexQueueDao queueDao, final EventIndexDao indexDao, long throughTime)
             throws ZepException {
         final List<EventPostProcessingPlugin> plugins = this.pluginService.getPostProcessingPlugins();
@@ -210,12 +242,14 @@ public class EventIndexerImpl implements EventIndexer {
             @Override
             public void handle(EventSummary event) throws Exception {
                 indexDao.stage(event);
-                for (EventPostProcessingPlugin plugin : plugins) {
-                    try {
-                        plugin.processEvent(event);
-                    } catch (Exception e) {
-                        // Post-processing plug-in failures are not fatal errors.
-                        logger.warn("Failed to run post-processing plug-in on event: " + event, e);
+                if (shouldRunPostprocessing(event)) {
+                    for (EventPostProcessingPlugin plugin : plugins) {
+                        try {
+                            plugin.processEvent(event);
+                        } catch (Exception e) {
+                            // Post-processing plug-in failures are not fatal errors.
+                            logger.warn("Failed to run post-processing plug-in on event: " + event, e);
+                        }
                     }
                 }
             }

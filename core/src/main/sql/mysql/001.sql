@@ -125,6 +125,7 @@ CREATE TABLE `event_summary_index_queue`
 CREATE TABLE `event_archive`
 (
     `uuid` BINARY(16) NOT NULL,
+    -- This has been removed in 002.sql. Events in archive aren't unique on fingerprint so this is unused.
     `fingerprint_hash` BINARY(20) NOT NULL COMMENT 'SHA-1 hash of the fingerprint.',
     `fingerprint` VARCHAR(255) NOT NULL COMMENT 'Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
     `status_id` TINYINT NOT NULL,
@@ -152,6 +153,7 @@ CREATE TABLE `event_archive`
     `nt_event_code` INTEGER COMMENT 'The Windows NT Event Code.',
     `current_user_uuid` BINARY(16) COMMENT 'UUID of the user who acknowledged this event.',
     `current_user_name` VARCHAR(32) COMMENT 'Name of the user who acknowledged this event.',
+    -- This has been removed in 002.sql. Event clearing doesn't happen on events in archive so this is unused.
     `clear_fingerprint_hash` BINARY(20) COMMENT 'Hash of clear fingerprint used for clearing events.',
     `cleared_by_event_uuid` BINARY(16) COMMENT 'The UUID of the event that cleared this event (for events with status == CLEARED).',
     `summary` VARCHAR(255) NOT NULL DEFAULT '',

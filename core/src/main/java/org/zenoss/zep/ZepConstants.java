@@ -57,6 +57,12 @@ public final class ZepConstants {
     public static final String DETAIL_DEVICE_LOCATION = "zenoss.device.location";
 
     /**
+     * Constant for migrated events update time (used to bypass post-processing of events which have already
+     * been processed by the system.
+     */
+    public static final String DETAIL_MIGRATE_UPDATE_TIME = "zenoss.event.migrate_update_time";
+
+    /**
      * The constant representing devices in production.
      */
     public static final int PRODUCTION_STATE_PRODUCTION = 1000;

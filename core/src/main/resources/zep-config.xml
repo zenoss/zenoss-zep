@@ -71,6 +71,20 @@
         <property name="connectionManager" ref="amqpConnectionManager" />
         <property name="heartbeatDao" ref="heartbeatDao" />
     </bean>
+
+    <bean id="migratedEventQueueListenerSummary" class="org.zenoss.zep.impl.MigratedEventQueueListener"
+          depends-on="application">
+        <constructor-arg index="0" value="$ZepMigratedEventSummary" />
+        <property name="connectionManager" ref="amqpConnectionManager" />
+        <property name="eventSummaryBaseDao" ref="eventSummaryDao" />
+    </bean>
+
+    <bean id="migratedEventQueueListenerArchive" class="org.zenoss.zep.impl.MigratedEventQueueListener"
+          depends-on="application">
+        <constructor-arg index="0" value="$ZepMigratedEventArchive" />
+        <property name="connectionManager" ref="amqpConnectionManager" />
+        <property name="eventSummaryBaseDao" ref="eventArchiveDao" />
+    </bean>
     
     <bean id="heartbeatProcessor" class="org.zenoss.zep.impl.HeartbeatProcessorImpl">
         <property name="eventPublisher" ref="eventPublisher" />

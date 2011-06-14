@@ -1,16 +1,7 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.dao.impl;
-
-import static org.junit.Assert.*;
-
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
-import java.util.UUID;
 
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,9 +20,17 @@ import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
+
+import static org.junit.Assert.*;
+
 @ContextConfiguration({ "classpath:zep-config.xml" })
-public class EventArchiveDaoImplIT extends
-        AbstractTransactionalJUnit4SpringContextTests {
+public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     public EventArchiveDao eventArchiveDao;
@@ -140,5 +139,29 @@ public class EventArchiveDaoImplIT extends
         assertEquals("kww", summary.getNotes(0).getUserName());
         assertEquals("My Note", summary.getNotes(1).getMessage());
         assertEquals("pkw", summary.getNotes(1).getUserName());
+    }
+
+    @Test
+    public void testImportEvent() throws ZepException {
+        EventSummary.Builder summaryBuilder = EventSummary.newBuilder(EventSummaryDaoImplIT.createRandomSummary());
+        summaryBuilder.setStatus(EventStatus.STATUS_CLOSED);
+        final EventSummary summary = summaryBuilder.build();
+        this.eventArchiveDao.importEvent(summary);
+        EventSummaryDaoImplIT.compareImported(summary, this.eventArchiveDao.findByUuid(summary.getUuid()));
+        // Verify we can't insert an event more than once
+        try {
+            this.eventArchiveDao.importEvent(summary);
+            fail("Expected duplicate import event to fail");
+        } catch (ZepException e) {
+            // Expected
+        }
+    }
+
+    @Test(expected = ZepException.class)
+    public void testImportOpenEventFails() throws ZepException {
+        EventSummary.Builder summaryBuilder = EventSummary.newBuilder(EventSummaryDaoImplIT.createRandomSummary());
+        summaryBuilder.setStatus(EventStatus.STATUS_NEW);
+        final EventSummary summary = summaryBuilder.build();
+        this.eventArchiveDao.importEvent(summary);
     }
 }
