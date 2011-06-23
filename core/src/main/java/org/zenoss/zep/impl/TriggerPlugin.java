@@ -11,6 +11,7 @@ import org.python.core.PyObject;
 import org.python.core.PyString;
 import org.python.core.PyList;
 import org.python.core.PySyntaxError;
+import org.python.core.PyType;
 import org.python.util.PythonInterpreter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -378,7 +379,11 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
             result = new PyInteger(0);
         } catch (PyException pyexc) {
             // evaluating rule raised an exception - treat as "False" eval
-            logger.warn("exception raised while evaluating rule: " + ruleSource, pyexc);
+            // If it's an AttributeError it just means the event doesn't have a value for the field
+            // and an eval of False is fine. Otherwise we should log in case there's a real issue.
+            if (!((PyType) pyexc.type).getName().equals("AttributeError")) {
+                logger.warn("exception raised while evaluating rule: {} \n{}", ruleSource, pyexc);
+            }
             result = new PyInteger(0);
         }
 
