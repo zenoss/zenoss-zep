@@ -43,7 +43,7 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
 
     private static void compareEvents(Event event, Event eventFromDb) {
         Event event1 = Event.newBuilder().mergeFrom(event).clearUuid()
-                .clearCreatedTime().build();
+                .clearCreatedTime().clearTags().addAllTags(EventDaoHelper.buildTags(event)).build();
         Event event2 = Event.newBuilder().mergeFrom(eventFromDb).clearUuid()
                 .clearCreatedTime().build();
         assertEquals(event1, event2);

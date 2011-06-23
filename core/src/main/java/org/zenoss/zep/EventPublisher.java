@@ -3,7 +3,7 @@
  */
 package org.zenoss.zep;
 
-import org.zenoss.protobufs.zep.Zep.RawEvent;
+import org.zenoss.protobufs.zep.Zep.Event;
 
 /**
  * Interface for publishing events to the raw event queue.
@@ -12,8 +12,8 @@ public interface EventPublisher {
     /**
      * Publishes the event to the raw queue.
      *
-     * @param rawEvent Raw event to publish.
+     * @param event Event to publish.
      * @throws ZepException If an exception occurs.
      */
-    public void publishRawEvent(RawEvent rawEvent) throws ZepException;
+    public void publishEvent(Event event) throws ZepException;
 }

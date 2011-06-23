@@ -3,13 +3,10 @@
  */
 package org.zenoss.zep.impl;
 
-import com.google.protobuf.Descriptors.Descriptor;
-import com.google.protobuf.Descriptors.FieldDescriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
-import org.zenoss.protobufs.zep.Zep.RawEvent;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.EventContext;
 import org.zenoss.zep.EventPreProcessingPlugin;
@@ -18,8 +15,6 @@ import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventStoreDao;
-
-import java.util.Map;
 
 /**
  * Default implementation of {@link EventProcessor} which uses
@@ -50,27 +45,12 @@ public class EventProcessorImpl implements EventProcessor {
     }
 
     private static Event eventFromRawEvent(ZepRawEvent zepRawEvent) {
-        Descriptor eventDesc = Event.getDescriptor();
-        Event.Builder eventBuilder = Event.newBuilder();
-        final RawEvent rawEvent = zepRawEvent.getRawEvent();
-        Map<FieldDescriptor, Object> values = rawEvent.getAllFields();
-        for (Map.Entry<FieldDescriptor, Object> entry : values.entrySet()) {
-            FieldDescriptor eventFieldDesc = eventDesc.findFieldByName(entry.getKey().getName());
-            if (eventFieldDesc != null) {
-                eventBuilder.setField(eventFieldDesc, entry.getValue());
-            }
-        }
-        if (zepRawEvent.getTagsCount() > 0) {
-            eventBuilder.addAllTags(zepRawEvent.getTagsList());
-        }
-        if (!zepRawEvent.getEventClassMappingUuid().isEmpty()) {
-            eventBuilder.setEventClassMappingUuid(zepRawEvent.getEventClassMappingUuid());
-        }
+        Event event = zepRawEvent.getEvent();
         // Default to event class unknown.
-        if (eventBuilder.getEventClass().isEmpty()) {
-            eventBuilder.setEventClass(EVENT_CLASS_UNKNOWN);
+        if (event.getEventClass().isEmpty()) {
+            event = Event.newBuilder(event).setEventClass(EVENT_CLASS_UNKNOWN).build();
         }
-        return eventBuilder.build();
+        return event;
     }
 
     @Override
@@ -78,14 +58,14 @@ public class EventProcessorImpl implements EventProcessor {
     public void processEvent(ZepRawEvent zepRawEvent) throws ZepException {
         logger.debug("processEvent: event={}", zepRawEvent);
 
-        if (zepRawEvent.getStatus() == EventStatus.STATUS_DROPPED) {
+        if (zepRawEvent.getEvent().getStatus() == EventStatus.STATUS_DROPPED) {
             logger.debug("Event dropped: {}", zepRawEvent);
             return;
-        } else if (zepRawEvent.getRawEvent().getUuid().isEmpty()) {
+        } else if (zepRawEvent.getEvent().getUuid().isEmpty()) {
             logger.error("Could not process event, has no uuid: {}",
                     zepRawEvent);
             return;
-        } else if (!zepRawEvent.getRawEvent().hasCreatedTime()) {
+        } else if (!zepRawEvent.getEvent().hasCreatedTime()) {
             logger.error("Could not process event, has no created_time: {}",
                     zepRawEvent);
             return;
@@ -97,7 +77,7 @@ public class EventProcessorImpl implements EventProcessor {
 
         for (EventPreProcessingPlugin plugin : pluginService.getPreProcessingPlugins()) {
             Event modified = plugin.processEvent(event, ctx);
-            if (ctx.getStatus() == EventStatus.STATUS_DROPPED) {
+            if (modified.getStatus() == EventStatus.STATUS_DROPPED) {
                 logger.debug("Event dropped by {}", plugin.getName());
                 return;
             }

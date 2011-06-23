@@ -11,7 +11,6 @@ import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
-import org.zenoss.protobufs.zep.Zep.RawEvent;
 import org.zenoss.zep.EventPublisher;
 import org.zenoss.zep.HeartbeatProcessor;
 import org.zenoss.zep.ZepConstants;
@@ -72,17 +71,17 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
                     heartbeat.getDaemon());
             final boolean hasCurrentHeartbeat = currentHeartbeatEvents.remove(entry);
             if (!isClear || hasCurrentHeartbeat) {
-                final RawEvent event = createHeartbeatEvent(heartbeat.getMonitor(), heartbeat.getDaemon(), now,
+                final Event event = createHeartbeatEvent(heartbeat.getMonitor(), heartbeat.getDaemon(), now,
                         isClear);
                 logger.debug("Publishing heartbeat event: {}", event);
-                eventPublisher.publishRawEvent(event);
+                eventPublisher.publishEvent(event);
             }
         }
         
         // We didn't find heartbeat records for events with outstanding warnings - send clears for them
         for (Entry<String,String> entry : currentHeartbeatEvents) {
-            final RawEvent event = createHeartbeatEvent(entry.getKey(), entry.getValue(), now, true);
-            eventPublisher.publishRawEvent(event);
+            final Event event = createHeartbeatEvent(entry.getKey(), entry.getValue(), now, true);
+            eventPublisher.publishEvent(event);
         }
     }
 
@@ -105,8 +104,8 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
         return events;
     }
 
-    private static RawEvent createHeartbeatEvent(String monitor, String daemon, long createdTime, boolean isClear) {
-        final RawEvent.Builder event = RawEvent.newBuilder();
+    private static Event createHeartbeatEvent(String monitor, String daemon, long createdTime, boolean isClear) {
+        final Event.Builder event = Event.newBuilder();
         event.setUuid(UUID.randomUUID().toString());
         event.setCreatedTime(createdTime);
         event.getActorBuilder().setElementIdentifier(monitor).setElementSubIdentifier(daemon);

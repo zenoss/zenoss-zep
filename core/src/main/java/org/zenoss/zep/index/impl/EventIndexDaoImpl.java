@@ -686,10 +686,12 @@ public class EventIndexDaoImpl implements EventIndexDao {
                         }
                     }
                     for (EventTag tag : occurrence.getTagsList()) {
-                        TagSeverities tagSeverities = tagSeveritiesMap.get(tag.getUuid());
-                        if (tagSeverities != null) {
-                            tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount(),
-                                    isAcknowledged);
+                        for (String tagUuid : tag.getUuidList()) {
+                            TagSeverities tagSeverities = tagSeveritiesMap.get(tagUuid);
+                            if (tagSeverities != null) {
+                                tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount(),
+                                        isAcknowledged);
+                            }
                         }
                     }
                 }

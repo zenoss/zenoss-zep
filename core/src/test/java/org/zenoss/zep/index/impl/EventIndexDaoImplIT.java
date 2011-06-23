@@ -161,7 +161,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         eventBuilder.setSeverity(severity);
         eventBuilder.clearTags();
         for (String tag : tags) {
-            eventBuilder.addTags(EventTag.newBuilder().setUuid(tag).setType("zenoss.device").build());
+            eventBuilder.addTags(EventTag.newBuilder().addUuid(tag).setType("zenoss.device").build());
         }
         final Event event = eventBuilder.build();
         EventSummary summary = createSummary(event, status);

@@ -3,26 +3,24 @@
  */
 package org.zenoss.zep.impl;
 
-import static org.easymock.EasyMock.*;
-import static org.junit.Assert.*;
-
-import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.UUID;
-
 import org.easymock.Capture;
 import org.junit.Test;
 import org.zenoss.amqp.AmqpException;
 import org.zenoss.protobufs.zep.Zep.Event;
-import org.zenoss.protobufs.zep.Zep.EventStatus;
-import org.zenoss.protobufs.zep.Zep.RawEvent;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.EventContext;
 import org.zenoss.zep.EventPreProcessingPlugin;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventStoreDao;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.UUID;
+
+import static org.easymock.EasyMock.*;
+import static org.junit.Assert.*;
 
 /**
  * Unit test for {@link EventProcessorImpl}.
@@ -71,13 +69,13 @@ public class EventProcessorImplTest {
         eventProcessor.setPluginService(pluginService);
         eventProcessor.setEventStoreDao(eventStoreDao);
 
-        RawEvent.Builder eventBuilder = RawEvent.newBuilder();
+        Event.Builder eventBuilder = Event.newBuilder();
         eventBuilder.setUuid(UUID.randomUUID().toString());
         eventBuilder.setCreatedTime(System.currentTimeMillis());
         eventBuilder.setSummary("My Event Summary");
-        final RawEvent event = eventBuilder.build();
+        final Event event = eventBuilder.build();
         final ZepRawEvent zepEvent = ZepRawEvent.newBuilder()
-                .setRawEvent(event).setStatus(EventStatus.STATUS_NEW).build();
+                .setEvent(event).build();
         eventProcessor.processEvent(zepEvent);
         verify(pluginService, eventStoreDao);
         assertEquals("/TestEvent", transformedEvent.getValue().getEventClass());
@@ -104,13 +102,13 @@ public class EventProcessorImplTest {
         eventProcessor.setPluginService(pluginService);
         eventProcessor.setEventStoreDao(eventStoreDao);
 
-        RawEvent.Builder eventBuilder = RawEvent.newBuilder();
+        Event.Builder eventBuilder = Event.newBuilder();
         eventBuilder.setUuid(UUID.randomUUID().toString());
         eventBuilder.setCreatedTime(System.currentTimeMillis());
         eventBuilder.setSummary("My Event Summary");
-        final RawEvent event = eventBuilder.build();
+        final Event event = eventBuilder.build();
         final ZepRawEvent zepEvent = ZepRawEvent.newBuilder()
-                .setRawEvent(event).setStatus(EventStatus.STATUS_NEW).build();
+                .setEvent(event).build();
         eventProcessor.processEvent(zepEvent);
         verify(pluginService, eventStoreDao);
 

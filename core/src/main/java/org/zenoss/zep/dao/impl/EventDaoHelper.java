@@ -20,6 +20,7 @@ import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
+import org.zenoss.protobufs.zep.Zep.EventTag.Builder;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -43,6 +44,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
@@ -186,12 +188,26 @@ public class EventDaoHelper {
      *            Original event.
      * @return New event with duplicate tags removed.
      */
-    private static List<EventTag> buildTags(Event event) {
-        final List<EventTag> tags = new ArrayList<EventTag>(event.getTagsCount());
-        Set<String> uuids = new HashSet<String>(event.getTagsCount());
+    public static List<EventTag> buildTags(Event event) {
+        final Map<String,EventTag.Builder> tagTypesMap = new TreeMap<String,Builder>();
+        final Set<String> uuids = new HashSet<String>();
         for (EventTag tag : event.getTagsList()) {
-            if (uuids.add(tag.getUuid())) {
-                tags.add(tag);
+            EventTag.Builder tagBuilder = tagTypesMap.get(tag.getType());
+            if (tagBuilder == null) {
+                tagBuilder = EventTag.newBuilder();
+                tagBuilder.setType(tag.getType());
+                tagTypesMap.put(tag.getType(), tagBuilder);
+            }
+            for (String tagUuid : tag.getUuidList()) {
+                if (uuids.add(tagUuid)) {
+                    tagBuilder.addUuid(tagUuid);
+                }
+            }
+        }
+        final List<EventTag> tags = new ArrayList<EventTag>(tagTypesMap.size());
+        for (EventTag.Builder tagBuilder : tagTypesMap.values()) {
+            if (tagBuilder.getUuidCount() > 0) {
+                tags.add(tagBuilder.build());
             }
         }
         return tags;

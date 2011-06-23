@@ -80,7 +80,7 @@ public class EventSummaryDaoImplIT extends
 
     private static void compareEvents(Event event, Event eventFromDb) {
         Event event1 = Event.newBuilder().mergeFrom(event).clearUuid()
-                .clearCreatedTime().build();
+                .clearCreatedTime().clearTags().addAllTags(EventDaoHelper.buildTags(event)).build();
         Event event2 = Event.newBuilder().mergeFrom(eventFromDb).clearUuid()
                 .clearCreatedTime().build();
         assertEquals(event1, event2);
@@ -614,17 +614,19 @@ public class EventSummaryDaoImplIT extends
                 .clearTags();
         String uuid = UUID.randomUUID().toString();
         eventBuilder.addTags(EventTag.newBuilder()
-                .setType(ModelElementType.DEVICE.name()).setUuid(uuid).build());
+                .setType(ModelElementType.DEVICE.name()).addUuid(uuid).build());
         eventBuilder.addTags(EventTag.newBuilder()
-                .setType(ModelElementType.DEVICE.name()).setUuid(uuid).build());
+                .setType(ModelElementType.DEVICE.name()).addUuid(uuid).build());
         eventBuilder.addTags(EventTag.newBuilder()
-                .setType(ModelElementType.DEVICE.name()).setUuid(uuid).build());
+                .setType(ModelElementType.DEVICE.name()).addUuid(uuid).build());
         Event event = eventBuilder.build();
         EventSummary summary = createSummaryNew(event);
         int numFound = 0;
         for (EventTag tag : summary.getOccurrence(0).getTagsList()) {
-            if (tag.getUuid().equals(uuid)) {
-                numFound++;
+            for (String tagUuid : tag.getUuidList()) {
+                if (tagUuid.equals(uuid)) {
+                    numFound++;
+                }
             }
         }
         assertEquals(1, numFound);
@@ -956,6 +958,7 @@ public class EventSummaryDaoImplIT extends
         Event.Builder originalOccurrenceBuilder = originalBuilder.getOccurrenceBuilder(0);
         originalOccurrenceBuilder.clearUuid();
         originalOccurrenceBuilder.setCreatedTime(occurrenceBuilder.getCreatedTime());
+        originalOccurrenceBuilder.clearTags().addAllTags(EventDaoHelper.buildTags(original.getOccurrence(0)));
 
         assertEquals(originalBuilder.build(), importedBuilder.build());
     }

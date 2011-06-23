@@ -47,7 +47,7 @@ public class EventDaoImplIT extends AbstractTransactionalJUnit4SpringContextTest
 
     public static EventTag createTag(ModelElementType type, String uuid) {
         return EventTag.newBuilder()
-                .setType("zenoss." + type.name().toLowerCase()).setUuid(uuid)
+                .setType("zenoss." + type.name().toLowerCase()).addUuid(uuid)
                 .build();
     }
 
@@ -86,6 +86,12 @@ public class EventDaoImplIT extends AbstractTransactionalJUnit4SpringContextTest
         return eventBuilder.build();
     }
 
+    private static void compareEvents(Event original, Event fromDb) {
+        // When persisting to DB, we consolidate tag UUIDs under type for storage savings
+        assertEquals(Event.newBuilder(original).clearTags().addAllTags(EventDaoHelper.buildTags(original)).build(),
+                fromDb);
+    }
+
     @Test
     public void testCreateAllFields() throws ZepException {
         Event event = createSampleEvent();
@@ -93,11 +99,11 @@ public class EventDaoImplIT extends AbstractTransactionalJUnit4SpringContextTest
         event = Event.newBuilder(event).setSummaryUuid(summaryUuid).build();
 
         Event eventFromDb = eventDao.findByUuid(event.getUuid());
-        assertEquals(event, eventFromDb);
+        compareEvents(event, eventFromDb);
 
         List<Event> occurrences = eventDao.findBySummaryUuid(summaryUuid);
         assertEquals(1, occurrences.size());
-        assertEquals(event, occurrences.get(0));
+        compareEvents(event, occurrences.get(0));
 
         eventDao.delete(event.getUuid());
         assertNull(eventDao.findByUuid(event.getUuid()));

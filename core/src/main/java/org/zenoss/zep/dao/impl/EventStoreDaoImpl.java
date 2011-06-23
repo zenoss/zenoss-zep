@@ -51,7 +51,7 @@ public class EventStoreDaoImpl implements EventStoreDao {
         if (event.getSeverity() == EventSeverity.SEVERITY_CLEAR) {
             uuid = this.eventSummaryDao.createClearEvent(event, eventContext.getClearClasses());
         } else {
-            uuid = this.eventSummaryDao.create(event, eventContext.getStatus());
+            uuid = this.eventSummaryDao.create(event, event.getStatus());
         }
         return uuid;
     }

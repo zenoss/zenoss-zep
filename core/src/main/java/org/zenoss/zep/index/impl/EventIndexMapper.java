@@ -80,7 +80,9 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_MONITOR, event.getMonitor(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         for (EventTag tag : event.getTagsList()) {
-            doc.add(new Field(FIELD_TAGS, tag.getUuid(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+            for (String tagUuid : tag.getUuidList()) {
+                doc.add(new Field(FIELD_TAGS, tagUuid, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+            }
         }
 
         EventActor actor = event.getActor();
