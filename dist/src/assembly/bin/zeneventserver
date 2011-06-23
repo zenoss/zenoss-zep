@@ -16,6 +16,7 @@ cd $JETTY_HOME
 
 DEFAULT_ZEP_JVM_ARGS=${DEFAULT_ZEP_JVM_ARGS:-"-server -Xmx512m"}
 JVM_ARGS="$DEFAULT_ZEP_JVM_ARGS"
+JVM_ARGS="$JVM_ARGS -DZENOSS_COMMAND=zeneventserver"
 JVM_ARGS="$JVM_ARGS -DZENHOME=${JETTY_HOME}"
 JVM_ARGS="$JVM_ARGS -Djetty.logs=${JETTY_HOME}/log"
 JVM_ARGS="$JVM_ARGS -Dlogback.configurationFile=${JETTY_HOME}/etc/zeneventserver/logback.xml"
