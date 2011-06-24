@@ -5,8 +5,10 @@ package org.zenoss.zep.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.DaemonHeartbeat;
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
@@ -108,7 +110,9 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
         final Event.Builder event = Event.newBuilder();
         event.setUuid(UUID.randomUUID().toString());
         event.setCreatedTime(createdTime);
-        event.getActorBuilder().setElementIdentifier(monitor).setElementSubIdentifier(daemon);
+        final EventActor.Builder actor = event.getActorBuilder();
+        actor.setElementIdentifier(monitor).setElementTypeId(ModelElementType.DEVICE);
+        actor.setElementSubIdentifier(daemon).setElementSubTypeId(ModelElementType.COMPONENT);
         event.setMonitor(monitor);
         event.setAgent(daemon);
         // Per old behavior - alerting rules typically are configured to only fire
