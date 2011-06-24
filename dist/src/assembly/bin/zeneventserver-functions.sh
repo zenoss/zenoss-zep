@@ -184,7 +184,7 @@ generic() {
             status
             ;;
         debug)
-            JVM_ARGS="${JVM_ARGS} -Xdebug -Xrunjdwp:transport=dt_socket,address=8000,server=y,suspend=n"
+            JVM_ARGS="${JVM_ARGS} -Xdebug -Xrunjdwp:transport=dt_socket,address=8000,server=y,suspend=y"
             run "$@"
             ;;
         run)

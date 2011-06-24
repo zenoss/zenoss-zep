@@ -462,6 +462,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
             case UUID:
                 sortFields.add(new SortField(FIELD_UUID, SortField.STRING, reverse));
                 break;
+            case FINGERPRINT:
+                sortFields.add(new SortField(FIELD_FINGERPRINT, SortField.STRING, reverse));
+                break;
             case DETAIL:
                 EventDetailItem item = this.detailsConfig.get(sort.getDetailKey());
                 if (item == null) {
@@ -541,7 +544,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         qb.addIdentifierFields(FIELD_ELEMENT_SUB_IDENTIFIER, FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED,
                 filter.getElementSubIdentifierList(), this.writer.getAnalyzer());
-        qb.addField(FIELD_FINGERPRINT, filter.getFingerprintList());
+        qb.addWildcardFields(FIELD_FINGERPRINT, filter.getFingerprintList(), false);
         qb.addFullTextFields(FIELD_SUMMARY, filter.getEventSummaryList(), reader, this.writer.getAnalyzer());
         qb.addTimestampRanges(FIELD_FIRST_SEEN_TIME, filter.getFirstSeenList());
         qb.addTimestampRanges(FIELD_LAST_SEEN_TIME, filter.getLastSeenList());
@@ -559,7 +562,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             qb.addField(FIELD_TAGS, tagFilter.getTagUuidsList(), tagFilter.getOp());
         }
 
-        qb.addField(FIELD_UUID, filter.getUuidList(), FilterOperator.OR);
+        qb.addWildcardFields(FIELD_UUID, filter.getUuidList(), true);
 
         qb.addDetails(filter.getDetailsList(), this.detailsConfig, reader);
         
