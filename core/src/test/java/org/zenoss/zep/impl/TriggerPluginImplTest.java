@@ -62,8 +62,10 @@ public class TriggerPluginImplTest {
         EventActor.Builder actorBuilder = EventActor.newBuilder();
         actorBuilder.setElementTypeId(ModelElementType.DEVICE);
         actorBuilder.setElementIdentifier("BHM1000");
+        actorBuilder.setElementTitle("BHM TITLE");
         actorBuilder.setElementSubTypeId(ModelElementType.COMPONENT);
         actorBuilder.setElementSubIdentifier("Fuse-10A");
+        actorBuilder.setElementSubTitle("Fuse-10A Title");
 
         // build test Event to add to EventSummary as occurrence[0]
         Event.Builder evtBuilder = Event.newBuilder();

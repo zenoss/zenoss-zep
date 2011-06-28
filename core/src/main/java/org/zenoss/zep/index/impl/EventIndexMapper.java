@@ -38,6 +38,8 @@ public class EventIndexMapper {
         final PerFieldAnalyzerWrapper analyzer = new PerFieldAnalyzerWrapper(new KeywordAnalyzer());
         analyzer.addAnalyzer(FIELD_ELEMENT_IDENTIFIER, new IdentifierAnalyzer());
         analyzer.addAnalyzer(FIELD_ELEMENT_SUB_IDENTIFIER, new IdentifierAnalyzer());
+        analyzer.addAnalyzer(FIELD_ELEMENT_TITLE, new IdentifierAnalyzer());
+        analyzer.addAnalyzer(FIELD_ELEMENT_SUB_TITLE, new IdentifierAnalyzer());
         analyzer.addAnalyzer(FIELD_SUMMARY, new SummaryAnalyzer());
         analyzer.addAnalyzer(FIELD_EVENT_CLASS, new EventClassAnalyzer());
         return analyzer;
@@ -95,6 +97,10 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_ELEMENT_IDENTIFIER, id, Store.NO, Index.ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, id.toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
+        String title = actor.getElementTitle();
+        doc.add(new Field(FIELD_ELEMENT_TITLE, title, Store.NO,  Index.ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ELEMENT_TITLE_NOT_ANALYZED, title.toLowerCase(), Store.NO,  Index.NOT_ANALYZED_NO_NORMS));
+
         String subUuid = actor.getElementSubUuid();
         if (subUuid != null && !subUuid.isEmpty()) {
             doc.add(new Field(FIELD_TAGS, subUuid, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
@@ -103,6 +109,10 @@ public class EventIndexMapper {
         String subId = actor.getElementSubIdentifier();
         doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER, subId, Store.NO, Index.ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId.toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+
+        String subTitle = actor.getElementSubTitle();
+        doc.add(new Field(FIELD_ELEMENT_SUB_TITLE, subTitle, Store.NO,  Index.ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED, subTitle.toLowerCase(), Store.NO,  Index.NOT_ANALYZED_NO_NORMS));
 
         // find details configured for indexing
         List<EventDetail> evtDetails = event.getDetailsList();

@@ -426,6 +426,12 @@ public class EventIndexDaoImpl implements EventIndexDao {
             case ELEMENT_SUB_IDENTIFIER:
                 sortFields.add(new SortField(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse));
                 break;
+            case ELEMENT_TITLE:
+                sortFields.add(new SortField(FIELD_ELEMENT_TITLE_NOT_ANALYZED, SortField.STRING, reverse));
+                break;
+            case ELEMENT_SUB_TITLE:
+                sortFields.add(new SortField(FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED, SortField.STRING, reverse));
+                break;
             case EVENT_CLASS:
                 sortFields.add(new SortField(FIELD_EVENT_CLASS_NOT_ANALYZED, SortField.STRING, reverse));
                 break;
@@ -541,9 +547,14 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         qb.addIdentifierFields(FIELD_ELEMENT_IDENTIFIER, FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED,
                 filter.getElementIdentifierList(), this.writer.getAnalyzer());
+        qb.addIdentifierFields(FIELD_ELEMENT_TITLE, FIELD_ELEMENT_TITLE_NOT_ANALYZED,
+                filter.getElementTitleList(), this.writer.getAnalyzer());
 
         qb.addIdentifierFields(FIELD_ELEMENT_SUB_IDENTIFIER, FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED,
                 filter.getElementSubIdentifierList(), this.writer.getAnalyzer());
+        qb.addIdentifierFields(FIELD_ELEMENT_SUB_TITLE, FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED,
+                filter.getElementSubTitleList(), this.writer.getAnalyzer());
+
         qb.addWildcardFields(FIELD_FINGERPRINT, filter.getFingerprintList(), false);
         qb.addFullTextFields(FIELD_SUMMARY, filter.getEventSummaryList(), reader, this.writer.getAnalyzer());
         qb.addTimestampRanges(FIELD_FIRST_SEEN_TIME, filter.getFirstSeenList());

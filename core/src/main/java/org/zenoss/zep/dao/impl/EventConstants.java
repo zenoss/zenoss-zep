@@ -11,9 +11,11 @@ public class EventConstants {
 
     // Shared column names
     public static final String COLUMN_ELEMENT_SUB_IDENTIFIER = "element_sub_identifier";
+    public static final String COLUMN_ELEMENT_SUB_TITLE = "element_sub_title";
     public static final String COLUMN_ELEMENT_SUB_TYPE_ID = "element_sub_type_id";
     public static final String COLUMN_ELEMENT_SUB_UUID = "element_sub_uuid";
     public static final String COLUMN_ELEMENT_IDENTIFIER = "element_identifier";
+    public static final String COLUMN_ELEMENT_TITLE = "element_title";
     public static final String COLUMN_ELEMENT_TYPE_ID = "element_type_id";
     public static final String COLUMN_ELEMENT_UUID = "element_uuid";
     public static final String COLUMN_DETAILS_JSON = "details_json";
@@ -57,6 +59,8 @@ public class EventConstants {
     public static final int MAX_FINGERPRINT = 255;
     public static final int MAX_ELEMENT_IDENTIFIER = 255;
     public static final int MAX_ELEMENT_SUB_IDENTIFIER = MAX_ELEMENT_IDENTIFIER;
+    public static final int MAX_ELEMENT_TITLE = 255;
+    public static final int MAX_ELEMENT_SUB_TITLE = MAX_ELEMENT_TITLE;
     public static final int MAX_EVENT_CLASS = 128;
     public static final int MAX_EVENT_CLASS_KEY = 128;
     public static final int MAX_EVENT_KEY = 128;

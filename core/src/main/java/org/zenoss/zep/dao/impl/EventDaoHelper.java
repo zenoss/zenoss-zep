@@ -283,25 +283,42 @@ public class EventDaoHelper {
         return detailsMap.values();
     }
 
-    private void populateEventActorFields(EventActor actor,
-            Map<String, Object> fields) {
+    private void populateEventActorFields(EventActor actor, Map<String, Object> fields) {
         if (!actor.getElementUuid().isEmpty()) {
             fields.put(COLUMN_ELEMENT_UUID, DaoUtils.uuidToBytes(actor.getElementUuid()));
         }
         if (actor.hasElementTypeId()) {
             fields.put(COLUMN_ELEMENT_TYPE_ID, actor.getElementTypeId().getNumber());
         }
+
         if (actor.hasElementIdentifier()) {
-            fields.put(COLUMN_ELEMENT_IDENTIFIER, DaoUtils.truncateStringToUtf8(actor.getElementIdentifier(), MAX_ELEMENT_IDENTIFIER));
+            final String elementId = DaoUtils.truncateStringToUtf8(actor.getElementIdentifier(),
+                    MAX_ELEMENT_IDENTIFIER);
+            fields.put(COLUMN_ELEMENT_IDENTIFIER, elementId);
         }
+
+        if (actor.hasElementTitle()) {
+            final String elementTitle = DaoUtils.truncateStringToUtf8(actor.getElementTitle(), MAX_ELEMENT_TITLE);
+            fields.put(COLUMN_ELEMENT_TITLE, elementTitle);
+        }
+
         if (!actor.getElementSubUuid().isEmpty()) {
             fields.put(COLUMN_ELEMENT_SUB_UUID, DaoUtils.uuidToBytes(actor.getElementSubUuid()));
         }
         if (actor.hasElementSubTypeId()) {
             fields.put(COLUMN_ELEMENT_SUB_TYPE_ID, actor.getElementSubTypeId().getNumber());
         }
+
         if (actor.hasElementSubIdentifier()) {
-            fields.put(COLUMN_ELEMENT_SUB_IDENTIFIER, DaoUtils.truncateStringToUtf8(actor.getElementSubIdentifier(), MAX_ELEMENT_SUB_IDENTIFIER));
+            final String elementSubId = DaoUtils.truncateStringToUtf8(actor.getElementSubIdentifier(),
+                    MAX_ELEMENT_SUB_IDENTIFIER);
+            fields.put(COLUMN_ELEMENT_SUB_IDENTIFIER, elementSubId);
+        }
+
+        if (actor.hasElementSubTitle()) {
+            final String elementSubTitle = DaoUtils.truncateStringToUtf8(actor.getElementSubTitle(),
+                    MAX_ELEMENT_SUB_TITLE);
+            fields.put(COLUMN_ELEMENT_SUB_TITLE, elementSubTitle);
         }
     }
 
@@ -402,35 +419,53 @@ public class EventDaoHelper {
 
     private EventActor deserializeEventActor(ResultSet rs)
             throws SQLException {
-        EventActor.Builder actorBuilder = EventActor.newBuilder();
-        byte[] elementUuid = rs.getBytes(COLUMN_ELEMENT_UUID);
+        final EventActor.Builder actorBuilder = EventActor.newBuilder();
+        final byte[] elementUuid = rs.getBytes(COLUMN_ELEMENT_UUID);
         if (elementUuid != null) {
             actorBuilder.setElementUuid(DaoUtils.uuidFromBytes(elementUuid));
         }
 
-        int elementTypeId = rs.getInt(COLUMN_ELEMENT_TYPE_ID);
+        final int elementTypeId = rs.getInt(COLUMN_ELEMENT_TYPE_ID);
         if (!rs.wasNull()) {
             actorBuilder.setElementTypeId(ModelElementType.valueOf(elementTypeId));
         }
 
-        String elementIdentifier = rs.getString(COLUMN_ELEMENT_IDENTIFIER);
+        final String elementIdentifier = rs.getString(COLUMN_ELEMENT_IDENTIFIER);
         if (elementIdentifier != null) {
             actorBuilder.setElementIdentifier(elementIdentifier);
         }
 
-        byte[] subUuid = rs.getBytes(COLUMN_ELEMENT_SUB_UUID);
+        final String elementTitle = rs.getString(COLUMN_ELEMENT_TITLE);
+        if (elementTitle != null) {
+            actorBuilder.setElementTitle(elementTitle);
+        }
+        // titleOrId
+        else if (elementIdentifier != null) {
+            actorBuilder.setElementTitle(elementIdentifier);
+        }
+
+        final byte[] subUuid = rs.getBytes(COLUMN_ELEMENT_SUB_UUID);
         if (subUuid != null) {
             actorBuilder.setElementSubUuid(DaoUtils.uuidFromBytes(subUuid));
         }
 
-        int subTypeId = rs.getInt(COLUMN_ELEMENT_SUB_TYPE_ID);
+        final int subTypeId = rs.getInt(COLUMN_ELEMENT_SUB_TYPE_ID);
         if (!rs.wasNull()) {
             actorBuilder.setElementSubTypeId(ModelElementType.valueOf(subTypeId));
         }
 
-        String subIdentifier = rs.getString(COLUMN_ELEMENT_SUB_IDENTIFIER);
+        final String subIdentifier = rs.getString(COLUMN_ELEMENT_SUB_IDENTIFIER);
         if (subIdentifier != null) {
             actorBuilder.setElementSubIdentifier(subIdentifier);
+        }
+
+        final String subTitle = rs.getString(COLUMN_ELEMENT_SUB_TITLE);
+        if (subTitle != null) {
+            actorBuilder.setElementSubTitle(subTitle);
+        }
+        // titleOrId
+        else if (subIdentifier != null) {
+            actorBuilder.setElementTitle(subIdentifier);
         }
         return actorBuilder.build();
     }

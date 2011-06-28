@@ -202,9 +202,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 updateColumn(rs, COLUMN_ELEMENT_UUID);
                 updateColumn(rs, COLUMN_ELEMENT_TYPE_ID);
                 updateColumn(rs, COLUMN_ELEMENT_IDENTIFIER);
+                updateColumn(rs, COLUMN_ELEMENT_TITLE);
                 updateColumn(rs, COLUMN_ELEMENT_SUB_UUID);
                 updateColumn(rs, COLUMN_ELEMENT_SUB_TYPE_ID);
                 updateColumn(rs, COLUMN_ELEMENT_SUB_IDENTIFIER);
+                updateColumn(rs, COLUMN_ELEMENT_SUB_TITLE);
                 updateColumn(rs, COLUMN_MONITOR_ID);
                 updateColumn(rs, COLUMN_AGENT_ID);
                 updateColumn(rs, COLUMN_SYSLOG_FACILITY);
@@ -306,7 +308,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    public int reidentify(ModelElementType type, String id, String uuid, String parentUuid) throws ZepException {
+    public int reidentify(ModelElementType type, String id, String uuid, String title, String parentUuid)
+            throws ZepException {
         long updateTime = System.currentTimeMillis();
 
         Map<String, Object> fields = new HashMap<String, Object>();
@@ -314,10 +317,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put("_uuid_str", uuid);
         fields.put("_type_id", type.getNumber());
         fields.put("_id", id);
+        fields.put("_title", title);
         fields.put(COLUMN_UPDATE_TIME, updateTime);
 
         int numRows = 0;
-        String updateSql = "UPDATE event_summary SET element_uuid=:_uuid, update_time=:update_time "
+        String updateSql = "UPDATE event_summary SET element_uuid=:_uuid, element_title=:_title, update_time=:update_time "
                 + "WHERE element_uuid IS NULL AND element_type_id=:_type_id AND element_identifier=:_id";
         numRows += this.template.update(updateSql, fields);
 
@@ -325,7 +329,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             fields.put("_parent_uuid", DaoUtils.uuidToBytes(parentUuid));
             updateSql = "UPDATE event_summary es INNER JOIN event_class ON es.event_class_id = event_class.id " +
                     "LEFT JOIN event_key ON es.event_key_id = event_key.id " +
-                    "SET element_sub_uuid=:_uuid, update_time=:update_time, " +
+                    "SET element_sub_uuid=:_uuid, element_sub_title=:_title, update_time=:update_time, " +
                     "clear_fingerprint_hash=UNHEX(SHA1(CONCAT_WS('|',:_uuid_str,event_class.name,IFNULL(event_key.name,'')))) " +
                     "WHERE es.element_uuid=:_parent_uuid AND es.element_sub_uuid IS NULL AND " +
                     "es.element_sub_type_id=:_type_id AND es.element_sub_identifier=:_id";

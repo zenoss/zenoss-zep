@@ -210,7 +210,9 @@ public class EventSummaryDaoImplIT extends
         EventActor.Builder actorBuilder = EventActor.newBuilder(eventBuilder.getActor());
         eventBuilder.setFingerprint(createRandomMaxString(MAX_FINGERPRINT + 1));
         actorBuilder.setElementIdentifier(createRandomMaxString(MAX_ELEMENT_IDENTIFIER + 1));
+        actorBuilder.setElementTitle(createRandomMaxString(MAX_ELEMENT_TITLE + 1));
         actorBuilder.setElementSubIdentifier(createRandomMaxString(MAX_ELEMENT_SUB_IDENTIFIER + 1));
+        actorBuilder.setElementSubTitle(createRandomMaxString(MAX_ELEMENT_SUB_TITLE + 1));
         eventBuilder.setEventClass(createRandomMaxString(MAX_EVENT_CLASS + 1));
         eventBuilder.setEventClassKey(createRandomMaxString(MAX_EVENT_CLASS_KEY + 1));
         eventBuilder.setEventKey(createRandomMaxString(MAX_EVENT_KEY + 1));
@@ -226,7 +228,9 @@ public class EventSummaryDaoImplIT extends
         final EventActor actorFromDb = eventFromDb.getActor();
         assertEquals(MAX_FINGERPRINT, eventFromDb.getFingerprint().length());
         assertEquals(MAX_ELEMENT_IDENTIFIER, actorFromDb.getElementIdentifier().length());
+        assertEquals(MAX_ELEMENT_TITLE, actorFromDb.getElementTitle().length());
         assertEquals(MAX_ELEMENT_SUB_IDENTIFIER, actorFromDb.getElementSubIdentifier().length());
+        assertEquals(MAX_ELEMENT_SUB_TITLE, actorFromDb.getElementSubTitle().length());
         assertEquals(MAX_EVENT_CLASS, eventFromDb.getEventClass().length());
         assertEquals(MAX_EVENT_CLASS_KEY, eventFromDb.getEventClassKey().length());
         assertEquals(MAX_EVENT_KEY, eventFromDb.getEventKey().length());

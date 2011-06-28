@@ -5,6 +5,8 @@ package org.zenoss.zep.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zenoss.protobufs.model.Model.Component;
+import org.zenoss.protobufs.model.Model.Device;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.modelevents.Modelevents.ModelEvent;
 import org.zenoss.protobufs.modelevents.Modelevents.ModelEventList;
@@ -29,17 +31,25 @@ public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
 
     private void processModelAdded(ModelEvent event) throws ZepException {
         final ModelElementType type = event.getModelType();
-        String id = null, uuid = null, parentId = null, parentUuid = null;
+        String id = null, title = null, uuid = null, parentId = null, parentUuid = null;
         switch (event.getModelType()) {
             case COMPONENT:
-                id = event.getComponent().getId();
-                uuid = event.getComponent().getUuid();
-                parentId = event.getComponent().getDevice().getId();
-                parentUuid = event.getComponent().getDevice().getUuid();
+                final Component component = event.getComponent();
+                id = component.getId();
+                if (component.hasTitle()) {
+                    title = component.getTitle();
+                }
+                uuid = component.getUuid();
+                parentId = component.getDevice().getId();
+                parentUuid = component.getDevice().getUuid();
                 break;
             case DEVICE:
-                id = event.getDevice().getId();
-                uuid = event.getDevice().getUuid();
+                final Device device = event.getDevice();
+                id = device.getId();
+                uuid = device.getUuid();
+                if (device.hasTitle()) {
+                    title = device.getTitle();
+                }
                 break;
         }
         if (id != null && uuid != null) {
@@ -49,7 +59,7 @@ public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
             else {
                 logger.info("Re-identifying events for {}", id);
             }
-            this.eventSummaryDao.reidentify(type, id, uuid, parentUuid);
+            this.eventSummaryDao.reidentify(type, id, uuid, title, parentUuid);
         }
     }
 

@@ -41,13 +41,15 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      * @param type The model type.
      * @param id The ID of the element which has been identified.
      * @param uuid The UUID of the element.
+     * @param title The title of the element.
      * @param parentUuid The UUID of the element's parent (For components, this will be the
      *                   device UUID.
      * @return The number of rows affected by the update.
      * @throws ZepException
      *             If an exception occurred.
      */
-    public int reidentify(ModelElementType type, String id, String uuid, String parentUuid) throws ZepException;
+    public int reidentify(ModelElementType type, String id, String uuid, String title, String parentUuid)
+            throws ZepException;
 
     /**
      * De-identifies a previously identified UUID on an event. This can occur

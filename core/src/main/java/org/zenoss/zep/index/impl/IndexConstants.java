@@ -12,7 +12,7 @@ public class IndexConstants {
      * The version of the event index. This should be updated each time a new field
      * is added to the index or the way a field gets indexed changes.
      */
-    public static final int INDEX_VERSION = 3;
+    public static final int INDEX_VERSION = 4;
 
     public static final String FIELD_UUID = "uuid";
     public static final String FIELD_STATUS = "status";
@@ -22,8 +22,12 @@ public class IndexConstants {
     public static final String FIELD_STATUS_CHANGE_TIME = "status_change_time";
     public static final String FIELD_ELEMENT_IDENTIFIER = "element_identifier";
     public static final String FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED = "element_identifier_not_analyzed";
+    public static final String FIELD_ELEMENT_TITLE = "element_title";
+    public static final String FIELD_ELEMENT_TITLE_NOT_ANALYZED = "element_title_not_analyzed";
     public static final String FIELD_ELEMENT_SUB_IDENTIFIER = "element_sub_identifier";
     public static final String FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED = "element_sub_identifier_not_analyzed";
+    public static final String FIELD_ELEMENT_SUB_TITLE = "element_sub_title";
+    public static final String FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED = "element_sub_title_not_analyzed";
     public static final String FIELD_FINGERPRINT = "fingerprint";
     public static final String FIELD_SUMMARY = "summary";
     public static final String FIELD_SUMMARY_NOT_ANALYZED = "summary_not_analyzed";

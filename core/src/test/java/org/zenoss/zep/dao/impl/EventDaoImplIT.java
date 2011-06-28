@@ -39,9 +39,11 @@ public class EventDaoImplIT extends AbstractTransactionalJUnit4SpringContextTest
         actorBuilder.setElementIdentifier("devicename");
         actorBuilder.setElementTypeId(ModelElementType.DEVICE);
         actorBuilder.setElementUuid(UUID.randomUUID().toString());
+        actorBuilder.setElementTitle("My Device Title");
         actorBuilder.setElementSubIdentifier("compname");
         actorBuilder.setElementSubTypeId(ModelElementType.COMPONENT);
         actorBuilder.setElementSubUuid(UUID.randomUUID().toString());
+        actorBuilder.setElementSubTitle("My Component Title");
         return actorBuilder.build();
     }
 
