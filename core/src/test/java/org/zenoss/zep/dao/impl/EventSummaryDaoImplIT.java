@@ -670,7 +670,8 @@ public class EventSummaryDaoImplIT extends
 
         final String elementUuid = UUID.randomUUID().toString();
         int numRows = this.eventSummaryDao.reidentify(occurrence.getActor().getElementTypeId(),
-                occurrence.getActor().getElementIdentifier(), elementUuid, null);
+                occurrence.getActor().getElementIdentifier(), elementUuid, occurrence.getActor().getElementTitle(),
+                null);
         assertEquals(1, numRows);
         EventSummary summaryFromDb = this.eventSummaryDao.findByUuid(summary.getUuid());
         assertTrue(summaryFromDb.getUpdateTime() > summary.getUpdateTime());
@@ -691,7 +692,7 @@ public class EventSummaryDaoImplIT extends
 
         final String elementSubUuid = UUID.randomUUID().toString();
         int numRows = this.eventSummaryDao.reidentify(actor.getElementSubTypeId(),
-                actor.getElementSubIdentifier(), elementSubUuid, actor.getElementUuid());
+                actor.getElementSubIdentifier(), elementSubUuid, actor.getElementSubTitle(), actor.getElementUuid());
         assertEquals(1, numRows);
         EventSummary summaryFromDb = this.eventSummaryDao.findByUuid(summary.getUuid());
         assertTrue(summaryFromDb.getUpdateTime() > summary.getUpdateTime());
