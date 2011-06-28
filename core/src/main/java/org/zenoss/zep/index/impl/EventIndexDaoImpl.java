@@ -212,7 +212,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     }
 
     @Override
-    public void reindex() throws ZepException {
+    public void reindex(int indexVersion) throws ZepException {
         IndexSearcher searcher = null;
         try {
             logger.info("Re-indexing all previously indexed events for: {}", this.name);
@@ -222,7 +222,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
             int numReindexed = 0;
             for (int i = 0; i < numDocs; i++) {
                 if (!reader.isDeleted(i)) {
-                    EventSummary summary = EventIndexMapper.toEventSummary(reader.document(i, PROTO_SELECTOR));
+                    EventSummary summary = EventIndexMapper.toEventSummary(reader.document(i, PROTO_SELECTOR),
+                            indexVersion);
                     this.stage(summary);
                     ++numReindexed;
                 }

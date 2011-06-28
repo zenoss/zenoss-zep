@@ -88,9 +88,10 @@ public interface EventIndexDao extends Purgable {
      * index details version. This is used when the index version or the index
      * configuration changes.
      *
+     * @param indexVersion The previous version of the index.
      * @throws ZepException If the index could not be rebuilt.
      */
-    public void reindex() throws ZepException;
+    public void reindex(int indexVersion) throws ZepException;
 
     /**
      * Retrieves event summary entries matching the specified query.

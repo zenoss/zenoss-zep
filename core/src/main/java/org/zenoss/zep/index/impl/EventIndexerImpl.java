@@ -114,34 +114,35 @@ public class EventIndexerImpl implements EventIndexer {
         this.eventSummaryIndexDao.setIndexDetails(detailItems);
         this.eventArchiveIndexDao.setIndexDetails(detailItems);
 
-        rebuildIndex(this.eventSummaryDao, this.eventSummaryIndexDao);
-        rebuildIndex(this.eventArchiveDao, this.eventArchiveIndexDao);
+        recreateIndexIfNeeded(this.eventSummaryDao, this.eventSummaryIndexDao);
+        recreateIndexIfNeeded(this.eventArchiveDao, this.eventArchiveIndexDao);
     }
 
-    private void rebuildIndex(final EventSummaryBaseDao baseDao, final EventIndexDao indexDao)
+    private void recreateIndexIfNeeded(final EventSummaryBaseDao baseDao, final EventIndexDao indexDao)
             throws ZepException {
         final IndexMetadata indexMetadata = this.indexMetadataDao.findIndexMetadata(indexDao.getName());
         final int numDocs = indexDao.getNumDocs();
         
         // Rebuild index if we detect that we have never indexed before.
-        if (indexMetadata == null) {
+        if (indexMetadata == null || numDocs == 0) {
             if (numDocs > 0) {
                 logger.info("Inconsistent state between index and database. Clearing index.");
                 indexDao.clear();
             }
             /* Recreate the index */
-            recreateIndex(baseDao, indexDao);
+            recreateIndexFromDatabase(baseDao, indexDao);
         }
         // Rebuild index if the version changed.
         else if (indexVersionChanged(indexMetadata)) {
-            indexDao.reindex();
-            this.indexMetadataDao.updateIndexVersion(indexDao.getName(), IndexConstants.INDEX_VERSION,
+            try {
+                indexDao.reindex(indexMetadata.getIndexVersion());
+                this.indexMetadataDao.updateIndexVersion(indexDao.getName(), IndexConstants.INDEX_VERSION,
                     this.indexVersionHash);
-        }
-        // Rebuild index if it has potentially been manually wiped from disk.
-        else if (numDocs == 0) {
-            /* Recreate the index */
-            recreateIndex(baseDao, indexDao);
+            } catch (Exception e) {
+                logger.info("Failed to reindex old index. Clearing and reindexing events", e);
+                indexDao.clear();
+                recreateIndexFromDatabase(baseDao, indexDao);
+            }
         }
     }
 
@@ -159,7 +160,7 @@ public class EventIndexerImpl implements EventIndexer {
         return changed;
     }
 
-    private void recreateIndex(final EventSummaryBaseDao baseDao, final EventIndexDao indexDao) throws ZepException {
+    private void recreateIndexFromDatabase(final EventSummaryBaseDao baseDao, final EventIndexDao indexDao) throws ZepException {
         logger.info("Recreating index for table {}", indexDao.getName());
         String startingUuid = null;
         final long throughTime = System.currentTimeMillis();

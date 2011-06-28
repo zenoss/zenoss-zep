@@ -1,9 +1,8 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.index.impl;
 
-import com.google.protobuf.InvalidProtocolBufferException;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.analysis.PerFieldAnalyzerWrapper;
@@ -22,13 +21,19 @@ import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.utils.IpUtils;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.StringReader;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.util.List;
 import java.util.Map;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 
 import static org.zenoss.zep.index.impl.IndexConstants.*;
 
@@ -45,6 +50,39 @@ public class EventIndexMapper {
         return analyzer;
     }
 
+    private static byte[] compressProtobuf(EventSummary eventSummary) throws ZepException {
+        final byte[] uncompressed = eventSummary.toByteArray();
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(uncompressed.length);
+        GZIPOutputStream gzos = null;
+        try {
+            gzos = new GZIPOutputStream(baos);
+            gzos.write(uncompressed);
+            gzos.finish();
+            return baos.toByteArray();
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        } finally {
+            if (gzos != null) {
+                ZepUtils.close(gzos);
+            }
+        }
+    }
+
+    private static EventSummary uncompressProtobuf(byte[] compressed) throws ZepException {
+        ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
+        GZIPInputStream gzis = null;
+        try {
+            gzis = new GZIPInputStream(bais);
+            return EventSummary.newBuilder().mergeFrom(gzis).build();
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        } finally {
+            if (gzis != null) {
+                ZepUtils.close(gzis);
+            }
+        }
+    }
+
     public static final String DETAIL_INDEX_PREFIX = "details.";
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexMapper.class);
@@ -53,7 +91,7 @@ public class EventIndexMapper {
         Document doc = new Document();
 
         // Store the entire serialized protobuf so we can reproduce the entire event from the index.
-        doc.add(new Field(FIELD_PROTOBUF, summary.toByteArray(), Store.YES));
+        doc.add(new Field(FIELD_PROTOBUF, compressProtobuf(summary), Store.YES));
 
         // Store the UUID for more lightweight queries against the index
         doc.add(new Field(FIELD_UUID, summary.getUuid(), Store.YES, Index.NOT_ANALYZED_NO_NORMS));
@@ -196,22 +234,24 @@ public class EventIndexMapper {
     }
 
     public static EventSummary toEventSummary(Document item) throws ZepException {
-        EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
-        try {
-            final byte[] protobuf = item.getBinaryValue(FIELD_PROTOBUF);
-            if (protobuf != null) {
-                summaryBuilder.mergeFrom(protobuf);
-            }
-            else {
-                // Only other possible fields stored on index.
-                final String uuid = item.get(FIELD_UUID);
-                if (uuid != null) {
-                    summaryBuilder.setUuid(uuid);
-                }
-            }
-            return summaryBuilder.build();
-        } catch (InvalidProtocolBufferException e) {
-            throw new ZepException(e.getLocalizedMessage(), e);
+        return toEventSummary(item, INDEX_VERSION);
+    }
+
+    public static EventSummary toEventSummary(Document item, int indexVersion) throws ZepException {
+        final EventSummary summary;
+        final byte[] protobuf = item.getBinaryValue(FIELD_PROTOBUF);
+        if (protobuf != null) {
+            summary = uncompressProtobuf(protobuf);
         }
+        else {
+            // Only other possible fields stored on index.
+            final String uuid = item.get(FIELD_UUID);
+            EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
+            if (uuid != null) {
+                summaryBuilder.setUuid(uuid);
+            }
+            summary = summaryBuilder.build();
+        }
+        return summary;
     }
 }
