@@ -699,13 +699,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             fields.put(COLUMN_CLEAR_FINGERPRINT_HASH, EventDaoUtils.createClearHash(eventSummary.getOccurrence(0)));
         }
 
-        // Create event summary entry - if we get a duplicate key exception just skip importing this event as it
-        // either has already been imported or there is already an active event with the same fingerprint.
-        try {
-            this.insert.execute(fields);
-        } catch (DuplicateKeyException e) {
-            logger.warn("Event already found in event summary - skipping: {}", eventSummary.getUuid());
-            throw new ZepException(e.getLocalizedMessage(), e);
-        }
+        this.insert.execute(fields);
     }
 }

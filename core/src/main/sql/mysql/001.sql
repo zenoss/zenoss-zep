@@ -162,7 +162,7 @@ CREATE TABLE `event_archive`
     `tags_json` MEDIUMTEXT COMMENT 'JSON encoded event tags.',
     `notes_json` MEDIUMTEXT COMMENT 'JSON encoded event notes (formerly log).',
     `audit_json` MEDIUMTEXT COMMENT 'JSON encoded event audit log.',
-    INDEX (`uuid`)
+    PRIMARY KEY (`uuid`,`last_seen`)
 ) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
 
 CREATE TABLE `event_archive_index_queue`

@@ -6,6 +6,7 @@ package org.zenoss.zep.impl;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.zenoss.amqp.Consumer;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.dao.EventSummaryBaseDao;
@@ -36,7 +37,13 @@ public class MigratedEventQueueListener extends AbstractEventQueueListener {
     @Override
     public void handle(Message message) throws Exception {
         EventSummary summary = (EventSummary) message;
-        this.eventSummaryBaseDao.importEvent(summary);
+        try {
+            this.eventSummaryBaseDao.importEvent(summary);
+        } catch (DuplicateKeyException e) {
+            // Create event summary entry - if we get a duplicate key exception just skip importing this event as it
+            // either has already been imported or there is already an active event with the same fingerprint.
+            logger.info("Event with UUID already exists in database - skipping", summary.getUuid());
+        }
     }
 
     @Override

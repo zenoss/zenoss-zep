@@ -154,15 +154,6 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @Override
     @TransactionalRollbackAllExceptions
     public void importEvent(EventSummary eventSummary) throws ZepException {
-        // Possible race condition here for inserting multiple events with the same UUID into archive, but unable
-        // to create primary key or unique constraint on table without changing partitioning behavior. Other possible
-        // options including locking the table on insert, using MySQL application locking, or creating a separate table
-        // to store the unique contraints, but for now we live with the fact that there can be more than one event with
-        // the same UUID in the event archive for imported events and try to avoid it by performing import operations
-        // from one thread.
-        if (findByUuid(eventSummary.getUuid()) != null) {
-            throw new ZepException("Existing UUID found in database for event summary: " + eventSummary.getUuid());
-        }
         if (!ZepConstants.CLOSED_STATUSES.contains(eventSummary.getStatus())) {
             throw new ZepException("Invalid status for event in event archive: " + eventSummary.getStatus());
         }

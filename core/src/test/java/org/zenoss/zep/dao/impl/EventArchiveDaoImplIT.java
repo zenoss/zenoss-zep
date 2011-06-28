@@ -5,6 +5,7 @@ package org.zenoss.zep.dao.impl;
 
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.zenoss.protobufs.model.Model.ModelElementType;
@@ -152,7 +153,7 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         try {
             this.eventArchiveDao.importEvent(summary);
             fail("Expected duplicate import event to fail");
-        } catch (ZepException e) {
+        } catch (DuplicateKeyException e) {
             // Expected
         }
     }
