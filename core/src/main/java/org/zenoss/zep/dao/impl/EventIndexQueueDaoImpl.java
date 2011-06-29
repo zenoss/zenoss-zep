@@ -28,9 +28,12 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
     private final String queueTableName;
     private final String tableName;
     private final EventSummaryRowMapper rowMapper;
+
+    private final boolean isArchive;
     
     public EventIndexQueueDaoImpl(DataSource ds, boolean isArchive, EventDaoHelper daoHelper) {
         this.template = new SimpleJdbcTemplate(ds);
+        this.isArchive = isArchive;
         if (isArchive) {
             this.tableName = EventConstants.TABLE_EVENT_ARCHIVE;
         }
@@ -55,18 +58,22 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
         selectFields.put("_limit", limit);
         
         final String sql;
+
+        // Used for partition pruning
+        final String queryJoinLastSeen = (this.isArchive) ? "AND iq.last_seen=es.last_seen " : "";
+
         if (maxUpdateTime > 0L) {
             selectFields.put("_max_update_time", maxUpdateTime);
             sql = "SELECT iq.id AS iq_id, iq.uuid AS iq_uuid, iq.update_time AS iq_update_time," + 
                 "es.* FROM " + this.queueTableName + " AS iq " + 
-                "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " +
+                "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " + queryJoinLastSeen +
                 "WHERE iq.update_time <= :_max_update_time " +
                 "ORDER BY iq_update_time LIMIT :_limit";
         }
         else {
             sql = "SELECT iq.id AS iq_id, iq.uuid AS iq_uuid, iq.update_time AS iq_update_time," + 
                 "es.* FROM " + this.queueTableName + " AS iq " + 
-                "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " +
+                "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " + queryJoinLastSeen +
                 "ORDER BY iq_update_time LIMIT :_limit";
         }
 

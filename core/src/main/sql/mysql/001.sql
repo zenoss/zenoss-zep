@@ -169,6 +169,8 @@ CREATE TABLE `event_archive_index_queue`
 (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     `uuid` BINARY(16) NOT NULL,
+    -- Used for partition pruning in event_archive
+    `last_seen` BIGINT NOT NULL,
     `update_time` BIGINT NOT NULL,
     PRIMARY KEY(`id`)
 );
@@ -279,7 +281,7 @@ CREATE TRIGGER `event_summary_index_queue_insert` AFTER INSERT ON `event_summary
 
 CREATE TRIGGER `event_archive_index_queue_insert` AFTER INSERT ON `event_archive`
   FOR EACH ROW BEGIN
-    INSERT INTO `event_archive_index_queue` SET uuid=NEW.uuid, update_time=NEW.update_time;
+    INSERT INTO `event_archive_index_queue` SET uuid=NEW.uuid, last_seen=NEW.last_seen, update_time=NEW.update_time;
   END;
 |
 
@@ -291,7 +293,19 @@ CREATE TRIGGER `event_summary_index_queue_update` AFTER UPDATE ON `event_summary
 
 CREATE TRIGGER `event_archive_index_queue_update` AFTER UPDATE ON `event_archive`
   FOR EACH ROW BEGIN
-    INSERT INTO `event_archive_index_queue` SET uuid=NEW.uuid, update_time=NEW.update_time;
+    INSERT INTO `event_archive_index_queue` SET uuid=NEW.uuid, last_seen=NEW.last_seen, update_time=NEW.update_time;
+  END;
+|
+
+CREATE TRIGGER `event_summary_index_queue_delete` AFTER DELETE ON `event_summary`
+  FOR EACH ROW BEGIN
+    INSERT INTO `event_summary_index_queue` SET uuid=OLD.uuid, update_time=OLD.update_time;
+  END;
+|
+
+CREATE TRIGGER `event_archive_index_queue_delete` AFTER DELETE ON `event_archive`
+  FOR EACH ROW BEGIN
+    INSERT INTO `event_archive_index_queue` SET uuid=OLD.uuid, last_seen=OLD.last_seen, update_time=OLD.update_time;
   END;
 |
 
