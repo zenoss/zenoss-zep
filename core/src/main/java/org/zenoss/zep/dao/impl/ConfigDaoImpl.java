@@ -45,7 +45,6 @@ public class ConfigDaoImpl implements ConfigDao {
     private Messages messages;
     private static final int MAX_PARTITIONS = 1000;
     private final int maxEventArchivePurgeIntervalDays;
-    private final int maxEventOccurrenceDays;
     private int maxEventArchiveIntervalMinutes = 30 * 24 * 60;
 
     private static final String COLUMN_CONFIG_NAME = "config_name";
@@ -56,9 +55,6 @@ public class ConfigDaoImpl implements ConfigDao {
 
         this.maxEventArchivePurgeIntervalDays = calculateMaximumDays(partitionConfig.getConfig(TABLE_EVENT_ARCHIVE));
         logger.info("Maximum archive days: {}", maxEventArchivePurgeIntervalDays);
-
-        this.maxEventOccurrenceDays = calculateMaximumDays(partitionConfig.getConfig(TABLE_EVENT));
-        logger.info("Maximum occurrence days: {}", maxEventOccurrenceDays);
     }
 
     private static int calculateMaximumDays(PartitionTableConfig config) {
@@ -150,12 +146,6 @@ public class ConfigDaoImpl implements ConfigDao {
         if (eventArchivePurgeIntervalDays < 1 || eventArchivePurgeIntervalDays > maxEventArchivePurgeIntervalDays) {
             throw new ZepException(messages.getMessage("invalid_event_archive_purge_interval", 1,
                     maxEventArchivePurgeIntervalDays));
-        }
-
-        int eventOccurrencePurgeIntervalDays = config.getEventOccurrencePurgeIntervalDays();
-        if (eventOccurrencePurgeIntervalDays < 1 || eventOccurrencePurgeIntervalDays > maxEventOccurrenceDays) {
-            throw new ZepException(messages.getMessage("invalid_event_occurrence_purge_interval", 1,
-                    maxEventOccurrenceDays));
         }
 
         int eventArchiveIntervalMinutes = config.getEventArchiveIntervalMinutes();

@@ -85,7 +85,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     public String create(Event event, EventStatus status) throws ZepException {
         final Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
         final Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
-        final long created = (Long) fields.remove(COLUMN_CREATED);
+        final long created = event.getCreatedTime();
         final long updateTime = System.currentTimeMillis();
         final int eventCount = 1;
 
@@ -123,10 +123,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             final RowUpdaterMapper mapper = new RowUpdaterMapper(event, fields);
             uuid = this.template.getJdbcOperations().query(creator, mapper).get(0);
         }
-
-        /* Create occurrence */
-        occurrenceFields.put(COLUMN_SUMMARY_UUID, DaoUtils.uuidToBytes(uuid));
-        eventDaoHelper.insert(occurrenceFields);
         return uuid;
     }
 

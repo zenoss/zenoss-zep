@@ -34,7 +34,7 @@ import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
-import org.zenoss.zep.dao.impl.EventDaoImplIT;
+import org.zenoss.zep.dao.impl.EventTestUtils;
 import org.zenoss.zep.index.EventIndexDao;
 
 import java.util.ArrayList;
@@ -83,12 +83,12 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
         EventSummary eventSummaryFromDb;
 
-        eventSummaryFromDb = createSummaryNew(EventDaoImplIT.createSampleEvent());
+        eventSummaryFromDb = createSummaryNew(EventTestUtils.createSampleEvent());
         uuidsToSearch.add(eventSummaryFromDb.getUuid());
 
         eventIndexDao.index(eventSummaryFromDb);
 
-        eventSummaryFromDb = createSummaryNew(EventDaoImplIT.createSampleEvent());
+        eventSummaryFromDb = createSummaryNew(EventTestUtils.createSampleEvent());
         uuidsToSearch.add(eventSummaryFromDb.getUuid());
 
         eventIndexDao.index(eventSummaryFromDb);
@@ -113,7 +113,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     @Test
     public void testIndex() throws ZepException {
-        Event event = EventDaoImplIT.createSampleEvent();
+        Event event = EventTestUtils.createSampleEvent();
         EventSummary eventSummaryFromDb = createSummaryNew(event);
 
         eventIndexDao.index(eventSummaryFromDb);
@@ -121,7 +121,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     @Test
     public void testFindByUuid() throws AssertionError, ZepException {
-        Event event = EventDaoImplIT.createSampleEvent();
+        Event event = EventTestUtils.createSampleEvent();
         EventSummary eventSummaryFromDb = createSummaryNew(event);
 
         eventIndexDao.index(eventSummaryFromDb);
@@ -131,7 +131,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     @Test
     public void testDelete() throws AssertionError, ZepException {
-        Event event = EventDaoImplIT.createSampleEvent();
+        Event event = EventTestUtils.createSampleEvent();
         EventSummary eventSummaryFromDb = createSummaryNew(event);
 
         eventIndexDao.index(eventSummaryFromDb);
@@ -145,7 +145,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     @Test
     public void testIndexMany() throws ZepException {
-        Event event = EventDaoImplIT.createSampleEvent();
+        Event event = EventTestUtils.createSampleEvent();
         EventSummary eventSummaryFromDb = createSummaryNew(event);
 
         List<EventSummary> events = new ArrayList<EventSummary>();
@@ -157,7 +157,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     private EventSummary createEventWithSeverity(EventSeverity severity,
                                                  EventStatus status, String... tags) throws ZepException {
-        final Event.Builder eventBuilder = Event.newBuilder(EventDaoImplIT.createSampleEvent());
+        final Event.Builder eventBuilder = Event.newBuilder(EventTestUtils.createSampleEvent());
         eventBuilder.setSeverity(severity);
         eventBuilder.clearTags();
         for (String tag : tags) {
@@ -469,7 +469,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     }
 
     private EventSummary createEventWithClass(String eventClass) throws ZepException {
-        final Event.Builder eventBuilder = Event.newBuilder(EventDaoImplIT.createSampleEvent());
+        final Event.Builder eventBuilder = Event.newBuilder(EventTestUtils.createSampleEvent());
         eventBuilder.setEventClass(eventClass);
         final Event event = eventBuilder.build();
         EventSummary summary = createSummary(event, EventStatus.STATUS_NEW);
@@ -684,7 +684,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     }
 
     private EventSummary createEventWithDetails(List<EventDetail> details) throws ZepException {
-        final Event.Builder eventBuilder = Event.newBuilder(EventDaoImplIT.createSampleEvent());
+        final Event.Builder eventBuilder = Event.newBuilder(EventTestUtils.createSampleEvent());
         eventBuilder.addAllDetails(details);
         final Event event = eventBuilder.build();
         EventSummary summary = createSummary(event, EventStatus.STATUS_NEW);
@@ -709,9 +709,9 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     @Test
     public void testSummaryPhrase() throws ZepException {
-        EventSummary event1 = createSummaryNew(Event.newBuilder(EventDaoImplIT.createSampleEvent())
+        EventSummary event1 = createSummaryNew(Event.newBuilder(EventTestUtils.createSampleEvent())
                 .setSummary("Monkeys love to eat bananas").build());
-        EventSummary event2 = createSummaryNew(Event.newBuilder(EventDaoImplIT.createSampleEvent())
+        EventSummary event2 = createSummaryNew(Event.newBuilder(EventTestUtils.createSampleEvent())
                 .setSummary("Bananas love to eat monkeys").build());
         eventIndexDao.indexMany(Arrays.asList(event1, event2));
 
@@ -820,7 +820,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     @Test
     public void testListZeroLimit() throws ZepException {
         /* Create one event */
-        EventSummary event = createSummaryNew(EventDaoImplIT.createSampleEvent());
+        EventSummary event = createSummaryNew(EventTestUtils.createSampleEvent());
         this.eventIndexDao.index(event);
 
         EventSummaryRequest request = EventSummaryRequest.newBuilder().setLimit(0).build();

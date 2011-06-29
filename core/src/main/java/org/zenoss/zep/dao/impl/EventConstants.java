@@ -5,7 +5,6 @@ package org.zenoss.zep.dao.impl;
 
 public class EventConstants {
     // Table names
-    public static final String TABLE_EVENT = "event";
     public static final String TABLE_EVENT_ARCHIVE = "event_archive";
     public static final String TABLE_EVENT_SUMMARY = "event_summary";
 
@@ -36,10 +35,6 @@ public class EventConstants {
     public static final String COLUMN_FINGERPRINT = "fingerprint";
     public static final String COLUMN_FINGERPRINT_HASH = "fingerprint_hash";
     public static final String COLUMN_UUID = "uuid";
-
-    // Only in Event
-    public static final String COLUMN_SUMMARY_UUID = "summary_uuid";
-    public static final String COLUMN_CREATED = "created";
 
     // Summary / Archive fields
     public static final String COLUMN_STATUS_ID = "status_id";

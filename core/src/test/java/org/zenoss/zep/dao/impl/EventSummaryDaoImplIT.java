@@ -25,7 +25,6 @@ import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
-import org.zenoss.zep.dao.EventDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 
 import java.io.UnsupportedEncodingException;
@@ -59,9 +58,6 @@ public class EventSummaryDaoImplIT extends
 
     @Autowired
     public EventArchiveDao eventArchiveDao;
-
-    @Autowired
-    public EventDao eventDao;
 
     private EventSummary createSummaryNew(Event event) throws ZepException {
         return createSummary(event, EventStatus.STATUS_NEW);
@@ -98,7 +94,7 @@ public class EventSummaryDaoImplIT extends
 
     @Test
     public void testSummaryInsert() throws ZepException, InterruptedException {
-        Event event = EventDaoImplIT.createSampleEvent();
+        Event event = EventTestUtils.createSampleEvent();
         EventSummary eventSummaryFromDb = createSummaryNew(event);
         Event eventFromSummary = eventSummaryFromDb.getOccurrence(0);
         compareEvents(event, eventFromSummary);
@@ -158,7 +154,7 @@ public class EventSummaryDaoImplIT extends
          * Verify acknowledged events aren't changed to new with a new
          * occurrence.
          */
-        Event event = EventDaoImplIT.createSampleEvent();
+        Event event = EventTestUtils.createSampleEvent();
         eventSummaryDao.create(event, EventStatus.STATUS_ACKNOWLEDGED);
         Event.Builder newEventBuilder = Event.newBuilder().mergeFrom(event);
         newEventBuilder.setUuid(UUID.randomUUID().toString());
@@ -179,7 +175,7 @@ public class EventSummaryDaoImplIT extends
          * Verify acknowledged events aren't changed to suppressed with a new
          * occurrence.
          */
-        Event event = EventDaoImplIT.createSampleEvent();
+        Event event = EventTestUtils.createSampleEvent();
         eventSummaryDao.create(event, EventStatus.STATUS_ACKNOWLEDGED);
         Event.Builder newEventBuilder = Event.newBuilder().mergeFrom(event);
         newEventBuilder.setUuid(UUID.randomUUID().toString());
@@ -254,7 +250,7 @@ public class EventSummaryDaoImplIT extends
         eventBuilder.setCreatedTime(System.currentTimeMillis());
         eventBuilder.addDetails(createDetail("foo", "bar", "baz"));
         eventBuilder.addDetails(createDetail("foo2", "bar2", "baz2"));
-        eventBuilder.setActor(EventDaoImplIT.createSampleActor());
+        eventBuilder.setActor(EventTestUtils.createSampleActor());
         eventBuilder.setAgent("agent");
         eventBuilder.setEventClass("/Unknown");
         eventBuilder.setEventClassKey("eventClassKey");
@@ -912,7 +908,7 @@ public class EventSummaryDaoImplIT extends
 
     public static EventSummary createRandomSummary() {
         Random r = new Random();
-        Event event = EventDaoImplIT.createSampleEvent();
+        Event event = EventTestUtils.createSampleEvent();
         EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
         summaryBuilder.addOccurrence(event);
         summaryBuilder.addAuditLog(EventAuditLog.newBuilder().setNewStatus(EventStatus.STATUS_ACKNOWLEDGED)

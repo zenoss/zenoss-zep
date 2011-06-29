@@ -6,9 +6,7 @@ package org.zenoss.zep.dao.impl;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
-import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.model.Model.ModelElementType;
@@ -26,10 +24,8 @@ import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
-import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.DaoCache;
 
-import javax.sql.DataSource;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -51,18 +47,12 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 public class EventDaoHelper {
 
-    private SimpleJdbcInsert insert;
-
     private DaoCache daoCache;
 
     @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(EventDaoHelper.class);
 
     public EventDaoHelper() {
-    }
-
-    public void setDataSource(DataSource dataSource) {
-        this.insert = new SimpleJdbcInsert(dataSource).withTableName(TABLE_EVENT);
     }
 
     public void setDaoCache(DaoCache daoCache) {
@@ -112,8 +102,6 @@ public class EventDaoHelper {
         if (event.hasActor()) {
             populateEventActorFields(event.getActor(), fields);
         }
-
-        fields.put(COLUMN_CREATED, event.getCreatedTime());
 
         Integer monitorId = null;
         if (event.hasMonitor()) {
@@ -170,15 +158,6 @@ public class EventDaoHelper {
         fields.put(COLUMN_TAGS_JSON, tagsJson);
 
         return fields;
-    }
-
-    @TransactionalRollbackAllExceptions
-    public void insert(Map<String,Object> occurrenceFields) throws ZepException {
-        try {
-            this.insert.execute(occurrenceFields);
-        } catch (DataAccessException e) {
-            throw new ZepException(e.getLocalizedMessage(), e);
-        }
     }
 
     /**
@@ -322,18 +301,11 @@ public class EventDaoHelper {
         }
     }
 
-    public Event eventMapper(ResultSet rs, boolean isSummary)
+    public Event eventMapper(ResultSet rs)
             throws SQLException {
         Event.Builder eventBuilder = Event.newBuilder();
 
-        if (isSummary) {
-            eventBuilder.setCreatedTime(rs.getLong(COLUMN_LAST_SEEN));
-        } else {
-            eventBuilder.setCreatedTime(rs.getLong(COLUMN_CREATED));
-            eventBuilder.setUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID)));
-            eventBuilder.setSummaryUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_SUMMARY_UUID)));
-        }
-
+        eventBuilder.setCreatedTime(rs.getLong(COLUMN_LAST_SEEN));
         eventBuilder.setFingerprint(rs.getString(COLUMN_FINGERPRINT));
 
         int eventGroupId = rs.getInt(COLUMN_EVENT_GROUP_ID);
@@ -465,7 +437,7 @@ public class EventDaoHelper {
         }
         // titleOrId
         else if (subIdentifier != null) {
-            actorBuilder.setElementTitle(subIdentifier);
+            actorBuilder.setElementSubTitle(subIdentifier);
         }
         return actorBuilder.build();
     }
@@ -608,8 +580,6 @@ public class EventDaoHelper {
      */
     public Map<String,Object> createImportedSummaryFields(EventSummary summary) throws ZepException {
         final Map<String, Object> fields = createOccurrenceFields(summary.getOccurrence(0));
-        // Field doesn't exist in event_summary/event_archive
-        fields.remove(COLUMN_CREATED);
         fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(summary.getUuid()));
         fields.put(COLUMN_STATUS_ID, summary.getStatus().getNumber());
         fields.put(COLUMN_UPDATE_TIME, summary.getUpdateTime());

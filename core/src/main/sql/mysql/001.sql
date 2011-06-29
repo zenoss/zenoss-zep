@@ -175,39 +175,6 @@ CREATE TABLE `event_archive_index_queue`
     PRIMARY KEY(`id`)
 );
 
-CREATE TABLE `event`
-(
-    `uuid` BINARY(16) NOT NULL,
-    `summary_uuid` BINARY(16) NOT NULL COMMENT 'UUID of the event summary this occurrence was de-duplicated into.',
-    `fingerprint` VARCHAR(255) NOT NULL COMMENT 'Dynamically generated fingerprint that allows the system to perform de-duplication on repeating events that share similar characteristics.',
-    `event_group_id` INTEGER COMMENT 'Can be used to group similar types of events. This is primarily an extension point for customization.',
-    `event_class_id` INTEGER NOT NULL,
-    `event_class_key_id` INTEGER COMMENT 'Used as the first step in mapping an unknown event into an event class.',
-    `event_class_mapping_uuid` BINARY(16) COMMENT 'If this event was matched by one of the configured event class mappings, contains the UUID of that mapping rule.',
-    `event_key_id` INTEGER,
-    `severity_id` TINYINT NOT NULL,
-    `element_uuid` BINARY(16),
-    `element_type_id` TINYINT,
-    `element_identifier` VARCHAR(255) NOT NULL,
-    `element_title` VARCHAR(255),
-    `element_sub_uuid` BINARY(16),
-    `element_sub_type_id` TINYINT,
-    `element_sub_identifier` VARCHAR(255),
-    `element_sub_title` VARCHAR(255),
-    `created` BIGINT NOT NULL COMMENT 'UTC Time. Time that the event occurred.',
-    `monitor_id` INTEGER COMMENT 'In a distributed setup, contains the name of the collector from which the event originated.',
-    `agent_id` INTEGER COMMENT 'Typically the name of the daemon that generated the event. For example, an SNMP threshold event will have zenperfsnmp as its agent.',
-    `syslog_facility` INTEGER COMMENT 'The syslog facility.',
-    `syslog_priority` TINYINT COMMENT 'The syslog priority.',
-    `nt_event_code` INTEGER COMMENT 'The Windows NT Event Code.',
-    `summary` VARCHAR(255) NOT NULL DEFAULT '',
-    `message` VARCHAR(4096) NOT NULL DEFAULT '',
-    `details_json` MEDIUMTEXT COMMENT 'JSON encoded event details.',
-    `tags_json` MEDIUMTEXT COMMENT 'JSON encoded event tags.',
-    INDEX (`uuid`),
-    INDEX (`summary_uuid`)
-) ENGINE=InnoDB CHARACTER SET=utf8 COLLATE=utf8_general_ci;
-
 CREATE TABLE `config`
 (
     `config_name` VARCHAR(64) NOT NULL,

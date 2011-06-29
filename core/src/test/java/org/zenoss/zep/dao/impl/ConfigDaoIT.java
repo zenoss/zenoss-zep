@@ -26,7 +26,6 @@ public class ConfigDaoIT extends AbstractTransactionalJUnit4SpringContextTests {
         builder.setEventAgeIntervalMinutes(60);
         builder.setEventArchiveIntervalMinutes(7*24*60);
         builder.setEventArchivePurgeIntervalDays(90);
-        builder.setEventOccurrencePurgeIntervalDays(30);
         ZepConfig cnf = builder.build();
         configDao.setConfig(cnf);
 

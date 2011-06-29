@@ -3,36 +3,18 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import static org.junit.Assert.*;
-
-import java.util.List;
-import java.util.Random;
-import java.util.UUID;
-
-import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
-import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
-import org.zenoss.zep.ZepException;
-import org.zenoss.zep.dao.EventDao;
-import org.zenoss.zep.dao.EventSummaryDao;
 
-@ContextConfiguration({ "classpath:zep-config.xml" })
-public class EventDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
+import java.util.Random;
+import java.util.UUID;
 
-    @Autowired
-    public EventSummaryDao summaryDao;
-
-    @Autowired
-    public EventDao eventDao;
+public class EventTestUtils {
 
     public static EventActor createSampleActor() {
         EventActor.Builder actorBuilder = EventActor.newBuilder();
@@ -86,28 +68,5 @@ public class EventDaoImplIT extends AbstractTransactionalJUnit4SpringContextTest
         eventBuilder.setSyslogFacility(11);
         eventBuilder.setSyslogPriority(SyslogPriority.SYSLOG_PRIORITY_DEBUG);
         return eventBuilder.build();
-    }
-
-    private static void compareEvents(Event original, Event fromDb) {
-        // When persisting to DB, we consolidate tag UUIDs under type for storage savings
-        assertEquals(Event.newBuilder(original).clearTags().addAllTags(EventDaoHelper.buildTags(original)).build(),
-                fromDb);
-    }
-
-    @Test
-    public void testCreateAllFields() throws ZepException {
-        Event event = createSampleEvent();
-        String summaryUuid = summaryDao.create(event, EventStatus.STATUS_NEW);
-        event = Event.newBuilder(event).setSummaryUuid(summaryUuid).build();
-
-        Event eventFromDb = eventDao.findByUuid(event.getUuid());
-        compareEvents(event, eventFromDb);
-
-        List<Event> occurrences = eventDao.findBySummaryUuid(summaryUuid);
-        assertEquals(1, occurrences.size());
-        compareEvents(event, occurrences.get(0));
-
-        eventDao.delete(event.getUuid());
-        assertNull(eventDao.findByUuid(event.getUuid()));
     }
 }

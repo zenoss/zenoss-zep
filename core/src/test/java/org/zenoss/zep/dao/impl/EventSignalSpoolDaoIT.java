@@ -54,7 +54,7 @@ public class EventSignalSpoolDaoIT extends
     }
 
     private EventSummary createSampleSummary() throws ZepException {
-        Event event = EventDaoImplIT.createSampleEvent();
+        Event event = EventTestUtils.createSampleEvent();
         return createSummaryNew(event);
     }
 

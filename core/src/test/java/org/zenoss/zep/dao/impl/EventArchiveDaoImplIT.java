@@ -18,7 +18,6 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
-import org.zenoss.zep.dao.EventDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 
 import java.util.ArrayList;
@@ -39,9 +38,6 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
     @Autowired
     public EventSummaryDao eventSummaryDao;
 
-    @Autowired
-    public EventDao eventDao;
-
     private static void compareEvents(Event event, Event eventFromDb) {
         Event event1 = Event.newBuilder().mergeFrom(event).clearUuid()
                 .clearCreatedTime().clearTags().addAllTags(EventDaoHelper.buildTags(event)).build();
@@ -56,7 +52,7 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
 
     @Test
     public void testArchiveInsert() throws ZepException, InterruptedException {
-        Event event = EventDaoImplIT.createSampleEvent();
+        Event event = EventTestUtils.createSampleEvent();
         EventSummary eventSummaryFromDb = createArchive(event);
         Event eventFromSummary = eventSummaryFromDb.getOccurrence(0);
         compareEvents(event, eventFromSummary);
@@ -80,7 +76,7 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
                 .addValue("bar").addValue("baz").build());
         eventBuilder.addDetails(EventDetail.newBuilder().setName("foo2")
                 .addValue("bar2").addValue("baz2").build());
-        eventBuilder.setActor(EventDaoImplIT.createSampleActor());
+        eventBuilder.setActor(EventTestUtils.createSampleActor());
         eventBuilder.setAgent("agent");
         eventBuilder.setEventClass("/Unknown");
         eventBuilder.setEventClassKey("eventClassKey");
@@ -95,11 +91,11 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         eventBuilder.setSummary("summary message");
         eventBuilder.setSyslogFacility(11);
         eventBuilder.setSyslogPriority(SyslogPriority.SYSLOG_PRIORITY_DEBUG);
-        eventBuilder.addTags(EventDaoImplIT.createTag(ModelElementType.DEVICE,
+        eventBuilder.addTags(EventTestUtils.createTag(ModelElementType.DEVICE,
                 eventBuilder.getActor().getElementUuid()));
-        eventBuilder.addTags(EventDaoImplIT.createTag(
+        eventBuilder.addTags(EventTestUtils.createTag(
                 ModelElementType.COMPONENT, eventBuilder.getActor()
-                        .getElementSubUuid()));
+                .getElementSubUuid()));
         return eventBuilder.build();
     }
 

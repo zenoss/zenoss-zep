@@ -40,14 +40,7 @@
 
     <!-- DAO -->
     <bean id="eventDaoHelper" class="org.zenoss.zep.dao.impl.EventDaoHelper">
-        <property name="dataSource" ref="dataSource"/>
         <property name="daoCache" ref="daoCache"/>
-    </bean>
-    <bean id="eventDao" class="org.zenoss.zep.dao.impl.EventDaoImpl">
-        <constructor-arg index="0" ref="dataSource"/>
-        <constructor-arg index="1" value="${zep.jdbc.dbname}"/>
-        <constructor-arg index="2" ref="partitionConfig"/>
-        <property name="eventDaoHelper" ref="eventDaoHelper"/>
     </bean>
     <bean id="eventSummaryDao" class="org.zenoss.zep.dao.impl.EventSummaryDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>

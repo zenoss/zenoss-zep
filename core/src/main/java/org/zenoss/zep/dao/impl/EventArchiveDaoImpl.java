@@ -64,7 +64,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
         Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
         Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
-        long created = (Long) fields.remove(COLUMN_CREATED);
+        final long created = event.getCreatedTime();
         long updateTime = System.currentTimeMillis();
         final String uuid = UUID.randomUUID().toString();
         final int eventCount = 1;
@@ -77,10 +77,6 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         fields.put(COLUMN_UPDATE_TIME, updateTime);
 
         this.template.update(DaoUtils.createNamedInsert(TABLE_EVENT_ARCHIVE, fields.keySet()), fields);
-
-        /* Create occurrence */
-        occurrenceFields.put(COLUMN_SUMMARY_UUID, fields.get(COLUMN_UUID));
-        this.eventDaoHelper.insert(occurrenceFields);
         return uuid;
     }
 

@@ -15,7 +15,6 @@ import org.zenoss.zep.HeartbeatProcessor;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventArchiveDao;
-import org.zenoss.zep.dao.EventDao;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.Purgable;
@@ -44,7 +43,6 @@ public class Application implements ApplicationListener<ZepEvent> {
     private ScheduledFuture<?> eventSummaryAger = null;
     private ScheduledFuture<?> eventSummaryArchiver = null;
     private ScheduledFuture<?> eventArchivePurger = null;
-    private ScheduledFuture<?> eventPurger = null;
     private ScheduledFuture<?> eventIndexerFuture = null;
     private ScheduledFuture<?> heartbeatFuture = null;
     private ZepConfig oldConfig = null;
@@ -56,7 +54,6 @@ public class Application implements ApplicationListener<ZepEvent> {
     private final boolean enableIndexing;
 
     private ConfigDao configDao;
-    private EventDao eventDao;
     private EventStoreDao eventStoreDao;
     private EventArchiveDao eventArchiveDao;
     private EventIndexer eventIndexer;
@@ -79,10 +76,6 @@ public class Application implements ApplicationListener<ZepEvent> {
         this.configDao = configDao;
     }
 
-    public void setEventDao(EventDao eventDao) {
-        this.eventDao = eventDao;
-    }
-    
     public void setEventIndexer(EventIndexer eventIndexer) {
         this.eventIndexer = eventIndexer;
     }
@@ -120,7 +113,6 @@ public class Application implements ApplicationListener<ZepEvent> {
         startEventSummaryAging();
         startEventSummaryArchiving();
         startEventArchivePurging();
-        startEventPurging();
         startEventIndexer();
         startHeartbeatProcessing();
         logger.info("Completed ZEP initialization");
@@ -132,9 +124,6 @@ public class Application implements ApplicationListener<ZepEvent> {
 
         cancelFuture(this.eventIndexerFuture);
         this.eventIndexerFuture = null;
-
-        cancelFuture(this.eventPurger);
-        this.eventPurger = null;
 
         cancelFuture(this.eventArchivePurger);
         this.eventArchivePurger = null;
@@ -163,7 +152,6 @@ public class Application implements ApplicationListener<ZepEvent> {
 
     private void initializePartitions() throws ZepException {
         eventArchiveDao.initializePartitions();
-        eventDao.initializePartitions();
     }
 
     private void startEventIndexer() throws ZepException {
@@ -298,19 +286,6 @@ public class Application implements ApplicationListener<ZepEvent> {
                 "ZEP_EVENT_ARCHIVE_PURGER");
     }
 
-    private void startEventPurging() {
-        final int duration = config.getEventOccurrencePurgeIntervalDays();
-        if (oldConfig != null
-                && duration == oldConfig.getEventOccurrencePurgeIntervalDays()) {
-            logger.info("Event occurrence purging configuration not changed.");
-            return;
-        }
-        cancelFuture(this.eventPurger);
-        this.eventPurger = purge(eventDao, duration,
-                TimeUnit.DAYS,
-                eventDao.getPartitionIntervalInMs(), "ZEP_EVENT_PURGER");
-    }
-
     private void startHeartbeatProcessing() {
         cancelFuture(this.heartbeatFuture);
         Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
@@ -336,7 +311,6 @@ public class Application implements ApplicationListener<ZepEvent> {
             startEventSummaryAging();
             startEventSummaryArchiving();
             startEventArchivePurging();
-            startEventPurging();
             this.oldConfig = config;
         }
         else if (event instanceof IndexDetailsUpdatedEvent) {
