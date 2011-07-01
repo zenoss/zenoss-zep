@@ -7,6 +7,8 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
+import org.zenoss.amqp.AmqpException;
+import org.zenoss.amqp.Channel;
 import org.zenoss.amqp.Consumer;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.dao.EventSummaryBaseDao;
@@ -27,6 +29,12 @@ public class MigratedEventQueueListener extends AbstractEventQueueListener {
 
     public void setEventSummaryBaseDao(EventSummaryBaseDao eventSummaryBaseDao) {
         this.eventSummaryBaseDao = eventSummaryBaseDao;
+    }
+
+    @Override
+    protected void configureChannel(Channel channel) throws AmqpException {
+        // Allow more messages to accummulate to be processed since we are multi-threaded and events are typically small
+        channel.setQos(0, 100);
     }
 
     @Override
