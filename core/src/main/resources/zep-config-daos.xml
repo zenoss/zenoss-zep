@@ -41,16 +41,19 @@
     <!-- DAO -->
     <bean id="eventDaoHelper" class="org.zenoss.zep.dao.impl.EventDaoHelper">
         <property name="daoCache" ref="daoCache"/>
+        <property name="uuidGenerator" ref="uuidGenerator"/>
     </bean>
     <bean id="eventSummaryDao" class="org.zenoss.zep.dao.impl.EventSummaryDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
         <property name="eventDaoHelper" ref="eventDaoHelper"/>
+        <property name="uuidGenerator" ref="uuidGenerator"/>
     </bean>
     <bean id="eventArchiveDao" class="org.zenoss.zep.dao.impl.EventArchiveDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
         <constructor-arg index="1" value="${zep.jdbc.dbname}"/>
         <constructor-arg index="2" ref="partitionConfig"/>
         <property name="eventDaoHelper" ref="eventDaoHelper"/>
+        <property name="uuidGenerator" ref="uuidGenerator"/>
     </bean>
     <bean id="eventTriggerDao" class="org.zenoss.zep.dao.impl.EventTriggerDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
@@ -58,9 +61,11 @@
     </bean>
     <bean id="eventSignalSpoolDao" class="org.zenoss.zep.dao.impl.EventSignalSpoolDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
+        <property name="uuidGenerator" ref="uuidGenerator"/>
     </bean>
     <bean id="eventTriggerSubscriptionDao" class="org.zenoss.zep.dao.impl.EventTriggerSubscriptionDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
+        <property name="uuidGenerator" ref="uuidGenerator"/>
     </bean>
     <bean id="daoCache" class="org.zenoss.zep.dao.impl.DaoCacheImpl" init-method="init">
         <constructor-arg index="0" ref="dataSource"/>

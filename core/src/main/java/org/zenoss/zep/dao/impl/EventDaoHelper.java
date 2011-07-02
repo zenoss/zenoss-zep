@@ -20,6 +20,7 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.EventTag.Builder;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
+import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
@@ -41,13 +42,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.UUID;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 public class EventDaoHelper {
 
     private DaoCache daoCache;
+    private UUIDGenerator uuidGenerator;
 
     @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(EventDaoHelper.class);
@@ -59,11 +60,13 @@ public class EventDaoHelper {
         this.daoCache = daoCache;
     }
 
+    public void setUuidGenerator(UUIDGenerator uuidGenerator) {
+        this.uuidGenerator = uuidGenerator;
+    }
+
     public Map<String, Object> createOccurrenceFields(Event event) throws ZepException {
         Map<String, Object> fields = new HashMap<String, Object>();
-        if (event.hasUuid()) {
-            fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(event.getUuid()));
-        }
+
         String fingerprint = DaoUtils.truncateStringToUtf8(event.getFingerprint(), MAX_FINGERPRINT);
         fields.put(COLUMN_FINGERPRINT, fingerprint);
 
@@ -442,11 +445,11 @@ public class EventDaoHelper {
         return actorBuilder.build();
     }
 
-    public static int addNote(String tableName, String uuid, EventNote note, SimpleJdbcTemplate template)
+    public int addNote(String tableName, String uuid, EventNote note, SimpleJdbcTemplate template)
             throws ZepException {
         EventNote.Builder builder = EventNote.newBuilder(note);
         if (builder.getUuid().isEmpty()) {
-            builder.setUuid(UUID.randomUUID().toString());
+            builder.setUuid(this.uuidGenerator.generate().toString());
         }
         builder.setCreatedTime(System.currentTimeMillis());
         try {

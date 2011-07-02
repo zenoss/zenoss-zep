@@ -14,6 +14,7 @@ import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.protobufs.zep.Zep.Rule;
 import org.zenoss.protobufs.zep.Zep.RuleType;
+import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSignalSpool;
 import org.zenoss.zep.dao.EventSignalSpoolDao;
@@ -43,6 +44,9 @@ public class EventSignalSpoolDaoIT extends
 
     @Autowired
     public EventTriggerSubscriptionDao subscriptionDao;
+
+    @Autowired
+    public UUIDGenerator uuidGenerator;
     
     private EventSummary createSummaryNew(Event event) throws ZepException {
         return createSummary(event, EventStatus.STATUS_NEW);
@@ -102,7 +106,7 @@ public class EventSignalSpoolDaoIT extends
         EventTriggerSubscription subscription = createSubscription();
         EventSummary eventSummary = createSampleSummary();
         EventSignalSpool spool = EventSignalSpool.buildSpool(subscription,
-                eventSummary);
+                eventSummary, uuidGenerator);
         dao.create(spool);
         compareSpool(spool, dao.findByUuid(spool.getUuid()));
         dao.delete(spool.getUuid());
@@ -114,7 +118,7 @@ public class EventSignalSpoolDaoIT extends
         EventTriggerSubscription subscription = createSubscription();
         EventSummary eventSummary = createSampleSummary();
         EventSignalSpool spool = EventSignalSpool.buildSpool(subscription,
-                eventSummary);
+                eventSummary, uuidGenerator);
         dao.create(spool);
         compareSpool(spool, dao.findByUuid(spool.getUuid()));
         assertEquals(
@@ -129,7 +133,7 @@ public class EventSignalSpoolDaoIT extends
         EventTriggerSubscription subscription = createSubscription();
         EventSummary eventSummary = createSampleSummary();
         EventSignalSpool spool = EventSignalSpool.buildSpool(subscription,
-                eventSummary);
+                eventSummary, uuidGenerator);
         dao.create(spool);
         compareSpool(spool, dao.findByUuid(spool.getUuid()));
         assertEquals(1, dao.deleteByTriggerUuid(subscription.getTriggerUuid()));
@@ -141,7 +145,7 @@ public class EventSignalSpoolDaoIT extends
         EventTriggerSubscription subscription = createSubscription();
         EventSummary eventSummary = createSampleSummary();
         EventSignalSpool spool = EventSignalSpool.buildSpool(subscription,
-                eventSummary);
+                eventSummary, uuidGenerator);
         dao.create(spool);
         compareSpool(spool, dao.findByUuid(spool.getUuid()));
         long newFlushTime = spool.getFlushTime() + 600L;
@@ -155,7 +159,7 @@ public class EventSignalSpoolDaoIT extends
         EventTriggerSubscription subscription = createSubscription();
         EventSummary eventSummary = createSampleSummary();
         EventSignalSpool spool = EventSignalSpool.buildSpool(subscription,
-                eventSummary);
+                eventSummary, uuidGenerator);
         dao.create(spool);
         compareSpool(spool,
                 dao.findBySubscriptionAndEventSummaryUuids(subscription.getUuid(), eventSummary.getUuid()));
@@ -170,7 +174,7 @@ public class EventSignalSpoolDaoIT extends
             EventTriggerSubscription subscription = createSubscription();
             EventSummary eventSummary = createSampleSummary();
             EventSignalSpool spool = EventSignalSpool.buildSpool(subscription,
-                    eventSummary);
+                    eventSummary, uuidGenerator);
             if (i < 2) {
                 pastUuids.add(spool.getUuid());
                 spool.setFlushTime(System.currentTimeMillis() - 5000L);
@@ -191,7 +195,7 @@ public class EventSignalSpoolDaoIT extends
     public void testFindBySummaryUuid() throws ZepException {
         EventTriggerSubscription subscription = createSubscription();
         EventSummary eventSummary = createSampleSummary();
-        EventSignalSpool spool = EventSignalSpool.buildSpool(subscription, eventSummary);
+        EventSignalSpool spool = EventSignalSpool.buildSpool(subscription, eventSummary, uuidGenerator);
         dao.create(spool);
         
         List<EventSignalSpool> spools = dao.findAllByEventSummaryUuid(eventSummary.getUuid());

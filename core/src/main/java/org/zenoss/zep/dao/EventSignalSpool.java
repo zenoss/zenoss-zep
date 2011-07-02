@@ -3,13 +3,11 @@
  */
 package org.zenoss.zep.dao;
 
-import java.util.UUID;
-import java.util.concurrent.TimeUnit;
-
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
-import org.zenoss.zep.ZepException;
-import org.zenoss.zep.dao.impl.DaoUtils;
+import org.zenoss.zep.UUIDGenerator;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Bean class representing a spooled event signal. These spool items are evaluated after the flushTime
@@ -93,7 +91,8 @@ public class EventSignalSpool {
      * @param summary Event summary.
      * @return A new spool item.
      */
-    public static EventSignalSpool buildSpool(EventTriggerSubscription subscription, EventSummary summary) {
+    public static EventSignalSpool buildSpool(EventTriggerSubscription subscription, EventSummary summary,
+                                              UUIDGenerator uuidGenerator) {
         final int delaySeconds = subscription.getDelaySeconds();
         final int repeatSeconds = subscription.getRepeatSeconds();
 
@@ -114,7 +113,7 @@ public class EventSignalSpool {
         spool.setEventSummaryUuid(summary.getUuid());
         spool.setSubscriptionUuid(subscription.getUuid());
         spool.setFlushTime(flushTime);
-        spool.setUuid(UUID.randomUUID().toString());
+        spool.setUuid(uuidGenerator.generate().toString());
         return spool;
     }
 }

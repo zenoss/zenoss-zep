@@ -44,14 +44,14 @@ public final class DaoUtils {
     }
 
     /**
-     * Returns bytes from a random UUID.
-     * 
-     * @return Bytes from a randomly created UUID.
+     * Converts the UUID to a 16-byte byte array.
+     *
+     * @param uuid
+     *            UUID object.
+     * @return 16 byte array.
      */
-    @SuppressWarnings("unused")
-    public static byte[] createRandomUuid() {
+    public static byte[] uuidToBytes(UUID uuid) {
         final ByteBuffer bb = ByteBuffer.allocate(16);
-        final UUID uuid = UUID.randomUUID();
         bb.putLong(uuid.getMostSignificantBits());
         bb.putLong(uuid.getLeastSignificantBits());
         return bb.array();

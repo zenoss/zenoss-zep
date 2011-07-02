@@ -17,6 +17,7 @@ import java.util.UUID;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepInstance;
 import org.zenoss.zep.ZepUtils;
 
@@ -26,8 +27,10 @@ public class ZepInstanceImpl implements ZepInstance {
             .getLogger(ZepInstanceImpl.class.getName());
     private final String instanceId;
     private final Map<String, String> config;
+    private final UUIDGenerator uuidGenerator;
 
-    public ZepInstanceImpl(Properties config) throws IOException {
+    public ZepInstanceImpl(Properties config, UUIDGenerator uuidGenerator) throws IOException {
+        this.uuidGenerator = uuidGenerator;
         this.instanceId = loadInstanceId();
         this.config = createConfig(config);
     }
@@ -52,7 +55,7 @@ public class ZepInstanceImpl implements ZepInstance {
         }
         if (zenHome == null) {
             logger.warn("ZENHOME not specified. Not persisting ZEP instance id.");
-            id = UUID.randomUUID().toString();
+            id = this.uuidGenerator.generate().toString();
         } else {
             File f = new File(zenHome, "etc/zeneventserver/instance.properties");
             Properties props = loadProperties(f);
@@ -60,7 +63,7 @@ public class ZepInstanceImpl implements ZepInstance {
 
             // Persist ID to disk
             if (id == null || !isValidUuid(id)) {
-                id = UUID.randomUUID().toString();
+                id = this.uuidGenerator.generate().toString();
                 props.put("id", id);
                 saveProperties(props, f);
             }

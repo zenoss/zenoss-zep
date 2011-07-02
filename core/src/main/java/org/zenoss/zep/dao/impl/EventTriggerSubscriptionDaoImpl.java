@@ -11,6 +11,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
+import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
@@ -23,7 +24,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 public class EventTriggerSubscriptionDaoImpl implements
         EventTriggerSubscriptionDao {
@@ -63,11 +63,16 @@ public class EventTriggerSubscriptionDaoImpl implements
 
     private final SimpleJdbcTemplate template;
     private final SimpleJdbcInsert insert;
+    private UUIDGenerator uuidGenerator;
 
     public EventTriggerSubscriptionDaoImpl(DataSource dataSource) {
         this.template = new SimpleJdbcTemplate(dataSource);
         this.insert = new SimpleJdbcInsert(dataSource)
                 .withTableName(TABLE_EVENT_TRIGGER_SUBSCRIPTION);
+    }
+
+    public void setUuidGenerator(UUIDGenerator uuidGenerator) {
+        this.uuidGenerator = uuidGenerator;
     }
 
     private static Map<String, Object> subscriptionToFields(
@@ -96,7 +101,7 @@ public class EventTriggerSubscriptionDaoImpl implements
         final Map<String, Object> fields = subscriptionToFields(evtTriggerSubscription);
         String uuid = evtTriggerSubscription.getUuid();
         if (uuid == null || uuid.isEmpty()) {
-            uuid = UUID.randomUUID().toString();
+            uuid = this.uuidGenerator.generate().toString();
         }
         fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
         try {
@@ -190,7 +195,7 @@ public class EventTriggerSubscriptionDaoImpl implements
                 Map<String, Object> fields = subscriptionToFields(eventTriggerSubscription);
                 String uuid = eventTriggerSubscription.getUuid();
                 if (uuid == null || uuid.isEmpty()) {
-                    uuid = UUID.randomUUID().toString();
+                    uuid = this.uuidGenerator.generate().toString();
                 }
                 fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
                 subscriptionFields.add(fields);

@@ -42,8 +42,8 @@ import org.zenoss.protobufs.zep.Zep.EventTagFilter;
 import org.zenoss.protobufs.zep.Zep.EventTagSeverities;
 import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
 import org.zenoss.protobufs.zep.Zep.EventTagSeverity;
-import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.zep.Messages;
+import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
@@ -61,7 +61,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -73,6 +72,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
     // Don't use searcher directly - use getSearcher()/returnSearcher()
     private IndexSearcher _searcher;
     private final String name;
+    
+    @Autowired
+    private UUIDGenerator uuidGenerator;
 
     @Autowired
     private Messages messages;
@@ -791,7 +793,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         if (eventQuery.getTimeout() < 1) {
             throw new ZepException("Invalid timeout: " + eventQuery.getTimeout());
         }
-        final String uuid = UUID.randomUUID().toString();
+        final String uuid = this.uuidGenerator.generate().toString();
         IndexReader reader = null;
         try {
             reader = getSearcher().getIndexReader();

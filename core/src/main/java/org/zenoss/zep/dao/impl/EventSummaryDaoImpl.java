@@ -24,6 +24,7 @@ import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
@@ -66,6 +67,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private EventDaoHelper eventDaoHelper;
 
+    private UUIDGenerator uuidGenerator;
+
     public EventSummaryDaoImpl(DataSource dataSource) throws MetaDataAccessException {
         this.dataSource = dataSource;
         this.template = new SimpleJdbcTemplate(dataSource);
@@ -78,6 +81,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     public void setEventDaoHelper(EventDaoHelper eventDaoHelper) {
         this.eventDaoHelper = eventDaoHelper;
+    }
+
+    public void setUuidGenerator(UUIDGenerator uuidGenerator) {
+        this.uuidGenerator = uuidGenerator;
     }
 
     @Override
@@ -113,10 +120,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         String uuid;
         try {
-            final String createdUuid = UUID.randomUUID().toString();
+            final UUID createdUuid = this.uuidGenerator.generate();
             fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(createdUuid));
             this.insert.execute(fields);
-            uuid = createdUuid;
+            uuid = createdUuid.toString();
         } catch (DuplicateKeyException e) {
             final PreparedStatementCreator creator = this.psFactory.newPreparedStatementCreator(
                 Collections.singletonList(fields.get(COLUMN_FINGERPRINT_HASH)));
@@ -432,7 +439,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int addNote(String uuid, EventNote note) throws ZepException {
-        return EventDaoHelper.addNote(TABLE_EVENT_SUMMARY, uuid, note, template);
+        return this.eventDaoHelper.addNote(TABLE_EVENT_SUMMARY, uuid, note, template);
     }
 
     @Override

@@ -90,6 +90,7 @@
         <property name="eventPublisher" ref="eventPublisher" />
         <property name="heartbeatDao" ref="heartbeatDao" />
         <property name="eventIndexDao" ref="eventSummaryIndexDao" />
+        <property name="uuidGenerator" ref="uuidGenerator" />
     </bean>
 
     <bean id="amqpServerUri" class="org.zenoss.amqp.AmqpServerUri" factory-method="createFromGlobalConf">
@@ -135,6 +136,9 @@
 
     <bean id="messages" class="org.zenoss.zep.Messages">
         <constructor-arg ref="messageSource"/>
+    </bean>
+
+    <bean id="uuidGenerator" class="org.zenoss.zep.impl.UUIDGeneratorImpl">
     </bean>
 
     <!-- Framework for MBeans support -->

@@ -7,9 +7,9 @@ import org.python.core.PyDictionary;
 import org.python.core.PyException;
 import org.python.core.PyFunction;
 import org.python.core.PyInteger;
+import org.python.core.PyList;
 import org.python.core.PyObject;
 import org.python.core.PyString;
-import org.python.core.PyList;
 import org.python.core.PySyntaxError;
 import org.python.core.PyType;
 import org.python.util.PythonInterpreter;
@@ -33,6 +33,7 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.protobufs.zep.Zep.Signal;
+import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
@@ -50,7 +51,6 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -75,6 +75,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
     private EventStoreDao eventStoreDao;
     private EventSummaryDao eventSummaryDao;
     private EventTriggerSubscriptionDao eventTriggerSubscriptionDao;
+    private UUIDGenerator uuidGenerator;
 
     private AmqpConnectionManager connectionManager;
 
@@ -110,6 +111,11 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
     @Autowired
     public void setTaskScheduler(TaskScheduler scheduler) {
         this.scheduler = scheduler;
+    }
+
+    @Autowired
+    public void setUuidGenerator(UUIDGenerator uuidGenerator) {
+        this.uuidGenerator = uuidGenerator;
     }
 
     @Override
@@ -484,7 +490,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                     }
                     else {
                         if (!spoolExists) {
-                            currentSpool = EventSignalSpool.buildSpool(subscription, eventSummary);
+                            currentSpool = EventSignalSpool.buildSpool(subscription, eventSummary, this.uuidGenerator);
                             this.signalSpoolDao.create(currentSpool);
                             rescheduleSpool = true;
                             logger.debug("delay <=0 and not spool exists, send signal for event {}", eventSummary);
@@ -504,7 +510,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
                 else {
                     // delaySeconds > 0
                     if (!spoolExists) {
-                        currentSpool = EventSignalSpool.buildSpool(subscription, eventSummary);
+                        currentSpool = EventSignalSpool.buildSpool(subscription, eventSummary, this.uuidGenerator);
                         this.signalSpoolDao.create(currentSpool);
                         rescheduleSpool = true;
                     }
@@ -536,7 +542,7 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
         try {
             final Event occurrence = summary.getOccurrence(0);
             Signal.Builder signalBuilder = Signal.newBuilder();
-            signalBuilder.setUuid(UUID.randomUUID().toString());
+            signalBuilder.setUuid(this.uuidGenerator.generate().toString());
             signalBuilder.setCreatedTime(System.currentTimeMillis());
             signalBuilder.setEvent(summary);
             signalBuilder.setSubscriberUuid(subscription.getSubscriberUuid());

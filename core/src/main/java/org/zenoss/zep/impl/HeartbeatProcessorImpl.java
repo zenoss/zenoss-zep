@@ -15,6 +15,7 @@ import org.zenoss.protobufs.zep.Zep.EventSummaryRequest;
 import org.zenoss.protobufs.zep.Zep.EventSummaryResult;
 import org.zenoss.zep.EventPublisher;
 import org.zenoss.zep.HeartbeatProcessor;
+import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.HeartbeatDao;
@@ -25,7 +26,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -40,6 +40,7 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
     private EventPublisher eventPublisher;
     private EventIndexDao eventIndexDao;
     private final EventSummaryRequest heartbeatRequest;
+    private UUIDGenerator uuidGenerator;
     
     public HeartbeatProcessorImpl() {
         EventSummaryRequest.Builder builder = EventSummaryRequest.newBuilder();
@@ -58,6 +59,10 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
     
     public void setEventIndexDao(EventIndexDao eventIndexDao) {
         this.eventIndexDao = eventIndexDao;
+    }
+
+    public void setUuidGenerator(UUIDGenerator uuidGenerator) {
+        this.uuidGenerator = uuidGenerator;
     }
 
     @Override
@@ -106,9 +111,9 @@ public class HeartbeatProcessorImpl implements HeartbeatProcessor {
         return events;
     }
 
-    private static Event createHeartbeatEvent(String monitor, String daemon, long createdTime, boolean isClear) {
+    private Event createHeartbeatEvent(String monitor, String daemon, long createdTime, boolean isClear) {
         final Event.Builder event = Event.newBuilder();
-        event.setUuid(UUID.randomUUID().toString());
+        event.setUuid(this.uuidGenerator.generate().toString());
         event.setCreatedTime(createdTime);
         final EventActor.Builder actor = event.getActorBuilder();
         actor.setElementIdentifier(monitor).setElementTypeId(ModelElementType.DEVICE);

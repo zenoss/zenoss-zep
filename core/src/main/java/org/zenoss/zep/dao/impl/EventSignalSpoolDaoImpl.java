@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
@@ -22,7 +23,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
 
@@ -58,9 +58,14 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
             .getLogger(EventSignalSpoolDaoImpl.class);
 
     private final SimpleJdbcTemplate template;
+    private UUIDGenerator uuidGenerator;
 
     public EventSignalSpoolDaoImpl(DataSource dataSource) {
         this.template = new SimpleJdbcTemplate(dataSource);
+    }
+
+    public void setUuidGenerator(UUIDGenerator uuidGenerator) {
+        this.uuidGenerator = uuidGenerator;
     }
 
     private static Map<String, Object> spoolToFields(EventSignalSpool spool) {
@@ -83,7 +88,7 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
         final Map<String, Object> fields = spoolToFields(spool);
         String uuid = spool.getUuid();
         if (uuid == null) {
-            uuid = UUID.randomUUID().toString();
+            uuid = uuidGenerator.generate().toString();
         }
         fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
         try {

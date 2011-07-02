@@ -11,6 +11,7 @@ import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
@@ -36,6 +37,8 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     private EventDaoHelper eventDaoHelper;
 
+    private UUIDGenerator uuidGenerator;
+
     private final PartitionTableConfig partitionTableConfig;
 
     private final RangePartitioner partitioner;
@@ -55,6 +58,10 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         this.eventDaoHelper = eventDaoHelper;
     }
 
+    public void setUuidGenerator(UUIDGenerator uuidGenerator) {
+        this.uuidGenerator = uuidGenerator;
+    }
+
     @Override
     @TransactionalRollbackAllExceptions
     public String create(Event event, EventStatus eventStatus) throws ZepException {
@@ -66,7 +73,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
         final long created = event.getCreatedTime();
         long updateTime = System.currentTimeMillis();
-        final String uuid = UUID.randomUUID().toString();
+        final UUID uuid = this.uuidGenerator.generate();
         final int eventCount = 1;
         fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
         fields.put(COLUMN_STATUS_ID, eventStatus.getNumber());
@@ -77,7 +84,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         fields.put(COLUMN_UPDATE_TIME, updateTime);
 
         this.template.update(DaoUtils.createNamedInsert(TABLE_EVENT_ARCHIVE, fields.keySet()), fields);
-        return uuid;
+        return uuid.toString();
     }
 
     @Override
@@ -130,7 +137,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int addNote(String uuid, EventNote note) throws ZepException {
-        return EventDaoHelper.addNote(TABLE_EVENT_ARCHIVE, uuid, note, template);
+        return this.eventDaoHelper.addNote(TABLE_EVENT_ARCHIVE, uuid, note, template);
     }
 
     @Override
