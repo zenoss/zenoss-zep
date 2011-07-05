@@ -50,7 +50,7 @@ public class MigratedEventQueueListener extends AbstractEventQueueListener {
         } catch (DuplicateKeyException e) {
             // Create event summary entry - if we get a duplicate key exception just skip importing this event as it
             // either has already been imported or there is already an active event with the same fingerprint.
-            logger.info("Event with UUID already exists in database - skipping", summary.getUuid());
+            logger.info("Event with UUID {} already exists in database - skipping", summary.getUuid());
         }
     }
 
