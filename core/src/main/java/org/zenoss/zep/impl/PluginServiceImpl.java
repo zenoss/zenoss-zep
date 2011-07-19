@@ -76,7 +76,14 @@ public class PluginServiceImpl implements PluginService, ApplicationListener<Con
 
     private URLClassLoader createPluginClassLoader() throws ZenossException {
         final List<URL> urls = new ArrayList<URL>();
-        final List<ZenPack> zenPacks = ZenPacks.getAllZenPacks();
+        List<ZenPack> zenPacks;
+        try {
+            zenPacks = ZenPacks.getAllZenPacks();
+        } catch (ZenossException e) {
+            logger.warn("Unable to find ZenPacks", e);
+            return null;
+        }
+
         for (ZenPack zenPack : zenPacks) {
             final File pluginDir = new File(zenPack.packPath("zep", "plugins"));
             if (!pluginDir.isDirectory()) {
