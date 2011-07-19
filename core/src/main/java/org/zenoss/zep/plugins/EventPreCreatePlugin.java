@@ -1,15 +1,17 @@
 /*
  * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
  */
-package org.zenoss.zep;
+package org.zenoss.zep.plugins;
 
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.zep.EventContext;
+import org.zenoss.zep.ZepException;
 
 /**
  * Pre-processing plug-ins operate on an event before it is persisted, and can
- * mutate properties of the event.
+ * change properties of the event.
  */
-public interface EventPreProcessingPlugin extends EventPlugin {
+public abstract class EventPreCreatePlugin extends EventPlugin {
     /**
      * Processes the event. If no processing takes place, this method can return
      * null.
@@ -19,9 +21,8 @@ public interface EventPreProcessingPlugin extends EventPlugin {
      * @param ctx
      *            Context information available to the plug-in.
      * @return The processed event, or null if the event is not modified.
-     * @throws ZepException
+     * @throws org.zenoss.zep.ZepException
      *             If an exception occurred processing the event.
      */
-    public Event processEvent(Event event, EventContext ctx)
-            throws ZepException;
+    public abstract Event processEvent(Event event, EventContext ctx) throws ZepException;
 }

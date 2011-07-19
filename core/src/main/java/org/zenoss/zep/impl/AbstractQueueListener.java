@@ -6,20 +6,16 @@ package org.zenoss.zep.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.TransientDataAccessException;
-import org.zenoss.amqp.AmqpConnectionManager;
 import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.Consumer;
 import org.zenoss.amqp.Message;
-import org.zenoss.amqp.QueueConfiguration;
 import org.zenoss.amqp.QueueListener;
-import org.zenoss.amqp.ZenossQueueConfig;
 
-import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 
-public abstract class AbstractEventQueueListener extends QueueListener {
+public abstract class AbstractQueueListener extends QueueListener {
 
-    private static final Logger logger = LoggerFactory.getLogger(AbstractEventQueueListener.class);
+    private static final Logger logger = LoggerFactory.getLogger(AbstractQueueListener.class);
 
     protected ExecutorService executorService;
 
@@ -29,13 +25,7 @@ public abstract class AbstractEventQueueListener extends QueueListener {
         this.executorService = executorService;
     }
 
-    public void setConnectionManager(AmqpConnectionManager connectionManager)
-            throws IOException {
-        QueueConfiguration queueCfg = ZenossQueueConfig.getConfig().getQueue(this.getQueueIdentifier());
-        connectionManager.addListener(queueCfg, this);
-    }
-
-    protected static boolean isTransientException(Exception e) {
+    protected boolean isTransientException(Exception e) {
         boolean isTransient = false;
         Throwable t = e;
         while (t != null) {

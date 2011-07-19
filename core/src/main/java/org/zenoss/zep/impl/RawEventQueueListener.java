@@ -11,7 +11,7 @@ import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.EventProcessor;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 
-public class RawEventQueueListener extends AbstractEventQueueListener {
+public class RawEventQueueListener extends AbstractQueueListener {
 
     private static final Logger logger = LoggerFactory.getLogger(RawEventQueueListener.class);
 

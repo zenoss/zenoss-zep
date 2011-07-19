@@ -35,6 +35,7 @@ import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.EventTestUtils;
+import org.zenoss.zep.impl.EventContextImpl;
 import org.zenoss.zep.index.EventIndexDao;
 
 import java.util.ArrayList;
@@ -73,7 +74,8 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     }
 
     private EventSummary createSummary(Event event, EventStatus status) throws ZepException {
-        String uuid = eventSummaryDao.create(event, status);
+        Event changedStatus = Event.newBuilder(event).setStatus(status).build();
+        String uuid = eventSummaryDao.create(changedStatus, new EventContextImpl());
         return eventSummaryDao.findByUuid(uuid);
     }
 

@@ -3,7 +3,18 @@
  */
 package org.zenoss.zep.impl;
 
-import static org.junit.Assert.*;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
+import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.zep.EventContext;
+import org.zenoss.zep.ZepException;
+import org.zenoss.zep.plugins.EventPostIndexPlugin;
+import org.zenoss.zep.plugins.EventPreCreatePlugin;
+import org.zenoss.zep.plugins.exceptions.DependencyCycleException;
+import org.zenoss.zep.plugins.exceptions.MissingDependencyException;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -16,18 +27,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
-import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
-import org.zenoss.protobufs.zep.Zep.Event;
-import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.zep.EventContext;
-import org.zenoss.zep.EventPostProcessingPlugin;
-import org.zenoss.zep.EventPreProcessingPlugin;
-import org.zenoss.zep.ZepException;
-import org.zenoss.zep.impl.PluginServiceImpl.DependencyCycleException;
-import org.zenoss.zep.impl.PluginServiceImpl.MissingDependencyException;
+import static org.junit.Assert.*;
 
 @ContextConfiguration("classpath:zep-test-plugins.xml")
 public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
@@ -40,19 +40,16 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         Properties properties = new Properties();
         InputStream is = null;
         try {
-            is = getClass().getResourceAsStream(
-                    "/test-zeneventserver.conf");
+            is = getClass().getResourceAsStream("/test-zeneventserver.conf");
             properties.load(is);
         } finally {
             if (is != null) {
                 is.close();
             }
         }
-        List<EventPreProcessingPlugin> prePlugins = pluginService
-                .getPreProcessingPlugins();
+        List<EventPreCreatePlugin> prePlugins = pluginService.getPluginsByType(EventPreCreatePlugin.class);
         assertEquals(3, prePlugins.size());
-        List<EventPostProcessingPlugin> postPlugins = pluginService
-                .getPostProcessingPlugins();
+        List<EventPostIndexPlugin> postPlugins = pluginService.getPluginsByType(EventPostIndexPlugin.class);
         assertEquals(2, postPlugins.size());
         /* Verify order */
         assertEquals("MyPrePlugin3", prePlugins.get(0).getId());
@@ -62,14 +59,13 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         assertEquals("MyPrePlugin1", prePlugins.get(2).getId());
         assertEquals("MyPostPlugin2", postPlugins.get(0).getId());
         assertEquals("MyPostPlugin1", postPlugins.get(1).getId());
-        assertEquals(
-                properties.getProperty("plugin.MyPostPlugin1.myprop.name"),
+        assertEquals(properties.getProperty("plugin.MyPostPlugin1.myprop.name"),
                 postPlugins.get(1).getProperties().get("myprop.name"));
     }
 
     @Test
     public void testCycleDetection() throws MissingDependencyException {
-        EventPreProcessingPlugin plugin1 = new AbstractPreProcessingPlugin() {
+        EventPreCreatePlugin plugin1 = new EventPreCreatePlugin() {
             @Override
             public String getId() {
                 return "Plugin1";
@@ -86,7 +82,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
                 return event;
             }
         };
-        EventPreProcessingPlugin plugin2 = new AbstractPreProcessingPlugin() {
+        EventPreCreatePlugin plugin2 = new EventPreCreatePlugin() {
             @Override
             public String getId() {
                 return "Plugin2";
@@ -103,7 +99,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
                 return event;
             }
         };
-        EventPreProcessingPlugin plugin3 = new AbstractPreProcessingPlugin() {
+        EventPreCreatePlugin plugin3 = new EventPreCreatePlugin() {
             @Override
             public String getId() {
                 return "Plugin3";
@@ -120,7 +116,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
                 return event;
             }
         };
-        Map<String, EventPreProcessingPlugin> plugins = new HashMap<String, EventPreProcessingPlugin>();
+        Map<String, EventPreCreatePlugin> plugins = new HashMap<String, EventPreCreatePlugin>();
         plugins.put(plugin1.getId(), plugin1);
         plugins.put(plugin2.getId(), plugin2);
         plugins.put(plugin3.getId(), plugin3);
@@ -136,7 +132,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
     @Test
     public void testMissingDependency() throws DependencyCycleException,
             MissingDependencyException {
-        EventPreProcessingPlugin plugin1 = new AbstractPreProcessingPlugin() {
+        EventPreCreatePlugin plugin1 = new EventPreCreatePlugin() {
             @Override
             public String getId() {
                 return "Plugin1";
@@ -155,7 +151,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         };
         try {
             PluginServiceImpl.detectCycles(Collections
-                    .<String, EventPreProcessingPlugin> singletonMap(
+                    .<String, EventPreCreatePlugin> singletonMap(
                             plugin1.getId(), plugin1), Collections
                     .<String> emptySet());
             fail("Expected MissingDependencyException");
@@ -169,13 +165,13 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
          * is thrown.
          */
         PluginServiceImpl.detectCycles(Collections
-                .<String, EventPreProcessingPlugin> singletonMap(
+                .<String, EventPreCreatePlugin> singletonMap(
                         plugin1.getId(), plugin1),
                 Collections.<String> singleton(plugin1.getDependencies()
                         .iterator().next()));
     }
 
-    public static final class MyPrePlugin1 extends AbstractPreProcessingPlugin {
+    public static final class MyPrePlugin1 extends EventPreCreatePlugin {
         @Override
         public String getId() {
             return getClass().getSimpleName();
@@ -198,7 +194,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         }
     }
 
-    public static final class MyPrePlugin2 extends AbstractPreProcessingPlugin {
+    public static final class MyPrePlugin2 extends EventPreCreatePlugin {
         @Override
         public String getId() {
             return getClass().getSimpleName();
@@ -221,56 +217,29 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         }
     }
 
-    public static final class MyPrePlugin3 extends AbstractPreProcessingPlugin {
-        @Override
-        public String getId() {
-            return getClass().getSimpleName();
-        }
-
+    public static final class MyPrePlugin3 extends EventPreCreatePlugin {
         @Override
         public Event processEvent(Event event, EventContext ctx)
                 throws ZepException {
             return event;
         }
-
-        @Override
-        public String toString() {
-            return getClass().getSimpleName() + "[" + this.properties + "]";
-        }
     }
 
-    public static final class MyPostPlugin1 extends
-            AbstractPostProcessingPlugin {
-        @Override
-        public String getId() {
-            return getClass().getSimpleName();
-        }
-
+    public static final class MyPostPlugin1 extends EventPostIndexPlugin {
         @Override
         public Set<String> getDependencies() {
             return new HashSet<String>(Arrays.asList("MyPrePlugin1", "MyPostPlugin2"));
         }
 
         @Override
-        public void processEvent(EventSummary event)
+        public void processEvent(EventSummary eventSummary)
                 throws ZepException {
         }
     }
 
-    public static final class MyPostPlugin2 extends
-            AbstractPostProcessingPlugin {
+    public static final class MyPostPlugin2 extends EventPostIndexPlugin {
         @Override
-        public String getId() {
-            return getClass().getSimpleName();
-        }
-
-        @Override
-        public Set<String> getDependencies() {
-            return super.getDependencies();
-        }
-
-        @Override
-        public void processEvent(EventSummary event)
+        public void processEvent(EventSummary eventSummary)
                 throws ZepException {
         }
     }

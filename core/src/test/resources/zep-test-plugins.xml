@@ -13,7 +13,8 @@
     </bean>
     
     <bean id="pluginService" class="org.zenoss.zep.impl.PluginServiceImpl">
-        <property name="pluginProperties" ref="testPluginProperties" />
+        <constructor-arg index="0" ref="testPluginProperties" />
+        <constructor-arg index="1" value="false" />
     </bean>
 
     <bean id="myPrePlugin1" class="org.zenoss.zep.impl.PluginServiceImplTest$MyPrePlugin1">

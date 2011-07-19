@@ -19,6 +19,7 @@ import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
+import org.zenoss.zep.impl.EventContextImpl;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -39,31 +40,32 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
     public EventSummaryDao eventSummaryDao;
 
     private static void compareEvents(Event event, Event eventFromDb) {
-        Event event1 = Event.newBuilder().mergeFrom(event).clearUuid()
+        Event event1 = Event.newBuilder().mergeFrom(event).clearUuid().clearStatus()
                 .clearCreatedTime().clearTags().addAllTags(EventDaoHelper.buildTags(event)).build();
-        Event event2 = Event.newBuilder().mergeFrom(eventFromDb).clearUuid()
+        Event event2 = Event.newBuilder().mergeFrom(eventFromDb).clearUuid().clearStatus()
                 .clearCreatedTime().build();
         assertEquals(event1, event2);
     }
 
+    private Event createClosedEvent() {
+        return Event.newBuilder(EventTestUtils.createSampleEvent()).setStatus(EventStatus.STATUS_CLOSED).build();
+    }
+
     private EventSummary createArchive(Event event) throws ZepException {
-        return eventArchiveDao.findByUuid(eventArchiveDao.create(event, EventStatus.STATUS_CLOSED));
+        return eventArchiveDao.findByUuid(eventArchiveDao.create(event, new EventContextImpl()));
     }
 
     @Test
     public void testArchiveInsert() throws ZepException, InterruptedException {
-        Event event = EventTestUtils.createSampleEvent();
+        Event event = createClosedEvent();
         EventSummary eventSummaryFromDb = createArchive(event);
         Event eventFromSummary = eventSummaryFromDb.getOccurrence(0);
         compareEvents(event, eventFromSummary);
         assertEquals(1, eventSummaryFromDb.getCount());
         assertEquals(EventStatus.STATUS_CLOSED, eventSummaryFromDb.getStatus());
-        assertEquals(eventFromSummary.getCreatedTime(),
-                eventSummaryFromDb.getFirstSeenTime());
-        assertEquals(eventFromSummary.getCreatedTime(),
-                eventSummaryFromDb.getStatusChangeTime());
-        assertEquals(eventFromSummary.getCreatedTime(),
-                eventSummaryFromDb.getLastSeenTime());
+        assertEquals(eventFromSummary.getCreatedTime(), eventSummaryFromDb.getFirstSeenTime());
+        assertEquals(eventFromSummary.getCreatedTime(), eventSummaryFromDb.getStatusChangeTime());
+        assertEquals(eventFromSummary.getCreatedTime(), eventSummaryFromDb.getLastSeenTime());
         assertFalse(eventSummaryFromDb.hasCurrentUserUuid());
         assertFalse(eventSummaryFromDb.hasClearedByEventUuid());
     }
@@ -88,6 +90,7 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         eventBuilder.setMonitor("monitor");
         eventBuilder.setNtEventCode(new Random().nextInt(50000));
         eventBuilder.setSeverity(EventSeverity.SEVERITY_CRITICAL);
+        eventBuilder.setStatus(EventStatus.STATUS_CLOSED);
         eventBuilder.setSummary("summary message");
         eventBuilder.setSyslogFacility(11);
         eventBuilder.setSyslogPriority(SyslogPriority.SYSLOG_PRIORITY_DEBUG);

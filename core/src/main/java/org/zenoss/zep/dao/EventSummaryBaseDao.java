@@ -6,8 +6,8 @@ package org.zenoss.zep.dao;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
-import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.zep.EventContext;
 import org.zenoss.zep.ZepException;
 
 import java.util.List;
@@ -21,12 +21,11 @@ public interface EventSummaryBaseDao {
      * specified event occurrence.
      * 
      * @param event The event occurrence.
-     * @param eventStatus Initial status of the event (default is
-     *                    {@link org.zenoss.protobufs.zep.Zep.EventStatus#STATUS_NEW}).
+     * @param context Additional information used to create the event.
      * @return The UUID of the created (or updated) event.
      * @throws org.zenoss.zep.ZepException If an error occurs.
      */
-    public String create(Event event, EventStatus eventStatus) throws ZepException;
+    public String create(Event event, EventContext context) throws ZepException;
     
     /**
      * Returns the event summary in the archive table with the specified UUID.

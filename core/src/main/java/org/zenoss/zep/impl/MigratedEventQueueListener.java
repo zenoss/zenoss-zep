@@ -16,7 +16,7 @@ import org.zenoss.zep.dao.EventSummaryBaseDao;
 /**
  * Used to import migrated events into ZEP.
  */
-public class MigratedEventQueueListener extends AbstractEventQueueListener {
+public class MigratedEventQueueListener extends AbstractQueueListener {
 
     private static final Logger logger = LoggerFactory.getLogger(MigratedEventQueueListener.class);
 

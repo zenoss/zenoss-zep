@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.zenoss.protobufs.zep.Zep.Event;
-import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
@@ -21,6 +20,7 @@ import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.EventTriggerDao;
 import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
+import org.zenoss.zep.impl.EventContextImpl;
 
 import java.util.HashSet;
 import java.util.List;
@@ -48,18 +48,14 @@ public class EventSignalSpoolDaoIT extends
     @Autowired
     public UUIDGenerator uuidGenerator;
     
-    private EventSummary createSummaryNew(Event event) throws ZepException {
-        return createSummary(event, EventStatus.STATUS_NEW);
-    }
-
-    private EventSummary createSummary(Event event, EventStatus status) throws ZepException {
-        String uuid = eventSummaryDao.create(event, status);
+    private EventSummary createSummary(Event event) throws ZepException {
+        String uuid = eventSummaryDao.create(event, new EventContextImpl());
         return eventSummaryDao.findByUuid(uuid);
     }
 
     private EventSummary createSampleSummary() throws ZepException {
         Event event = EventTestUtils.createSampleEvent();
-        return createSummaryNew(event);
+        return createSummary(event);
     }
 
     private EventTrigger createTrigger() throws ZepException {

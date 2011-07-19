@@ -1,7 +1,9 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep;
+
+import org.zenoss.zep.plugins.EventPlugin;
 
 import java.util.List;
 
@@ -9,22 +11,17 @@ import java.util.List;
  * Service which can look up event plug-ins of various types.
  */
 public interface PluginService {
-    /**
-     * Returns a list of configured pre-processing plug-ins, or an empty list if
-     * none are configured. The pre-processing plug-ins must run in the order
-     * returned by this list.
-     * 
-     * @return A list of configured pre-processing plug-ins, or an empty list if
-     *         none are configured.
-     */
-    public List<EventPreProcessingPlugin> getPreProcessingPlugins();
 
     /**
-     * Returns a list of configured post-processing plug-ins. Post-processing
-     * plug-ins can run in any order.
+     * Returns a list of configured plug-ins of the specified type.
      * 
-     * @return A list of configured post-processing plug-ins, or an empty list
-     *         if none are configured.
+     * @return A list of configured plug-ins of the specified type.
      */
-    public List<EventPostProcessingPlugin> getPostProcessingPlugins();
+    public <T extends EventPlugin> List<T> getPluginsByType(Class<T> clazz);
+
+    /**
+     * Shuts down the PluginService.
+     */
+    public void shutdown();
+    
 }

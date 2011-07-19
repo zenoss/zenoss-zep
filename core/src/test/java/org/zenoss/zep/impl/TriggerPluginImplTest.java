@@ -15,7 +15,6 @@ import java.util.concurrent.ScheduledFuture;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
 import org.zenoss.protobufs.model.Model.ModelElementType;
@@ -47,12 +46,12 @@ public class TriggerPluginImplTest {
         replay(spoolDaoMock, schedulerMock, futureMock);
         this.triggerPlugin.setSignalSpoolDao(this.spoolDaoMock);
         this.triggerPlugin.setTaskScheduler(this.schedulerMock);
-        this.triggerPlugin.init(props);
+        this.triggerPlugin.start(props);
     }
     
     @After
     public void shutdown() throws InterruptedException {
-        this.triggerPlugin.shutdown();
+        this.triggerPlugin.stop();
         verify(this.spoolDaoMock, this.schedulerMock, this.futureMock);
     }
 

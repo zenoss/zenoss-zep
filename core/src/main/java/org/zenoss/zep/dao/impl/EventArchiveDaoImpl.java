@@ -9,8 +9,8 @@ import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
-import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.zep.EventContext;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -64,9 +64,9 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    public String create(Event event, EventStatus eventStatus) throws ZepException {
-        if (!ZepConstants.CLOSED_STATUSES.contains(eventStatus)) {
-            throw new ZepException("Invalid status for event in event archive: " + eventStatus);
+    public String create(Event event, EventContext context) throws ZepException {
+        if (!ZepConstants.CLOSED_STATUSES.contains(event.getStatus())) {
+            throw new ZepException("Invalid status for event in event archive: " + event.getStatus());
         }
 
         Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
@@ -76,7 +76,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         final UUID uuid = this.uuidGenerator.generate();
         final int eventCount = 1;
         fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
-        fields.put(COLUMN_STATUS_ID, eventStatus.getNumber());
+        fields.put(COLUMN_STATUS_ID, event.getStatus().getNumber());
         fields.put(COLUMN_FIRST_SEEN, created);
         fields.put(COLUMN_STATUS_CHANGE, created);
         fields.put(COLUMN_LAST_SEEN, created);

@@ -22,10 +22,12 @@ import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
+import org.zenoss.zep.ClearFingerprintGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
+import org.zenoss.zep.impl.EventContextImpl;
 
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
@@ -65,13 +67,15 @@ public class EventSummaryDaoImplIT extends
 
     private EventSummary createSummary(Event event, EventStatus status)
             throws ZepException {
-        String uuid = eventSummaryDao.create(event, status);
+        Event eventStatus = Event.newBuilder(event).setStatus(status).build();
+        String uuid = eventSummaryDao.create(eventStatus, new EventContextImpl());
         return eventSummaryDao.findByUuid(uuid);
     }
 
-    private EventSummary createSummaryClear(Event event,
-            Set<String> clearClasses) throws ZepException {
-        String uuid = eventSummaryDao.createClearEvent(event, clearClasses);
+    private EventSummary createSummaryClear(Event event, Set<String> clearClasses) throws ZepException {
+        EventContextImpl eventContext = new EventContextImpl();
+        eventContext.setClearClasses(clearClasses);
+        String uuid = eventSummaryDao.create(event, eventContext);
         return eventSummaryDao.findByUuid(uuid);
     }
 
@@ -154,8 +158,9 @@ public class EventSummaryDaoImplIT extends
          * Verify acknowledged events aren't changed to new with a new
          * occurrence.
          */
-        Event event = EventTestUtils.createSampleEvent();
-        eventSummaryDao.create(event, EventStatus.STATUS_ACKNOWLEDGED);
+        Event event = Event.newBuilder(EventTestUtils.createSampleEvent())
+                .setStatus(EventStatus.STATUS_ACKNOWLEDGED).build();
+        eventSummaryDao.create(event, new EventContextImpl());
         Event.Builder newEventBuilder = Event.newBuilder().mergeFrom(event);
         newEventBuilder.setUuid(UUID.randomUUID().toString());
         newEventBuilder.setCreatedTime(event.getCreatedTime() + 50L);
@@ -175,15 +180,16 @@ public class EventSummaryDaoImplIT extends
          * Verify acknowledged events aren't changed to suppressed with a new
          * occurrence.
          */
-        Event event = EventTestUtils.createSampleEvent();
-        eventSummaryDao.create(event, EventStatus.STATUS_ACKNOWLEDGED);
+        Event event = Event.newBuilder(EventTestUtils.createSampleEvent())
+                .setStatus(EventStatus.STATUS_ACKNOWLEDGED).build();
+        eventSummaryDao.create(event, new EventContextImpl());
         Event.Builder newEventBuilder = Event.newBuilder().mergeFrom(event);
         newEventBuilder.setUuid(UUID.randomUUID().toString());
         newEventBuilder.setCreatedTime(event.getCreatedTime() + 50L);
+        newEventBuilder.setStatus(EventStatus.STATUS_SUPPRESSED);
         Event newEvent = newEventBuilder.build();
 
-        EventSummary newEventSummaryFromDb = createSummary(newEvent,
-                EventStatus.STATUS_SUPPRESSED);
+        EventSummary newEventSummaryFromDb = createSummaryNew(newEvent);
 
         assertEquals(EventStatus.STATUS_ACKNOWLEDGED,
                 newEventSummaryFromDb.getStatus());
@@ -584,6 +590,42 @@ public class EventSummaryDaoImplIT extends
         assertEquals(EventStatus.STATUS_CLOSED, clearEvent.getStatus());
         EventSummary normalEventSummary = eventSummaryDao
                 .findByUuid(normalEvent.getUuid());
+        assertEquals(EventStatus.STATUS_CLEARED, normalEventSummary.getStatus());
+        assertEquals(clearEvent.getUuid(), normalEventSummary.getClearedByEventUuid());
+        assertTrue(normalEventSummary.getStatusChangeTime() > normalEvent.getStatusChangeTime());
+        compareSummary(normalEvent, normalEventSummary);
+    }
+
+    @Test
+    public void testClearEventsCustomGenerator() throws ZepException {
+        Event event = Event.newBuilder(createUniqueEvent()).setSeverity(EventSeverity.SEVERITY_WARNING)
+                .setEventKey("MyKey2").build();
+        Event clear = Event.newBuilder(createUniqueEvent()).setSeverity(EventSeverity.SEVERITY_CLEAR)
+                .setActor(event.getActor()).setEventKey("MyKey2").build();
+        ClearFingerprintGenerator generator = new ClearFingerprintGenerator() {
+            @Override
+            public String generateClearFingerprint(Event event) {
+                return EventDaoUtils.DEFAULT_GENERATOR.generateClearFingerprint(event) + "|MyCustomField";
+            }
+
+            @Override
+            public List<String> generateClearFingerprints(Event event, Set<String> clearClasses) {
+                final List<String> original = EventDaoUtils.DEFAULT_GENERATOR.generateClearFingerprints(event,
+                        clearClasses);
+                final List<String> updated = new ArrayList<String>(original.size());
+                for (String originalFingerprint : original) {
+                    updated.add(originalFingerprint + "|MyCustomField");
+                }
+                return updated;
+            }
+        };
+        EventContextImpl ctx = new EventContextImpl();
+        ctx.setClearFingerprintGenerator(generator);
+        EventSummary normalEvent = eventSummaryDao.findByUuid(eventSummaryDao.create(event, ctx));
+        ctx.getClearClasses().add(event.getEventClass());
+        EventSummary clearEvent = eventSummaryDao.findByUuid(eventSummaryDao.create(clear, ctx));
+        assertEquals(EventStatus.STATUS_CLOSED, clearEvent.getStatus());
+        EventSummary normalEventSummary = eventSummaryDao.findByUuid(normalEvent.getUuid());
         assertEquals(EventStatus.STATUS_CLEARED, normalEventSummary.getStatus());
         assertEquals(clearEvent.getUuid(), normalEventSummary.getClearedByEventUuid());
         assertTrue(normalEventSummary.getStatusChangeTime() > normalEvent.getStatusChangeTime());

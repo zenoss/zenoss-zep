@@ -14,7 +14,7 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSummaryDao;
 
-public class ModelChangeEventQueueListener extends AbstractEventQueueListener {
+public class ModelChangeEventQueueListener extends AbstractQueueListener {
 
     private static final Logger logger = LoggerFactory.getLogger(ModelChangeEventQueueListener.class);
 

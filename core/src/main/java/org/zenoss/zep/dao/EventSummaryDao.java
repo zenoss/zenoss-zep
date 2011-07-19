@@ -17,21 +17,6 @@ import java.util.concurrent.TimeUnit;
  * DAO which provides an interface to the event summary table.
  */
 public interface EventSummaryDao extends EventSummaryBaseDao {
-
-    /**
-     * Creates a clear event with the specified clear classes.
-     * 
-     * @param event
-     *            Event occurrence.
-     * @param clearClasses
-     *            Clear classes.
-     * @return The UUID of the created clear event, or null if this clear
-     *         event didn't clear any existing events and was dropped.
-     * @throws ZepException If an exception occurred.
-     */
-    public String createClearEvent(Event event, Set<String> clearClasses)
-            throws ZepException;
-
     /**
      * Updates event summaries recorded with null device UUIDs, after
      * receiving a ModelChange event for the device's addition - sets the

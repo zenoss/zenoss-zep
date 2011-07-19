@@ -43,6 +43,7 @@ import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.EventTriggerDao;
 import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
+import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -66,7 +67,7 @@ import java.util.concurrent.TimeUnit;
  * If an event which previously triggered a signal is cleared by another event, a final signal is sent
  * with the clear attribute set to true.
  */
-public class TriggerPlugin extends AbstractPostProcessingPlugin {
+public class TriggerPlugin extends EventPostIndexPlugin {
 
     private static final Logger logger = LoggerFactory.getLogger(TriggerPlugin.class);
 
@@ -119,8 +120,8 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
     }
 
     @Override
-    public void init(Map<String, String> properties) {
-        super.init(properties);
+    public void start(Map<String, String> properties) {
+        super.start(properties);
 
         this.python = new PythonInterpreter();
 
@@ -139,7 +140,8 @@ public class TriggerPlugin extends AbstractPostProcessingPlugin {
         scheduleSpool();
     }
 
-    public void shutdown() throws InterruptedException {
+    @Override
+    public void stop() {
         this.python.cleanup();
         if (spoolFuture != null) {
             spoolFuture.cancel(true);

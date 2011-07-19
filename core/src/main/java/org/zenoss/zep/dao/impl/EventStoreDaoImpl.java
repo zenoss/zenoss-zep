@@ -45,18 +45,6 @@ public class EventStoreDaoImpl implements EventStoreDao {
     }
 
     @Override
-    @TransactionalRollbackAllExceptions
-    public String create(Event event, EventContext eventContext) throws ZepException {
-        final String uuid;
-        if (event.getSeverity() == EventSeverity.SEVERITY_CLEAR) {
-            uuid = this.eventSummaryDao.createClearEvent(event, eventContext.getClearClasses());
-        } else {
-            uuid = this.eventSummaryDao.create(event, event.getStatus());
-        }
-        return uuid;
-    }
-
-    @Override
     @TransactionalReadOnly
     public EventSummary findByUuid(String uuid) throws ZepException {
         EventSummary summary = eventSummaryDao.findByUuid(uuid);

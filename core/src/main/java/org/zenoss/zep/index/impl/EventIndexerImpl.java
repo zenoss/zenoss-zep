@@ -10,7 +10,6 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.zep.EventPostProcessingPlugin;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -26,6 +25,7 @@ import org.zenoss.zep.dao.IndexMetadataDao;
 import org.zenoss.zep.dao.impl.DaoUtils;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
+import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.util.Arrays;
 import java.util.List;
@@ -237,14 +237,14 @@ public class EventIndexerImpl implements EventIndexer {
 
     private int doIndex(final EventIndexQueueDao queueDao, final EventIndexDao indexDao, long throughTime)
             throws ZepException {
-        final List<EventPostProcessingPlugin> plugins = this.pluginService.getPostProcessingPlugins();
+        final List<EventPostIndexPlugin> plugins = this.pluginService.getPluginsByType(EventPostIndexPlugin.class);
         
         int numIndexed = queueDao.indexEvents(new EventIndexHandler() {
             @Override
             public void handle(EventSummary event) throws Exception {
                 indexDao.stage(event);
                 if (shouldRunPostprocessing(event)) {
-                    for (EventPostProcessingPlugin plugin : plugins) {
+                    for (EventPostIndexPlugin plugin : plugins) {
                         try {
                             plugin.processEvent(event);
                         } catch (Exception e) {

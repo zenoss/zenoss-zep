@@ -24,6 +24,7 @@ import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.zep.EventContext;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -45,7 +46,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
@@ -89,14 +89,35 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    public String create(Event event, EventStatus status) throws ZepException {
+    public String create(Event event, EventContext context) throws ZepException {
         final Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
         final Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
         final long created = event.getCreatedTime();
         final long updateTime = System.currentTimeMillis();
         final int eventCount = 1;
+        
+        /*
+         * Clear events are dropped if they don't clear any corresponding events.
+         */
+        final List<String> clearedEventUuids;
+        if (event.getSeverity() == EventSeverity.SEVERITY_CLEAR) {
+            clearedEventUuids = this.clearEvents(event, context);
+            if (clearedEventUuids.isEmpty()) {
+                logger.debug("Clear event didn't clear any events, dropping: {}", event);
+                return null;
+            }
+            // Clear events always get created in CLOSED status
+            if (event.getStatus() != EventStatus.STATUS_CLOSED) {
+                event = Event.newBuilder(event).setStatus(EventStatus.STATUS_CLOSED).build();
+            }
+        }
+        else {
+            clearedEventUuids = Collections.emptyList();
+            fields.put(COLUMN_CLEAR_FINGERPRINT_HASH, EventDaoUtils.createClearHash(event,
+                    context.getClearFingerprintGenerator()));
+        }
 
-        fields.put(COLUMN_STATUS_ID, status.getNumber());
+        fields.put(COLUMN_STATUS_ID, event.getStatus().getNumber());
         fields.put(COLUMN_UPDATE_TIME, updateTime);
         fields.put(COLUMN_FIRST_SEEN, created);
         fields.put(COLUMN_STATUS_CHANGE, created);
@@ -107,15 +128,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
          * Closed events have a unique fingerprint_hash in summary to allow multiple rows
          * but only allow one active event (where the de-duplication occurs).
          */
-        if (ZepConstants.CLOSED_STATUSES.contains(status)) {
+        if (ZepConstants.CLOSED_STATUSES.contains(event.getStatus())) {
             String uniqueFingerprint = (String) fields.get(COLUMN_FINGERPRINT) + '|' + updateTime;
             fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1(uniqueFingerprint));
         }
         else {
             fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1((String)fields.get(COLUMN_FINGERPRINT)));
-        }
-        if (event.getSeverity() != EventSeverity.SEVERITY_CLEAR) {
-            fields.put(COLUMN_CLEAR_FINGERPRINT_HASH, EventDaoUtils.createClearHash(event));
         }
 
         String uuid;
@@ -129,6 +147,13 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 Collections.singletonList(fields.get(COLUMN_FINGERPRINT_HASH)));
             final RowUpdaterMapper mapper = new RowUpdaterMapper(event, fields);
             uuid = this.template.getJdbcOperations().query(creator, mapper).get(0);
+        }
+
+        // Mark cleared events as cleared by this event
+        if (!clearedEventUuids.isEmpty()) {
+            final EventSummaryUpdateFields updateFields = new EventSummaryUpdateFields();
+            updateFields.setClearedByEventUuid(uuid);
+            update(clearedEventUuids, EventStatus.STATUS_CLEARED, updateFields, ZepConstants.OPEN_STATUSES);
         }
         return uuid;
     }
@@ -265,48 +290,31 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }
     }
 
-    @Override
-    @TransactionalRollbackAllExceptions
-    public String createClearEvent(Event event, Set<String> clearClasses)
+    private List<String> clearEvents(Event event, EventContext context)
             throws ZepException {
-        final List<byte[]> clearHashes = EventDaoUtils.createClearHashes(event, clearClasses);
+        final List<byte[]> clearHashes = EventDaoUtils.createClearHashes(event, context);
         if (clearHashes.isEmpty()) {
-            logger.debug("Clear event didn't contain any clear hashes: {}, {}" ,event, clearClasses);
+            logger.debug("Clear event didn't contain any clear hashes: {}, {}", event, context);
             return null;
         }
         final long lastSeen = event.getCreatedTime();
 
         /* Find events that this clear event would clear. */
         final String sql = "SELECT uuid FROM event_summary WHERE " +
-                "last_seen < :last_seen AND " +
+                "last_seen <= :_clear_created_time AND " +
                 "clear_fingerprint_hash IN (:_clear_hashes) AND " +
-                "status_id NOT IN (:_closed_status_ids)";
+                "status_id NOT IN (:_closed_status_ids) FOR UPDATE";
 
         Map<String,Object> fields = new HashMap<String,Object>(2);
-        fields.put(COLUMN_LAST_SEEN, lastSeen);
+        fields.put("_clear_created_time", lastSeen);
         fields.put("_clear_hashes", clearHashes);
         fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
-        final List<String> clearedUuids = this.template.query(sql, new RowMapper<String>() {
+        return this.template.query(sql, new RowMapper<String>() {
             @Override
             public String mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID));
             }
         }, fields);
-
-        if (clearedUuids.isEmpty()) {
-            logger.debug("Clear event didn't clear any events, dropping: {}", event);
-            return null;
-        }
-
-        final String uuid = create(event, EventStatus.STATUS_CLOSED);
-
-        final EventSummaryUpdateFields updateFields = new EventSummaryUpdateFields();
-        updateFields.setClearedByEventUuid(uuid);
-        // TODO - get user data here
-        //updateFields.setCurrentUserUuid(userUuid);
-        //updateFields.setCurrentUserName(userName);
-        update(clearedUuids, EventStatus.STATUS_CLEARED, updateFields, ZepConstants.OPEN_STATUSES);
-        return uuid;
     }
 
     @Override

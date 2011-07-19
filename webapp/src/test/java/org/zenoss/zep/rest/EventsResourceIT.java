@@ -26,6 +26,7 @@ import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.EventArchiveDaoImplIT;
 import org.zenoss.zep.dao.impl.EventSummaryDaoImplIT;
+import org.zenoss.zep.impl.EventContextImpl;
 import org.zenoss.zep.rest.RestClient.RestResponse;
 
 import javax.sql.DataSource;
@@ -64,12 +65,14 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
 
     private EventSummary createSummary(Event event, EventStatus status)
             throws ZepException {
-        String uuid = summaryDao.create(event, status);
+        Event statusEvent = Event.newBuilder(event).setStatus(status).build();
+        String uuid = summaryDao.create(statusEvent, new EventContextImpl());
         return summaryDao.findByUuid(uuid);
     }
 
     private EventSummary createArchive(Event event) throws ZepException {
-        return archiveDao.findByUuid(archiveDao.create(event, EventStatus.STATUS_CLOSED));
+        Event statusEvent = Event.newBuilder(event).setStatus(EventStatus.STATUS_CLOSED).build();
+        return archiveDao.findByUuid(archiveDao.create(statusEvent, new EventContextImpl()));
     }
 
     @Before

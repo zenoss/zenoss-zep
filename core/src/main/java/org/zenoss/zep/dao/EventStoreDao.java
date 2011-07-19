@@ -4,14 +4,12 @@
 
 package org.zenoss.zep.dao;
 
-import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
-import org.zenoss.zep.EventContext;
 import org.zenoss.zep.ZepException;
 
 import java.util.List;
@@ -21,23 +19,6 @@ import java.util.concurrent.TimeUnit;
  * DAO which provides a bridge between event database storage and indexing.
  */
 public interface EventStoreDao extends Purgable {
-
-    /**
-     * Creates or updates a summary entry in the event summary table for the
-     * specified event occurrence.
-     * 
-     * @param event
-     *            The event occurrence.
-     * @param eventContext
-     *            The event context.
-     * @return The UUID of the created event. May be null if the event is a
-     *         clear event and didn't clear any events.
-     * @throws org.zenoss.zep.ZepException
-     *             If an error occurs.
-     */
-    public String create(Event event, EventContext eventContext)
-            throws ZepException;
-
     /**
      * Finds the event summary entry with the specified UUID.
      * 

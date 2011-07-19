@@ -11,10 +11,11 @@ import org.zenoss.amqp.ExchangeConfiguration;
 import org.zenoss.amqp.ZenossQueueConfig;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.io.IOException;
 
-public class EventFanOutPlugin extends AbstractPostProcessingPlugin {
+public class EventFanOutPlugin extends EventPostIndexPlugin {
 
     private static final Logger logger = LoggerFactory.getLogger(EventFanOutPlugin.class);
     private static final String ROUTING_KEY_PREFIX = "zenoss.zenevent.";
@@ -33,12 +34,12 @@ public class EventFanOutPlugin extends AbstractPostProcessingPlugin {
     }
 
     @Override
-    public void processEvent(EventSummary event) throws ZepException {
-        final String eventClass = event.getOccurrence(0).getEventClass();
+    public void processEvent(EventSummary eventSummary) throws ZepException {
+        final String eventClass = eventSummary.getOccurrence(0).getEventClass();
         try {
-            logger.debug("Publishing event to fan-out exchange: {}", event);
+            logger.debug("Publishing event to fan-out exchange: {}", eventSummary);
             this.amqpConnectionManager.publish(this.exchangeConfiguration,
-                    ROUTING_KEY_PREFIX + sanitizeEventClass(eventClass), event);
+                    ROUTING_KEY_PREFIX + sanitizeEventClass(eventClass), eventSummary);
         } catch (AmqpException e) {
             throw new ZepException(e);
         }

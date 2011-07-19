@@ -1,17 +1,24 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationListener;
 import org.springframework.dao.TransientDataAccessException;
-import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.zenoss.amqp.AmqpConnectionManager;
+import org.zenoss.amqp.QueueConfig;
+import org.zenoss.amqp.QueueConfiguration;
+import org.zenoss.amqp.ZenossQueueConfig;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.zep.HeartbeatProcessor;
+import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventArchiveDao;
@@ -19,13 +26,18 @@ import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.Purgable;
 import org.zenoss.zep.events.IndexDetailsUpdatedEvent;
+import org.zenoss.zep.events.PluginServiceStartedEvent;
 import org.zenoss.zep.events.ZepConfigUpdatedEvent;
 import org.zenoss.zep.events.ZepEvent;
 import org.zenoss.zep.index.EventIndexer;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
-import java.util.concurrent.CancellationException;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -34,12 +46,11 @@ import java.util.concurrent.TimeUnit;
  * Represents core application logic for ZEP, including the scheduled aging and
  * purging of events.
  */
-public class Application implements ApplicationListener<ZepEvent> {
+public class Application implements ApplicationContextAware, ApplicationListener<ZepEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
-    @Autowired
-    private TaskScheduler scheduler;
+    private ThreadPoolTaskScheduler scheduler;
     private ScheduledFuture<?> eventSummaryAger = null;
     private ScheduledFuture<?> eventSummaryArchiver = null;
     private ScheduledFuture<?> eventArchivePurger = null;
@@ -53,12 +64,18 @@ public class Application implements ApplicationListener<ZepEvent> {
 
     private final boolean enableIndexing;
 
+    private AmqpConnectionManager amqpConnectionManager;
     private ConfigDao configDao;
     private EventStoreDao eventStoreDao;
     private EventArchiveDao eventArchiveDao;
     private EventIndexer eventIndexer;
     private EventDetailsConfigDao eventDetailsConfigDao;
     private HeartbeatProcessor heartbeatProcessor;
+    private PluginService pluginService;
+    private ApplicationContext applicationContext;
+    private ExecutorService queueExecutor;
+
+    private List<String> queueListeners = new ArrayList<String>();
 
     public Application(boolean enableIndexing) {
         this.enableIndexing = enableIndexing;
@@ -70,6 +87,10 @@ public class Application implements ApplicationListener<ZepEvent> {
 
     public void setEventArchiveDao(EventArchiveDao eventArchiveDao) {
         this.eventArchiveDao = eventArchiveDao;
+    }
+
+    public void setAmqpConnectionManager(AmqpConnectionManager amqpConnectionManager) {
+        this.amqpConnectionManager = amqpConnectionManager;
     }
 
     public void setConfigDao(ConfigDao configDao) {
@@ -96,7 +117,24 @@ public class Application implements ApplicationListener<ZepEvent> {
         this.heartbeatIntervalSeconds = heartbeatIntervalSeconds;
     }
 
-    public void init() throws ZepException {
+    public void setPluginService(PluginService pluginService) {
+        this.pluginService = pluginService;
+    }
+
+    public void setQueueExecutor(ExecutorService queueExecutor) {
+        this.queueExecutor = queueExecutor;
+    }
+
+    public void setScheduler(ThreadPoolTaskScheduler scheduler) {
+        this.scheduler = scheduler;
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
+    }
+
+    private void init() throws ZepException {
         logger.info("Initializing ZEP");
         this.config = configDao.getConfig();
 
@@ -115,33 +153,40 @@ public class Application implements ApplicationListener<ZepEvent> {
         startEventArchivePurging();
         startEventIndexer();
         startHeartbeatProcessing();
+        startQueueListeners();
         logger.info("Completed ZEP initialization");
     }
 
-    public void shutdown() throws InterruptedException {
-        cancelFuture(this.heartbeatFuture);
-        this.heartbeatFuture = null;
+    public void shutdown() throws ZepException {
+        this.scheduler.shutdown();
 
-        cancelFuture(this.eventIndexerFuture);
-        this.eventIndexerFuture = null;
+        try {
+            this.scheduler.getScheduledExecutor().awaitTermination(0L, TimeUnit.SECONDS);
+            logger.info("Scheduled tasks finished");
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
 
-        cancelFuture(this.eventArchivePurger);
-        this.eventArchivePurger = null;
+        stopQueueListeners();
 
-        cancelFuture(this.eventSummaryArchiver);
-        this.eventSummaryArchiver = null;
+        this.queueExecutor.shutdown();
+        try {
+            this.queueExecutor.awaitTermination(0L, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            this.queueExecutor.shutdownNow();
+        }
 
-        cancelFuture(this.eventSummaryAger);
-        this.eventSummaryAger = null;
+        this.amqpConnectionManager.shutdown();
+
+        this.pluginService.shutdown();
     }
 
     private void cancelFuture(Future<?> future) {
         if (future != null) {
-            future.cancel(false);
+            future.cancel(true);
             try {
                 future.get();
-            } catch (CancellationException e) {
-                // Expected exception - we just canceled above
             } catch (ExecutionException e) {
                 logger.warn("exception", e);
             } catch (InterruptedException e) {
@@ -302,6 +347,28 @@ public class Application implements ApplicationListener<ZepEvent> {
         }, "ZEP_HEARTBEAT_PROCESSOR"), startTime, TimeUnit.SECONDS.toMillis(this.heartbeatIntervalSeconds));
     }
 
+    private void startQueueListeners() throws ZepException {
+        QueueConfig queueConfig;
+        try {
+            queueConfig = ZenossQueueConfig.getConfig();
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        }
+        Collection<AbstractQueueListener> queueListeners =
+                applicationContext.getBeansOfType(AbstractQueueListener.class).values();
+        for (AbstractQueueListener queueListener : queueListeners) {
+            QueueConfiguration queue = queueConfig.getQueue(queueListener.getQueueIdentifier());
+            this.queueListeners.add(this.amqpConnectionManager.addListener(queue, queueListener));
+        }
+    }
+
+    private void stopQueueListeners() {
+        for (String listenerId : this.queueListeners) {
+            this.amqpConnectionManager.removeListener(listenerId);
+        }
+        this.queueListeners.clear();
+    }
+
     @Override
     public synchronized void onApplicationEvent(ZepEvent event) {
         if (event instanceof ZepConfigUpdatedEvent) {
@@ -318,6 +385,14 @@ public class Application implements ApplicationListener<ZepEvent> {
                 startEventIndexer();
             } catch (ZepException e) {
                 logger.warn("Failed to restart event indexing", e);
+            }
+        }
+        else if (event instanceof PluginServiceStartedEvent) {
+            try {
+                init();
+            } catch (ZepException e) {
+                logger.error("Failed to initialize ZEP", e);
+                throw new RuntimeException(e.getLocalizedMessage(), e);
             }
         }
     }
