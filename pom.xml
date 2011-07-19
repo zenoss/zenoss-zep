@@ -105,12 +105,12 @@
         <repository>
             <id>releases</id>
             <name>Internal Release Repository</name>
-            <url>http://devsvcs.zenoss.loc/nexus/content/repositories/releases</url>
+            <url>http://cmrepo.zenoss.loc/nexus/content/repositories/releases</url>
         </repository>
         <snapshotRepository>
             <id>snapshots</id>
             <name>Internal Snapshot Repository</name>
-            <url>http://devsvcs.zenoss.loc/nexus/content/repositories/snapshots</url>
+            <url>http://cmrepo.zenoss.loc/nexus/content/repositories/snapshots</url>
         </snapshotRepository>
     </distributionManagement>
 </project>
