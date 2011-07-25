@@ -163,6 +163,7 @@
         <property name="pluginService" ref="pluginService"/>
         <property name="indexMetadataDao" ref="indexMetadataDao" />
         <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao"/>
+        <property name="indexLimit" value="${zep.index.limit:1000}" />
     </bean>
 
 </beans>

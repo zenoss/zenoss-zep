@@ -59,7 +59,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private ZepConfig oldConfig = null;
     private ZepConfig config;
 
-    private int indexIntervalSeconds = 1;
+    private long indexIntervalMilliseconds = 1000L;
     private int heartbeatIntervalSeconds = 60;
 
     private final boolean enableIndexing;
@@ -101,8 +101,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
         this.eventIndexer = eventIndexer;
     }
 
-    public void setIndexIntervalSeconds(int indexIntervalSeconds) {
-        this.indexIntervalSeconds = indexIntervalSeconds;
+    public void setIndexIntervalMilliseconds(long indexIntervalMilliseconds) {
+        this.indexIntervalMilliseconds = indexIntervalMilliseconds;
     }
 
     public void setEventDetailsConfigDao(EventDetailsConfigDao eventDetailsConfigDao) {
@@ -207,8 +207,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
         this.eventIndexer.init();
 
         if (this.enableIndexing) {
-            logger.info("Starting event indexing at interval: {} second(s)", this.indexIntervalSeconds);
-            Date startTime = new Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(this.indexIntervalSeconds));
+            logger.info("Starting event indexing at interval: {} millisecond(s)", this.indexIntervalMilliseconds);
+            Date startTime = new Date(System.currentTimeMillis() + this.indexIntervalMilliseconds);
             this.eventIndexerFuture = scheduler.scheduleWithFixedDelay(
                     new ThreadRenamingRunnable(new Runnable() {
                         @Override
@@ -224,7 +224,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
                                 logger.warn("Failed to index events", e);
                             }
                         }
-                    }, "ZEP_EVENT_INDEXER"), startTime, TimeUnit.SECONDS.toMillis(this.indexIntervalSeconds));
+                    }, "ZEP_EVENT_INDEXER"), startTime, this.indexIntervalMilliseconds);
         }
     }
 

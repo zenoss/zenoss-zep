@@ -109,7 +109,7 @@
         <property name="eventStoreDao" ref="eventStoreDao"/>
         <property name="eventArchiveDao" ref="eventArchiveDao"/>
         <property name="eventIndexer" ref="eventIndexer"/>
-        <property name="indexIntervalSeconds" value="${zep.index.interval_seconds:1}" />
+        <property name="indexIntervalMilliseconds" value="${zep.index.interval_milliseconds:1000}" />
         <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao" />
         <property name="heartbeatProcessor" ref="heartbeatProcessor" />
         <property name="heartbeatIntervalSeconds" value="${zep.heartbeat.interval_seconds:60}" />

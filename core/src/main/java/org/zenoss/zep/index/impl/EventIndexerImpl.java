@@ -35,7 +35,7 @@ import java.util.TreeMap;
 public class EventIndexerImpl implements EventIndexer {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
 
-    private static final int INDEX_LIMIT = 1000;
+    private int indexLimit = 1000;
     
     private EventSummaryDao eventSummaryDao;
     private EventIndexDao eventSummaryIndexDao;
@@ -84,6 +84,10 @@ public class EventIndexerImpl implements EventIndexer {
 
     public void setEventDetailsConfigDao(EventDetailsConfigDao eventDetailsConfigDao) {
         this.eventDetailsConfigDao = eventDetailsConfigDao;
+    }
+
+    public void setIndexLimit(int indexLimit) {
+        this.indexLimit = indexLimit;
     }
 
     private static byte[] calculateIndexVersionHash(Map<String,EventDetailItem> detailItems) throws ZepException {
@@ -168,7 +172,7 @@ public class EventIndexerImpl implements EventIndexer {
         List<EventSummary> events;
         
         do {
-            events = baseDao.listBatch(startingUuid, throughTime, INDEX_LIMIT);
+            events = baseDao.listBatch(startingUuid, throughTime, this.indexLimit);
             for (EventSummary event : events) {
                 indexDao.stage(event);
                 startingUuid = event.getUuid();
@@ -264,7 +268,7 @@ public class EventIndexerImpl implements EventIndexer {
             public void handleComplete() throws Exception {
                 indexDao.commit();
             }
-        }, INDEX_LIMIT, throughTime);
+        }, this.indexLimit, throughTime);
         
         if (numIndexed > 0) {
             logger.debug("Completed indexing {} events on {}", numIndexed, indexDao.getName());            
