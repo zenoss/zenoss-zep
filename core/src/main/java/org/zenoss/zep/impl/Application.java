@@ -62,6 +62,12 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private long indexIntervalMilliseconds = 1000L;
     private int heartbeatIntervalSeconds = 60;
 
+    private long agingIntervalMilliseconds = TimeUnit.MINUTES.toMillis(1);
+    private int agingLimit = 100;
+
+    private long archiveIntervalMilliseconds = TimeUnit.MINUTES.toMillis(1);
+    private int archiveLimit = 100;
+
     private final boolean enableIndexing;
 
     private AmqpConnectionManager amqpConnectionManager;
@@ -127,6 +133,22 @@ public class Application implements ApplicationContextAware, ApplicationListener
 
     public void setScheduler(ThreadPoolTaskScheduler scheduler) {
         this.scheduler = scheduler;
+    }
+
+    public void setAgingIntervalMilliseconds(long agingIntervalMilliseconds) {
+        this.agingIntervalMilliseconds = agingIntervalMilliseconds;
+    }
+
+    public void setAgingLimit(int agingLimit) {
+        this.agingLimit = agingLimit;
+    }
+
+    public void setArchiveIntervalMilliseconds(long archiveIntervalMilliseconds) {
+        this.archiveIntervalMilliseconds = archiveIntervalMilliseconds;
+    }
+
+    public void setArchiveLimit(int archiveLimit) {
+        this.archiveLimit = archiveLimit;
     }
 
     @Override
@@ -242,7 +264,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
         this.eventSummaryAger = null;
 
         if (duration > 0) {
-            logger.info("Starting event aging at interval: {} minute(s)", duration);
+            logger.info("Starting event aging at interval: {} milliseconds(s)", this.agingIntervalMilliseconds);
             Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
             this.eventSummaryAger = scheduler.scheduleWithFixedDelay(
                     new ThreadRenamingRunnable(new Runnable() {
@@ -250,17 +272,16 @@ public class Application implements ApplicationContextAware, ApplicationListener
                         public void run() {
                             logger.info("Aging events");
                             try {
-                                int numAged;
-                                do {
-                                    numAged = eventStoreDao.ageEvents(duration,
-                                            TimeUnit.MINUTES, severity,
-                                            100);
-                                } while (numAged > 0);
+                                final int numAged = eventStoreDao.ageEvents(duration, TimeUnit.MINUTES, severity,
+                                        agingLimit);
+                                if (numAged > 0) {
+                                    logger.debug("Aged {} events", numAged);
+                                }
                             } catch (Exception e) {
                                 logger.warn("Failed to age events", e);
                             }
                         }
-                    }, "ZEP_EVENT_AGER"), startTime, TimeUnit.MINUTES.toMillis(duration));
+                    }, "ZEP_EVENT_AGER"), startTime, this.agingIntervalMilliseconds);
         } else {
             logger.info("Event aging disabled");
         }
@@ -277,24 +298,21 @@ public class Application implements ApplicationContextAware, ApplicationListener
         cancelFuture(this.eventSummaryArchiver);
         this.eventSummaryArchiver = null;
         if (duration > 0) {
-            logger.info("Starting event archiving at interval: {} minutes(s)", duration);
+            logger.info("Starting event archiving at interval: {} milliseconds(s)", this.archiveIntervalMilliseconds);
             this.eventSummaryArchiver = scheduler.scheduleWithFixedDelay(
                     new ThreadRenamingRunnable(new Runnable() {
                         @Override
                         public void run() {
                             try {
-                                int numArchived;
-                                do {
-                                    numArchived = eventStoreDao.archive(duration, TimeUnit.MINUTES, 100);
-                                    if (numArchived > 0) {
-                                        logger.info("Archived {} events", numArchived);
-                                    }
-                                } while (numArchived > 0);
+                                final int numArchived = eventStoreDao.archive(duration, TimeUnit.MINUTES, archiveLimit);
+                                if (numArchived > 0) {
+                                    logger.debug("Archived {} events", numArchived);
+                                }
                             } catch (Exception e) {
                                 logger.warn("Failed to archive events", e);
                             }
                         }
-                    }, "ZEP_EVENT_ARCHIVER"), startTime, TimeUnit.MINUTES.toMillis(duration));
+                    }, "ZEP_EVENT_ARCHIVER"), startTime, this.archiveIntervalMilliseconds);
         } else {
             logger.info("Event archiving disabled");
         }
