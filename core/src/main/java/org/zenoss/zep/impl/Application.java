@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -213,6 +214,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
                 logger.warn("exception", e);
             } catch (InterruptedException e) {
                 logger.debug("Interrupted", e);
+            } catch (CancellationException e) {
+                /* Expected - we just canceled above */
             }
         }
     }
