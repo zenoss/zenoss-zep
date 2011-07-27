@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.Date;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -129,7 +130,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         this.python.exec(
             "class DictAsObj(object):\n" +
             "  def __init__(self, **kwargs):\n" +
-            "    for k,v in kwargs.items(): setattr(self,k,v)");
+            "    for k,v in kwargs.iteritems(): setattr(self,k,v)");
 
         // expose to Java a Python dict->DictAsObj conversion function
         this.toObject = (PyFunction)this.python.eval("lambda dd : DictAsObj(**dd)");
@@ -204,165 +205,194 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         this.eventStoreDao = eventStoreDao;
     }
 
-    private void putIdAndUuidInDict(PyDictionary dict, String id, String uuid){
-        if (id != null) {
-            dict.put("name", id);
+    /**
+     * Local context class used to store the Python objects created from the event which are passed in to the
+     * trigger's rule for evaluation.
+     */
+    static class RuleContext {
+        private PyObject event;
+        private PyObject device;
+        private PyObject element;
+        private PyObject subElement;
+
+        private RuleContext() {
         }
-        if (uuid != null) {
-            dict.put("uuid", uuid);
+
+        private static void putIdAndUuidInDict(PyDictionary dict, String id, String uuid) {
+            if (id != null) {
+                dict.put("name", id);
+            }
+            if (uuid != null) {
+                dict.put("uuid", uuid);
+            }
+        }
+
+        /**
+         * Creates a rule context from the toObject function and event summary.
+         *
+         * @param toObject The toObject function which converts a dictionary to the appropriate object.
+         * @param evtsummary The event to convert to a context.
+         * @return A rule context for the event.
+         */
+        public static RuleContext createContext(PyFunction toObject, EventSummary evtsummary) {
+            // set up interpreter environment to evaluate the rule source
+            PyDictionary eventdict = new PyDictionary();
+            PyDictionary devdict = new PyDictionary();
+            PyDictionary elemdict = new PyDictionary();
+            PyDictionary subelemdict = new PyDictionary();
+            // extract event data from most recent occurrence
+            if (evtsummary.getOccurrenceCount() > 0) {
+                Event event = evtsummary.getOccurrence(0);
+
+                // copy event data to eventdict
+                if (event.hasSummary()) {
+                    eventdict.put("summary", new PyString(event.getSummary()));
+                }
+                if (event.hasMessage()) {
+                    eventdict.put("message", new PyString(event.getMessage()));
+                }
+                if (event.hasEventClass()) {
+                    eventdict.put("event_class", new PyString(event.getEventClass()));
+                }
+                if (event.hasFingerprint()) {
+                    eventdict.put("fingerprint", new PyString(event.getFingerprint()));
+                }
+                if (event.hasEventKey()) {
+                    eventdict.put("event_key", new PyString(event.getEventKey()));
+                }
+                if (event.hasAgent()) {
+                    eventdict.put("agent", new PyString(event.getAgent()));
+                }
+                if (event.hasMonitor()) {
+                    eventdict.put("monitor", new PyString(event.getMonitor()));
+                }
+                eventdict.put("severity", event.getSeverity().getNumber());
+                eventdict.put("status", evtsummary.getStatus().getNumber());
+
+                if (event.hasEventClassKey()) {
+                    eventdict.put("event_class_key", new PyString(event.getEventClassKey()));
+                }
+                if (event.hasSyslogPriority()) {
+                    eventdict.put("syslog_priority", new PyInteger(event.getSyslogPriority().getNumber()));
+                }
+                if (event.hasSyslogFacility()) {
+                    eventdict.put("syslog_facility", event.getSyslogFacility());
+                }
+                if (event.hasNtEventCode()) {
+                    eventdict.put("nt_event_code", event.getNtEventCode());
+                }
+
+                if (event.hasActor()) {
+                    EventActor actor = event.getActor();
+
+                    if (actor.hasElementTypeId()) {
+                        if (actor.getElementTypeId() == ModelElementType.DEVICE) {
+                            devdict = elemdict;
+                        }
+
+                        elemdict.put("type", actor.getElementTypeId().name());
+                        final String id = (actor.hasElementIdentifier()) ? actor.getElementIdentifier() : null;
+                        final String uuid = actor.hasElementUuid() ? actor.getElementUuid() : null;
+
+                        putIdAndUuidInDict(elemdict, id, uuid);
+                    }
+
+                    if (actor.hasElementSubTypeId()) {
+                        if (actor.getElementSubTypeId() == ModelElementType.DEVICE) {
+                            devdict = subelemdict;
+                        }
+
+                        subelemdict.put("type", actor.getElementSubTypeId().name());
+                        final String id = (actor.hasElementSubIdentifier()) ? actor.getElementSubIdentifier() : null;
+                        final String uuid = actor.hasElementSubUuid() ? actor.getElementSubUuid() : null;
+
+                        putIdAndUuidInDict(subelemdict, id, uuid);
+                    }
+                }
+
+                for (EventDetail detail : event.getDetailsList()) {
+                    final String detailName = detail.getName();
+                    if (ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE.equals(detailName)) {
+                        try {
+                            int prodState = Integer.parseInt(detail.getValue(0));
+                            devdict.put("production_state", new PyInteger(prodState));
+                        } catch (Exception e) {
+                            logger.warn("Failed retrieving production state", e);
+                        }
+                    }
+                    else if (ZepConstants.DETAIL_DEVICE_PRIORITY.equals(detailName)) {
+                        try {
+                            int priority = Integer.parseInt(detail.getValue(0));
+                            devdict.put("priority", new PyInteger(priority));
+                        } catch (Exception e) {
+                            logger.warn("Failed retrieving device priority", e);
+                        }
+                    }
+                    else if (ZepConstants.DETAIL_DEVICE_CLASS.equals(detailName)) {
+                        try {
+                            // expect that this is a single-value detail.
+                            String device_class = String.valueOf(detail.getValue(0));
+                            devdict.put("device_class", new PyString(device_class));
+                        } catch (Exception e) {
+                            logger.warn("Failed retrieving device class", e);
+                        }
+                    }
+                    else if (ZepConstants.DETAIL_DEVICE_SYSTEMS.equals(detailName)) {
+                        try {
+                            // expect that this is a multi-value detail.
+                            List systems = detail.getValueList();
+                            devdict.put("systems", new PyList(systems));
+                        } catch (Exception e) {
+                            logger.warn("Failed retrieving device systems", e);
+                        }
+                    }
+                    else if (ZepConstants.DETAIL_DEVICE_GROUPS.equals(detailName)) {
+                        try {
+                            // expect that this is a multi-value detail.
+                            List groups = detail.getValueList();
+                            devdict.put("groups", new PyList(groups));
+                        } catch (Exception e) {
+                            logger.warn("Failed retrieving device groups", e);
+                        }
+                    }
+                    else if (ZepConstants.DETAIL_DEVICE_IP_ADDRESS.equals(detailName)) {
+                        try {
+                            // expect that this is a single-value detail.
+                            String ip_address = String.valueOf(detail.getValue(0));
+                            devdict.put("ip_address", new PyString(ip_address));
+                        } catch (Exception e) {
+                            logger.warn("Failed retrieving device ip address", e);
+                        }
+                    }
+                    else if (ZepConstants.DETAIL_DEVICE_LOCATION.equals(detailName)) {
+                        try {
+                            // expect that this is a single-value detail.
+                            String location = String.valueOf(detail.getValue(0));
+                            devdict.put("location", new PyString(location));
+                        } catch (Exception e) {
+                            logger.warn("Failed retrieving device location", e);
+                        }
+                    }
+                }
+            }
+
+            if (evtsummary.hasCurrentUserName()) {
+                eventdict.put("current_user_name", new PyString(evtsummary.getCurrentUserName()));
+            }
+
+            // add more data from the EventSummary itself
+            eventdict.put("count", new PyInteger(evtsummary.getCount()));
+            RuleContext ctx = new RuleContext();
+            // create vars to pass to rule expression function
+            ctx.event = toObject.__call__(eventdict);
+            ctx.device = toObject.__call__(devdict);
+            ctx.element = toObject.__call__(elemdict);
+            ctx.subElement = toObject.__call__(subelemdict);
+            return ctx;
         }
     }
 
-    protected boolean eventSatisfiesRule(EventSummary evtsummary,
-                                         String ruleSource) {
-        // set up interpreter environment to evaluate the rule source
-        PyDictionary eventdict = new PyDictionary();
-        PyDictionary devdict = new PyDictionary();
-        PyDictionary elemdict = new PyDictionary();
-        PyDictionary subelemdict = new PyDictionary();
-        // extract event data from most recent occurrence
-        if (evtsummary.getOccurrenceCount() > 0) {
-            Event event = evtsummary.getOccurrence(0);
-
-            // copy event data to eventdict
-            if (event.hasSummary()) {
-                eventdict.put("summary", new PyString(event.getSummary()));
-            }
-            if (event.hasMessage()) {
-                eventdict.put("message", new PyString(event.getMessage()));
-            }
-            if (event.hasEventClass()) {
-                eventdict.put("event_class", new PyString(event.getEventClass()));
-            }
-            if (event.hasFingerprint()) {
-                eventdict.put("fingerprint", new PyString(event.getFingerprint()));
-            }
-            if (event.hasEventKey()) {
-                eventdict.put("event_key", new PyString(event.getEventKey()));
-            }
-            if (event.hasAgent()) {
-                eventdict.put("agent", new PyString(event.getAgent()));
-            }
-            if (event.hasMonitor()) {
-                eventdict.put("monitor", new PyString(event.getMonitor()));
-            }
-            eventdict.put("severity", event.getSeverity().getNumber());
-            eventdict.put("status", evtsummary.getStatus().getNumber());
-
-            if (event.hasEventClassKey()) {
-                eventdict.put("event_class_key", new PyString(event.getEventClassKey()));
-            }
-            if (event.hasSyslogPriority()) {
-                eventdict.put("syslog_priority", event.getSyslogPriority());
-            }
-            if (event.hasSyslogFacility()) {
-                eventdict.put("syslog_facility", event.getSyslogFacility());
-            }
-            if (event.hasNtEventCode()) {
-                eventdict.put("nt_event_code", event.getNtEventCode());
-            }
-
-            if (event.hasActor()) {
-                EventActor actor = event.getActor();
-
-                if (actor.hasElementTypeId()) {
-                    if (actor.getElementTypeId() == ModelElementType.DEVICE) {
-                        devdict = elemdict;
-                    }
-
-                    elemdict.put("type", actor.getElementTypeId().name());
-                    final String id = (actor.hasElementIdentifier()) ? actor.getElementIdentifier() : null;
-                    final String uuid = actor.hasElementUuid() ? actor.getElementUuid() : null;
-
-                    putIdAndUuidInDict(elemdict, id, uuid);
-                }
-
-                if (actor.hasElementSubTypeId()) {
-                    if (actor.getElementSubTypeId() == ModelElementType.DEVICE) {
-                        devdict = subelemdict;
-                    }
-
-                    subelemdict.put("type", actor.getElementSubTypeId().name());
-                    final String id = (actor.hasElementSubIdentifier()) ? actor.getElementSubIdentifier() : null;
-                    final String uuid = actor.hasElementSubUuid() ? actor.getElementSubUuid() : null;
-
-                    putIdAndUuidInDict(subelemdict, id, uuid);
-                }
-            }
-
-            for (EventDetail detail : event.getDetailsList()) {
-                final String detailName = detail.getName();
-                if (ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE.equals(detailName)) {
-                    try {
-                        int prodState = Integer.parseInt(detail.getValue(0));
-                        devdict.put("production_state", new PyInteger(prodState));
-                    } catch (Exception e) {
-                        logger.warn("Failed retrieving production state", e);
-                    }
-                }
-                else if (ZepConstants.DETAIL_DEVICE_PRIORITY.equals(detailName)) {
-                    try {
-                        int priority = Integer.parseInt(detail.getValue(0));
-                        devdict.put("priority", new PyInteger(priority));
-                    } catch (Exception e) {
-                        logger.warn("Failed retrieving device priority", e);
-                    }
-                }
-                else if (ZepConstants.DETAIL_DEVICE_CLASS.equals(detailName)) {
-                    try {
-                        // expect that this is a single-value detail.
-                        String device_class = String.valueOf(detail.getValue(0));
-                        devdict.put("device_class", new PyString(device_class));
-                    } catch (Exception e) {
-                        logger.warn("Failed retrieving device class", e);
-                    }
-                }
-                else if (ZepConstants.DETAIL_DEVICE_SYSTEMS.equals(detailName)) {
-                    try {
-                        // expect that this is a multi-value detail.
-                        List systems = detail.getValueList();
-                        devdict.put("systems", new PyList(systems));
-                    } catch (Exception e) {
-                        logger.warn("Failed retrieving device systems", e);
-                    }
-                }
-                else if (ZepConstants.DETAIL_DEVICE_GROUPS.equals(detailName)) {
-                    try {
-                        // expect that this is a multi-value detail.
-                        List groups = detail.getValueList();
-                        devdict.put("groups", new PyList(groups));
-                    } catch (Exception e) {
-                        logger.warn("Failed retrieving device groups", e);
-                    }
-                }
-                else if (ZepConstants.DETAIL_DEVICE_IP_ADDRESS.equals(detailName)) {
-                    try {
-                        // expect that this is a single-value detail.
-                        String ip_address = String.valueOf(detail.getValue(0));
-                        devdict.put("ip_address", new PyString(ip_address));
-                    } catch (Exception e) {
-                        logger.warn("Failed retrieving device ip address", e);
-                    }
-                }
-                else if (ZepConstants.DETAIL_DEVICE_LOCATION.equals(detailName)) {
-                    try {
-                        // expect that this is a single-value detail.
-                        String location = String.valueOf(detail.getValue(0));
-                        devdict.put("location", new PyString(location));
-                    } catch (Exception e) {
-                        logger.warn("Failed retrieving device location", e);
-                    }
-                }
-            }
-        }
-
-        if (evtsummary.hasCurrentUserName()) {
-            eventdict.put("current_user_name", new PyString(evtsummary.getCurrentUserName()));
-        }
-
-        // add more data from the EventSummary itself
-        eventdict.put("count", new PyInteger(evtsummary.getCount()));
-
+    protected boolean eventSatisfiesRule(RuleContext ruleContext, String ruleSource) {
         PyObject result;
         try {
             // use rule to build and evaluate a Python lambda expression
@@ -374,13 +404,8 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                 ruleFunctionCache.put(ruleSource, fn);
             }
 
-            // create vars to pass to rule expression function
-            PyObject evtobj = this.toObject.__call__(eventdict);
-            PyObject devobj = this.toObject.__call__(devdict);
-            PyObject elemobj = this.toObject.__call__(elemdict);
-            PyObject subelemobj = this.toObject.__call__(subelemdict);
             // evaluate the rule function
-            result = fn.__call__(evtobj, devobj, elemobj, subelemobj);
+            result = fn.__call__(ruleContext.event, ruleContext.device, ruleContext.element, ruleContext.subElement);
         } catch (PySyntaxError pysynerr) {
             // evaluating rule raised an exception - treat as "False" eval
             logger.warn("syntax error exception raised while compiling rule: " + ruleSource, pysynerr);
@@ -423,6 +448,25 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         }
     }
 
+    /**
+     * Returns all EventSignalSpool objects keyed by the subscription UUID for the specified event summary.
+     *
+     * @param eventSummary The event summary.
+     * @return A map of EventSignalSpool objects (keyed by the subscription UUID) for the specified event summary.
+     * @throws ZepException If a failure occurs querying the database.
+     */
+    private Map<String,EventSignalSpool> getSpoolsForEventBySubcription(EventSummary eventSummary) throws ZepException {
+        final List<EventSignalSpool> spools = this.signalSpoolDao.findAllByEventSummaryUuid(eventSummary.getUuid());
+        if (spools.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        final Map<String,EventSignalSpool> spoolsBySubscription = new HashMap<String, EventSignalSpool>(spools.size());
+        for (EventSignalSpool spool : spools) {
+            spoolsBySubscription.put(spool.getSubscriptionUuid(), spool);
+        }
+        return spoolsBySubscription;
+    }
+
     private void processOpenEvent(EventSummary eventSummary) throws ZepException {
         final long now = System.currentTimeMillis();
         List<EventTrigger> triggers = this.triggerDao.findAllEnabled();
@@ -430,6 +474,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         // iterate over all enabled triggers to see if any rules will match
         // for this event summary
         boolean rescheduleSpool = false;
+
+        RuleContext ruleContext = null;
+        Map<String,EventSignalSpool> spoolsBySubscription = null;
+
         for (EventTrigger trigger : triggers) {
 
             // verify trigger has a defined rule
@@ -446,7 +494,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             final String ruleSource = trigger.getRule().getSource();
 
             // Determine if event matches trigger rule
-            final boolean eventSatisfiesRule = eventSatisfiesRule(eventSummary, ruleSource);
+            if (ruleContext == null) {
+                ruleContext = RuleContext.createContext(this.toObject, eventSummary);
+            }
+            final boolean eventSatisfiesRule = eventSatisfiesRule(ruleContext, ruleSource);
 
             if (eventSatisfiesRule) {
                 logger.debug("Trigger: {} MATCHES event {}", ruleSource, eventSummary);
@@ -462,10 +513,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
                 // see if any signalling spool already exists for this trigger-eventSummary
                 // combination
-                EventSignalSpool currentSpool =
-                        this.signalSpoolDao.findBySubscriptionAndEventSummaryUuids(
-                                subscription.getUuid(), eventSummary.getUuid()
-                        );
+                if (spoolsBySubscription == null) {
+                    spoolsBySubscription = getSpoolsForEventBySubcription(eventSummary);
+                }
+                EventSignalSpool currentSpool = spoolsBySubscription.get(subscription.getUuid());
                 boolean spoolExists = (currentSpool != null);
 
                 logger.debug("delay|repeat|existing spool: {}|{}|{}", 

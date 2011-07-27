@@ -22,9 +22,11 @@ import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSignalSpool;
 import org.zenoss.zep.dao.EventSignalSpoolDao;
+import org.zenoss.zep.impl.TriggerPlugin.RuleContext;
 
 
 public class TriggerPluginImplTest {
@@ -72,6 +74,7 @@ public class TriggerPluginImplTest {
         evtBuilder.setMessage("TEST - 1-2-check");
         evtBuilder.setEventClass("/Defcon/1");
         evtBuilder.setSeverity(Zep.EventSeverity.SEVERITY_WARNING);
+        evtBuilder.setSyslogPriority(SyslogPriority.SYSLOG_PRIORITY_DEBUG);
         Event evt = evtBuilder.build();
 
         // build test EventSummary
@@ -93,6 +96,7 @@ public class TriggerPluginImplTest {
                 "elem.type == 'DEVICE'",
                 "sub_elem.type == 'COMPONENT'",
                 "sub_elem.name.lower().startswith('fuse')",
+                "evt.syslog_priority == 7",
         };
         String[] false_rules = {
                 "1 = 0", // try a syntax error
@@ -103,16 +107,18 @@ public class TriggerPluginImplTest {
                 "evt.count > 15",
                 "evt.severity = 'critical'",
                 "dev.name == 'BHM1001'",
+                "evt.syslog_priority == 5",
         };
 
+        RuleContext ctx = RuleContext.createContext(triggerPlugin.toObject, evtSummary);
         for(String rule: true_rules) {
             assertTrue(rule + " (should evaluate True)",
-                    this.triggerPlugin.eventSatisfiesRule(evtSummary, rule));
+                    this.triggerPlugin.eventSatisfiesRule(ctx, rule));
         }
 
         for(String rule: false_rules) {
             assertFalse(rule + " (should evaluate False)",
-                    this.triggerPlugin.eventSatisfiesRule(evtSummary, rule));
+                    this.triggerPlugin.eventSatisfiesRule(ctx, rule));
         }
     }
 }
