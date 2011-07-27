@@ -449,10 +449,12 @@ public class TriggerPlugin extends EventPostIndexPlugin {
     }
 
     /**
-     * Returns all EventSignalSpool objects keyed by the subscription UUID for the specified event summary.
+     * Returns all EventSignalSpool objects keyed by the subscription UUID and event summary UUID for the specified
+     * event summary.
      *
      * @param eventSummary The event summary.
-     * @return A map of EventSignalSpool objects (keyed by the subscription UUID) for the specified event summary.
+     * @return A map of EventSignalSpool objects (keyed by the subscription UUID and event summary UUID) for the
+     * specified event summary.
      * @throws ZepException If a failure occurs querying the database.
      */
     private Map<String,EventSignalSpool> getSpoolsForEventBySubcription(EventSummary eventSummary) throws ZepException {
@@ -462,7 +464,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         }
         final Map<String,EventSignalSpool> spoolsBySubscription = new HashMap<String, EventSignalSpool>(spools.size());
         for (EventSignalSpool spool : spools) {
-            spoolsBySubscription.put(spool.getSubscriptionUuid(), spool);
+            spoolsBySubscription.put(spool.getSubscriptionUuid() + '|' + spool.getEventSummaryUuid(), spool);
         }
         return spoolsBySubscription;
     }
@@ -516,7 +518,8 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                 if (spoolsBySubscription == null) {
                     spoolsBySubscription = getSpoolsForEventBySubcription(eventSummary);
                 }
-                EventSignalSpool currentSpool = spoolsBySubscription.get(subscription.getUuid());
+                EventSignalSpool currentSpool = spoolsBySubscription.get(subscription.getUuid() + '|' +
+                        eventSummary.getUuid());
                 boolean spoolExists = (currentSpool != null);
 
                 logger.debug("delay|repeat|existing spool: {}|{}|{}", 
