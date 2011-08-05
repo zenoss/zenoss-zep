@@ -20,6 +20,7 @@
         <property name="eventIndexer" ref="eventIndexer" />
         <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao" />
         <property name="eventArchiveIndexDao" ref="eventArchiveIndexDao" />
+        <property name="pluginService" ref="pluginService" />
     </bean>
     <bean id="triggersResource" class="org.zenoss.zep.rest.TriggersResource">
         <property name="eventTriggerDao" ref="eventTriggerDao" />

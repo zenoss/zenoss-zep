@@ -25,11 +25,13 @@ import org.zenoss.protobufs.zep.Zep.EventTagFilter;
 import org.zenoss.protobufs.zep.Zep.EventTagSeveritiesSet;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
+import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
+import org.zenoss.zep.plugins.EventUpdatePlugin;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -67,6 +69,7 @@ public class EventsResource {
     private EventStoreDao eventStoreDao;
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
+    private PluginService pluginService;
 
     public void setQueryLimit(int limit) {
         if (limit > 0) {
@@ -91,6 +94,10 @@ public class EventsResource {
 
     public void setEventArchiveIndexDao(EventIndexDao eventArchiveIndexDao) {
         this.eventArchiveIndexDao = eventArchiveIndexDao;
+    }
+
+    public void setPluginService(PluginService pluginService) {
+        this.pluginService = pluginService;
     }
 
     private static Set<String> getQuerySet(MultivaluedMap<String, String> params, String name) {
@@ -239,8 +246,12 @@ public class EventsResource {
         for (EventSummary summary : result.getEventsList()) {
             uuids.add(summary.getUuid());
         }
-        int numUpdated = this.eventStoreDao.update(uuids, request.getUpdateFields());
+        EventSummaryUpdate update = request.getUpdateFields();
+        int numUpdated = this.eventStoreDao.update(uuids, update);
         if (numUpdated > 0) {
+            for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
+                plugin.onStatusUpdate(uuids, update);
+            }
             eventIndexer.indexFully();
         }
         EventSummaryUpdateResponse.Builder response = EventSummaryUpdateResponse.newBuilder();

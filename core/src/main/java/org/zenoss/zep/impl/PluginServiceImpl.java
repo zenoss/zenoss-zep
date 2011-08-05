@@ -21,6 +21,7 @@ import org.zenoss.zep.plugins.EventPlugin;
 import org.zenoss.zep.plugins.EventPostCreatePlugin;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 import org.zenoss.zep.plugins.EventPreCreatePlugin;
+import org.zenoss.zep.plugins.EventUpdatePlugin;
 import org.zenoss.zep.plugins.exceptions.DependencyCycleException;
 import org.zenoss.zep.plugins.exceptions.MissingDependencyException;
 
@@ -368,7 +369,7 @@ public class PluginServiceImpl implements PluginService, ApplicationListener<Con
         this.pluginRepository.loadPluginsOfType(EventPreCreatePlugin.class, context);
         this.pluginRepository.loadPluginsOfType(EventPostCreatePlugin.class, context);
         this.pluginRepository.loadPluginsOfType(EventPostIndexPlugin.class, context);
-
+        this.pluginRepository.loadPluginsOfType(EventUpdatePlugin.class, context);
         logger.info("Loaded plug-ins");
     }
 
