@@ -249,10 +249,10 @@ public class EventsResource {
         EventSummaryUpdate update = request.getUpdateFields();
         int numUpdated = this.eventStoreDao.update(uuids, update);
         if (numUpdated > 0) {
+            eventIndexer.indexFully();
             for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
                 plugin.onStatusUpdate(uuids, update);
             }
-            eventIndexer.indexFully();
         }
         EventSummaryUpdateResponse.Builder response = EventSummaryUpdateResponse.newBuilder();
         if (result.hasNextOffset()) {
