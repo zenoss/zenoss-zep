@@ -316,6 +316,10 @@ public class EventsResource {
             return Response.status(Status.INTERNAL_SERVER_ERROR).build();
         }
 
+        for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
+            plugin.onNoteAdd(eventUuid, note);
+        }
+
         return Response.noContent().build();
     }
 

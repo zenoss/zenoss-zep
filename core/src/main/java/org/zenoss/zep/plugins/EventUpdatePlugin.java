@@ -3,6 +3,7 @@
  */
 package org.zenoss.zep.plugins;
 
+import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
 
 import java.util.List;
@@ -19,4 +20,10 @@ public abstract class EventUpdatePlugin extends EventPlugin  {
      */
     public abstract void onStatusUpdate(List<String> uuids, EventSummaryUpdate update);
 
+    /**
+     * Handle note additions.
+     * @param uuid The UUID of the event that a note has been added to
+     * @param note The note protobufs message
+     */
+    public abstract void onNoteAdd(String uuid, EventNote note);
 }
