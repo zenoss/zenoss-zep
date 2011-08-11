@@ -34,6 +34,15 @@ public interface EventSignalSpoolDao {
     public int delete(String uuid) throws ZepException;
 
     /**
+     * Deletes the signals with the specified UUIDs.
+     *
+     * @param uuids UUIDs of the signal spool items to delete.
+     * @return The number of rows affected by the query.
+     * @throws ZepException If an error occurs deleting the signal spool items.
+     */
+    public int delete(List<String> uuids) throws ZepException;
+
+    /**
      * Deletes the signal with the specified trigger and subscription UUIDs.
      * 
      * @param triggerUuid
@@ -46,6 +55,15 @@ public interface EventSignalSpoolDao {
      */
     public int delete(String triggerUuid, String eventSummaryUuid)
             throws ZepException;
+
+    /**
+     * Deletes all spooled items with the specified event summary UUID.
+     * 
+     * @param eventSummaryUuid Event summary UUID.
+     * @return The number of affected rows.
+     * @throws ZepException If an error occurs deleting the signal spool items.
+     */
+    public int deleteByEventSummaryUuid(String eventSummaryUuid) throws ZepException;
 
     /**
      * Deletes all spooled items with the specified trigger UUID.
@@ -71,20 +89,13 @@ public interface EventSignalSpoolDao {
     public EventSignalSpool findByUuid(String uuid) throws ZepException;
 
     /**
-     * Modifies the flushTime for the specified signal spool item in the
-     * database.
+     * Updates the EventSignalSpool entry in the database.
      * 
-     * @param uuid
-     *            UUID of signal spool item to update.
-     * @param newFlushTime
-     *            long timestamp of next time to signal subscribers of this
-     *            spool.
-     * @return The number of affected rows from the query.
-     * @throws ZepException
-     *             If an error occurs modifying the signal spool item.
+     * @param spool Event signal spool.
+     * @return The number of affected rows.
+     * @throws ZepException If an error occurs updating the signal spool.
      */
-    public int updateFlushTime(String uuid, long newFlushTime)
-            throws ZepException;
+    public int update(EventSignalSpool spool) throws ZepException;
 
     /**
      * Finds the signal spool created for a specific subscription/event summary pair.

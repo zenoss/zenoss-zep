@@ -33,10 +33,9 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     public static final String COLUMN_FLUSH_TIME = "flush_time";
     public static final String COLUMN_CREATED = "created";
     public static final String COLUMN_EVENT_COUNT = "event_count";
+    public static final String COLUMN_SENT_SIGNAL = "sent_signal";
 
-    private static final class EventSignalSpoolMapper implements
-            RowMapper<EventSignalSpool> {
-
+    private static final class EventSignalSpoolMapper implements RowMapper<EventSignalSpool> {
         @Override
         public EventSignalSpool mapRow(ResultSet rs, int rowNum)
                 throws SQLException {
@@ -44,18 +43,16 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
             spool.setUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID)));
             spool.setCreated(rs.getLong(COLUMN_CREATED));
             spool.setEventCount(rs.getInt(COLUMN_EVENT_COUNT));
-            spool.setEventSummaryUuid(DaoUtils.uuidFromBytes(rs
-                    .getBytes(COLUMN_EVENT_SUMMARY_UUID)));
-            spool.setSubscriptionUuid(DaoUtils.uuidFromBytes(rs
-                    .getBytes(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID)));
+            spool.setEventSummaryUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_EVENT_SUMMARY_UUID)));
+            spool.setSubscriptionUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID)));
             spool.setFlushTime(rs.getLong(COLUMN_FLUSH_TIME));
+            spool.setSentSignal(rs.getBoolean(COLUMN_SENT_SIGNAL));
             return spool;
         }
     }
 
     @SuppressWarnings("unused")
-    private static Logger logger = LoggerFactory
-            .getLogger(EventSignalSpoolDaoImpl.class);
+    private static Logger logger = LoggerFactory.getLogger(EventSignalSpoolDaoImpl.class);
 
     private final SimpleJdbcTemplate template;
     private UUIDGenerator uuidGenerator;
@@ -72,13 +69,11 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
         final Map<String, Object> fields = new LinkedHashMap<String, Object>();
 
         fields.put(COLUMN_CREATED, spool.getCreated());
-        fields.put(COLUMN_EVENT_SUMMARY_UUID,
-                DaoUtils.uuidToBytes(spool.getEventSummaryUuid()));
-        fields.put(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID,
-                DaoUtils.uuidToBytes(spool.getSubscriptionUuid()));
+        fields.put(COLUMN_EVENT_SUMMARY_UUID, DaoUtils.uuidToBytes(spool.getEventSummaryUuid()));
+        fields.put(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID, DaoUtils.uuidToBytes(spool.getSubscriptionUuid()));
         fields.put(COLUMN_FLUSH_TIME, spool.getFlushTime());
         fields.put(COLUMN_EVENT_COUNT, spool.getEventCount());
-
+        fields.put(COLUMN_SENT_SIGNAL, spool.isSentSignal());
         return fields;
     }
 
@@ -118,9 +113,15 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int delete(String uuid) throws ZepException {
+        return delete(Collections.singletonList(uuid));
+    }
+
+    @Override
+    @TransactionalRollbackAllExceptions
+    public int delete(List<String> uuids) throws ZepException {
         try {
-            final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
-            final String sql = "DELETE FROM event_trigger_signal_spool WHERE uuid=:uuid";
+            final Map<String,List<byte[]>> fields = Collections.singletonMap("_uuids", DaoUtils.uuidsToBytes(uuids));
+            final String sql = "DELETE FROM event_trigger_signal_spool WHERE uuid IN (:_uuids)";
             return this.template.update(sql, fields);
         } catch (DataAccessException e) {
             throw new ZepException(e);
@@ -133,8 +134,7 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
             throws ZepException {
         try {
             final byte[] triggerUuidBytes = DaoUtils.uuidToBytes(triggerUuid);
-            final byte[] eventSummaryUuidBytes = DaoUtils
-                    .uuidToBytes(summaryUuid);
+            final byte[] eventSummaryUuidBytes = DaoUtils.uuidToBytes(summaryUuid);
 
             final String sql = String
                     .format("DELETE FROM %s WHERE %s=? AND %s IN (SELECT %s FROM %s WHERE %s=?)",
@@ -146,6 +146,19 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
                             EventTriggerSubscriptionDaoImpl.COLUMN_EVENT_TRIGGER_UUID);
             return this.template.update(sql, eventSummaryUuidBytes,
                     triggerUuidBytes);
+        } catch (DataAccessException e) {
+            throw new ZepException(e);
+        }
+    }
+
+    @Override
+    @TransactionalRollbackAllExceptions
+    public int deleteByEventSummaryUuid(String eventSummaryUuid) throws ZepException {
+        try {
+            final Map<String, byte[]> fields = Collections.singletonMap(COLUMN_EVENT_SUMMARY_UUID,
+                    DaoUtils.uuidToBytes(eventSummaryUuid));
+            final String sql = "DELETE FROM event_trigger_signal_spool WHERE event_summary_uuid=:event_summary_uuid";
+            return this.template.update(sql, fields);
         } catch (DataAccessException e) {
             throw new ZepException(e);
         }
@@ -184,14 +197,16 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    public int updateFlushTime(String uuid, long newFlushTime)
-            throws ZepException {
+    public int update(EventSignalSpool spool) throws ZepException {
+        Map<String, Object> fields = new HashMap<String, Object>();
+        fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(spool.getUuid()));
+        fields.put(COLUMN_FLUSH_TIME, spool.getFlushTime());
+        fields.put(COLUMN_EVENT_COUNT, spool.getEventCount());
+        fields.put(COLUMN_SENT_SIGNAL, spool.isSentSignal());
+        final String sql = "UPDATE event_trigger_signal_spool SET flush_time=:flush_time,event_count=:event_count,"
+                + "sent_signal=:sent_signal WHERE uuid=:uuid";
         try {
-            Map<String,Object> fields = new HashMap<String,Object>();
-            fields.put(COLUMN_FLUSH_TIME, newFlushTime);
-            fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
-            final String sql = "UPDATE event_trigger_signal_spool SET flush_time=:flush_time WHERE uuid=:uuid";
-            return template.update(sql, fields);
+            return this.template.update(sql, fields);
         } catch (DataAccessException e) {
             throw new ZepException(e);
         }

@@ -20,6 +20,7 @@ public class EventSignalSpool {
     private long flushTime;
     private long created;
     private int eventCount = 1;
+    private boolean sentSignal;
 
     public EventSignalSpool() {
     }
@@ -72,6 +73,14 @@ public class EventSignalSpool {
         this.eventCount = eventCount;
     }
 
+    public boolean isSentSignal() {
+        return sentSignal;
+    }
+
+    public void setSentSignal(boolean sentSignal) {
+        this.sentSignal = sentSignal;
+    }
+
     @Override
     public String toString() {
         return "EventSignalSpool{" +
@@ -81,6 +90,7 @@ public class EventSignalSpool {
                 ", flushTime=" + flushTime +
                 ", created=" + created +
                 ", eventCount=" + eventCount +
+                ", sentSignal=" + sentSignal +
                 '}';
     }
 

@@ -75,34 +75,37 @@ public class EventSignalSpoolDaoIT extends
 
     private EventTriggerSubscription createSubscription() throws ZepException {
         final EventTrigger trigger = createTrigger();
-        EventTriggerSubscription.Builder subscriptionBuilder = EventTriggerSubscription
-                .newBuilder();
+        EventTriggerSubscription.Builder subscriptionBuilder = EventTriggerSubscription.newBuilder();
         subscriptionBuilder.setSubscriberUuid(UUID.randomUUID().toString());
         subscriptionBuilder.setTriggerUuid(trigger.getUuid());
-        EventTriggerSubscription triggerSubscription = subscriptionBuilder
-                .build();
+        EventTriggerSubscription triggerSubscription = subscriptionBuilder.build();
         String uuid = subscriptionDao.create(triggerSubscription);
-        return EventTriggerSubscription.newBuilder(triggerSubscription)
-                .setUuid(uuid).build();
+        return EventTriggerSubscription.newBuilder(triggerSubscription).setUuid(uuid).build();
     }
 
     private void compareSpool(EventSignalSpool existing, EventSignalSpool found) {
         assertEquals(existing.getUuid(), found.getUuid());
         assertEquals(existing.getEventCount(), found.getEventCount());
         assertEquals(existing.getCreated(), found.getCreated());
-        assertEquals(existing.getEventSummaryUuid(),
-                found.getEventSummaryUuid());
-        assertEquals(existing.getSubscriptionUuid(),
-                found.getSubscriptionUuid());
+        assertEquals(existing.getEventSummaryUuid(), found.getEventSummaryUuid());
+        assertEquals(existing.getSubscriptionUuid(), found.getSubscriptionUuid());
         assertEquals(existing.getFlushTime(), found.getFlushTime());
+        assertEquals(existing.isSentSignal(), found.isSentSignal());
     }
 
     @Test
     public void testInsert() throws ZepException {
         EventTriggerSubscription subscription = createSubscription();
         EventSummary eventSummary = createSampleSummary();
-        EventSignalSpool spool = EventSignalSpool.buildSpool(subscription,
-                eventSummary, uuidGenerator);
+        EventSignalSpool spool = EventSignalSpool.buildSpool(subscription, eventSummary, uuidGenerator);
+        dao.create(spool);
+        compareSpool(spool, dao.findByUuid(spool.getUuid()));
+        dao.delete(spool.getUuid());
+        assertNull(dao.findByUuid(spool.getUuid()));
+        
+        // Test creating with sentSignal=true
+        spool = EventSignalSpool.buildSpool(subscription, eventSummary, uuidGenerator);
+        spool.setSentSignal(true);
         dao.create(spool);
         compareSpool(spool, dao.findByUuid(spool.getUuid()));
         dao.delete(spool.getUuid());
@@ -144,10 +147,9 @@ public class EventSignalSpoolDaoIT extends
                 eventSummary, uuidGenerator);
         dao.create(spool);
         compareSpool(spool, dao.findByUuid(spool.getUuid()));
-        long newFlushTime = spool.getFlushTime() + 600L;
-        dao.updateFlushTime(spool.getUuid(), newFlushTime);
-        assertEquals(newFlushTime, dao.findByUuid(spool.getUuid())
-                .getFlushTime());
+        spool.setFlushTime(spool.getFlushTime() + 600L);
+        dao.update(spool);
+        assertEquals(spool.getFlushTime(), dao.findByUuid(spool.getUuid()).getFlushTime());
     }
 
     @Test
@@ -197,5 +199,30 @@ public class EventSignalSpoolDaoIT extends
         List<EventSignalSpool> spools = dao.findAllByEventSummaryUuid(eventSummary.getUuid());
         assertEquals(1, spools.size());
         compareSpool(spool, spools.get(0));
+    }
+    
+    @Test
+    public void testDeleteByEventSummaryUuid() throws ZepException {
+        EventTriggerSubscription subscription = createSubscription();
+        EventSummary eventSummary = createSampleSummary();
+        EventSignalSpool spool = EventSignalSpool.buildSpool(subscription, eventSummary, uuidGenerator);
+        dao.create(spool);
+
+        assertEquals(1, dao.deleteByEventSummaryUuid(eventSummary.getUuid()));
+        assertEquals(0, dao.findAllByEventSummaryUuid(eventSummary.getUuid()).size());
+    }
+
+    @Test
+    public void testUpdate() throws ZepException {
+        EventTriggerSubscription subscription = createSubscription();
+        EventSummary eventSummary = createSampleSummary();
+        EventSignalSpool spool = EventSignalSpool.buildSpool(subscription, eventSummary, uuidGenerator);
+        dao.create(spool);
+
+        spool.setFlushTime(System.currentTimeMillis());
+        spool.setEventCount(55);
+        spool.setSentSignal(true);
+        assertEquals(1, dao.update(spool));
+        compareSpool(spool, dao.findByUuid(spool.getUuid()));
     }
 }
