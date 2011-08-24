@@ -15,16 +15,21 @@ import java.util.List;
 public abstract class EventUpdatePlugin extends EventPlugin  {
 
     /**
-     * Handle event updates.
-     * @param uuids The UUIDs of the events that have been updated
-     * @param update an event summary update protobufs message
+     * Called when events are modified.
+     *
+     * @param uuids The UUIDs of the events that have been updated.
+     * @param update Protobuf data containing the new state of the events.
+     * @param context Context passed to plugins.
      */
-    public abstract void onStatusUpdate(List<String> uuids, EventSummaryUpdate update) throws ZepException;
+    public abstract void onStatusUpdate(List<String> uuids, EventSummaryUpdate update, EventUpdateContext context)
+            throws ZepException;
 
     /**
-     * Handle note additions.
-     * @param uuid The UUID of the event that a note has been added to
-     * @param note The note protobufs message
+     * Called when a note is added to an event.
+     *
+     * @param uuid The UUID of the event that a note has been added to.
+     * @param note The note.
+     * @param context Context passed to plugins.
      */
-    public abstract void onNoteAdd(String uuid, EventNote note);
+    public abstract void onNoteAdd(String uuid, EventNote note, EventUpdateContext context) throws ZepException;
 }

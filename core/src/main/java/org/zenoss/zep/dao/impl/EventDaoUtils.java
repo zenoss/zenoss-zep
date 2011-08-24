@@ -6,7 +6,7 @@ package org.zenoss.zep.dao.impl;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.zep.ClearFingerprintGenerator;
-import org.zenoss.zep.EventContext;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -108,7 +108,7 @@ public class EventDaoUtils {
 
     /**
      * Creates clear hashes for the specified event. Uses the clear classes and the fingerprint
-     * generator specified in the {@link EventContext} (or the default if the generator is null)
+     * generator specified in the {@link org.zenoss.zep.plugins.EventPreCreateContext} (or the default if the generator is null)
      * to create the clear hashes.
      *
      * @param event Clear event to generate clear hashes for.
@@ -116,7 +116,7 @@ public class EventDaoUtils {
      * generator.
      * @return A list of clear hashes for the event.
      */
-    public static List<byte[]> createClearHashes(Event event, EventContext context) {
+    public static List<byte[]> createClearHashes(Event event, EventPreCreateContext context) {
         ClearFingerprintGenerator fingerprintGenerator = context.getClearFingerprintGenerator();
         if (fingerprintGenerator == null) {
             fingerprintGenerator = DEFAULT_GENERATOR;

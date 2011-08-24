@@ -24,7 +24,7 @@ import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.zep.EventContext;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -89,7 +89,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    public String create(Event event, EventContext context) throws ZepException {
+    public String create(Event event, EventPreCreateContext context) throws ZepException {
         final Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
         final Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
         final long created = event.getCreatedTime();
@@ -290,7 +290,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }
     }
 
-    private List<String> clearEvents(Event event, EventContext context)
+    private List<String> clearEvents(Event event, EventPreCreateContext context)
             throws ZepException {
         final List<byte[]> clearHashes = EventDaoUtils.createClearHashes(event, context);
         if (clearHashes.isEmpty()) {

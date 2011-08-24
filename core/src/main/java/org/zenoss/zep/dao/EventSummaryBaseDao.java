@@ -7,7 +7,7 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.zep.EventContext;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.ZepException;
 
 import java.util.List;
@@ -25,7 +25,7 @@ public interface EventSummaryBaseDao {
      * @return The UUID of the created (or updated) event.
      * @throws org.zenoss.zep.ZepException If an error occurs.
      */
-    public String create(Event event, EventContext context) throws ZepException;
+    public String create(Event event, EventPreCreateContext context) throws ZepException;
     
     /**
      * Returns the event summary in the archive table with the specified UUID.

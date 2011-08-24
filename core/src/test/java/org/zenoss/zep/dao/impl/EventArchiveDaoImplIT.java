@@ -19,7 +19,7 @@ import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
-import org.zenoss.zep.impl.EventContextImpl;
+import org.zenoss.zep.impl.EventPreCreateContextImpl;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -52,7 +52,7 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
     }
 
     private EventSummary createArchive(Event event) throws ZepException {
-        return eventArchiveDao.findByUuid(eventArchiveDao.create(event, new EventContextImpl()));
+        return eventArchiveDao.findByUuid(eventArchiveDao.create(event, new EventPreCreateContextImpl()));
     }
 
     @Test

@@ -27,7 +27,7 @@ import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
-import org.zenoss.zep.impl.EventContextImpl;
+import org.zenoss.zep.impl.EventPreCreateContextImpl;
 
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
@@ -68,12 +68,12 @@ public class EventSummaryDaoImplIT extends
     private EventSummary createSummary(Event event, EventStatus status)
             throws ZepException {
         Event eventStatus = Event.newBuilder(event).setStatus(status).build();
-        String uuid = eventSummaryDao.create(eventStatus, new EventContextImpl());
+        String uuid = eventSummaryDao.create(eventStatus, new EventPreCreateContextImpl());
         return eventSummaryDao.findByUuid(uuid);
     }
 
     private EventSummary createSummaryClear(Event event, Set<String> clearClasses) throws ZepException {
-        EventContextImpl eventContext = new EventContextImpl();
+        EventPreCreateContextImpl eventContext = new EventPreCreateContextImpl();
         eventContext.setClearClasses(clearClasses);
         String uuid = eventSummaryDao.create(event, eventContext);
         return eventSummaryDao.findByUuid(uuid);
@@ -160,7 +160,7 @@ public class EventSummaryDaoImplIT extends
          */
         Event event = Event.newBuilder(EventTestUtils.createSampleEvent())
                 .setStatus(EventStatus.STATUS_ACKNOWLEDGED).build();
-        eventSummaryDao.create(event, new EventContextImpl());
+        eventSummaryDao.create(event, new EventPreCreateContextImpl());
         Event.Builder newEventBuilder = Event.newBuilder().mergeFrom(event);
         newEventBuilder.setUuid(UUID.randomUUID().toString());
         newEventBuilder.setCreatedTime(event.getCreatedTime() + 50L);
@@ -182,7 +182,7 @@ public class EventSummaryDaoImplIT extends
          */
         Event event = Event.newBuilder(EventTestUtils.createSampleEvent())
                 .setStatus(EventStatus.STATUS_ACKNOWLEDGED).build();
-        eventSummaryDao.create(event, new EventContextImpl());
+        eventSummaryDao.create(event, new EventPreCreateContextImpl());
         Event.Builder newEventBuilder = Event.newBuilder().mergeFrom(event);
         newEventBuilder.setUuid(UUID.randomUUID().toString());
         newEventBuilder.setCreatedTime(event.getCreatedTime() + 50L);
@@ -619,7 +619,7 @@ public class EventSummaryDaoImplIT extends
                 return updated;
             }
         };
-        EventContextImpl ctx = new EventContextImpl();
+        EventPreCreateContextImpl ctx = new EventPreCreateContextImpl();
         ctx.setClearFingerprintGenerator(generator);
         EventSummary normalEvent = eventSummaryDao.findByUuid(eventSummaryDao.create(event, ctx));
         ctx.getClearClasses().add(event.getEventClass());

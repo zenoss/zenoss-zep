@@ -17,7 +17,7 @@ import java.util.Set;
  *
  * <p>The default implementation uses this clear fingerprint for CLEAR severity events:</p>
  *
- * <p>For all of the clear classes in {@link org.zenoss.zep.EventContext#getClearClasses()},
+ * <p>For all of the clear classes in {@link org.zenoss.zep.plugins.EventPreCreateContext#getClearClasses()},
  * create a pipe-delimited string of the following fields in order:</p>
  *
  * <ul>

@@ -165,6 +165,8 @@
                                 of the indexer running at the same time is not supported.
                                 -->
                                 <zep.index.enabled>false</zep.index.enabled>
+                                <!-- Don't load ZenPack plug-ins when running integration tests -->
+                                <zep.plugins.external.disabled>true</zep.plugins.external.disabled>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>

@@ -1,14 +1,16 @@
 /*
  * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
-package org.zenoss.zep;
+package org.zenoss.zep.plugins;
+
+import org.zenoss.zep.ClearFingerprintGenerator;
 
 import java.util.Set;
 
 /**
  * Context information available to event plug-ins.
  */
-public interface EventContext {
+public interface EventPreCreateContext {
     
     /**
      * Returns a mutable set of clear classes for the event (set in clear events).

@@ -9,8 +9,25 @@
 # The default maximum number of events returned in an event query
 #zep.query.limit=1000
 
-# The default indexing interval (in seconds).
-#zep.index.interval_seconds=1
+# The default indexing interval (in milliseconds).
+#zep.index.interval_milliseconds=1000
+
+# The number of events to index each zep.index.interval_milliseconds interval.
+#zep.index.limit=1000
+
+# The interval when events are scanned to perform auto-aging.
+#zep.aging.interval_milliseconds=60000
+
+# The maximum number of events to age in each interval. This limit should be kept relatively low to prevent large
+# database transactions.
+#zep.aging.limit=100
+
+# The interval when events are scanned for moving to the archive.
+#zep.archive.interval_milliseconds=60000
+
+# The maximum number of events to archive in each interval. This limit should be kept relatively low to prevent large
+# database transactions.
+#zep.archive.limit=100
 
 # The maximum number of minutes a closed event may not be seen again before moving to archive.
 #zep.max_event_archive_interval_minutes=43200
@@ -65,8 +82,11 @@
 # Heartbeat check interval in seconds
 #zep.heartbeat.interval_seconds=60
 
-## Comma separated list of ZEP plug-ins to enable.
-#zep.plugins=EventFanOutPlugin,TriggerPlugin
+## Comma separated list of ZEP plug-ins to disable.
+#zep.plugins.disabled=
+
+## Whether to disable all external ZEP plug-ins (from ZenPacks).
+#zep.plugins.external.disabled=false
 
 ## Optional configuration settings for each plug-in
 #plugin.<ID>.<NAME>=<VALUE>
@@ -87,8 +107,3 @@
 #partition.event_archive.initial_past_partitions=90
 #partition.event_archive.future_partitions=3
 
-#partition.event.unit=HOURS
-#partition.event.duration=6
-# We didn't save occurrences previously, so don't create any partitions in the past.
-#partition.event.initial_past_partitions=0
-#partition.event.future_partitions=12

@@ -43,6 +43,7 @@ import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.EventTriggerDao;
 import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
+import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.io.IOException;
@@ -427,7 +428,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
     }
 
     @Override
-    public void processEvent(EventSummary eventSummary) throws ZepException {
+    public void processEvent(EventSummary eventSummary, EventPostIndexContext context) throws ZepException {
         final EventStatus evtstatus = eventSummary.getStatus();
 
         if (ZepConstants.OPEN_STATUSES.contains(evtstatus)) {

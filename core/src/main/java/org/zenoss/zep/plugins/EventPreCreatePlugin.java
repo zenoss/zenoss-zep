@@ -4,7 +4,6 @@
 package org.zenoss.zep.plugins;
 
 import org.zenoss.protobufs.zep.Zep.Event;
-import org.zenoss.zep.EventContext;
 import org.zenoss.zep.ZepException;
 
 /**
@@ -24,5 +23,5 @@ public abstract class EventPreCreatePlugin extends EventPlugin {
      * @throws org.zenoss.zep.ZepException
      *             If an exception occurred processing the event.
      */
-    public abstract Event processEvent(Event event, EventContext ctx) throws ZepException;
+    public abstract Event processEvent(Event event, EventPreCreateContext ctx) throws ZepException;
 }

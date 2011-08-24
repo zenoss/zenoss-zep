@@ -310,6 +310,8 @@
                                 <zep.jdbc.password>${zep.jdbc.password}</zep.jdbc.password>
                                 <zep.index.dir>${zep.test.index.dir}_it</zep.index.dir>
                                 <zep.amqp.uri>${zep.test.amqp.uri}</zep.amqp.uri>
+                                <!-- Don't load ZenPack plug-ins when running integration tests -->
+                                <zep.plugins.external.disabled>true</zep.plugins.external.disabled>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>

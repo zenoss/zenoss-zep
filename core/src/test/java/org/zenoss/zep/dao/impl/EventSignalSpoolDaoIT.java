@@ -20,7 +20,7 @@ import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.EventTriggerDao;
 import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
-import org.zenoss.zep.impl.EventContextImpl;
+import org.zenoss.zep.impl.EventPreCreateContextImpl;
 
 import java.util.HashSet;
 import java.util.List;
@@ -49,7 +49,7 @@ public class EventSignalSpoolDaoIT extends
     public UUIDGenerator uuidGenerator;
     
     private EventSummary createSummary(Event event) throws ZepException {
-        String uuid = eventSummaryDao.create(event, new EventContextImpl());
+        String uuid = eventSummaryDao.create(event, new EventPreCreateContextImpl());
         return eventSummaryDao.findByUuid(uuid);
     }
 

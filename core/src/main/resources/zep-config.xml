@@ -38,6 +38,7 @@
 
     <bean id="pluginService" class="org.zenoss.zep.impl.PluginServiceImpl">
         <constructor-arg index="0" ref="zepConfig" />
+        <constructor-arg index="1" value="${zep.plugins.external.disabled:false}" />
     </bean>
 
     <bean id="eventFanOutPlugin" class="org.zenoss.zep.impl.EventFanOutPlugin">

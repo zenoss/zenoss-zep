@@ -25,6 +25,7 @@ import org.zenoss.zep.dao.IndexMetadataDao;
 import org.zenoss.zep.dao.impl.DaoUtils;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
+import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.util.Arrays;
@@ -241,6 +242,8 @@ public class EventIndexerImpl implements EventIndexer {
 
     private int doIndex(final EventIndexQueueDao queueDao, final EventIndexDao indexDao, long throughTime)
             throws ZepException {
+        final EventPostIndexContext context = new EventPostIndexContext() {
+        };
         final List<EventPostIndexPlugin> plugins = this.pluginService.getPluginsByType(EventPostIndexPlugin.class);
         
         int numIndexed = queueDao.indexEvents(new EventIndexHandler() {
@@ -250,7 +253,7 @@ public class EventIndexerImpl implements EventIndexer {
                 if (shouldRunPostprocessing(event)) {
                     for (EventPostIndexPlugin plugin : plugins) {
                         try {
-                            plugin.processEvent(event);
+                            plugin.processEvent(event, context);
                         } catch (Exception e) {
                             // Post-processing plug-in failures are not fatal errors.
                             logger.warn("Failed to run post-processing plug-in on event: " + event, e);

@@ -5,20 +5,20 @@ package org.zenoss.zep.impl;
 
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.ClearFingerprintGenerator;
-import org.zenoss.zep.EventContext;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import java.util.HashSet;
 import java.util.Set;
 
-public class EventContextImpl implements EventContext {
+public class EventPreCreateContextImpl implements EventPreCreateContext {
 
     private Set<String> clearClasses = new HashSet<String>();
     private ClearFingerprintGenerator clearFingerprintGenerator = null;
 
-    public EventContextImpl() {
+    public EventPreCreateContextImpl() {
     }
 
-    public EventContextImpl(ZepRawEvent rawEvent) {
+    public EventPreCreateContextImpl(ZepRawEvent rawEvent) {
         if (rawEvent == null) {
             throw new NullPointerException();
         }
@@ -50,7 +50,7 @@ public class EventContextImpl implements EventContext {
 
     @Override
     public String toString() {
-        return String.format("EventContextImpl [clearClasses=%s, clearFingerprintGenerator=%s]", clearClasses,
+        return String.format("EventPreCreateContextImpl [clearClasses=%s, clearFingerprintGenerator=%s]", clearClasses,
                 this.clearFingerprintGenerator);
     }
 

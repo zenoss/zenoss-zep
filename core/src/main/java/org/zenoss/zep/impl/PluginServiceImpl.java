@@ -60,13 +60,16 @@ public class PluginServiceImpl implements PluginService, ApplicationListener<Con
     private ApplicationEventPublisher applicationEventPublisher;
 
     public PluginServiceImpl(Properties pluginProperties) throws ZenossException {
-        this(pluginProperties, true);
+        this(pluginProperties, false);
     }
 
-    public PluginServiceImpl(Properties pluginProperties, boolean loadExternalPlugins) throws ZenossException {
+    public PluginServiceImpl(Properties pluginProperties, boolean disableExternalPlugins) throws ZenossException {
         this.pluginRepository = new PluginRepository(pluginProperties);
-        if (loadExternalPlugins) {
+        if (!disableExternalPlugins) {
             this.pluginClassLoader = createPluginClassLoader();
+        }
+        else {
+            logger.info("Loading of external plug-ins disabled.");
         }
     }
 

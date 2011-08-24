@@ -31,6 +31,7 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
+import org.zenoss.zep.plugins.EventUpdateContext;
 import org.zenoss.zep.plugins.EventUpdatePlugin;
 
 import javax.ws.rs.Consumes;
@@ -250,8 +251,10 @@ public class EventsResource {
         int numUpdated = this.eventStoreDao.update(uuids, update);
         if (numUpdated > 0) {
             eventIndexer.indexFully();
+            EventUpdateContext context = new EventUpdateContext() {
+            };
             for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
-                plugin.onStatusUpdate(uuids, update);
+                plugin.onStatusUpdate(uuids, update, context);
             }
         }
         EventSummaryUpdateResponse.Builder response = EventSummaryUpdateResponse.newBuilder();
@@ -316,8 +319,10 @@ public class EventsResource {
             return Response.status(Status.INTERNAL_SERVER_ERROR).build();
         }
 
+        EventUpdateContext context = new EventUpdateContext() {
+        };
         for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
-            plugin.onNoteAdd(eventUuid, note);
+            plugin.onNoteAdd(eventUuid, note, context);
         }
 
         return Response.noContent().build();

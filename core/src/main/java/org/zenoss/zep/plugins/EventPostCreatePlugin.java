@@ -15,8 +15,10 @@ public abstract class EventPostCreatePlugin extends EventPlugin {
      * Processes the event.
      *
      * @param eventOccurrence The event occurrence.
-     * @param event The event summary (or null if the event was dropped).
+     * @param event The event summary (Can be null if the event was dropped).
+     * @param context Context passed to EventPostCreatePlugin.
      * @throws ZepException If an exception occurs processing the event.
      */
-    public abstract void processEvent(Event eventOccurrence, EventSummary event) throws ZepException;
+    public abstract void processEvent(Event eventOccurrence, EventSummary event, EventPostCreateContext context)
+            throws ZepException;
 }

@@ -11,6 +11,7 @@ import org.zenoss.amqp.ExchangeConfiguration;
 import org.zenoss.amqp.ZenossQueueConfig;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.io.IOException;
@@ -34,7 +35,7 @@ public class EventFanOutPlugin extends EventPostIndexPlugin {
     }
 
     @Override
-    public void processEvent(EventSummary eventSummary) throws ZepException {
+    public void processEvent(EventSummary eventSummary, EventPostIndexContext context) throws ZepException {
         final String eventClass = eventSummary.getOccurrence(0).getEventClass();
         try {
             logger.debug("Publishing event to fan-out exchange: {}", eventSummary);

@@ -15,7 +15,8 @@ public abstract class EventPostIndexPlugin extends EventPlugin {
      * Processes the eventSummary.
      * 
      * @param eventSummary The eventSummary to process.
+     * @param context Context passed to EventPostIndexPlugin.
      * @throws ZepException If an exception occurs processing the eventSummary.
      */
-    public abstract void processEvent(EventSummary eventSummary) throws ZepException;
+    public abstract void processEvent(EventSummary eventSummary, EventPostIndexContext context) throws ZepException;
 }

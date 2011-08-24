@@ -9,7 +9,8 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
-import org.zenoss.zep.EventContext;
+import org.zenoss.zep.plugins.EventPostCreateContext;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.EventProcessor;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepException;
@@ -73,7 +74,7 @@ public class EventProcessorImpl implements EventProcessor {
             return;
         }
 
-        EventContext ctx = new EventContextImpl(zepRawEvent);
+        EventPreCreateContext ctx = new EventPreCreateContextImpl(zepRawEvent);
         Event event = eventFromRawEvent(zepRawEvent);
 
         for (EventPreCreatePlugin plugin : pluginService.getPluginsByType(EventPreCreatePlugin.class)) {
@@ -92,12 +93,14 @@ public class EventProcessorImpl implements EventProcessor {
         final String uuid = this.eventSummaryDao.create(event, ctx);
 
         EventSummary summary = null;
+        EventPostCreateContext context = new EventPostCreateContext() {
+        };
         for (EventPostCreatePlugin plugin : pluginService.getPluginsByType(EventPostCreatePlugin.class)) {
             if (summary == null && uuid != null) {
                 summary = this.eventSummaryDao.findByUuid(uuid);
             }
             try {
-                plugin.processEvent(event, summary);
+                plugin.processEvent(event, summary, context);
             } catch (Exception e) {
                 logger.warn("Failed to run post-create plugin: {} on event: {}, summary: {}",
                         new Object[] { plugin.getId(), event, summary }, e);

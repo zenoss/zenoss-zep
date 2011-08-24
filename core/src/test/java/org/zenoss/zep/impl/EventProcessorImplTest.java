@@ -9,11 +9,12 @@ import org.zenoss.amqp.AmqpException;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
-import org.zenoss.zep.EventContext;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
+import org.zenoss.zep.plugins.EventPostCreateContext;
 import org.zenoss.zep.plugins.EventPostCreatePlugin;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.plugins.EventPreCreatePlugin;
 
 import java.io.IOException;
@@ -30,7 +31,7 @@ import static org.junit.Assert.*;
 public class EventProcessorImplTest {
     private static class SampleIdentifyPlugin extends EventPreCreatePlugin {
         @Override
-        public Event processEvent(Event evt, EventContext ctx) {
+        public Event processEvent(Event evt, EventPreCreateContext ctx) {
             Event.Builder eventBuilder = evt.toBuilder();
             eventBuilder.setEventClass("/TestEvent");
             return eventBuilder.build();
@@ -39,7 +40,7 @@ public class EventProcessorImplTest {
 
     private static class SampleTransformPlugin extends EventPreCreatePlugin {
         @Override
-        public Event processEvent(Event evt, EventContext ctx) {
+        public Event processEvent(Event evt, EventPreCreateContext ctx) {
             Event.Builder evBuilder = evt.toBuilder();
             evBuilder.setSummary(evt.getSummary().toUpperCase() + "!!!");
             return evBuilder.build();
@@ -51,7 +52,8 @@ public class EventProcessorImplTest {
         public EventSummary eventSummary;
 
         @Override
-        public void processEvent(Event eventOccurrence, EventSummary event) throws ZepException {
+        public void processEvent(Event eventOccurrence, EventSummary event, EventPostCreateContext context)
+                throws ZepException {
             this.eventOccurrence = eventOccurrence;
             this.eventSummary = event;
         }
@@ -65,7 +67,7 @@ public class EventProcessorImplTest {
         SamplePostPlugin postPlugin = new SamplePostPlugin();
 
         Capture<Event> transformedEvent = new Capture<Event>();
-        Capture<EventContext> transformedContext = new Capture<EventContext>();
+        Capture<EventPreCreateContext> transformedContext = new Capture<EventPreCreateContext>();
 
         String uuid = UUID.randomUUID().toString();
         EventSummary summary = EventSummary.newBuilder().setUuid(UUID.randomUUID().toString()).build();
@@ -110,7 +112,7 @@ public class EventProcessorImplTest {
         EventSummaryDao eventSummaryDao = createMock(EventSummaryDao.class);
 
         Capture<Event> transformedEvent = new Capture<Event>();
-        Capture<EventContext> transformedContext = new Capture<EventContext>();
+        Capture<EventPreCreateContext> transformedContext = new Capture<EventPreCreateContext>();
 
         String uuid = UUID.randomUUID().toString();
         expect(eventSummaryDao.create(capture(transformedEvent), capture(transformedContext))).andReturn(uuid);

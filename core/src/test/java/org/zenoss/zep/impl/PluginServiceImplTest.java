@@ -9,7 +9,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.zep.EventContext;
+import org.zenoss.zep.plugins.EventPostIndexContext;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 import org.zenoss.zep.plugins.EventPreCreatePlugin;
@@ -77,7 +78,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
             }
 
             @Override
-            public Event processEvent(Event event, EventContext ctx)
+            public Event processEvent(Event event, EventPreCreateContext ctx)
                     throws ZepException {
                 return event;
             }
@@ -94,7 +95,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
             }
 
             @Override
-            public Event processEvent(Event event, EventContext ctx)
+            public Event processEvent(Event event, EventPreCreateContext ctx)
                     throws ZepException {
                 return event;
             }
@@ -111,7 +112,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
             }
 
             @Override
-            public Event processEvent(Event event, EventContext ctx)
+            public Event processEvent(Event event, EventPreCreateContext ctx)
                     throws ZepException {
                 return event;
             }
@@ -144,7 +145,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
             }
 
             @Override
-            public Event processEvent(Event event, EventContext ctx)
+            public Event processEvent(Event event, EventPreCreateContext ctx)
                     throws ZepException {
                 return event;
             }
@@ -178,7 +179,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         }
 
         @Override
-        public Event processEvent(Event event, EventContext ctx)
+        public Event processEvent(Event event, EventPreCreateContext ctx)
                 throws ZepException {
             return event;
         }
@@ -201,7 +202,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         }
 
         @Override
-        public Event processEvent(Event event, EventContext ctx)
+        public Event processEvent(Event event, EventPreCreateContext ctx)
                 throws ZepException {
             return event;
         }
@@ -219,7 +220,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
 
     public static final class MyPrePlugin3 extends EventPreCreatePlugin {
         @Override
-        public Event processEvent(Event event, EventContext ctx)
+        public Event processEvent(Event event, EventPreCreateContext ctx)
                 throws ZepException {
             return event;
         }
@@ -232,14 +233,14 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         }
 
         @Override
-        public void processEvent(EventSummary eventSummary)
+        public void processEvent(EventSummary eventSummary, EventPostIndexContext context)
                 throws ZepException {
         }
     }
 
     public static final class MyPostPlugin2 extends EventPostIndexPlugin {
         @Override
-        public void processEvent(EventSummary eventSummary)
+        public void processEvent(EventSummary eventSummary, EventPostIndexContext context)
                 throws ZepException {
         }
     }

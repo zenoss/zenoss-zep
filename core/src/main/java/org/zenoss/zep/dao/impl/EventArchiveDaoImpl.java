@@ -10,7 +10,7 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.zep.EventContext;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -64,7 +64,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    public String create(Event event, EventContext context) throws ZepException {
+    public String create(Event event, EventPreCreateContext context) throws ZepException {
         if (!ZepConstants.CLOSED_STATUSES.contains(event.getStatus())) {
             throw new ZepException("Invalid status for event in event archive: " + event.getStatus());
         }
