@@ -49,6 +49,8 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.zenoss.zep.index.impl.IndexConstants.SORT_SUFFIX;
+
 public class QueryBuilder {
     private static final Logger logger = LoggerFactory.getLogger(QueryBuilder.class);
     private final BooleanClause.Occur operator;
@@ -202,15 +204,14 @@ public class QueryBuilder {
      * @param analyzedFieldName    Analyzed field name.
      * @param nonAnalyzedFieldName Non-analyzed field name.
      * @param values               Queries to search on.
-     * @param analyzer             The analyzer used for the fields.
      * @param reader               The reader (used to query terms).
      * @return This query builder instance (for chaining).
      * @throws ZepException If an exception occurs.
      */
-    public QueryBuilder addEventClassFields(String analyzedFieldName, String nonAnalyzedFieldName,
-                                            Collection<String> values, Analyzer analyzer,
-                                            IndexReader reader) throws ZepException {
+    public QueryBuilder addPathFields(String analyzedFieldName, String nonAnalyzedFieldName,
+                                      Collection<String> values, IndexReader reader) throws ZepException {
         if (!values.isEmpty()) {
+            final PathAnalyzer analyzer = new PathAnalyzer();
             final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
             final BooleanQuery booleanQuery = new BooleanQuery();
 
@@ -586,7 +587,7 @@ public class QueryBuilder {
                             try {
                                 // Try to parse as IP range
                                 IpRange range = IpUtils.parseRange(val);
-                                final String field = key + IndexConstants.IP_ADDRESS_SORT_SUFFIX;
+                                final String field = key + IndexConstants.SORT_SUFFIX;
 
                                 // If range only spans one IP address, search exact match on term
                                 if (range.getFrom().equals(range.getTo())) {
@@ -635,6 +636,10 @@ public class QueryBuilder {
                                 logger.warn(e.getLocalizedMessage());
                             }
                         }
+                        break;
+
+                    case PATH:
+                        eventDetailQuery.addPathFields(key, key + SORT_SUFFIX, edf.getValueList(), reader);
                         break;
 
                     default:

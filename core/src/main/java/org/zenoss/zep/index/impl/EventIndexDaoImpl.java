@@ -499,7 +499,10 @@ public class EventIndexDaoImpl implements EventIndexDao {
                     case IP_ADDRESS:
                         // Sort IPv4 before IPv6
                         sortFields.add(new SortField(fieldName + IP_ADDRESS_TYPE_SUFFIX, SortField.STRING, reverse));
-                        sortFields.add(new SortField(fieldName + IP_ADDRESS_SORT_SUFFIX, SortField.STRING, reverse));
+                        sortFields.add(new SortField(fieldName + SORT_SUFFIX, SortField.STRING, reverse));
+                        break;
+                    case PATH:
+                        sortFields.add(new SortField(fieldName + SORT_SUFFIX, SortField.STRING, reverse));
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported detail type: " + item.getType());
@@ -569,8 +572,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
         qb.addWildcardFields(FIELD_AGENT, filter.getAgentList(), false);
         qb.addWildcardFields(FIELD_MONITOR, filter.getMonitorList(), false);
 
-        qb.addEventClassFields(FIELD_EVENT_CLASS, FIELD_EVENT_CLASS_NOT_ANALYZED, filter.getEventClassList(),
-                this.writer.getAnalyzer(), reader);
+        qb.addPathFields(FIELD_EVENT_CLASS, FIELD_EVENT_CLASS_NOT_ANALYZED, filter.getEventClassList(),
+                reader);
 
         for (EventTagFilter tagFilter : filter.getTagFilterList()) {
             qb.addField(FIELD_TAGS, tagFilter.getTagUuidsList(), tagFilter.getOp());

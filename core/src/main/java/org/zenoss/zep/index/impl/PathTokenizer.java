@@ -10,8 +10,8 @@ import java.io.Reader;
 /**
  * Tokenizer for event classes (splits on slash characters).
  */
-public class EventClassTokenizer extends CharTokenizer {
-    public EventClassTokenizer(Reader input) {
+public class PathTokenizer extends CharTokenizer {
+    public PathTokenizer(Reader input) {
         super(input);
     }
 

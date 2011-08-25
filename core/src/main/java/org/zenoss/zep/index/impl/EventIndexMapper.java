@@ -22,6 +22,7 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
+import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.utils.IpUtils;
 
 import java.io.ByteArrayInputStream;
@@ -46,7 +47,7 @@ public class EventIndexMapper {
         analyzer.addAnalyzer(FIELD_ELEMENT_TITLE, new IdentifierAnalyzer());
         analyzer.addAnalyzer(FIELD_ELEMENT_SUB_TITLE, new IdentifierAnalyzer());
         analyzer.addAnalyzer(FIELD_SUMMARY, new SummaryAnalyzer());
-        analyzer.addAnalyzer(FIELD_EVENT_CLASS, new EventClassAnalyzer());
+        analyzer.addAnalyzer(FIELD_EVENT_CLASS, new PathAnalyzer());
         return analyzer;
     }
 
@@ -161,15 +162,14 @@ public class EventIndexMapper {
             if (detailDefn != null) {
                 String detailKeyName = DETAIL_INDEX_PREFIX + detailDefn.getKey();
                 for (String detailValue : eDetail.getValueList()) {
-                    Fieldable field = null;
                     switch (detailDefn.getType()) {
                         case STRING:
-                            field = new Field(detailKeyName, detailValue, Store.NO, Index.NOT_ANALYZED_NO_NORMS);
+                            doc.add(new Field(detailKeyName, detailValue, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
                             break;
                         case INTEGER:
                             try {
                                 int intValue = Integer.parseInt(detailValue);
-                                field = new NumericField(detailKeyName, Store.NO, true).setIntValue(intValue);
+                                doc.add(new NumericField(detailKeyName, Store.NO, true).setIntValue(intValue));
                             } catch (Exception e) {
                                 logger.warn("Invalid numeric(int) data reported for detail {}: {}", detailName,
                                         detailValue);
@@ -178,7 +178,7 @@ public class EventIndexMapper {
                         case FLOAT:
                             try {
                                 float floatValue = Float.parseFloat(detailValue);
-                                field = new NumericField(detailKeyName, Store.NO, true).setFloatValue(floatValue);
+                                doc.add(new NumericField(detailKeyName, Store.NO, true).setFloatValue(floatValue));
                             } catch (Exception e) {
                                 logger.warn("Invalid numeric(float) data reported for detail {}: {}", detailName,
                                         detailValue);
@@ -187,7 +187,7 @@ public class EventIndexMapper {
                         case LONG:
                             try {
                                 long longValue = Long.parseLong(detailValue);
-                                field = new NumericField(detailKeyName, Store.NO, true).setLongValue(longValue);
+                                doc.add(new NumericField(detailKeyName, Store.NO, true).setLongValue(longValue));
                             } catch (Exception e) {
                                 logger.warn("Invalid numeric(long) data reported for detail {}: {}", detailName,
                                         detailValue);
@@ -196,7 +196,7 @@ public class EventIndexMapper {
                         case DOUBLE:
                             try {
                                 double doubleValue = Double.parseDouble(detailValue);
-                                field = new NumericField(detailKeyName, Store.NO, true).setDoubleValue(doubleValue);
+                                doc.add(new NumericField(detailKeyName, Store.NO, true).setDoubleValue(doubleValue));
                             } catch (Exception e) {
                                 logger.warn("Invalid numeric(double) data reported for detail {}: {}", detailName,
                                         detailValue);
@@ -211,24 +211,31 @@ public class EventIndexMapper {
                                         detailValue);
                             }
                             break;
+                        case PATH:
+                            createPathFields(doc, detailKeyName, detailValue);
+                            break;
                         default:
                             logger.warn("Configured detail {} uses unknown data type: {}, skipping", detailName, detailDefn.getType());
                             break;
-                    }
-
-                    if (field != null) {
-                        doc.add(field);
                     }
                 }
             }
         }
         return doc;
     }
+
+    private static void createPathFields(Document doc, String detailKeyName, String detailValue) {
+        String lowerCaseDetailValue = detailValue.toLowerCase();
+        doc.add(new Field(detailKeyName, new PathTokenizer(new StringReader(lowerCaseDetailValue))));
+        // Store with a trailing slash
+        doc.add(new Field(detailKeyName + SORT_SUFFIX, lowerCaseDetailValue + "/", Store.NO,
+                Index.NOT_ANALYZED_NO_NORMS));
+    }
     
     private static void createIpAddressFields(Document doc, String detailKeyName, InetAddress value) {
         final String typeVal = (value instanceof Inet6Address) ? IP_ADDRESS_TYPE_6 : IP_ADDRESS_TYPE_4;
         doc.add(new Field(detailKeyName + IP_ADDRESS_TYPE_SUFFIX, typeVal, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-        doc.add(new Field(detailKeyName + IP_ADDRESS_SORT_SUFFIX, IpUtils.canonicalIpAddress(value), Store.NO,
+        doc.add(new Field(detailKeyName + SORT_SUFFIX, IpUtils.canonicalIpAddress(value), Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(detailKeyName, new IpTokenizer(new StringReader(value.getHostAddress()))));
     }

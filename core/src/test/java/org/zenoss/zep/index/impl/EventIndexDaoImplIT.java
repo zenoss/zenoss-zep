@@ -599,13 +599,13 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         final String high_value = "4154";
         createEventWithDetail(production_state_key, high_value);
 
-        final EventSummaryResult result = findResultForNumericDetail(production_state_key, test_value1);
+        final EventSummaryResult result = findResultForDetail(production_state_key, test_value1);
         assertEquals(1, result.getEventsCount());
 
         final String test_value2 = "1234.0";
         Exception expectedException = null;
         try {
-            findResultForNumericDetail(production_state_key, test_value2);
+            findResultForDetail(production_state_key, test_value2);
         } catch (RuntimeException e) {
             expectedException = e;
         }
@@ -613,12 +613,12 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
         // find the low_value and the test_value1
         final String test_value3 = ":1235";
-        final EventSummaryResult result3 = findResultForNumericDetail(production_state_key, test_value3);
+        final EventSummaryResult result3 = findResultForDetail(production_state_key, test_value3);
         assertEquals(2, result3.getEventsCount());
 
         // find the test_value1 and the high_value
         final String test_value4 = "1233:";
-        final EventSummaryResult result4 = findResultForNumericDetail(production_state_key, test_value4);
+        final EventSummaryResult result4 = findResultForDetail(production_state_key, test_value4);
         assertEquals(2, result4.getEventsCount());
 
         // test that these filters get converted to ranges correctly and that the ranges find the value, 1234.
@@ -629,20 +629,20 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         test_value5.add("1235");
         test_value5.add("1239");
 
-        final EventSummaryResult result5 = findResultForNumericDetails(production_state_key, test_value5);
+        final EventSummaryResult result5 = findResultForDetails(production_state_key, test_value5);
         assertEquals(1, result5.getEventsCount());
 
         // test that this value gets converted to range correctly and that the range finds the value, 1234.
         final List<String> test_value6 = new ArrayList<String>();
         test_value6.add("1230:1239");
-        final EventSummaryResult result6 = findResultForNumericDetails(production_state_key, test_value6);
+        final EventSummaryResult result6 = findResultForDetails(production_state_key, test_value6);
         assertEquals(1, result6.getEventsCount());
 
 
         // test the edge of a range is inclusive.
         final List<String> test_value7 = new ArrayList<String>();
         test_value7.add("1230:1234");
-        final EventSummaryResult result7 = findResultForNumericDetails(production_state_key, test_value7);
+        final EventSummaryResult result7 = findResultForDetails(production_state_key, test_value7);
         assertEquals(1, result7.getEventsCount());
 
         // Just get ridiculous. Test out  of order, numbers within a range, singles that span a range boundary
@@ -668,7 +668,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         test_value8.add("1236"); // continue the sequence over the previous range.
 
         // should find all but the highest test event, 4154
-        final EventSummaryResult result8 = findResultForNumericDetails(production_state_key, test_value8);
+        final EventSummaryResult result8 = findResultForDetails(production_state_key, test_value8);
         assertEquals(2, result8.getEventsCount());
     }
 
@@ -694,11 +694,11 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         return summary;
     }
 
-    private EventSummaryResult findResultForNumericDetail(String key, String val) throws ZepException {
-        return findResultForNumericDetails(key, Collections.singletonList(val));
+    private EventSummaryResult findResultForDetail(String key, String val) throws ZepException {
+        return findResultForDetails(key, Collections.singletonList(val));
     }
 
-    private EventSummaryResult findResultForNumericDetails(String key, List<String> vals) throws ZepException {
+    private EventSummaryResult findResultForDetails(String key, List<String> vals) throws ZepException {
         final EventDetailFilter.Builder edFilterBuilder = EventDetailFilter.newBuilder();
         edFilterBuilder.setKey(key);
         edFilterBuilder.addAllValue(vals);
@@ -1032,6 +1032,29 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             EventSummaryRequest request = EventSummaryRequest.newBuilder()
                     .setEventFilter(createFilterForIpAddress(query)).build();
             assertEquals(0, this.eventIndexDao.list(request).getEventsCount());
+        }
+    }
+
+    @Test
+    public void testDetailOrganizerQueries() throws ZepException {
+        List<String> detailNames = Arrays.asList(ZepConstants.DETAIL_DEVICE_GROUPS, ZepConstants.DETAIL_DEVICE_LOCATION,
+                ZepConstants.DETAIL_DEVICE_SYSTEMS);
+        for (String detailName : detailNames) {
+            EventSummary ev1 = createEventWithDetail(detailName, "/Group1/Nested2");
+
+            List<String> matches = Arrays.asList("group*", "nested*", "/Group*", "Group1/Nes*", "Group1", "Nested2",
+                    "/Group1/Nested2", "/Group1/Nested2/");
+            for (String query : matches) {
+                EventSummaryResult result = findResultForDetail(detailName, query);
+                assertEquals(1, result.getEventsCount());
+                assertEquals(ev1.getUuid(), result.getEventsList().get(0).getUuid());
+            }
+
+            List<String> noMatches = Arrays.asList("Nested*/Group*", "/Nested*");
+            for (String query : noMatches) {
+                EventSummaryResult result = findResultForDetail(detailName, query);
+                assertEquals(0, result.getEventsCount());
+            }
         }
     }
 }

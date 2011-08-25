@@ -44,6 +44,10 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
         createDetailItem(ZepConstants.DETAIL_DEVICE_PRIORITY, EventDetailType.INTEGER, "Priority");
         createDetailItem(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE, EventDetailType.INTEGER, "Production State");
         createDetailItem(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, EventDetailType.IP_ADDRESS, "IP Address");
+        createDetailItem(ZepConstants.DETAIL_DEVICE_LOCATION, EventDetailType.PATH, "Location");
+        createDetailItem(ZepConstants.DETAIL_DEVICE_GROUPS, EventDetailType.PATH, "Groups");
+        createDetailItem(ZepConstants.DETAIL_DEVICE_SYSTEMS, EventDetailType.PATH, "Systems");
+        createDetailItem(ZepConstants.DETAIL_DEVICE_CLASS, EventDetailType.PATH, "Device Class");
     }
 
     @Override
