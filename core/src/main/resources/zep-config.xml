@@ -109,6 +109,7 @@
         <property name="amqpConnectionManager" ref="amqpConnectionManager" />
         <property name="eventStoreDao" ref="eventStoreDao"/>
         <property name="eventArchiveDao" ref="eventArchiveDao"/>
+        <property name="eventTimeDao" ref="eventTimeDao"/>
         <property name="eventIndexer" ref="eventIndexer"/>
         <property name="indexIntervalMilliseconds" value="${zep.index.interval_milliseconds:1000}" />
         <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao" />
@@ -130,6 +131,10 @@
         <property name="eventTriggerSubscriptionDao" ref="eventTriggerSubscriptionDao"/>
         <property name="connectionManager" ref="amqpConnectionManager"/>
         <property name="eventStoreDao" ref="eventStoreDao"/>
+    </bean>
+
+    <bean id="eventTimePlugin" class="org.zenoss.zep.impl.EventTimePlugin">
+        <property name="eventTimeDao" ref="eventTimeDao"/>
     </bean>
 
     <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">

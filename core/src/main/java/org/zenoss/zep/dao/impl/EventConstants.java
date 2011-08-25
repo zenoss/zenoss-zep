@@ -7,6 +7,7 @@ public class EventConstants {
     // Table names
     public static final String TABLE_EVENT_ARCHIVE = "event_archive";
     public static final String TABLE_EVENT_SUMMARY = "event_summary";
+    public static final String TABLE_EVENT_TIME = "event_time";
 
     // Shared column names
     public static final String COLUMN_ELEMENT_SUB_IDENTIFIER = "element_sub_identifier";
@@ -35,6 +36,11 @@ public class EventConstants {
     public static final String COLUMN_FINGERPRINT = "fingerprint";
     public static final String COLUMN_FINGERPRINT_HASH = "fingerprint_hash";
     public static final String COLUMN_UUID = "uuid";
+
+    // Only in Event_Time
+    public static final String COLUMN_SUMMARY_UUID = "summary_uuid";
+    public static final String COLUMN_CREATED = "created";
+    public static final String COLUMN_PROCESSED = "processed";
 
     // Summary / Archive fields
     public static final String COLUMN_STATUS_ID = "status_id";

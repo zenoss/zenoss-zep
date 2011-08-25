@@ -24,6 +24,7 @@ import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.dao.EventStoreDao;
+import org.zenoss.zep.dao.EventTimeDao;
 import org.zenoss.zep.dao.Purgable;
 import org.zenoss.zep.events.IndexDetailsUpdatedEvent;
 import org.zenoss.zep.events.PluginServiceStartedEvent;
@@ -55,6 +56,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private ScheduledFuture<?> eventSummaryAger = null;
     private ScheduledFuture<?> eventSummaryArchiver = null;
     private ScheduledFuture<?> eventArchivePurger = null;
+    private ScheduledFuture<?> eventTimePurger = null;
     private ScheduledFuture<?> eventIndexerFuture = null;
     private ScheduledFuture<?> heartbeatFuture = null;
     private ZepConfig oldConfig = null;
@@ -75,6 +77,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private ConfigDao configDao;
     private EventStoreDao eventStoreDao;
     private EventArchiveDao eventArchiveDao;
+    private EventTimeDao eventTimeDao;
     private EventIndexer eventIndexer;
     private EventDetailsConfigDao eventDetailsConfigDao;
     private HeartbeatProcessor heartbeatProcessor;
@@ -94,6 +97,10 @@ public class Application implements ApplicationContextAware, ApplicationListener
 
     public void setEventArchiveDao(EventArchiveDao eventArchiveDao) {
         this.eventArchiveDao = eventArchiveDao;
+    }
+
+    public void setEventTimeDao(EventTimeDao eventTimeDao) {
+        this.eventTimeDao = eventTimeDao;
     }
 
     public void setAmqpConnectionManager(AmqpConnectionManager amqpConnectionManager) {
@@ -174,6 +181,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
         startEventSummaryAging();
         startEventSummaryArchiving();
         startEventArchivePurging();
+        startEventTimePurging();
         startEventIndexer();
         startHeartbeatProcessing();
         startQueueListeners();
@@ -222,6 +230,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
 
     private void initializePartitions() throws ZepException {
         eventArchiveDao.initializePartitions();
+        eventTimeDao.initializePartitions();
     }
 
     private void startEventIndexer() throws ZepException {
@@ -352,6 +361,19 @@ public class Application implements ApplicationContextAware, ApplicationListener
                 "ZEP_EVENT_ARCHIVE_PURGER");
     }
 
+
+    private void startEventTimePurging() {
+        final int duration = config.getEventTimePurgeIntervalDays();
+        if (oldConfig != null
+                && duration == oldConfig.getEventTimePurgeIntervalDays()) {
+            logger.info("Event Times purging configuration not changed.");
+            return;
+        }
+        cancelFuture(this.eventTimePurger);
+        this.eventTimePurger = purge(eventTimeDao, duration, TimeUnit.DAYS,
+                eventTimeDao.getPartitionIntervalInMs(), "ZEP_EVENT_TIME_PURGER");
+    }
+
     private void startHeartbeatProcessing() {
         cancelFuture(this.heartbeatFuture);
         Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
@@ -399,6 +421,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
             startEventSummaryAging();
             startEventSummaryArchiving();
             startEventArchivePurging();
+            startEventTimePurging();
             this.oldConfig = config;
         }
         else if (event instanceof IndexDetailsUpdatedEvent) {

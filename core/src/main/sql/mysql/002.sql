@@ -8,3 +8,4 @@ ALTER TABLE `event_trigger_signal_spool` ADD COLUMN `sent_signal` TINYINT DEFAUL
 UPDATE `event_trigger_signal_spool` SET sent_signal=1;
 
 INSERT INTO `schema_version` (`version`, `installed_time`) VALUES(2, NOW());
+

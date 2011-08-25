@@ -29,6 +29,9 @@
     <bean id="heartbeatsResource" class="org.zenoss.zep.rest.HeartbeatsResource">
         <property name="heartbeatDao" ref="heartbeatDao" />
     </bean>
+    <bean id="eventTimeResource" class="org.zenoss.zep.rest.EventTimeResource">
+        <property name="eventTimeDao" ref="eventTimeDao" />
+    </bean>
     <bean id="protobufProvider" class="org.zenoss.protobufs.rest.ProtobufProvider">
         <property name="messageRegistry" ref="protobufMessageRegistry" />
     </bean>

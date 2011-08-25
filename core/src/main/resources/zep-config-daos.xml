@@ -55,6 +55,11 @@
         <property name="eventDaoHelper" ref="eventDaoHelper"/>
         <property name="uuidGenerator" ref="uuidGenerator"/>
     </bean>
+    <bean id="eventTimeDao" class="org.zenoss.zep.dao.impl.EventTimeDaoImpl">
+        <constructor-arg index="0" ref="dataSource"/>
+        <constructor-arg index="1" value="${zep.jdbc.dbname}"/>
+        <constructor-arg index="2" ref="partitionConfig"/>
+    </bean>
     <bean id="eventTriggerDao" class="org.zenoss.zep.dao.impl.EventTriggerDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
         <property name="eventSignalSpoolDao" ref="eventSignalSpoolDao" />
