@@ -7,11 +7,13 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventTime;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.EventTimeDao;
+import org.zenoss.zep.impl.EventPreCreateContextImpl;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -43,7 +45,7 @@ public class EventTimeDaoIT extends
     private EventTime createEventTime(long processedTime){
         String uuid = uuidGenerator.generate().toString();
 
-        return EventTime.newBuilder().setCreatedTime(processedTime).setProcessedTime(processedTime).setSummaryUuid(uuid).build();
+        return EventTime.newBuilder().setCreatedTime(processedTime).setProcessedTime(processedTime).setFirstSeenTime(processedTime).setSummaryUuid(uuid).build();
 
     }
 

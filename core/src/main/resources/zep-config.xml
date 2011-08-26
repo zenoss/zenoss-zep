@@ -133,10 +133,6 @@
         <property name="eventStoreDao" ref="eventStoreDao"/>
     </bean>
 
-    <bean id="eventTimePlugin" class="org.zenoss.zep.impl.EventTimePlugin">
-        <property name="eventTimeDao" ref="eventTimeDao"/>
-    </bean>
-
     <bean id="messageSource" class="org.springframework.context.support.ResourceBundleMessageSource">
         <property name="basenames">
             <array>

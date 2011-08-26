@@ -93,6 +93,7 @@ public class EventTimeDaoImpl implements EventTimeDao {
         Map<String, Object> fields = new LinkedHashMap<String, Object>();
         fields.put(COLUMN_PROCESSED, eventTime.getProcessedTime());
         fields.put(COLUMN_CREATED, eventTime.getCreatedTime());
+        fields.put(COLUMN_FIRST_SEEN, eventTime.getFirstSeenTime());
         byte[] summaryUuid = DaoUtils.uuidToBytes(eventTime.getSummaryUuid());
         fields.put(COLUMN_SUMMARY_UUID, summaryUuid);
 
@@ -106,6 +107,7 @@ public class EventTimeDaoImpl implements EventTimeDao {
             Zep.EventTime.Builder builder = Zep.EventTime.newBuilder();
             builder.setCreatedTime(rs.getLong(COLUMN_CREATED));
             builder.setProcessedTime(rs.getLong(COLUMN_PROCESSED));
+            builder.setFirstSeenTime(rs.getLong(COLUMN_FIRST_SEEN));
             String summaryUuid = DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_SUMMARY_UUID));
             builder.setSummaryUuid(summaryUuid);
             return builder.build();
