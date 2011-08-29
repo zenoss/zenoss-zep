@@ -3,29 +3,26 @@
  */
 package org.zenoss.zep.dao.impl;
 
+import org.junit.After;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventTime;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.EventTimeDao;
-import org.zenoss.zep.impl.EventPreCreateContextImpl;
 
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
-public class EventTimeDaoIT extends
-        AbstractTransactionalJUnit4SpringContextTests {
+public class EventTimeDaoIT extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     public EventTimeDao dao;
@@ -37,6 +34,13 @@ public class EventTimeDaoIT extends
     @Autowired
     public UUIDGenerator uuidGenerator;
 
+    @After
+    public void truncateTable() {
+        // The event_time table is MyISAM instead of InnoDB so it doesn't support transactions. To get accurate
+        // results from the unit tests we have to manually wipe the database contents after each test here.
+        this.deleteFromTables(EventConstants.TABLE_EVENT_TIME);
+    }
+
     private EventTime createEventTime(){
         long time = System.currentTimeMillis();
         return createEventTime(time);
@@ -44,15 +48,14 @@ public class EventTimeDaoIT extends
 
     private EventTime createEventTime(long processedTime){
         String uuid = uuidGenerator.generate().toString();
-
-        return EventTime.newBuilder().setCreatedTime(processedTime).setProcessedTime(processedTime).setFirstSeenTime(processedTime).setSummaryUuid(uuid).build();
+        return EventTime.newBuilder().setCreatedTime(processedTime).setProcessedTime(processedTime)
+                .setFirstSeenTime(processedTime).setSummaryUuid(uuid).build();
 
     }
 
 
     @Test
     public void testInsert() throws ZepException {
-
         EventTime evTime = createEventTime();
         long time = evTime.getProcessedTime();
         dao.save(evTime);
@@ -62,7 +65,6 @@ public class EventTimeDaoIT extends
         assertEquals(1, result.size());
         EventTime timeResult = result.iterator().next();
         assertEquals(evTime, timeResult);
-
     }
 
 
@@ -81,9 +83,7 @@ public class EventTimeDaoIT extends
         List<EventTime> result = dao.findProcessedSince(new Date(time), 100);
         assertNotNull(result);
         assertEquals(0, result.size());
-
     }
-
 
     @Test
     public void testFindProcessedSince() throws Exception {
@@ -130,9 +130,5 @@ public class EventTimeDaoIT extends
         assertNotNull(result);
         assertEquals(2, result.size());
         assertEquals(et.subList(4,6), result);
-
-
     }
-
-
 }

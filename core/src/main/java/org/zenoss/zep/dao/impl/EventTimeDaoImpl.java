@@ -25,6 +25,11 @@ import java.util.concurrent.TimeUnit;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
 
+/**
+ * NOTE: This table is backed by MyISAM storage instead of InnoDB storage, so normal transaction
+ * handling won't work here. Ignore the @Transactional* annotations on the methods as they are
+ * ignored.
+ */
 public class EventTimeDaoImpl implements EventTimeDao {
 
     @SuppressWarnings("unused")
