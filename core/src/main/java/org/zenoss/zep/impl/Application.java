@@ -282,7 +282,6 @@ public class Application implements ApplicationContextAware, ApplicationListener
                     new ThreadRenamingRunnable(new Runnable() {
                         @Override
                         public void run() {
-                            logger.info("Aging events");
                             try {
                                 final int numAged = eventStoreDao.ageEvents(duration, TimeUnit.MINUTES, severity,
                                         agingLimit);
