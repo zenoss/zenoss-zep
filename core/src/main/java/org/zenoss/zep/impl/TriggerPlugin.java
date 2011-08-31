@@ -3,6 +3,7 @@
  */
 package org.zenoss.zep.impl;
 
+import org.python.core.Py;
 import org.python.core.PyDictionary;
 import org.python.core.PyException;
 import org.python.core.PyFunction;
@@ -11,7 +12,6 @@ import org.python.core.PyList;
 import org.python.core.PyObject;
 import org.python.core.PyString;
 import org.python.core.PySyntaxError;
-import org.python.core.PyType;
 import org.python.util.PythonInterpreter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -410,14 +410,20 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             result = fn.__call__(ruleContext.event, ruleContext.device, ruleContext.element, ruleContext.subElement);
         } catch (PySyntaxError pysynerr) {
             // evaluating rule raised an exception - treat as "False" eval
-            logger.warn("syntax error exception raised while compiling rule: " + ruleSource, pysynerr);
+            String fmt = Py.formatException(pysynerr.type, pysynerr.value);
+            logger.warn("syntax error exception raised while compiling rule: {}, {}", ruleSource, fmt);
             result = new PyInteger(0);
         } catch (PyException pyexc) {
             // evaluating rule raised an exception - treat as "False" eval
             // If it's an AttributeError it just means the event doesn't have a value for the field
             // and an eval of False is fine. Otherwise we should log in case there's a real issue.
-            if (!((PyType) pyexc.type).getName().equals("AttributeError")) {
-                logger.warn("exception raised while evaluating rule: {} \n{}", ruleSource, pyexc);
+            if (!pyexc.match(Py.AttributeError)) {
+                String fmt = Py.formatException(pyexc.type, pyexc.value);
+                logger.warn("exception raised while evaluating rule: {}, {}", ruleSource, fmt);
+            }
+            else if (logger.isDebugEnabled()) {
+                String fmt = Py.formatException(pyexc.type, pyexc.value);
+                logger.debug("AttributeError raised while evaluating rule: {}, {}", ruleSource, fmt);
             }
             result = new PyInteger(0);
         }

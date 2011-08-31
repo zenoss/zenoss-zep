@@ -48,7 +48,7 @@
                         <id>create-test-schema</id>
                         <phase>pre-integration-test</phase>
                         <configuration>
-                            <target>
+                            <target unless="skipITs">
                                 <exec executable="bash" dir="..">
                                     <arg value="./populate_schema.sh" />
                                     <arg value="--dbhost" />
@@ -87,6 +87,7 @@
                         <contextPath>/zeneventserver</contextPath>
                     </webAppConfig>
                     <scanIntervalSeconds>0</scanIntervalSeconds>
+                    <skip>${skipITs}</skip>
                     <stopKey>STOP</stopKey>
                     <stopPort>${jetty.stop.port}</stopPort>
                 </configuration>

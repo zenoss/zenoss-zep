@@ -268,7 +268,7 @@
                         <id>create-test-schema</id>
                         <phase>pre-integration-test</phase>
                         <configuration>
-                            <target>
+                            <target unless="skipITs">
                                 <exec executable="bash" dir="..">
                                     <arg value="./populate_schema.sh" />
                                     <arg value="--dbhost" />
