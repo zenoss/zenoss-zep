@@ -55,8 +55,7 @@ public class ModelChangeEventQueueListener extends AbstractQueueListener {
         if (id != null && uuid != null) {
             if (parentId != null) {
                 logger.info("Re-identifying events for {}, {}", parentId, id);
-            }
-            else {
+            } else {
                 logger.info("Re-identifying events for {}", id);
             }
             this.eventSummaryDao.reidentify(type, id, uuid, title, parentUuid);
@@ -101,7 +100,7 @@ public class ModelChangeEventQueueListener extends AbstractQueueListener {
         if (!(message instanceof ModelEventList)) {
             logger.warn("Unexpected message type: {}", message);
         } else {
-            this.processMessage((ModelEventList)message);
+            this.processMessage((ModelEventList) message);
         }
     }
 
