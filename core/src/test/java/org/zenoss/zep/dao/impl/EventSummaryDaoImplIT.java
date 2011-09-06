@@ -1020,4 +1020,53 @@ public class EventSummaryDaoImplIT extends
             // Expected
         }
     }
+
+    @Test
+    public void testDedupOutOfOrder() throws ZepException {
+        Event event = EventTestUtils.createSampleEvent();
+        EventSummary eventSummaryFromDb = createSummaryNew(event);
+        Event eventFromSummary = eventSummaryFromDb.getOccurrence(0);
+        compareEvents(event, eventFromSummary);
+
+        Event earlierEvent = Event.newBuilder(event).setCreatedTime(event.getCreatedTime() - 5000)
+                .setSummary("New summary entry").build();
+        EventSummary updatedEventSummaryFromDb = createSummaryNew(earlierEvent);
+        Event updatedEventFromSummary = updatedEventSummaryFromDb.getOccurrence(0);
+        compareEvents(event, updatedEventFromSummary);
+        assertEquals(earlierEvent.getCreatedTime(), updatedEventSummaryFromDb.getFirstSeenTime());
+        assertEquals(event.getCreatedTime(), updatedEventSummaryFromDb.getLastSeenTime());
+        assertEquals(2, updatedEventSummaryFromDb.getCount());
+
+        // Compare old and new summary items to verify the old event didn't change anything but update time and
+        // first seen time.
+        EventSummary oldSummaryForComparison = EventSummary.newBuilder(eventSummaryFromDb).clearUpdateTime()
+                .clearFirstSeenTime().clearCount().build();
+        EventSummary newSummaryForComparison = EventSummary.newBuilder(updatedEventSummaryFromDb).clearUpdateTime()
+                .clearFirstSeenTime().clearCount().build();
+        assertEquals(oldSummaryForComparison, newSummaryForComparison);
+    }
+
+    @Test
+    public void testDedupDetailsOutOfOrder() throws ZepException {
+        Event.Builder eventBuilder = Event.newBuilder(EventTestUtils.createSampleEvent());
+        eventBuilder.clearDetails();
+        eventBuilder.addDetails(EventDetail.newBuilder().setName("a").addAllValue(Arrays.asList("b", "c")));
+        eventBuilder.addDetails(EventDetail.newBuilder().setName("b").addAllValue(Arrays.asList("b1", "b2")));
+        Event event = eventBuilder.build();
+        EventSummary eventSummaryFromDb = createSummaryNew(event);
+
+        Event earlierEvent = Event.newBuilder(event).setCreatedTime(event.getCreatedTime()-5000)
+                .clearDetails()
+                .addDetails(EventDetail.newBuilder().setName("a").addAllValue(Arrays.asList("c", "d")))
+                .addDetails(EventDetail.newBuilder().setName("c").addAllValue(Arrays.asList("c1", "c2"))).build();
+        EventSummary updatedEventSummaryFromDb = createSummaryNew(earlierEvent);
+        Event updatedEvent = updatedEventSummaryFromDb.getOccurrence(0);
+        assertEquals(3, updatedEvent.getDetailsCount());
+
+        // Detail values from the later event take precedence over the ones from the earlier event
+        Map<String,List<String>> detailsMap = detailsToMap(updatedEvent.getDetailsList());
+        assertEquals(Arrays.asList("b", "c"), detailsMap.get("a"));
+        assertEquals(Arrays.asList("b1", "b2"), detailsMap.get("b"));
+        assertEquals(Arrays.asList("c1", "c2"), detailsMap.get("c"));
+    }
 }

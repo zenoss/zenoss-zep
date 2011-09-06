@@ -6,10 +6,7 @@ package org.zenoss.zep.dao.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.core.PreparedStatementCreator;
-import org.springframework.jdbc.core.PreparedStatementCreatorFactory;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.SqlParameter;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.jdbc.support.MetaDataAccessException;
@@ -24,19 +21,18 @@ import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSummaryDao;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -60,9 +56,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     private final SimpleJdbcTemplate template;
 
     private final SimpleJdbcInsert insert;
-
-    private final PreparedStatementCreatorFactory psFactory;
-
+    
     private volatile List<String> archiveColumnNames;
 
     private EventDaoHelper eventDaoHelper;
@@ -73,10 +67,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         this.dataSource = dataSource;
         this.template = new SimpleJdbcTemplate(dataSource);
         this.insert = new SimpleJdbcInsert(dataSource).withTableName(TABLE_EVENT_SUMMARY);
-        this.psFactory = new PreparedStatementCreatorFactory(
-                "SELECT * FROM event_summary WHERE fingerprint_hash=? FOR UPDATE");
-        this.psFactory.addParameter(new SqlParameter(Types.BINARY));
-        this.psFactory.setUpdatableResults(true);
     }
 
     public void setEventDaoHelper(EventDaoHelper eventDaoHelper) {
@@ -143,10 +133,46 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             this.insert.execute(fields);
             uuid = createdUuid.toString();
         } catch (DuplicateKeyException e) {
-            final PreparedStatementCreator creator = this.psFactory.newPreparedStatementCreator(
-                Collections.singletonList(fields.get(COLUMN_FINGERPRINT_HASH)));
-            final RowUpdaterMapper mapper = new RowUpdaterMapper(event, fields);
-            uuid = this.template.getJdbcOperations().query(creator, mapper).get(0);
+            final String sql = "SELECT event_count,first_seen,last_seen,details_json,status_id,uuid FROM event_summary" +
+                    " WHERE fingerprint_hash=? FOR UPDATE";
+            final EventSummary oldSummary = this.template.queryForObject(sql, new RowMapper<EventSummary>() {
+                @Override
+                public EventSummary mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    final EventSummary.Builder oldSummaryBuilder = EventSummary.newBuilder();
+                    oldSummaryBuilder.setCount(rs.getInt(COLUMN_EVENT_COUNT));
+                    oldSummaryBuilder.setFirstSeenTime(rs.getLong(COLUMN_FIRST_SEEN));
+                    oldSummaryBuilder.setLastSeenTime(rs.getLong(COLUMN_LAST_SEEN));
+                    oldSummaryBuilder.setStatus(EventStatus.valueOf(rs.getInt(COLUMN_STATUS_ID)));
+                    oldSummaryBuilder.setUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID)));
+                    
+                    final Event.Builder occurrenceBuilder = oldSummaryBuilder.addOccurrenceBuilder(0);
+                    final String detailsJson = rs.getString(COLUMN_DETAILS_JSON);
+                    if (detailsJson != null) {
+                        try {
+                            occurrenceBuilder.addAllDetails(JsonFormat.mergeAllDelimitedFrom(detailsJson,
+                                    EventDetail.getDefaultInstance()));
+                        } catch (IOException e) {
+                            throw new SQLException(e.getLocalizedMessage(), e);
+                        }
+                    }
+                    return oldSummaryBuilder.build();
+                }
+            }, fields.get(COLUMN_FINGERPRINT_HASH));
+
+            final Map<String,Object> updateFields = getUpdateFields(oldSummary, event, fields);
+            final StringBuilder updateSql = new StringBuilder("UPDATE event_summary SET ");
+            for (Iterator<String> it = updateFields.keySet().iterator(); it.hasNext(); ) {
+                final String fieldName = it.next();
+                updateSql.append(fieldName).append("=:").append(fieldName);
+                if (it.hasNext()) {
+                    updateSql.append(',');
+                }
+            }
+            updateSql.append(" WHERE fingerprint_hash=:fingerprint_hash");
+            updateFields.put(COLUMN_FINGERPRINT_HASH, fields.get(COLUMN_FINGERPRINT_HASH));
+
+            this.template.update(updateSql.toString(), updateFields);
+            uuid = oldSummary.getUuid();
         }
 
         // Mark cleared events as cleared by this event
@@ -158,136 +184,84 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         return uuid;
     }
 
-    private static class RowUpdaterMapper implements RowMapper<String>
-    {
-        private final Event occurrence;
-        private final Map<String,Object> fields;
+    /**
+     * When an event is de-duped, if the event occurrence has a created time greater than or equal to the current
+     * last_seen for the event summary, these fields from the event summary row are overwritten by values from the new
+     * event occurrence. Special handling is performed when de-duping for event status and event details.
+     */
+    private static final List<String> UPDATE_FIELD_NAMES = Arrays.asList(COLUMN_EVENT_GROUP_ID,
+            COLUMN_EVENT_CLASS_ID, COLUMN_EVENT_CLASS_KEY_ID, COLUMN_EVENT_CLASS_MAPPING_UUID, COLUMN_EVENT_KEY_ID,
+            COLUMN_SEVERITY_ID, COLUMN_ELEMENT_UUID, COLUMN_ELEMENT_TYPE_ID, COLUMN_ELEMENT_IDENTIFIER,
+            COLUMN_ELEMENT_TITLE, COLUMN_ELEMENT_SUB_UUID, COLUMN_ELEMENT_SUB_TYPE_ID, COLUMN_ELEMENT_SUB_IDENTIFIER,
+            COLUMN_ELEMENT_SUB_TITLE, COLUMN_LAST_SEEN, COLUMN_MONITOR_ID, COLUMN_AGENT_ID, COLUMN_SYSLOG_FACILITY,
+            COLUMN_SYSLOG_PRIORITY, COLUMN_NT_EVENT_CODE, COLUMN_CLEAR_FINGERPRINT_HASH, COLUMN_SUMMARY, COLUMN_MESSAGE,
+            COLUMN_TAGS_JSON);
 
-        public RowUpdaterMapper(Event newOccurrence, Map<String,Object> fields) {
-            this.occurrence = newOccurrence;
-            this.fields = fields;
-        }
-
-        private void updateColumn(ResultSet rs, String columnName) throws SQLException {
-            Object val = this.fields.get(columnName);
-            if (val == null) {
-                rs.updateNull(columnName);
-            }
-            else if (val instanceof Integer) {
-                rs.updateInt(columnName, (Integer) val);
-            }
-            else if (val instanceof Long) {
-                rs.updateLong(columnName, (Long) val);
-            }
-            else if (val instanceof byte[]) {
-                rs.updateBytes(columnName, (byte[]) val);
-            }
-            else if (val instanceof String) {
-                rs.updateString(columnName, (String) val);
-            }
-            else {
-                throw new SQLException("Unsupported data type: " + val.getClass().getName());
-            }
-        }
-
-        private String mergeDetailsJson(String oldDetailsJson, String newDetailsJson) throws SQLException {
-            try {
-                List<EventDetail> oldDetails = Collections.emptyList();
-                if (oldDetailsJson != null) {
-                    oldDetails = JsonFormat.mergeAllDelimitedFrom(oldDetailsJson, EventDetail.getDefaultInstance());
-                }
-
-                List<EventDetail> newDetails = Collections.emptyList();
-                if (newDetailsJson != null) {
-                    newDetails = JsonFormat.mergeAllDelimitedFrom(newDetailsJson, EventDetail.getDefaultInstance());
-                }
-                return JsonFormat.writeAllDelimitedAsString(EventDaoHelper.mergeDetails(oldDetails, newDetails));
-            } catch (IOException e) {
-                throw new SQLException(e.getLocalizedMessage(), e);
-            }
-        }
-
-        @Override
-        public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-            // Always increment count
-            rs.updateInt(COLUMN_EVENT_COUNT, rs.getInt(COLUMN_EVENT_COUNT) + 1);
+    private Map<String,Object> getUpdateFields(EventSummary oldSummary, Event occurrence,
+                                               Map<String,Object> occurrenceFields) throws ZepException {
+        Map<String,Object> updateFields = new HashMap<String, Object>();
+        
+        // Always increment count
+        updateFields.put(COLUMN_EVENT_COUNT, oldSummary.getCount() + 1);
+        
+        updateFields.put(COLUMN_UPDATE_TIME, occurrenceFields.get(COLUMN_UPDATE_TIME));
             
-            rs.updateLong(COLUMN_UPDATE_TIME, (Long)fields.get(COLUMN_UPDATE_TIME));
-            
-            final long previousLastSeen = rs.getLong(COLUMN_LAST_SEEN);
-            if (this.occurrence.getCreatedTime() >= previousLastSeen) {
-                updateColumn(rs, COLUMN_LAST_SEEN);
-                updateColumn(rs, COLUMN_SEVERITY_ID);
-                updateColumn(rs, COLUMN_MESSAGE);
-                updateColumn(rs, COLUMN_SUMMARY);
-                updateColumn(rs, COLUMN_TAGS_JSON);
-                updateColumn(rs, COLUMN_CLEAR_FINGERPRINT_HASH);
-                updateColumn(rs, COLUMN_EVENT_GROUP_ID);
-                updateColumn(rs, COLUMN_EVENT_CLASS_ID);
-                updateColumn(rs, COLUMN_EVENT_CLASS_KEY_ID);
-                updateColumn(rs, COLUMN_EVENT_CLASS_MAPPING_UUID);
-                updateColumn(rs, COLUMN_EVENT_KEY_ID);
-                updateColumn(rs, COLUMN_ELEMENT_UUID);
-                updateColumn(rs, COLUMN_ELEMENT_TYPE_ID);
-                updateColumn(rs, COLUMN_ELEMENT_IDENTIFIER);
-                updateColumn(rs, COLUMN_ELEMENT_TITLE);
-                updateColumn(rs, COLUMN_ELEMENT_SUB_UUID);
-                updateColumn(rs, COLUMN_ELEMENT_SUB_TYPE_ID);
-                updateColumn(rs, COLUMN_ELEMENT_SUB_IDENTIFIER);
-                updateColumn(rs, COLUMN_ELEMENT_SUB_TITLE);
-                updateColumn(rs, COLUMN_MONITOR_ID);
-                updateColumn(rs, COLUMN_AGENT_ID);
-                updateColumn(rs, COLUMN_SYSLOG_FACILITY);
-                updateColumn(rs, COLUMN_SYSLOG_PRIORITY);
-                updateColumn(rs, COLUMN_NT_EVENT_CODE);
+        if (occurrence.getCreatedTime() >= oldSummary.getLastSeenTime()) {
 
-                // Update status except for ACKNOWLEDGED -> {NEW|SUPPRESSED}
-                // Stays in ACKNOWLEDGED in these cases
-                boolean updateStatus = true;
-                EventStatus oldStatus = EventStatus.valueOf(rs.getInt(COLUMN_STATUS_ID));
-                EventStatus newStatus = EventStatus.valueOf((Integer) this.fields.get(COLUMN_STATUS_ID));
-                switch (oldStatus) {
-                    case STATUS_ACKNOWLEDGED:
-                        switch (newStatus) {
-                            case STATUS_NEW:
-                            case STATUS_SUPPRESSED:
-                                updateStatus = false;
-                                break;
-                        }
-                        break;
-                }
-                if (updateStatus && oldStatus != newStatus) {
-                    updateColumn(rs, COLUMN_STATUS_ID);
-                    this.fields.put(COLUMN_STATUS_CHANGE, this.occurrence.getCreatedTime());
-                    updateColumn(rs, COLUMN_STATUS_CHANGE);
-                }
-
-                // Merge event details
-                String newDetailsJson = (String) this.fields.get(COLUMN_DETAILS_JSON);
-                if (newDetailsJson != null) {
-                    String oldDetailsJson = rs.getString(COLUMN_DETAILS_JSON);
-                    this.fields.put(COLUMN_DETAILS_JSON, mergeDetailsJson(oldDetailsJson, newDetailsJson));
-                    updateColumn(rs, COLUMN_DETAILS_JSON);
-                }
-            }
-            else {
-                // Merge event details - order swapped b/c of out of order event
-                String oldDetailsJson = (String) this.fields.get(COLUMN_DETAILS_JSON);
-                if (oldDetailsJson != null) {
-                    String newDetailsJson = rs.getString(COLUMN_DETAILS_JSON);
-                    this.fields.put(COLUMN_DETAILS_JSON, mergeDetailsJson(oldDetailsJson, newDetailsJson));
-                    updateColumn(rs, COLUMN_DETAILS_JSON);
-                }
+            for (String fieldName : UPDATE_FIELD_NAMES) {
+                updateFields.put(fieldName, occurrenceFields.get(fieldName));
             }
 
-            final long previousFirstSeen = rs.getLong(COLUMN_FIRST_SEEN);
-            if (this.occurrence.getCreatedTime() < previousFirstSeen) {
-                updateColumn(rs, COLUMN_FIRST_SEEN);
+            // Update status except for ACKNOWLEDGED -> {NEW|SUPPRESSED}
+            // Stays in ACKNOWLEDGED in these cases
+            boolean updateStatus = true;
+            EventStatus oldStatus = oldSummary.getStatus();
+            EventStatus newStatus = EventStatus.valueOf((Integer) occurrenceFields.get(COLUMN_STATUS_ID));
+            switch (oldStatus) {
+                case STATUS_ACKNOWLEDGED:
+                    switch (newStatus) {
+                        case STATUS_NEW:
+                        case STATUS_SUPPRESSED:
+                            updateStatus = false;
+                            break;
+                    }
+                    break;
+            }
+            if (updateStatus && oldStatus != newStatus) {
+                updateFields.put(COLUMN_STATUS_ID, occurrenceFields.get(COLUMN_STATUS_ID));
+                updateFields.put(COLUMN_STATUS_CHANGE, occurrence.getCreatedTime());
             }
 
-            rs.updateRow();
-            return DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID));
+            // Merge event details
+            List<EventDetail> newDetails = occurrence.getDetailsList();
+            if (!newDetails.isEmpty()) {
+                Collection<EventDetail> merged = EventDaoHelper.mergeDetails(
+                        oldSummary.getOccurrence(0).getDetailsList(), newDetails);
+                try {
+                    updateFields.put(COLUMN_DETAILS_JSON, JsonFormat.writeAllDelimitedAsString(merged));
+                } catch (IOException e) {
+                    throw new ZepException(e.getLocalizedMessage(), e);
+                }
+            }
         }
+        else {
+            // Merge event details - order swapped b/c of out of order event
+            List<EventDetail> oldDetails = occurrence.getDetailsList();
+            if (!oldDetails.isEmpty()) {
+                Collection<EventDetail> merged = EventDaoHelper.mergeDetails(oldDetails,
+                        oldSummary.getOccurrence(0).getDetailsList());
+                try {
+                    updateFields.put(COLUMN_DETAILS_JSON, JsonFormat.writeAllDelimitedAsString(merged));
+                } catch (IOException e) {
+                    throw new ZepException(e.getLocalizedMessage(), e);
+                }
+            }
+        }
+
+        if (occurrence.getCreatedTime() < oldSummary.getLastSeenTime()) {
+            updateFields.put(COLUMN_FIRST_SEEN, occurrence.getCreatedTime());
+        }
+        return updateFields;
     }
 
     private List<String> clearEvents(Event event, EventPreCreateContext context)
