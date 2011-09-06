@@ -122,6 +122,8 @@
         <property name="agingLimit" value="${zep.aging.limit:100}" />
         <property name="archiveIntervalMilliseconds" value="${zep.archive.interval_milliseconds:60000}" />
         <property name="archiveLimit" value="${zep.archive.limit:100}" />
+        <property name="dbMaintenanceService" ref="dbMaintenanceService" />
+        <property name="dbMaintenanceIntervalMinutes" value="${zep.database.optimize_minutes:60}" />
     </bean>
 
     <bean id="triggerPlugin" class="org.zenoss.zep.impl.TriggerPlugin">

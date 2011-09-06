@@ -21,6 +21,7 @@ import org.zenoss.zep.HeartbeatProcessor;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
+import org.zenoss.zep.dao.DBMaintenanceService;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.dao.EventStoreDao;
@@ -59,6 +60,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private ScheduledFuture<?> eventTimePurger = null;
     private ScheduledFuture<?> eventIndexerFuture = null;
     private ScheduledFuture<?> heartbeatFuture = null;
+    private ScheduledFuture<?> dbMaintenanceFuture = null;
     private ZepConfig oldConfig = null;
     private ZepConfig config;
 
@@ -71,6 +73,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private long archiveIntervalMilliseconds = TimeUnit.MINUTES.toMillis(1);
     private int archiveLimit = 100;
 
+    private long dbMaintenanceIntervalMinutes = 3600;
+
     private final boolean enableIndexing;
 
     private AmqpConnectionManager amqpConnectionManager;
@@ -80,6 +84,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private EventTimeDao eventTimeDao;
     private EventIndexer eventIndexer;
     private EventDetailsConfigDao eventDetailsConfigDao;
+    private DBMaintenanceService dbMaintenanceService;
     private HeartbeatProcessor heartbeatProcessor;
     private PluginService pluginService;
     private ApplicationContext applicationContext;
@@ -159,6 +164,14 @@ public class Application implements ApplicationContextAware, ApplicationListener
         this.archiveLimit = archiveLimit;
     }
 
+    public void setDbMaintenanceService(DBMaintenanceService dbMaintenanceService) {
+        this.dbMaintenanceService = dbMaintenanceService;
+    }
+
+    public void setDbMaintenanceIntervalMinutes(long dbMaintenanceIntervalMinutes) {
+        this.dbMaintenanceIntervalMinutes = dbMaintenanceIntervalMinutes;
+    }
+
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
@@ -182,6 +195,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
         startEventSummaryArchiving();
         startEventArchivePurging();
         startEventTimePurging();
+        startDbMaintenance();
         startEventIndexer();
         startHeartbeatProcessing();
         startQueueListeners();
@@ -373,8 +387,37 @@ public class Application implements ApplicationContextAware, ApplicationListener
                 eventTimeDao.getPartitionIntervalInMs(), "ZEP_EVENT_TIME_PURGER");
     }
 
+    private void startDbMaintenance() {
+        cancelFuture(this.dbMaintenanceFuture);
+        this.dbMaintenanceFuture = null;
+
+        if (this.dbMaintenanceIntervalMinutes <= 0) {
+            logger.info("Database table optimization disabled.");
+            return;
+        }
+
+        // Start first task 10 minutes after ZEP has started
+        logger.info("Starting database table optimization at interval: {} minutes(s)",
+                this.dbMaintenanceIntervalMinutes);
+        final Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(10));
+        this.dbMaintenanceFuture = scheduler.scheduleWithFixedDelay(new ThreadRenamingRunnable(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    logger.debug("Optimizing database tables");
+                    dbMaintenanceService.optimizeTables();
+                    logger.debug("Completed optimizing database tables");
+                } catch (Exception e) {
+                    logger.warn("Failed to optimize database tables", e);
+                }
+            }
+        }, "ZEP_DATABASE_MAINTENANCE"), startTime, TimeUnit.MINUTES.toMillis(this.dbMaintenanceIntervalMinutes));
+    }
+
     private void startHeartbeatProcessing() {
         cancelFuture(this.heartbeatFuture);
+        this.heartbeatFuture = null;
+        
         Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
         this.heartbeatFuture = scheduler.scheduleWithFixedDelay(new ThreadRenamingRunnable(new Runnable() {
             @Override

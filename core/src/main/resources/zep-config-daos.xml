@@ -97,6 +97,9 @@
         <constructor-arg index="1" value="true" />
         <constructor-arg index="2" ref="eventDaoHelper" />
     </bean>
+    <bean id="dbMaintenanceService" class="org.zenoss.zep.dao.impl.DBMaintenanceServiceImpl">
+        <constructor-arg index="0" ref="dataSource" />
+    </bean>
 
     <!-- Indexing DAO -->
     <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl">
