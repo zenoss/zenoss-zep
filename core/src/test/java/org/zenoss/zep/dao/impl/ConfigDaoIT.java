@@ -23,6 +23,7 @@ public class ConfigDaoIT extends AbstractTransactionalJUnit4SpringContextTests {
     public void testConfig() throws ZepException {
         ZepConfig.Builder builder = ZepConfig.newBuilder();
         builder.setEventAgeDisableSeverity(EventSeverity.SEVERITY_CRITICAL);
+        builder.setEventAgeSeverityInclusive(false);
         builder.setEventAgeIntervalMinutes(60);
         builder.setEventArchiveIntervalMinutes(7*24*60);
         builder.setEventArchivePurgeIntervalDays(90);
