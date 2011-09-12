@@ -385,7 +385,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int ageEvents(long agingInterval, TimeUnit unit,
-            EventSeverity maxSeverity, int limit) throws ZepException {
+            EventSeverity maxSeverity, int limit, boolean inclusiveSeverity) throws ZepException {
         long agingIntervalMs = unit.toMillis(agingInterval);
         if (agingIntervalMs < 0 || agingIntervalMs == Long.MAX_VALUE) {
             throw new ZepException("Invalid aging interval: " + agingIntervalMs);
@@ -394,6 +394,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             throw new ZepException("Limit can't be negative: " + limit);
         }
         List<Integer> severityIds = EventDaoHelper.getSeverityIdsLessThan(maxSeverity);
+        if (inclusiveSeverity) {
+            severityIds.add(maxSeverity.getNumber());
+        }
         if (severityIds.isEmpty()) {
             logger.debug("Not aging events - max severity specified");
             return 0;

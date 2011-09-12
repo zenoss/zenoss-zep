@@ -59,12 +59,14 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      *            severity less than this severity are aged from the database.
      * @param limit
      *            The maximum number of events to age.
+     * @param inclusiveSeverity
+     *            If the max severity is inclusive or exclusive.
      * @return The number of aged events.
      * @throws ZepException
      *             If an error occurs.
      */
     public int ageEvents(long agingInterval, TimeUnit unit,
-            EventSeverity maxSeverity, int limit) throws ZepException;
+            EventSeverity maxSeverity, int limit, boolean inclusiveSeverity) throws ZepException;
 
     /**
      * Reopens events with event status of {@link EventStatus#STATUS_AGED},

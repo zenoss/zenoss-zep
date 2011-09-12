@@ -107,8 +107,8 @@ public class EventStoreDaoImpl implements EventStoreDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int ageEvents(long agingInterval, TimeUnit unit,
-            EventSeverity maxSeverity, int limit) throws ZepException {
-        return eventSummaryDao.ageEvents(agingInterval, unit, maxSeverity, limit);
+            EventSeverity maxSeverity, int limit, boolean inclusiveSeverity) throws ZepException {
+        return eventSummaryDao.ageEvents(agingInterval, unit, maxSeverity, limit, inclusiveSeverity);
     }
 
     @Override

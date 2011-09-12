@@ -131,7 +131,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     public void setHeartbeatProcessor(HeartbeatProcessor heartbeatProcessor) {
         this.heartbeatProcessor = heartbeatProcessor;
     }
-    
+
     public void setHeartbeatIntervalSeconds(int heartbeatIntervalSeconds) {
         this.heartbeatIntervalSeconds = heartbeatIntervalSeconds;
     }
@@ -183,7 +183,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
 
         // Initialize the default event details
         this.eventDetailsConfigDao.init();
-        
+
         /*
          * We must initialize partitions first to ensure events have a partition
          * where they can be created before we start processing the queue. This
@@ -279,9 +279,12 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private void startEventSummaryAging() {
         final int duration = config.getEventAgeIntervalMinutes();
         final EventSeverity severity = config.getEventAgeDisableSeverity();
+        final boolean inclusive = config.getEventAgeSeverityInclusive();
         if (oldConfig != null
                 && duration == oldConfig.getEventAgeIntervalMinutes()
-                && severity == oldConfig.getEventAgeDisableSeverity()) {
+                && severity == oldConfig.getEventAgeDisableSeverity()
+                && inclusive == oldConfig.getEventAgeSeverityInclusive()
+                ) {
             logger.info("Event aging configuration not changed.");
             return;
         }
@@ -290,7 +293,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
         this.eventSummaryAger = null;
 
         if (duration > 0) {
-            logger.info("Starting event aging at interval: {} milliseconds(s)", this.agingIntervalMilliseconds);
+            logger.info("Starting event aging at interval: {} milliseconds(s), inclusive severity: {}",
+                    this.agingIntervalMilliseconds, inclusive);
             Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
             this.eventSummaryAger = scheduler.scheduleWithFixedDelay(
                     new ThreadRenamingRunnable(new Runnable() {
@@ -298,7 +302,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
                         public void run() {
                             try {
                                 final int numAged = eventStoreDao.ageEvents(duration, TimeUnit.MINUTES, severity,
-                                        agingLimit);
+                                        agingLimit, inclusive);
                                 if (numAged > 0) {
                                     logger.debug("Aged {} events", numAged);
                                 }
@@ -417,7 +421,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private void startHeartbeatProcessing() {
         cancelFuture(this.heartbeatFuture);
         this.heartbeatFuture = null;
-        
+
         Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
         this.heartbeatFuture = scheduler.scheduleWithFixedDelay(new ThreadRenamingRunnable(new Runnable() {
             @Override

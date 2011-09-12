@@ -106,7 +106,7 @@ public interface EventStoreDao extends Purgable {
      *             If an error occurs.
      */
     public int ageEvents(long agingInverval, TimeUnit unit,
-            EventSeverity maxSeverity, int limit) throws ZepException;
+            EventSeverity maxSeverity, int limit, boolean inclusiveSeverity) throws ZepException;
 
     /**
      * Moves all events which have status {@link EventStatus#STATUS_CLOSED},

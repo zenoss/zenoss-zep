@@ -535,7 +535,7 @@ public class EventSummaryDaoImplIT extends
 
         /* Aging should have aged WARNING and INFO events and left ERROR */
         int numAged = eventSummaryDao.ageEvents(4, TimeUnit.MINUTES,
-                EventSeverity.SEVERITY_ERROR, 100);
+                EventSeverity.SEVERITY_ERROR, 100, false);
         assertEquals(2, numAged);
         assertEquals(error, eventSummaryDao.findByUuid(error.getUuid()));
         /* Compare ignoring status change time */
@@ -565,6 +565,13 @@ public class EventSummaryDaoImplIT extends
                 .getStatusChangeTime());
         compareSummary(archivedWarning, summaryWarning);
         compareSummary(archivedInfo, summaryInfo);
+
+        /* Aging with inclusive severity should age WARNING, INFO, and ERROR */
+        numAged = eventSummaryDao.ageEvents(4, TimeUnit.MINUTES,
+                EventSeverity.SEVERITY_ERROR, 100, true);
+        assertEquals(1, numAged);
+        EventSummary summaryError = eventSummaryDao.findByUuid(error.getUuid());
+        assertEquals(EventStatus.STATUS_AGED, summaryError.getStatus());
     }
 
     @Test

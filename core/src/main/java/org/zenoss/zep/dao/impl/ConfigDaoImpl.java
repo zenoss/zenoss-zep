@@ -84,7 +84,7 @@ public class ConfigDaoImpl implements ConfigDao {
             throw new ZepException(e);
         }
     }
-    
+
     @Override
     @TransactionalRollbackAllExceptions
     public void setConfig(ZepConfig config) throws ZepException {
