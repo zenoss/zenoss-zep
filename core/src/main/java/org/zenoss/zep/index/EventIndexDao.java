@@ -84,16 +84,6 @@ public interface EventIndexDao extends Purgable {
     public void indexMany(List<EventSummary> events) throws ZepException;
 
     /**
-     * Re-indexes all current events in the index using the latest index version and
-     * index details version. This is used when the index version or the index
-     * configuration changes.
-     *
-     * @param indexVersion The previous version of the index.
-     * @throws ZepException If the index could not be rebuilt.
-     */
-    public void reindex(int indexVersion) throws ZepException;
-
-    /**
      * Retrieves event summary entries matching the specified query.
      * 
      * @param request
@@ -220,11 +210,4 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException If the saved search could not be deleted.
      */
     public String deleteSavedSearch(String uuid) throws ZepException;
-
-    /**
-     * Sets the event detail item configuration to be used by the index dao.
-     *
-     * @param detailsConfig Event detail item configuration.
-     */
-    public void setIndexDetails(Map<String,EventDetailItem> detailsConfig);
 }

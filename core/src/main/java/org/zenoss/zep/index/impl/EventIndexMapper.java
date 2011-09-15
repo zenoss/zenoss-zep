@@ -204,8 +204,10 @@ public class EventIndexMapper {
                             break;
                         case IP_ADDRESS:
                             try {
-                                final InetAddress addr = IpUtils.parseAddress(detailValue);
-                                createIpAddressFields(doc, detailKeyName, addr);
+                                if (!detailValue.isEmpty()) {
+                                    final InetAddress addr = IpUtils.parseAddress(detailValue);
+                                    createIpAddressFields(doc, detailKeyName, addr);
+                                }
                             } catch (Exception e) {
                                 logger.warn("Invalid IP address data reported for detail {}: {}", detailName,
                                         detailValue);

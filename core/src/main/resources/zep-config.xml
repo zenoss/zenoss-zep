@@ -104,15 +104,15 @@
 
     <bean id="application" class="org.zenoss.zep.impl.Application" destroy-method="shutdown"
           depends-on="amqpConnectionManager">
-        <constructor-arg index="0" value="${zep.index.enabled:true}"/>
         <property name="configDao" ref="configDao"/>
         <property name="amqpConnectionManager" ref="amqpConnectionManager" />
         <property name="eventStoreDao" ref="eventStoreDao"/>
         <property name="eventArchiveDao" ref="eventArchiveDao"/>
         <property name="eventTimeDao" ref="eventTimeDao"/>
-        <property name="eventIndexer" ref="eventIndexer"/>
-        <property name="indexIntervalMilliseconds" value="${zep.index.interval_milliseconds:1000}" />
-        <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao" />
+        <property name="eventSummaryIndexer" ref="eventSummaryIndexer"/>
+        <property name="eventSummaryRebuilder" ref="eventSummaryIndexRebuilder"/>
+        <property name="eventArchiveIndexer" ref="eventArchiveIndexer"/>
+        <property name="eventArchiveRebuilder" ref="eventArchiveIndexRebuilder"/>
         <property name="heartbeatProcessor" ref="heartbeatProcessor" />
         <property name="heartbeatIntervalSeconds" value="${zep.heartbeat.interval_seconds:60}" />
         <property name="pluginService" ref="pluginService" />

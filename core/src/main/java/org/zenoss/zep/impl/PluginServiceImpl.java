@@ -373,7 +373,7 @@ public class PluginServiceImpl implements PluginService, ApplicationListener<Con
         this.pluginRepository.loadPluginsOfType(EventPostCreatePlugin.class, context);
         this.pluginRepository.loadPluginsOfType(EventPostIndexPlugin.class, context);
         this.pluginRepository.loadPluginsOfType(EventUpdatePlugin.class, context);
-        logger.info("Loaded plug-ins");
+        logger.info("Initialized plug-ins");
     }
 
     private AtomicBoolean initializedPlugins = new AtomicBoolean();
@@ -416,5 +416,6 @@ public class PluginServiceImpl implements PluginService, ApplicationListener<Con
 
     public void shutdown() {
         pluginRepository.shutdown();
+        logger.info("Shutdown plug-ins");
     }
 }

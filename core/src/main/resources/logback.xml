@@ -17,7 +17,7 @@
         <then>
             <appender name="APPENDER" class="ch.qos.logback.core.ConsoleAppender">
                 <encoder>
-                    <pattern>%date{HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
+                    <pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
                 </encoder>
             </appender>
         </then>
@@ -35,7 +35,7 @@
                     <maxFileSize>10MB</maxFileSize>
                 </triggeringPolicy>
                 <encoder>
-                    <pattern>%date{HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
+                    <pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
                 </encoder>
             </appender>
         </else>

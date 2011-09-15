@@ -1,200 +1,131 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 
 package org.zenoss.zep.index.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationListener;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
-import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
-import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
-import org.zenoss.zep.dao.EventArchiveDao;
-import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventIndexQueueDao;
-import org.zenoss.zep.dao.EventSummaryBaseDao;
-import org.zenoss.zep.dao.EventSummaryDao;
-import org.zenoss.zep.dao.IndexMetadata;
-import org.zenoss.zep.dao.IndexMetadataDao;
-import org.zenoss.zep.dao.impl.DaoUtils;
+import org.zenoss.zep.impl.ThreadRenamingRunnable;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
 import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 public class EventIndexerImpl implements EventIndexer {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
 
     private int indexLimit = 1000;
-    
-    private EventSummaryDao eventSummaryDao;
-    private EventIndexDao eventSummaryIndexDao;
-    private EventIndexQueueDao eventSummaryQueueDao;
-    
-    private EventArchiveDao eventArchiveDao;
-    private EventIndexDao eventArchiveIndexDao;
-    private EventIndexQueueDao eventArchiveQueueDao;
-    
+    private long indexIntervalMilliseconds = 1000L;
+
+    private final Object lock = new Object();
+    private volatile boolean shutdown = false;
+    private Future<?> indexFuture = null;
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    private EventIndexDao indexDao;
+    private EventIndexQueueDao queueDao;
     private PluginService pluginService;
-    private IndexMetadataDao indexMetadataDao;
-    private EventDetailsConfigDao eventDetailsConfigDao;
-    private byte[] indexVersionHash;
 
-    public void setEventSummaryDao(EventSummaryDao eventSummaryDao) {
-        this.eventSummaryDao = eventSummaryDao;
-    }
-    
-    public void setEventSummaryIndexDao(EventIndexDao eventSummaryIndexDao) {
-        this.eventSummaryIndexDao = eventSummaryIndexDao;
-    }
-    
-    public void setEventSummaryQueueDao(EventIndexQueueDao eventSummaryQueueDao) {
-        this.eventSummaryQueueDao = eventSummaryQueueDao;
-    }
-    
-    public void setEventArchiveDao(EventArchiveDao eventArchiveDao) {
-        this.eventArchiveDao = eventArchiveDao;
+    public void setIndexIntervalMilliseconds(long indexIntervalMilliseconds) {
+        this.indexIntervalMilliseconds = indexIntervalMilliseconds;
     }
 
-    public void setEventArchiveIndexDao(EventIndexDao eventIndexDao) {
-        this.eventArchiveIndexDao = eventIndexDao;
+    public void setIndexDao(EventIndexDao indexDao) {
+        this.indexDao = indexDao;
     }
     
-    public void setEventArchiveQueueDao(EventIndexQueueDao eventArchiveQueueDao) {
-        this.eventArchiveQueueDao = eventArchiveQueueDao;
+    public void setQueueDao(EventIndexQueueDao queueDao) {
+        this.queueDao = queueDao;
     }
     
     public void setPluginService(PluginService pluginService) {
         this.pluginService = pluginService;
     }
 
-    public void setIndexMetadataDao(IndexMetadataDao indexMetadataDao) {
-        this.indexMetadataDao = indexMetadataDao;
-    }
-
-    public void setEventDetailsConfigDao(EventDetailsConfigDao eventDetailsConfigDao) {
-        this.eventDetailsConfigDao = eventDetailsConfigDao;
-    }
-
     public void setIndexLimit(int indexLimit) {
         this.indexLimit = indexLimit;
     }
 
-    private static byte[] calculateIndexVersionHash(Map<String,EventDetailItem> detailItems) throws ZepException {
-        TreeMap<String,EventDetailItem> sorted = new TreeMap<String,EventDetailItem>(detailItems);
-        StringBuilder indexConfigStr = new StringBuilder();
-        for (EventDetailItem item : sorted.values()) {
-            // Only key and type affect the indexing behavior - ignore changes to display name
-            indexConfigStr.append('|');
-            indexConfigStr.append(item.getKey());
-            indexConfigStr.append('|');
-            indexConfigStr.append(item.getType().name());
-            indexConfigStr.append('|');
-        }
-        if (indexConfigStr.length() == 0) {
-            return null;
-        }
-        return DaoUtils.sha1(indexConfigStr.toString());
+    @Override
+    public synchronized void start() throws InterruptedException {
+        stop();
+        this.shutdown = false;
+        this.indexFuture = this.executorService.submit(new ThreadRenamingRunnable(new Runnable() {
+            @Override
+            public void run() {
+                logger.info("Indexing thread started for: {}", indexDao.getName());
+                while (!shutdown) {
+                    try {
+                        index();
+                    } catch (ZepException e) {
+                        logger.warn("Failed to index events", e);
+                    } catch (Exception e) {
+                        logger.warn("General failure indexing events", e);
+                    }
+                    if (!shutdown) {
+                        synchronized (lock) {
+                            try {
+                                lock.wait(indexIntervalMilliseconds);
+                            } catch (InterruptedException e) {
+                                logger.info("Interrupted while waiting to index more events");
+                            }
+                        }
+                    }
+                }
+                logger.info("Indexing thread stopped for: {}", indexDao.getName());
+            }
+        }, "INDEXER_" + this.indexDao.getName().toUpperCase()));
     }
 
     @Override
-    @TransactionalRollbackAllExceptions
-    public synchronized void init() throws ZepException {
-        Map<String,EventDetailItem> detailItems = this.eventDetailsConfigDao.getEventDetailItemsByName();
-        for (EventDetailItem item : detailItems.values()) {
-            logger.info("Indexed event detail: {}", item);
+    public synchronized void stop() throws InterruptedException {
+        this.shutdown = true;
+        synchronized (this.lock) {
+            this.lock.notifyAll();
         }
-        this.indexVersionHash = calculateIndexVersionHash(detailItems);
-        this.eventSummaryIndexDao.setIndexDetails(detailItems);
-        this.eventArchiveIndexDao.setIndexDetails(detailItems);
-
-        recreateIndexIfNeeded(this.eventSummaryDao, this.eventSummaryIndexDao);
-        recreateIndexIfNeeded(this.eventArchiveDao, this.eventArchiveIndexDao);
-    }
-
-    private void recreateIndexIfNeeded(final EventSummaryBaseDao baseDao, final EventIndexDao indexDao)
-            throws ZepException {
-        final IndexMetadata indexMetadata = this.indexMetadataDao.findIndexMetadata(indexDao.getName());
-        final int numDocs = indexDao.getNumDocs();
-        
-        // Rebuild index if we detect that we have never indexed before.
-        if (indexMetadata == null || numDocs == 0) {
-            if (numDocs > 0) {
-                logger.info("Inconsistent state between index and database. Clearing index.");
-                indexDao.clear();
-            }
-            /* Recreate the index */
-            recreateIndexFromDatabase(baseDao, indexDao);
-        }
-        // Rebuild index if the version changed.
-        else if (indexVersionChanged(indexMetadata)) {
+        if (this.indexFuture != null) {
             try {
-                indexDao.reindex(indexMetadata.getIndexVersion());
-                this.indexMetadataDao.updateIndexVersion(indexDao.getName(), IndexConstants.INDEX_VERSION,
-                    this.indexVersionHash);
-            } catch (Exception e) {
-                logger.info("Failed to reindex old index. Clearing and reindexing events", e);
-                indexDao.clear();
-                recreateIndexFromDatabase(baseDao, indexDao);
+                this.indexFuture.get();
+            } catch (ExecutionException e) {
+                logger.warn("Execution failed for index thread", e);
+            } finally {
+                this.indexFuture = null;
             }
         }
     }
 
-    private boolean indexVersionChanged(IndexMetadata indexMetadata) {
-        boolean changed = false;
-        if (IndexConstants.INDEX_VERSION != indexMetadata.getIndexVersion()) {
-            logger.info("Index version changed: previous={}, new={}", indexMetadata.getIndexVersion(),
-                    IndexConstants.INDEX_VERSION);
-            changed = true;
+    @Override
+    public void shutdown() throws InterruptedException {
+        try {
+            stop();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            this.executorService.shutdown();
+            this.executorService.awaitTermination(0L, TimeUnit.SECONDS);
         }
-        else if (!Arrays.equals(this.indexVersionHash, indexMetadata.getIndexVersionHash())) {
-            logger.info("Index configuration changed.");
-            changed = true;
-        }
-        return changed;
     }
 
-    private void recreateIndexFromDatabase(final EventSummaryBaseDao baseDao, final EventIndexDao indexDao) throws ZepException {
-        logger.info("Recreating index for table {}", indexDao.getName());
-        String startingUuid = null;
-        final long throughTime = System.currentTimeMillis();
-        int numIndexed = 0;
-        List<EventSummary> events;
-        
-        do {
-            events = baseDao.listBatch(startingUuid, throughTime, this.indexLimit);
-            for (EventSummary event : events) {
-                indexDao.stage(event);
-                startingUuid = event.getUuid();
-                ++numIndexed;
-            }
-        } while (!events.isEmpty());
-        
-        if (numIndexed > 0) {
-            logger.info("Committing changes to index on table: {}", indexDao.getName());
-            indexDao.commit(true);
-        }
-        this.indexMetadataDao.updateIndexVersion(indexDao.getName(), IndexConstants.INDEX_VERSION,
-                this.indexVersionHash);
-        logger.info("Finished recreating index for {} events on table: {}", numIndexed, indexDao.getName());
-    }
-    
     @Override
     public synchronized int index() throws ZepException {
-        int totalIndexed = doIndex(eventSummaryQueueDao, eventSummaryIndexDao, -1L);
-        totalIndexed += doIndex(eventArchiveQueueDao, eventArchiveIndexDao, -1L);
-        return totalIndexed;
+        return doIndex(-1L);
     }
 
     @Override
@@ -203,8 +134,7 @@ public class EventIndexerImpl implements EventIndexer {
         final long now = System.currentTimeMillis();
         int numIndexed;
         do {
-            numIndexed = doIndex(eventSummaryQueueDao, eventSummaryIndexDao, now);
-            numIndexed += doIndex(eventArchiveQueueDao, eventArchiveIndexDao, now);
+            numIndexed = doIndex(now);
             totalIndexed += numIndexed;
         } while (numIndexed > 0);
         
@@ -240,10 +170,8 @@ public class EventIndexerImpl implements EventIndexer {
         return shouldRun;
     }
 
-    private int doIndex(final EventIndexQueueDao queueDao, final EventIndexDao indexDao, long throughTime)
-            throws ZepException {
-        final EventPostIndexContext context = new EventPostIndexContext() {
-        };
+    private int doIndex(long throughTime) throws ZepException {
+        final EventPostIndexContext context = new EventPostIndexContext() {};
         final List<EventPostIndexPlugin> plugins = this.pluginService.getPluginsByType(EventPostIndexPlugin.class);
         
         int numIndexed = queueDao.indexEvents(new EventIndexHandler() {

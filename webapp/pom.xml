@@ -130,6 +130,10 @@
                                     <name>zep.amqp.uri</name>
                                     <value>${zep.test.amqp.uri}</value>
                                 </systemProperty>
+                                <systemProperty>
+                                    <name>zep.plugins.external.disabled</name>
+                                    <value>true</value>
+                                </systemProperty>
                             </systemProperties>
                         </configuration>
                     </execution>

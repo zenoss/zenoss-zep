@@ -23,14 +23,13 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.DBMaintenanceService;
 import org.zenoss.zep.dao.EventArchiveDao;
-import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.EventTimeDao;
 import org.zenoss.zep.dao.Purgable;
-import org.zenoss.zep.events.IndexDetailsUpdatedEvent;
 import org.zenoss.zep.events.PluginServiceStartedEvent;
 import org.zenoss.zep.events.ZepConfigUpdatedEvent;
 import org.zenoss.zep.events.ZepEvent;
+import org.zenoss.zep.index.EventIndexRebuilder;
 import org.zenoss.zep.index.EventIndexer;
 
 import java.io.IOException;
@@ -58,13 +57,11 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private ScheduledFuture<?> eventSummaryArchiver = null;
     private ScheduledFuture<?> eventArchivePurger = null;
     private ScheduledFuture<?> eventTimePurger = null;
-    private ScheduledFuture<?> eventIndexerFuture = null;
     private ScheduledFuture<?> heartbeatFuture = null;
     private ScheduledFuture<?> dbMaintenanceFuture = null;
     private ZepConfig oldConfig = null;
     private ZepConfig config;
 
-    private long indexIntervalMilliseconds = 1000L;
     private int heartbeatIntervalSeconds = 60;
 
     private long agingIntervalMilliseconds = TimeUnit.MINUTES.toMillis(1);
@@ -75,15 +72,15 @@ public class Application implements ApplicationContextAware, ApplicationListener
 
     private long dbMaintenanceIntervalMinutes = 3600;
 
-    private final boolean enableIndexing;
-
     private AmqpConnectionManager amqpConnectionManager;
     private ConfigDao configDao;
     private EventStoreDao eventStoreDao;
     private EventArchiveDao eventArchiveDao;
     private EventTimeDao eventTimeDao;
-    private EventIndexer eventIndexer;
-    private EventDetailsConfigDao eventDetailsConfigDao;
+    private EventIndexer eventSummaryIndexer;
+    private EventIndexRebuilder eventSummaryRebuilder;
+    private EventIndexer eventArchiveIndexer;
+    private EventIndexRebuilder eventArchiveRebuilder;
     private DBMaintenanceService dbMaintenanceService;
     private HeartbeatProcessor heartbeatProcessor;
     private PluginService pluginService;
@@ -91,10 +88,6 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private ExecutorService queueExecutor;
 
     private List<String> queueListeners = new ArrayList<String>();
-
-    public Application(boolean enableIndexing) {
-        this.enableIndexing = enableIndexing;
-    }
 
     public void setEventStoreDao(EventStoreDao eventStoreDao) {
         this.eventStoreDao = eventStoreDao;
@@ -116,16 +109,20 @@ public class Application implements ApplicationContextAware, ApplicationListener
         this.configDao = configDao;
     }
 
-    public void setEventIndexer(EventIndexer eventIndexer) {
-        this.eventIndexer = eventIndexer;
+    public void setEventSummaryIndexer(EventIndexer eventSummaryIndexer) {
+        this.eventSummaryIndexer = eventSummaryIndexer;
     }
 
-    public void setIndexIntervalMilliseconds(long indexIntervalMilliseconds) {
-        this.indexIntervalMilliseconds = indexIntervalMilliseconds;
+    public void setEventSummaryRebuilder(EventIndexRebuilder eventSummaryRebuilder) {
+        this.eventSummaryRebuilder = eventSummaryRebuilder;
     }
 
-    public void setEventDetailsConfigDao(EventDetailsConfigDao eventDetailsConfigDao) {
-        this.eventDetailsConfigDao = eventDetailsConfigDao;
+    public void setEventArchiveIndexer(EventIndexer eventArchiveIndexer) {
+        this.eventArchiveIndexer = eventArchiveIndexer;
+    }
+
+    public void setEventArchiveRebuilder(EventIndexRebuilder eventArchiveRebuilder) {
+        this.eventArchiveRebuilder = eventArchiveRebuilder;
     }
 
     public void setHeartbeatProcessor(HeartbeatProcessor heartbeatProcessor) {
@@ -180,10 +177,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private void init() throws ZepException {
         logger.info("Initializing ZEP");
         this.config = configDao.getConfig();
-
-        // Initialize the default event details
-        this.eventDetailsConfigDao.init();
-
+        
         /*
          * We must initialize partitions first to ensure events have a partition
          * where they can be created before we start processing the queue. This
@@ -196,13 +190,12 @@ public class Application implements ApplicationContextAware, ApplicationListener
         startEventArchivePurging();
         startEventTimePurging();
         startDbMaintenance();
-        startEventIndexer();
         startHeartbeatProcessing();
         startQueueListeners();
         logger.info("Completed ZEP initialization");
     }
 
-    public void shutdown() throws ZepException {
+    public void shutdown() throws ZepException, InterruptedException {
         this.scheduler.shutdown();
 
         try {
@@ -211,6 +204,11 @@ public class Application implements ApplicationContextAware, ApplicationListener
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+
+        this.eventSummaryIndexer.shutdown();
+        this.eventSummaryRebuilder.shutdown();
+        this.eventArchiveIndexer.shutdown();
+        this.eventArchiveRebuilder.shutdown();
 
         stopQueueListeners();
 
@@ -247,35 +245,6 @@ public class Application implements ApplicationContextAware, ApplicationListener
         eventTimeDao.initializePartitions();
     }
 
-    private void startEventIndexer() throws ZepException {
-        cancelFuture(this.eventIndexerFuture);
-        this.eventIndexerFuture = null;
-
-        // Rebuild the index if necessary.
-        this.eventIndexer.init();
-
-        if (this.enableIndexing) {
-            logger.info("Starting event indexing at interval: {} millisecond(s)", this.indexIntervalMilliseconds);
-            Date startTime = new Date(System.currentTimeMillis() + this.indexIntervalMilliseconds);
-            this.eventIndexerFuture = scheduler.scheduleWithFixedDelay(
-                    new ThreadRenamingRunnable(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                final int numIndexed = eventIndexer.index();
-                                if (numIndexed > 0) {
-                                    logger.debug("Indexed {} events", numIndexed);
-                                }
-                            } catch (TransientDataAccessException e) {
-                                logger.debug("Transient failure indexing events", e);
-                            } catch (Exception e) {
-                                logger.warn("Failed to index events", e);
-                            }
-                        }
-                    }, "ZEP_EVENT_INDEXER"), startTime, this.indexIntervalMilliseconds);
-        }
-    }
-
     private void startEventSummaryAging() {
         final int duration = config.getEventAgeIntervalMinutes();
         final EventSeverity severity = config.getEventAgeDisableSeverity();
@@ -306,6 +275,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
                                 if (numAged > 0) {
                                     logger.debug("Aged {} events", numAged);
                                 }
+                            } catch (TransientDataAccessException e) {
+                                logger.debug("Failed to archive events", e);
                             } catch (Exception e) {
                                 logger.warn("Failed to age events", e);
                             }
@@ -337,6 +308,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
                                 if (numArchived > 0) {
                                     logger.debug("Archived {} events", numArchived);
                                 }
+                            } catch (TransientDataAccessException e) {
+                                logger.debug("Failed to archive events", e);
                             } catch (Exception e) {
                                 logger.warn("Failed to archive events", e);
                             }
@@ -459,7 +432,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     }
 
     @Override
-    public synchronized void onApplicationEvent(ZepEvent event) {
+    public void onApplicationEvent(ZepEvent event) {
         if (event instanceof ZepConfigUpdatedEvent) {
             ZepConfigUpdatedEvent configUpdatedEvent = (ZepConfigUpdatedEvent) event;
             this.config = configUpdatedEvent.getConfig();
@@ -469,13 +442,6 @@ public class Application implements ApplicationContextAware, ApplicationListener
             startEventArchivePurging();
             startEventTimePurging();
             this.oldConfig = config;
-        }
-        else if (event instanceof IndexDetailsUpdatedEvent) {
-            try {
-                startEventIndexer();
-            } catch (ZepException e) {
-                logger.warn("Failed to restart event indexing", e);
-            }
         }
         else if (event instanceof PluginServiceStartedEvent) {
             try {

@@ -49,12 +49,12 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.impl.ThreadRenamingRunnable;
 import org.zenoss.zep.index.EventIndexDao;
+import org.zenoss.zep.index.IndexedDetailsConfiguration;
 
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -84,7 +84,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     @Autowired
     private TaskScheduler scheduler;
     private final Map<String,SavedSearch> savedSearches = new ConcurrentHashMap<String,SavedSearch>();
-    protected Map<String,EventDetailItem> detailsConfig = Collections.emptyMap();
+    private IndexedDetailsConfiguration indexedDetailsConfiguration;
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImpl.class);
 
@@ -103,9 +103,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
         this._searcher.getIndexReader().close();
     }
 
-    @Override
-    public void setIndexDetails(Map<String, EventDetailItem> detailsConfig) {
-        this.detailsConfig = detailsConfig;
+    public void setIndexDetailsConfiguration(IndexedDetailsConfiguration indexedDetailsConfiguration) {
+        this.indexedDetailsConfiguration = indexedDetailsConfiguration;
     }
 
     /**
@@ -144,8 +143,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void stage(EventSummary event) throws ZepException {
-        Document doc = EventIndexMapper.fromEventSummary(event, this.detailsConfig);
-        logger.debug("Indexing {}", event.getUuid());
+        Document doc = EventIndexMapper.fromEventSummary(event, indexedDetailsConfiguration.getEventDetailItemsByName());
 
         try {
             this.writer.updateDocument(new Term(FIELD_UUID, event.getUuid()), doc);
@@ -211,32 +209,6 @@ public class EventIndexDaoImpl implements EventIndexDao {
             stage(event);
         }
         commit();
-    }
-
-    @Override
-    public void reindex(int indexVersion) throws ZepException {
-        IndexSearcher searcher = null;
-        try {
-            logger.info("Re-indexing all previously indexed events for: {}", this.name);
-            searcher = getSearcher();
-            final IndexReader reader = searcher.getIndexReader();
-            int numDocs = reader.numDocs();
-            int numReindexed = 0;
-            for (int i = 0; i < numDocs; i++) {
-                if (!reader.isDeleted(i)) {
-                    EventSummary summary = EventIndexMapper.toEventSummary(reader.document(i, PROTO_SELECTOR),
-                            indexVersion);
-                    this.stage(summary);
-                    ++numReindexed;
-                }
-            }
-            logger.info("Completed re-indexing {} events for: {}", numReindexed, this.name);
-            this.commit(true);
-        } catch (IOException e) {
-            throw new ZepException(e.getLocalizedMessage(), e);
-        } finally {
-            returnSearcher(searcher);
-        }
     }
 
     // Load the serialized protobuf (entire event)
@@ -360,8 +332,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void clear() throws ZepException {
-        logger.info("Deleting all events for: {}", this.name);
-
+        logger.debug("Deleting all events for: {}", this.name);
         try {
             this.writer.deleteAll();
             commit(true);
@@ -405,7 +376,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
     }
 
-    private Sort buildSort(List<EventSort> sortList) {
+    private Sort buildSort(List<EventSort> sortList) throws ZepException {
         if (sortList.isEmpty()) {
             return null;
         }
@@ -416,7 +387,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         return new Sort(fields.toArray(new SortField[fields.size()]));
     }
 
-    private List<SortField> createSortField(EventSort sort) {
+    private List<SortField> createSortField(EventSort sort) throws ZepException {
         final List<SortField> sortFields = new ArrayList<SortField>(2);
         boolean reverse = (sort.getDirection() == Direction.DESCENDING);
         switch (sort.getField()) {
@@ -475,7 +446,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 sortFields.add(new SortField(FIELD_FINGERPRINT, SortField.STRING, reverse));
                 break;
             case DETAIL:
-                EventDetailItem item = this.detailsConfig.get(sort.getDetailKey());
+                EventDetailItem item = indexedDetailsConfiguration.getEventDetailItemsByName().get(sort.getDetailKey());
                 if (item == null) {
                     throw new IllegalArgumentException("Unknown event detail: " + sort.getDetailKey());
                 }
@@ -581,7 +552,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         qb.addWildcardFields(FIELD_UUID, filter.getUuidList(), true);
 
-        qb.addDetails(filter.getDetailsList(), this.detailsConfig, reader);
+        qb.addDetails(filter.getDetailsList(), this.indexedDetailsConfiguration.getEventDetailItemsByName(), reader);
         
         for (EventFilter subfilter : filter.getSubfilterList()) {
             qb.addSubquery(buildQueryFromFilter(reader, subfilter));
@@ -589,7 +560,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         return qb.build();
     }
-    
+
     private static class TagSeveritiesCount {
         private int count = 0;
         private int acknowledged_count = 0;
@@ -828,7 +799,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         search.setTimeoutFuture(scheduler.schedule(new ThreadRenamingRunnable(new Runnable() {
             @Override
             public void run() {
-                logger.info("Saved search timed out: {}", search.getUuid());
+                logger.debug("Saved search timed out: {}", search.getUuid());
                 savedSearches.remove(search.getUuid());
                 try {
                     search.close();
