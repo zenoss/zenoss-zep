@@ -12,7 +12,8 @@
     <bean id="eventsResource" class="org.zenoss.zep.rest.EventsResource">
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="eventStoreDao" ref="eventStoreDao" />
-        <property name="eventIndexer" ref="eventSummaryIndexer" />
+        <property name="eventSummaryIndexer" ref="eventSummaryIndexer" />
+        <property name="eventArchiveIndexer" ref="eventArchiveIndexer" />
         <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao" />
         <property name="eventArchiveIndexDao" ref="eventArchiveIndexDao" />
         <property name="pluginService" ref="pluginService" />

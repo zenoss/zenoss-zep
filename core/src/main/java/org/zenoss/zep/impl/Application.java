@@ -307,6 +307,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
                                 final int numArchived = eventStoreDao.archive(duration, TimeUnit.MINUTES, archiveLimit);
                                 if (numArchived > 0) {
                                     logger.debug("Archived {} events", numArchived);
+                                    eventArchiveIndexer.index();
                                 }
                             } catch (TransientDataAccessException e) {
                                 logger.debug("Failed to archive events", e);

@@ -72,14 +72,17 @@ public class EventIndexerImpl implements EventIndexer {
             public void run() {
                 logger.info("Indexing thread started for: {}", indexDao.getName());
                 while (!shutdown) {
+                    int numIndexed = 0;
                     try {
-                        index();
+                        numIndexed = index();
                     } catch (ZepException e) {
                         logger.warn("Failed to index events", e);
                     } catch (Exception e) {
                         logger.warn("General failure indexing events", e);
                     }
-                    if (!shutdown) {
+                    // If we aren't shut down and we aren't processing a large backlog of events, wait to index the
+                    // next batch of events after a delay.
+                    if (!shutdown && numIndexed < indexLimit) {
                         synchronized (lock) {
                             try {
                                 lock.wait(indexIntervalMilliseconds);

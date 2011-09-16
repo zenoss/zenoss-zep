@@ -66,7 +66,8 @@ public class EventsResource {
     private static final Logger logger = LoggerFactory.getLogger(EventsResource.class);
 
     private int queryLimit = ZepConstants.DEFAULT_QUERY_LIMIT;
-    private EventIndexer eventIndexer;
+    private EventIndexer eventSummaryIndexer;
+    private EventIndexer eventArchiveIndexer;
     private EventStoreDao eventStoreDao;
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
@@ -85,8 +86,12 @@ public class EventsResource {
         this.eventStoreDao = eventStoreDao;
     }
 
-    public void setEventIndexer(EventIndexer eventIndexer) {
-        this.eventIndexer = eventIndexer;
+    public void setEventSummaryIndexer(EventIndexer eventSummaryIndexer) {
+        this.eventSummaryIndexer = eventSummaryIndexer;
+    }
+
+    public void setEventArchiveIndexer(EventIndexer eventArchiveIndexer) {
+        this.eventArchiveIndexer = eventArchiveIndexer;
     }
 
     public void setEventSummaryIndexDao(EventIndexDao eventSummaryIndexDao) {
@@ -154,7 +159,7 @@ public class EventsResource {
     public Response createSavedSearchInternal(EventIndexDao indexDao, EventQuery query, @Context UriInfo ui)
             throws URISyntaxException, ZepException {
         // Make sure index is up to date with latest events prior to creating the saved search
-        eventIndexer.indexFully();
+        eventSummaryIndexer.indexFully();
         String uuid = indexDao.createSavedSearch(query);
         return Response.created(new URI(ui.getRequestUri().toString() + '/' + uuid)).build();
     }
@@ -250,7 +255,7 @@ public class EventsResource {
         EventSummaryUpdate update = request.getUpdateFields();
         int numUpdated = this.eventStoreDao.update(uuids, update);
         if (numUpdated > 0) {
-            eventIndexer.indexFully();
+            eventSummaryIndexer.indexFully();
             EventUpdateContext context = new EventUpdateContext() {
             };
             for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
@@ -297,7 +302,7 @@ public class EventsResource {
 
         int numRows = eventStoreDao.update(summary.getUuid(), update);
         if (numRows > 0) {
-            eventIndexer.indexFully();
+            eventSummaryIndexer.indexFully();
         }
 
         return Response.noContent().build();
@@ -319,6 +324,8 @@ public class EventsResource {
             return Response.status(Status.INTERNAL_SERVER_ERROR).build();
         }
 
+        eventSummaryIndexer.index();
+        eventArchiveIndexer.index();
         EventUpdateContext context = new EventUpdateContext() {
         };
         for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
