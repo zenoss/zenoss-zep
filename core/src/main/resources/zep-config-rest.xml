@@ -34,6 +34,7 @@
         <property name="messageRegistry" ref="protobufMessageRegistry" />
     </bean>
     <bean id="protobufMessageRegistry" class="org.zenoss.zep.rest.ProtobufMessageRegistryImpl">
+        <constructor-arg index="0" ref="extensionRegistry" />
     </bean>
 
 </beans>

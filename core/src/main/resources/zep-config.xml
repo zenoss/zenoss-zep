@@ -100,6 +100,10 @@
     <bean id="amqpConnectionManager" class="org.zenoss.amqp.AmqpConnectionManager" init-method="init">
         <constructor-arg index="0" ref="amqpServerUri"/>
         <constructor-arg index="1" value="${zep.amqp.retry}"/>
+        <property name="extensionRegistry" ref="extensionRegistry" />
+    </bean>
+
+    <bean id="extensionRegistry" class="com.google.protobuf.ExtensionRegistry" factory-method="newInstance">
     </bean>
 
     <bean id="application" class="org.zenoss.zep.impl.Application" destroy-method="shutdown"

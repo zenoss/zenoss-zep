@@ -32,9 +32,10 @@ public class ProtobufMessageRegistryImpl implements ProtobufMessageRegistry {
 
     private final Map<String, Message> messageByFullName = new HashMap<String, Message>();
 
-    private final ExtensionRegistry registry = ExtensionRegistry.newInstance();
+    private final ExtensionRegistry registry;
 
-    public ProtobufMessageRegistryImpl() {
+    public ProtobufMessageRegistryImpl(ExtensionRegistry extensionRegistry) {
+        this.registry = extensionRegistry;
         List<? extends Message> messages = Arrays.asList(
                 EventTrigger.getDefaultInstance(),
                 EventNote.getDefaultInstance(),
