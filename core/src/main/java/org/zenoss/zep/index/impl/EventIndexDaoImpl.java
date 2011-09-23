@@ -69,8 +69,7 @@ import static org.zenoss.zep.index.impl.IndexConstants.*;
 
 public class EventIndexDaoImpl implements EventIndexDao {
     private final IndexWriter writer;
-    // Don't use searcher directly - use getSearcher()/returnSearcher()
-    private IndexSearcher _searcher;
+    private final IndexSearcherCache indexSearcherCache;
     private final String name;
     
     @Autowired
@@ -91,8 +90,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     public EventIndexDaoImpl(String name, IndexWriter writer) throws IOException {
         this.name = name;
         this.writer = writer;
-        // Use NRT reader.
-        this._searcher = new IndexSearcher(this.writer.getReader());
+        this.indexSearcherCache = new IndexSearcherCache(writer);
     }
 
     public synchronized void shutdown() throws IOException {
@@ -100,7 +98,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             it.next().getValue().close();
             it.remove();
         }
-        this._searcher.getIndexReader().close();
+        this.indexSearcherCache.close();
     }
 
     public void setIndexDetailsConfiguration(IndexedDetailsConfiguration indexedDetailsConfiguration) {
@@ -166,28 +164,73 @@ public class EventIndexDaoImpl implements EventIndexDao {
         commit(false);
     }
 
-    private synchronized void reopenReader() throws IOException {
-        IndexReader oldReader = this._searcher.getIndexReader();
-        IndexReader newReader = oldReader.reopen();
-        if (oldReader != newReader) {
-            this._searcher = new IndexSearcher(newReader);
-            ZepUtils.close(oldReader);
+    private static class IndexSearcherCache {
+        private final IndexWriter indexWriter;
+        private IndexReader indexReader = null;
+
+        /**
+         * Creates a NRT IndexSearcher from the given IndexWriter.
+         * 
+         * @param indexWriter Index writer used to create reader.
+         */
+        public IndexSearcherCache(IndexWriter indexWriter) {
+            this.indexWriter = indexWriter;
+        }
+
+        /**
+         * Returns an IndexSearcher (using a cached/reopened one where possible).
+         *
+         * @return An IndexSearcher which can be used to search the index.
+         * @throws IOException If an exception occurs opening the searcher.
+         */
+        public synchronized IndexSearcher getIndexSearcher() throws IOException {
+            if (this.indexReader == null) {
+                this.indexReader = this.indexWriter.getReader();
+            }
+            else {
+                IndexReader oldReader = this.indexReader;
+                IndexReader newReader = oldReader.reopen();
+                if (oldReader != newReader) {
+                    this.indexReader = newReader;
+                    oldReader.close();
+                }
+            }
+            this.indexReader.incRef();
+            return new IndexSearcher(indexReader);
+        }
+
+        /**
+         * Returns the IndexSearcher after it has been used.
+         *
+         * @param indexSearcher IndexSearcher to return.
+         * @throws IOException If an exception occurs closing the IndexReader.
+         */
+        public synchronized void returnIndexSearcher(IndexSearcher indexSearcher) throws IOException {
+            IndexReader indexReader = indexSearcher.getIndexReader();
+            indexReader.decRef();
+        }
+
+        /**
+         * Closes the cached IndexReader (used when responding to an OutOfMemoryError to allow memory to be
+         * returned to the program. This will cause the next call to retrieve an IndexReader to open a new one.
+         */
+        public synchronized void close() {
+            if (this.indexReader != null) {
+                ZepUtils.close(this.indexReader);
+                this.indexReader = null;
+            }
         }
     }
 
-    private synchronized IndexSearcher getSearcher() throws IOException {
-        reopenReader();
-        this._searcher.getIndexReader().incRef();
-        return this._searcher;
+    private IndexSearcher getSearcher() throws IOException {
+        return this.indexSearcherCache.getIndexSearcher();
     }
 
-    private static void returnSearcher(IndexSearcher searcher) throws ZepException {
-        if (searcher != null) {
-            try {
-                searcher.getIndexReader().decRef();
-            } catch (IOException e) {
-                throw new ZepException(e.getLocalizedMessage(), e);
-            }
+    private void returnSearcher(IndexSearcher searcher) throws ZepException {
+        try {
+            this.indexSearcherCache.returnIndexSearcher(searcher);
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
         }
     }
 
@@ -236,6 +279,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
             return searchToEventSummaryResult(searcher, query, sort, selector, request.getOffset(), request.getLimit());
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
+        } catch (OutOfMemoryError oome) {
+            this.indexSearcherCache.close();
+            throw oome;
         } finally {
             returnSearcher(searcher);
         }
@@ -324,6 +370,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
             }
         } catch (IOException e) {
             throw new ZepException(e);
+        } catch (OutOfMemoryError oome) {
+            this.indexSearcherCache.close();
+            throw oome;
         } finally {
             returnSearcher(searcher);
         }
@@ -352,6 +401,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
             commit(true);
         } catch (IOException e) {
             throw new ZepException(e);
+        } catch (OutOfMemoryError oome) {
+            this.indexSearcherCache.close();
+            throw oome;
         } finally {
             returnSearcher(searcher);
         }
@@ -690,6 +742,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
             return tagSeveritiesMapToSet(tagSeveritiesMap);
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
+        } catch (OutOfMemoryError oome) {
+            this.indexSearcherCache.close();
+            throw oome;
         } finally {
             returnSearcher(searcher);
         }
@@ -839,6 +894,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
             return searchToEventSummaryResult(searcher, search.getQuery(), search.getSort(), selector, offset, limit);
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
+        } catch (OutOfMemoryError oome) {
+            this.indexSearcherCache.close();
+            throw oome;
         } finally {
             returnSearcher(searcher);
         }

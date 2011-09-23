@@ -14,7 +14,7 @@ JETTY_HOME="`dirname ${JETTY_BIN}`"
 #start app from jetty_home
 cd $JETTY_HOME
 
-DEFAULT_ZEP_JVM_ARGS=${DEFAULT_ZEP_JVM_ARGS:-"-server -Xmx512m"}
+DEFAULT_ZEP_JVM_ARGS=${DEFAULT_ZEP_JVM_ARGS:-"-server"}
 JVM_ARGS="$DEFAULT_ZEP_JVM_ARGS"
 JVM_ARGS="$JVM_ARGS -XX:+HeapDumpOnOutOfMemoryError"
 JVM_ARGS="$JVM_ARGS -DZENOSS_COMMAND=zeneventserver"
