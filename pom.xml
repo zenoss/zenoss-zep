@@ -4,7 +4,7 @@
     <groupId>org.zenoss.zep</groupId>
     <artifactId>zep-parent</artifactId>
     <packaging>pom</packaging>
-    <version>1.1-SNAPSHOT</version>
+    <version>1.2-SNAPSHOT</version>
     <name>Zenoss Event Processor Parent</name>
     <url>http://www.zenoss.com</url>
     <modules>
