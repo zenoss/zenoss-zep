@@ -7,5 +7,5 @@
 BASEDIR=`dirname "$0"`
 BASEDIR=`cd "$BASEDIR" && pwd`
 
-SCHEMADIR="$BASEDIR/core/src/main/sql/mysql"
+SCHEMADIR="$BASEDIR/core/src/main/sql"
 exec "$BASEDIR/dist/src/assembly/bin/zeneventserver-create-db" --schemadir "$SCHEMADIR" "$@"
