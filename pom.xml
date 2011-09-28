@@ -36,7 +36,7 @@
             <id>integration-tests</id>
             <activation>
                 <property>
-                    <name>!dbname</name>
+                    <name>!dbtype</name>
                 </property>
             </activation>
             <properties>
