@@ -186,6 +186,14 @@
             <artifactId>mysql-connector-java</artifactId>
             <version>${version.mysql}</version>
             <type>jar</type>
+            <!-- TODO: Switch to provided here -->
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>${version.postgresql}</version>
+            <type>jar</type>
             <scope>runtime</scope>
         </dependency>
         <dependency>
@@ -193,7 +201,7 @@
             <artifactId>commons-dbcp</artifactId>
             <version>1.4</version>
             <type>jar</type>
-            <scope>runtime</scope>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>cglib</groupId>
@@ -269,8 +277,10 @@
                         <phase>pre-integration-test</phase>
                         <configuration>
                             <target unless="skipITs">
-                                <exec executable="bash" dir="..">
+                                <exec executable="bash" dir=".." failonerror="true">
                                     <arg value="./populate_schema.sh" />
+                                    <arg value="--dbtype" />
+                                    <arg value="${zep.jdbc.protocol}" />
                                     <arg value="--dbhost" />
                                     <arg value="${zep.jdbc.hostname}" />
                                     <arg value="--dbport" />
@@ -280,6 +290,10 @@
                                     <arg value="--dbrootuser" />
                                     <arg value="${zep.jdbc.username}" />
                                     <arg value="--dbrootpass" />
+                                    <arg value="${zep.jdbc.password}" />
+                                    <arg value="--dbuser" />
+                                    <arg value="${zep.jdbc.username}" />
+                                    <arg value="--dbpass" />
                                     <arg value="${zep.jdbc.password}" />
                                     <arg value="--force" />
                                 </exec>
@@ -303,6 +317,7 @@
                         </goals>
                         <configuration>
                             <systemPropertyVariables>
+                                <zep.jdbc.protocol>${zep.jdbc.protocol}</zep.jdbc.protocol>
                                 <zep.jdbc.hostname>${zep.jdbc.hostname}</zep.jdbc.hostname>
                                 <zep.jdbc.port>${zep.jdbc.port}</zep.jdbc.port>
                                 <zep.jdbc.dbname>${zep.test.jdbc.dbname}</zep.jdbc.dbname>

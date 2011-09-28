@@ -49,8 +49,10 @@
                         <phase>pre-integration-test</phase>
                         <configuration>
                             <target unless="skipITs">
-                                <exec executable="bash" dir="..">
+                                <exec executable="bash" dir=".." failonerror="true">
                                     <arg value="./populate_schema.sh" />
+                                    <arg value="--dbtype" />
+                                    <arg value="${zep.jdbc.protocol}" />
                                     <arg value="--dbhost" />
                                     <arg value="${zep.jdbc.hostname}" />
                                     <arg value="--dbport" />
@@ -60,6 +62,10 @@
                                     <arg value="--dbrootuser" />
                                     <arg value="${zep.jdbc.username}" />
                                     <arg value="--dbrootpass" />
+                                    <arg value="${zep.jdbc.password}" />
+                                    <arg value="--dbuser" />
+                                    <arg value="${zep.jdbc.username}" />
+                                    <arg value="--dbpass" />
                                     <arg value="${zep.jdbc.password}" />
                                     <arg value="--force" />
                                 </exec>
@@ -102,6 +108,10 @@
                             <daemon>true</daemon>
                             <scanIntervalSeconds>0</scanIntervalSeconds>
                             <systemProperties>
+                                <systemProperty>
+                                    <name>zep.jdbc.protocol</name>
+                                    <value>${zep.jdbc.protocol}</value>
+                                </systemProperty>
                                 <systemProperty>
                                     <name>zep.jdbc.hostname</name>
                                     <value>${zep.jdbc.hostname}</value>
@@ -158,6 +168,7 @@
                         </goals>
                         <configuration>
                             <systemPropertyVariables>
+                                <zep.jdbc.protocol>${zep.jdbc.protocol}</zep.jdbc.protocol>
                                 <zep.jdbc.hostname>${zep.jdbc.hostname}</zep.jdbc.hostname>
                                 <zep.jdbc.port>${zep.jdbc.port}</zep.jdbc.port>
                                 <zep.jdbc.dbname>${zep.test.jdbc.dbname}</zep.jdbc.dbname>

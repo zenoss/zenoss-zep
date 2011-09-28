@@ -37,12 +37,25 @@ public class ZepInstanceImpl implements ZepInstance {
 
     private Map<String, String> createConfig(Properties config) {
         Map<String, String> cfg = new HashMap<String, String>(config.size());
+        for (Map.Entry<Object, Object> entry : System.getProperties().entrySet()) {
+            Object key = entry.getKey();
+            Object val = entry.getValue();
+            if (key instanceof String && val instanceof String) {
+                String strKey = (String) key;
+                String strVal = (String) val;
+                cfg.put(strKey, strVal);
+            }
+        }
         for (Map.Entry<Object, Object> entry : config.entrySet()) {
-            String key = (String) entry.getKey();
-            String val = (String) entry.getValue();
-            // Override definition with system property value
-            val = System.getProperty(key, val);
-            cfg.put(key, val);
+            Object key = entry.getKey();
+            Object val = entry.getValue();
+            if (key instanceof String && val instanceof String) {
+                String strKey = (String) key;
+                String strVal = (String) val;
+                if (!cfg.containsKey(strKey)) {
+                    cfg.put(strKey, strVal);
+                }
+            }
         }
         return cfg;
     }

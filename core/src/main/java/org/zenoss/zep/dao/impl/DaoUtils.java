@@ -4,10 +4,15 @@
 package org.zenoss.zep.dao.impl;
 
 import com.google.protobuf.Message;
+import org.apache.commons.dbcp.BasicDataSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.support.DatabaseMetaDataCallback;
 import org.springframework.jdbc.support.JdbcUtils;
 import org.springframework.jdbc.support.MetaDataAccessException;
 import org.zenoss.protobufs.JsonFormat;
+import org.zenoss.protobufs.zep.Zep.ZepConfig;
+import org.zenoss.zep.ZepInstance;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -15,6 +20,7 @@ import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -22,10 +28,82 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 
 public final class DaoUtils {
+    private static final Logger logger = LoggerFactory.getLogger(DaoUtils.class.getName());
+    private static final String MYSQL_PROTOCOL = "mysql";
+    private static final String POSTGRESQL_PROTOCOL = "postgresql";
+
     private DaoUtils() {
+    }
+
+    private static int getIntProperty(String value, int defaultValue) {
+        int intVal = defaultValue;
+        if (value!= null) {
+            try {
+                intVal = Integer.parseInt(value);
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid value for property: {}", value);
+            }
+        }
+        return intVal;
+    }
+
+    private static boolean getBoolProperty(String value, boolean defaultValue) {
+        boolean boolVal = defaultValue;
+        if (value != null) {
+            boolVal = Boolean.valueOf(value);
+        }
+        return boolVal;
+    }
+
+    public static BasicDataSource createDataSource(Properties globalConf, ZepInstance zepInstance) {
+        // TODO: Update to look in global.conf first, then defer to ZEP's own configuration file
+        final Map<String,String> zepConfig = zepInstance.getConfig();
+        final String protocol = zepConfig.get("zep.jdbc.protocol");
+        final String hostname = zepConfig.get("zep.jdbc.hostname");
+        final String port = zepConfig.get("zep.jdbc.port");
+        final String dbname = zepConfig.get("zep.jdbc.dbname");
+        final String username = zepConfig.get("zep.jdbc.username");
+        final String password = zepConfig.get("zep.jdbc.password");
+        final int initialSize = getIntProperty(zepConfig.get("zep.jdbc.pool.initial_size"), 3);
+        final int maxActive = getIntProperty(zepConfig.get("zep.jdbc.pool.max_active"), 10);
+        final boolean poolPreparedStatements = getBoolProperty(zepConfig.get("zep.jdbc.pool.pool_prepared_statements"), true);
+        final int maxOpenPreparedStatements = getIntProperty(zepConfig.get("zep.jdbc.pool.max_open_prepared_statements"), 1000);
+        final String driverClassName;
+        final String jdbcParameters;
+        if (MYSQL_PROTOCOL.equals(protocol)) {
+            driverClassName = "com.mysql.jdbc.Driver";
+            // Make this configurable?
+            jdbcParameters = "characterEncoding=UTF-8&amp;autoReconnect=true&amp;rewriteBatchedStatements=true";
+        }
+        else if (POSTGRESQL_PROTOCOL.equals(protocol)) {
+            driverClassName = "org.postgresql.Driver";
+            jdbcParameters = "";
+        }
+        else {
+            throw new RuntimeException("Unsupported database protocol: " + protocol);
+        }
+
+        final BasicDataSource ds = new BasicDataSource();
+        ds.setDriverClassName(driverClassName);
+        ds.setUrl(String.format("jdbc:%s://%s:%s/%s?%s", protocol, hostname, port, dbname, jdbcParameters));
+        ds.setUsername(username);
+        ds.setPassword(password);
+        ds.setInitialSize(initialSize);
+        ds.setMaxActive(maxActive);
+        ds.setTestWhileIdle(true);
+        ds.setTestOnBorrow(false);
+        ds.setTestOnReturn(false);
+        ds.setDefaultAutoCommit(false);
+        ds.setValidationQuery("SELECT 1");
+        ds.setDefaultTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+        ds.setPoolPreparedStatements(poolPreparedStatements);
+        ds.setMaxOpenPreparedStatements(maxOpenPreparedStatements);
+        return ds;
     }
 
     /**

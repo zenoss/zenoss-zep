@@ -212,7 +212,7 @@ if __name__ == '__main__':
 
     migrator_classes = {
         'mysql': MysqlMigration,
-        'postgres': PostgresMigration,
+        'postgresql': PostgresMigration,
     }
     if options.dbtype not in migrator_classes:
         parser.error('Unknown database type: %s' % options.dbtype)

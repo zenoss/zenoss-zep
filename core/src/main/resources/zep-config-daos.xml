@@ -15,22 +15,9 @@
     </bean>
 
     <!-- JDBC Datasource -->
-    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
-        <property name="driverClassName" value="com.mysql.jdbc.Driver"/>
-        <property name="url"
-                  value="jdbc:mysql://${zep.jdbc.hostname}:${zep.jdbc.port}/${zep.jdbc.dbname}?characterEncoding=UTF-8&amp;autoReconnect=true&amp;rewriteBatchedStatements=true"/>
-        <property name="username" value="${zep.jdbc.username}"/>
-        <property name="password" value="${zep.jdbc.password}"/>
-        <property name="initialSize" value="${zep.jdbc.pool.initial_size:3}" />
-        <property name="maxActive" value="${zep.jdbc.pool.max_active:10}" />
-        <property name="testWhileIdle" value="true" />
-        <property name="testOnBorrow" value="false" />
-        <property name="testOnReturn" value="false" />
-        <property name="defaultAutoCommit" value="false" />
-        <property name="validationQuery" value="SELECT 1" />
-        <property name="defaultTransactionIsolation" value="2" />
-        <property name="poolPreparedStatements" value="${zep.jdbc.pool.pool_prepared_statements:true}" />
-        <property name="maxOpenPreparedStatements" value="${zep.jdbc.max_open_prepared_statements:1000}" />
+    <bean id="dataSource" class="org.zenoss.zep.dao.impl.DaoUtils" factory-method="createDataSource" destroy-method="close">
+        <constructor-arg index="0" ref="globalConf" />
+        <constructor-arg index="1" ref="zepInstance" />
     </bean>
 
     <!-- Partition configuration -->
