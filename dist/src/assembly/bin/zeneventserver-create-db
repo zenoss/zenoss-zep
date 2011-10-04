@@ -219,7 +219,7 @@ def list_schema_files(directory):
             match = re.match(schema_file_pattern, entry)
             if match:
                 schema_files.append((int(match.group(1)), full_path))
-    return schema_files
+    return sorted(schema_files, key=lambda schema_file: schema_file[0])
 
 if __name__ == '__main__':
     zenhome = os.getenv('ZENHOME', '/opt/zenoss')
