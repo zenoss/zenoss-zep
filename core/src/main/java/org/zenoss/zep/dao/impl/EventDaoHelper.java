@@ -6,6 +6,7 @@ package org.zenoss.zep.dao.impl;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.JsonFormat;
@@ -463,14 +464,30 @@ public class EventDaoHelper {
         }
         builder.setCreatedTime(System.currentTimeMillis());
         try {
-            // Notes are expected to be returned in reverse order
             Map<String,Object> fields = new HashMap<String,Object>();
             fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(System.currentTimeMillis()));
             fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
-            fields.put(COLUMN_NOTES_JSON, JsonFormat.writeAsString(builder.build()));
-            final String sql = "UPDATE " + tableName + " SET update_time=:update_time," +
-                    "notes_json=CONCAT_WS(',\n',:notes_json,notes_json) WHERE uuid=:uuid";
-            return template.update(sql, fields);
+
+            // Get the current notes (if any)
+            final String querySql = "SELECT notes_json FROM " + tableName + " WHERE uuid=:uuid FOR UPDATE";
+            final String currentNoteJson;
+            try {
+                currentNoteJson = template.queryForObject(querySql, String.class, fields);
+            } catch (EmptyResultDataAccessException e) {
+                // If the event doesn't exist, we return 0 as the number of affected rows
+                return 0;
+            }
+
+            // Prepend the new note
+            final StringBuilder newNoteJson = new StringBuilder(JsonFormat.writeAsString(builder.build()));
+            if (currentNoteJson != null) {
+                newNoteJson.append(",\n").append(currentNoteJson);
+            }
+            fields.put(COLUMN_NOTES_JSON, newNoteJson.toString());
+            
+            final String updateSql = "UPDATE " + tableName + " SET update_time=:update_time,notes_json=:notes_json" +
+                    " WHERE uuid=:uuid";
+            return template.update(updateSql, fields);
         } catch (IOException e) {
             throw new ZepException(e);
         }
