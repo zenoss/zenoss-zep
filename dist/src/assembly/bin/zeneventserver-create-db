@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 
+import logging
 import optparse
 import os
 import subprocess
 import sys
+
+logging.basicConfig()
+log = logging.getLogger('zen.createdb')
 
 class SchemaMigration(object):
     def __init__(self, dbname, dbhost=None, dbport=None, dbrootuser=None, dbrootpass=None, dbuser=None, dbpass=None,
@@ -105,41 +109,51 @@ FLUSH PRIVILEGES;""".format(self)
             raise subprocess.CalledProcessError(rc, cmd)
 
 class PostgresMigration(SchemaMigration):
-    def _passwordFile(self):
+    def _passwordFile(self, admin=False):
         from tempfile import NamedTemporaryFile
         tf = NamedTemporaryFile()
-        tf.write('*:*:*:*:{0.dbrootpass}\n'.format(self))
+        password = self.dbrootpass if admin else self.dbpass
+        tf.write('*:*:*:*:{0}\n'.format(password))
         tf.flush()
         return tf
 
-    def _getAdminCommand(self, command):
+    def _getCommand(self, command, admin=False):
         cmd = [command]
         cmd.extend(['-h', self.dbhost])
         if self.dbport:
             cmd.extend(['-p', str(self.dbport)])
-        cmd.extend(['-U', self.dbrootuser])
+        username = self.dbrootuser if admin else self.dbuser
+        cmd.extend(['-U', username])
         cmd.extend(['-w'])
         return cmd
 
-    def _executeCmd(self, cmd, save_streams=False):
-        with self._passwordFile() as pf:
+    def _executeCmd(self, cmd, admin=False, save_streams=False):
+        with self._passwordFile(admin=admin) as pf:
             env = os.environ.copy()
             env['PGPASSFILE'] = pf.name
             stdout, stderr = None, None
+            log.debug('Executing command: %s', cmd)
             if save_streams:
                 p = subprocess.Popen(cmd, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 stdout, stderr = p.communicate()
             else:
                 p = subprocess.Popen(cmd, env=env)
+            rc = p.wait()
+            if save_streams:
+                log.debug('Command completed - RC: %d, stdout: %s, stderr: %s', rc, stdout, stderr)
+            else:
+                log.debug('Command completed - RC: %d', rc)
             return p.wait(), stdout, stderr
 
     def _listDatabases(self):
         # List databases on the system
-        listCmd = self._getAdminCommand('psql')
+        listCmd = self._getCommand('psql', admin=True)
         listCmd.extend(['-A', '-t', '--list'])
-        rc, stdout, stderr = self._executeCmd(listCmd, save_streams=True)
+        rc, stdout, stderr = self._executeCmd(listCmd, admin=True, save_streams=True)
         if rc:
-            raise subprocess.CalledProcessError(cmd=listCmd, output=stdout, returncode=rc)
+            log.warning('Failed to list databases: stdout=%s, stderr=%s',
+                    stdout, stderr)
+            raise subprocess.CalledProcessError(cmd=listCmd, returncode=rc)
 
         databases = []
         for line in stdout.splitlines():
@@ -153,10 +167,12 @@ class PostgresMigration(SchemaMigration):
         if not self.dbname in self._listDatabases():
             return
         
-        dropCmd = self._getAdminCommand('dropdb')
+        dropCmd = self._getCommand('dropdb', admin=True)
         dropCmd.append(self.dbname)
-        rc, stdout, stderr = self._executeCmd(dropCmd)
+        rc, stdout, stderr = self._executeCmd(dropCmd, admin=True)
         if rc:
+            log.warning('Failed to drop database: stdout=%s, stderr=%s',
+                    stdout, stderr)
             raise subprocess.CalledProcessError(cmd=dropCmd, returncode=rc)
 
     def createDatabase(self):
@@ -164,48 +180,61 @@ class PostgresMigration(SchemaMigration):
         if self.dbname in self._listDatabases():
             return
 
-        createCmd = self._getAdminCommand('createdb')
+        createCmd = self._getCommand('createdb', admin=True)
         createCmd.extend(['-O', self.dbuser])
         createCmd.append(self.dbname)
-        rc, stdout, stderr = self._executeCmd(createCmd)
+        rc, stdout, stderr = self._executeCmd(createCmd, admin=True)
         if rc:
+            log.warning('Failed to create database: stdout=%s, stderr=%s',
+                    stdout, stderr)
             raise subprocess.CalledProcessError(cmd=createCmd, returncode=rc)
 
     def initializeDatabase(self):
         # Load pgcrypto extension into database
-        sharedir = subprocess.check_output(['pg_config','--sharedir'])
-        if not sharedir:
-            raise RuntimeError('Unable to determine PostgreSQL sharedir')
-        sharedir = sharedir.strip()
+        pgconfigCmd = ['pg_config','--sharedir']
+        p = subprocess.Popen(pgconfigCmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        rc = p.wait()
+        if rc:
+            log.warning('Failed to determine sharedir: stdout=%s, stderr=%s',
+                    stdout, stderr)
+            raise subprocess.CalledProcessError(cmd=pgconfigCmd, returncode=rc)
+        sharedir = stdout.strip()
 
         pgcrypto_sql = os.path.join(sharedir, 'contrib', 'pgcrypto.sql')
         if not os.path.isfile(pgcrypto_sql):
             raise RuntimeError('Unable to locate required file: %s' % pgcrypto_sql)
 
-        psqlCmd = self._getAdminCommand('psql')
+        psqlCmd = self._getCommand('psql', admin=True)
+        psqlCmd.append('-q')
         psqlCmd.extend(['-d', self.dbname])
         psqlCmd.extend(['-f', pgcrypto_sql])
-        rc, stdout, stderr = self._executeCmd(psqlCmd, save_streams=True)
+        rc, stdout, stderr = self._executeCmd(psqlCmd, admin=True, save_streams=True)
         if rc:
-            raise subprocess.CalledProcessError(cmd=psqlCmd, returncode=rc, output=stdout)
+            log.warning('Failed to load %s: stdout=%s, stderr=%s',
+                    pgcrypto_sql, stdout, stderr)
+            raise subprocess.CalledProcessError(cmd=psqlCmd, returncode=rc)
 
     def getSchemaVersion(self):
-        psqlCmd = self._getAdminCommand('psql')
+        psqlCmd = self._getCommand('psql', admin=False)
+        psqlCmd.append('-q')
         psqlCmd.extend(['-t', '-A'])
         psqlCmd.extend(['-d', self.dbname])
         psqlCmd.extend(['-c', 'SELECT MAX(version) FROM schema_version'])
-        rc, stdout, stderr = self._executeCmd(psqlCmd, save_streams=True)
+        rc, stdout, stderr = self._executeCmd(psqlCmd, admin=False, save_streams=True)
         return int(stdout) if stdout else 0
 
     def applySchemaFile(self, filename):
-        psqlCmd = self._getAdminCommand('psql')
+        psqlCmd = self._getCommand('psql', admin=False)
         psqlCmd.append('-q')
         psqlCmd.extend(['-d', self.dbname])
         psqlCmd.extend(['-f', filename])
         # Save output because psql is really chatty
-        rc, stdout, stderr = self._executeCmd(psqlCmd, save_streams=True)
+        rc, stdout, stderr = self._executeCmd(psqlCmd, admin=False, save_streams=True)
         if rc:
-            raise subprocess.CalledProcessError(cmd=psqlCmd, returncode=rc, output=stdout)
+            log.warning('Failed to apply %s: stdout=%s, stderr=%s',
+                    filename, stdout, stderr)
+            raise subprocess.CalledProcessError(cmd=psqlCmd, returncode=rc)
 
 def list_schema_files(directory):
     if not os.path.isdir(directory):
@@ -235,7 +264,13 @@ if __name__ == '__main__':
     parser.add_option('--dbpass', dest='dbpass', default='zenoss', help='Database Password')
     parser.add_option('--schemadir', dest='schemadir', default=os.path.join(zenhome, 'share', 'zeneventserver', 'sql'))
     parser.add_option('--force', dest='force', action='store_true', help='Overwrite existing database')
+    parser.add_option('-v', '--logseverity', default='INFO', dest='logseverity', help='Logging severity threshold')
     options, args = parser.parse_args()
+    try:
+        loglevel = int(options.logseverity)
+    except ValueError:
+        loglevel = getattr(logging, options.logseverity.upper(), logging.INFO)
+    logging.getLogger('zen').setLevel(loglevel)
 
     migrator_classes = {
         'mysql': MysqlMigration,
@@ -247,6 +282,7 @@ if __name__ == '__main__':
         parser.error('Invalid port: %d' % options.dbport)
 
     schema_files = list_schema_files(os.path.join(options.schemadir, options.dbtype))
+    log.debug('Schema files: %s', schema_files)
     migrator = migrator_classes[options.dbtype](**vars(options))
     try:
         if options.force:
@@ -256,6 +292,7 @@ if __name__ == '__main__':
         migrator.createDatabase()
         migrator.initializeDatabase()
         current_version = migrator.getSchemaVersion()
+        log.debug('Current schema version: %d', current_version)
         for schema_version, schema_file in schema_files:
             if schema_version > current_version:
                 print 'Applying schema version: %d' % schema_version
