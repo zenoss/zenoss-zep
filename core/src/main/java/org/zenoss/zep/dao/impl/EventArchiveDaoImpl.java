@@ -10,20 +10,23 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventArchiveDao;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.RangePartitioner;
+import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import javax.sql.DataSource;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
@@ -39,16 +42,22 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     private UUIDGenerator uuidGenerator;
 
+    private final DatabaseCompatibility databaseCompatibility;
+
+    private final TypeConverter<String> uuidConverter;
+
     private final PartitionTableConfig partitionTableConfig;
 
     private final RangePartitioner partitioner;
 
     public EventArchiveDaoImpl(DataSource dataSource, String databaseName,
-            PartitionConfig partitionConfig) {
+            PartitionConfig partitionConfig, DatabaseCompatibility databaseCompatibility) {
         this.template = new SimpleJdbcTemplate(dataSource);
         this.partitionTableConfig = partitionConfig
                 .getConfig(TABLE_EVENT_ARCHIVE);
-        this.partitioner = new RangePartitioner(template, databaseName,
+        this.databaseCompatibility = databaseCompatibility;
+        this.uuidConverter = databaseCompatibility.getUUIDConverter();
+        this.partitioner = databaseCompatibility.getRangePartitioner(dataSource, databaseName,
                 TABLE_EVENT_ARCHIVE, COLUMN_LAST_SEEN,
                 partitionTableConfig.getPartitionDuration(),
                 partitionTableConfig.getPartitionUnit());
@@ -69,30 +78,31 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
             throw new ZepException("Invalid status for event in event archive: " + event.getStatus());
         }
 
+        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
         Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
         final long created = event.getCreatedTime();
         long updateTime = System.currentTimeMillis();
-        final UUID uuid = this.uuidGenerator.generate();
+        final String uuid = this.uuidGenerator.generate().toString();
         final int eventCount = 1;
-        fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
+        fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
         fields.put(COLUMN_STATUS_ID, event.getStatus().getNumber());
-        fields.put(COLUMN_FIRST_SEEN, created);
-        fields.put(COLUMN_STATUS_CHANGE, created);
-        fields.put(COLUMN_LAST_SEEN, created);
+        fields.put(COLUMN_FIRST_SEEN, timestampConverter.toDatabaseType(created));
+        fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(created));
+        fields.put(COLUMN_LAST_SEEN, timestampConverter.toDatabaseType(created));
         fields.put(COLUMN_EVENT_COUNT, eventCount);
-        fields.put(COLUMN_UPDATE_TIME, updateTime);
+        fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(updateTime));
 
         this.template.update(DaoUtils.createNamedInsert(TABLE_EVENT_ARCHIVE, fields.keySet()), fields);
-        return uuid.toString();
+        return uuid;
     }
 
     @Override
     @TransactionalReadOnly
     public EventSummary findByUuid(String uuid) throws ZepException {
-        final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
+        final Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
         List<EventSummary> summaries = this.template.query("SELECT * FROM event_archive WHERE uuid=:uuid",
-                new EventSummaryRowMapper(this.eventDaoHelper), fields);
+                new EventSummaryRowMapper(this.eventDaoHelper, databaseCompatibility), fields);
         return (summaries.size() > 0) ? summaries.get(0) : null;
     }
 
@@ -100,11 +110,11 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @TransactionalReadOnly
     public List<EventSummary> findByUuids(List<String> uuids)
             throws ZepException {
-        Map<String, List<byte[]>> fields = Collections.singletonMap("uuids",
-                DaoUtils.uuidsToBytes(uuids));
+        Map<String, List<Object>> fields = Collections.singletonMap("uuids",
+                TypeConverterUtils.batchToDatabaseType(uuidConverter, uuids));
         return this.template.query(
                 "SELECT * FROM event_archive WHERE uuid IN(:uuids)",
-                new EventSummaryRowMapper(this.eventDaoHelper), fields);
+                new EventSummaryRowMapper(this.eventDaoHelper, databaseCompatibility), fields);
     }
 
     @Override
@@ -144,7 +154,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @TransactionalRollbackAllExceptions
     public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException {
-        return EventDaoHelper.updateDetails(TABLE_EVENT_ARCHIVE, uuid, details.getDetailsList(), template);
+        return this.eventDaoHelper.updateDetails(TABLE_EVENT_ARCHIVE, uuid, details.getDetailsList(), template);
     }
 
     @Override

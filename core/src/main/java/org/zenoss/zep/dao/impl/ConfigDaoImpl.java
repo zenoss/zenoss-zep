@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.dao.impl;
 
@@ -14,6 +14,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
+import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
@@ -23,12 +25,15 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.ConfigDao;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.DatabaseType;
 
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -41,20 +46,33 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 public class ConfigDaoImpl implements ConfigDao {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigDao.class);
+    private final DataSource ds;
     private final SimpleJdbcTemplate template;
     private Messages messages;
     private static final int MAX_PARTITIONS = 1000;
     private final int maxEventArchivePurgeIntervalDays;
     private int maxEventArchiveIntervalMinutes = 30 * 24 * 60;
+    private DatabaseCompatibility databaseCompatibility;
+    private SimpleJdbcCall postgresqlCreateCall;
 
     private static final String COLUMN_CONFIG_NAME = "config_name";
     private static final String COLUMN_CONFIG_VALUE = "config_value";
 
     public ConfigDaoImpl(DataSource ds, PartitionConfig partitionConfig) {
+        this.ds = ds;
         this.template = new SimpleJdbcTemplate(ds);
 
         this.maxEventArchivePurgeIntervalDays = calculateMaximumDays(partitionConfig.getConfig(TABLE_EVENT_ARCHIVE));
         logger.info("Maximum archive days: {}", maxEventArchivePurgeIntervalDays);
+    }
+
+    public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
+        this.databaseCompatibility = databaseCompatibility;
+        if (this.databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
+            this.postgresqlCreateCall = new SimpleJdbcCall(this.ds).withFunctionName("config_upsert")
+                    .declareParameters(new SqlParameter("p_config_name", Types.VARCHAR),
+                            new SqlParameter("p_config_value", Types.VARCHAR));
+        }
     }
 
     private static int calculateMaximumDays(PartitionTableConfig config) {
@@ -75,65 +93,57 @@ public class ConfigDaoImpl implements ConfigDao {
     @Override
     @TransactionalReadOnly
     public ZepConfig getConfig() throws ZepException {
-        try {
-            final String sql = "SELECT * FROM config";
-            ZepConfig config = template.getJdbcOperations().query(sql, new ZepConfigExtractor());
-            validateConfig(config);
-            return config;
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        final String sql = "SELECT * FROM config";
+        ZepConfig config = template.getJdbcOperations().query(sql, new ZepConfigExtractor());
+        validateConfig(config);
+        return config;
     }
 
     @Override
     @TransactionalRollbackAllExceptions
     public void setConfig(ZepConfig config) throws ZepException {
-        try {
-            validateConfig(config);
-            final String sql = "INSERT INTO config (config_name, config_value) VALUES(?, ?) " +
-                    "ON DUPLICATE KEY UPDATE config_value=VALUES(config_value)";
-            final List<Object[]> records = configToRecords(config);
-            if (!records.isEmpty()) {
-                this.template.batchUpdate(sql, records);
-            }
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
+        validateConfig(config);
+        final List<Map<String,String>> records = configToRecords(config);
+        for (Map<String,String> record : records) {
+            setConfigValueInternal(record);
+        }
+    }
+
+    private void setConfigValueInternal(Map<String,String> fields) throws ZepException {
+        DatabaseType dbType = databaseCompatibility.getDatabaseType();
+        if (dbType == DatabaseType.MYSQL) {
+            final String sql = "INSERT INTO config (config_name, config_value) VALUES(:config_name, :config_value) " +
+                    "ON DUPLICATE KEY UPDATE config_value=:config_value";
+            this.template.update(sql, fields);
+        }
+        else if (dbType == DatabaseType.POSTGRESQL) {
+            this.postgresqlCreateCall.execute(fields.get(COLUMN_CONFIG_NAME), fields.get(COLUMN_CONFIG_VALUE));
         }
     }
 
     @Override
     @TransactionalRollbackAllExceptions
     public int removeConfigValue(String name) throws ZepException {
-        try {
-            final String sql = "DELETE FROM config WHERE config_name=:config_name";
-            return this.template.update(sql, Collections.singletonMap(COLUMN_CONFIG_NAME, name));
-        } catch (DataAccessException e) {
-            throw new ZepException(e.getLocalizedMessage(), e);
-        }
+        final String sql = "DELETE FROM config WHERE config_name=:config_name";
+        return this.template.update(sql, Collections.singletonMap(COLUMN_CONFIG_NAME, name));
     }
 
     @Override
     @TransactionalRollbackAllExceptions
     public void setConfigValue(String name, ZepConfig config) throws ZepException {
-        try {
-            validateConfig(config);
-            FieldDescriptor field = ZepConfig.getDescriptor().findFieldByName(name);
-            if (field == null) {
-                throw new ZepException("Invalid field name: " + name);
-            }
-            Object value = config.getField(field);
-            if (value == null) {
-                removeConfigValue(name);
-            }
-            final Map<String,String> fields = new HashMap<String,String>();
-            fields.put(COLUMN_CONFIG_NAME, name);
-            fields.put(COLUMN_CONFIG_VALUE, valueToString(field, value));
-            final String sql = "INSERT INTO config (config_name, config_value) VALUES(:config_name, :config_value) " +
-                    "ON DUPLICATE KEY UPDATE config_value=VALUES(config_value)";
-            this.template.update(sql, fields);
-        } catch (DataAccessException e) {
-            throw new ZepException(e.getLocalizedMessage(), e);
+        validateConfig(config);
+        FieldDescriptor field = ZepConfig.getDescriptor().findFieldByName(name);
+        if (field == null) {
+            throw new ZepException("Invalid field name: " + name);
         }
+        Object value = config.getField(field);
+        if (value == null) {
+            removeConfigValue(name);
+        }
+        final Map<String,String> fields = new HashMap<String,String>(2);
+        fields.put(COLUMN_CONFIG_NAME, name);
+        fields.put(COLUMN_CONFIG_VALUE, valueToString(field, value));
+        setConfigValueInternal(fields);
     }
 
     private void validateConfig(ZepConfig config) throws ZepException {
@@ -155,13 +165,16 @@ public class ConfigDaoImpl implements ConfigDao {
         }
     }
 
-    private static List<Object[]> configToRecords(ZepConfig config) throws ZepException {
-        final List<Object[]> records = new ArrayList<Object[]>();
+    private static List<Map<String,String>> configToRecords(ZepConfig config) throws ZepException {
+        final List<Map<String,String>> records = new ArrayList<Map<String,String>>();
         final Descriptor descriptor = config.getDescriptorForType();
         for (FieldDescriptor field : descriptor.getFields()) {
             final Object value = config.getField(field);
             if (value != null) {
-                records.add(new Object[] { field.getName(), valueToString(field, value) });
+                Map<String,String> record = new HashMap<String, String>(2);
+                record.put(COLUMN_CONFIG_NAME, field.getName());
+                record.put(COLUMN_CONFIG_VALUE, valueToString(field, value));
+                records.add(record);
             }
         }
         return records;

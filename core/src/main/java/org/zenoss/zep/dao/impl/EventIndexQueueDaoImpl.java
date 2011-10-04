@@ -10,6 +10,8 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventIndexQueueDao;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
@@ -29,9 +31,12 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
     private final String tableName;
     private final EventSummaryRowMapper rowMapper;
 
+    private final TypeConverter<String> uuidConverter;
+
     private final boolean isArchive;
     
-    public EventIndexQueueDaoImpl(DataSource ds, boolean isArchive, EventDaoHelper daoHelper) {
+    public EventIndexQueueDaoImpl(DataSource ds, boolean isArchive, EventDaoHelper daoHelper,
+                                  DatabaseCompatibility databaseCompatibility) {
         this.template = new SimpleJdbcTemplate(ds);
         this.isArchive = isArchive;
         if (isArchive) {
@@ -41,7 +46,8 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
             this.tableName = EventConstants.TABLE_EVENT_SUMMARY;
         }
         this.queueTableName = this.tableName + "_index_queue";
-        this.rowMapper = new EventSummaryRowMapper(daoHelper);
+        this.uuidConverter = databaseCompatibility.getUUIDConverter();
+        this.rowMapper = new EventSummaryRowMapper(daoHelper, databaseCompatibility);
     }
     
     @Override
@@ -81,7 +87,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
         final List<Integer> indexQueueIds = this.template.query(sql, new RowMapper<Integer>() {
             @Override
             public Integer mapRow(ResultSet rs, int rowNum) throws SQLException {
-                final byte[] uuid = rs.getBytes("uuid");
+                final Object uuid = rs.getObject("uuid");
                 if (uuid != null) {
                     EventSummary summary = rowMapper.mapRow(rs, rowNum);
                     try {
@@ -92,7 +98,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
                 }
                 else {
                     try {
-                        handler.handleDeleted(DaoUtils.uuidFromBytes(rs.getBytes("iq_uuid")));
+                        handler.handleDeleted(uuidConverter.fromDatabaseType(rs.getObject("iq_uuid")));
                     } catch (Exception e) {
                         throw new SQLException(e.getLocalizedMessage(), e);
                     }

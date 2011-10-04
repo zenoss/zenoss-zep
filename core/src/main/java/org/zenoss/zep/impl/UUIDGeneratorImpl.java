@@ -69,6 +69,13 @@ public class UUIDGeneratorImpl implements UUIDGenerator {
         return data;
     }
 
+    private static byte[] uuidToBytes(UUID uuid) {
+        final ByteBuffer bb = ByteBuffer.allocate(16);
+        bb.putLong(uuid.getMostSignificantBits());
+        bb.putLong(uuid.getLeastSignificantBits());
+        return bb.array();
+    }
+
     @Override
     public UUID generate() {
         final UUID uuid = this.generator.generate();
@@ -79,7 +86,7 @@ public class UUIDGeneratorImpl implements UUIDGenerator {
          * at the beginning for less index fragmentation. This means we don't have "valid" UUIDs but they do provide
          * the desired uniqueness and will not fragment the index like random or time based UUIDs.
          */
-        final byte[] original = DaoUtils.uuidToBytes(uuid);
+        final byte[] original = uuidToBytes(uuid);
 
         // UUID                   = time-low "-" time-mid "-"
         //                        time-high-and-version "-"

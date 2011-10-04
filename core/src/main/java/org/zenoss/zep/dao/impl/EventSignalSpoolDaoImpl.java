@@ -5,8 +5,9 @@ package org.zenoss.zep.dao.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
@@ -14,10 +15,15 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSignalSpool;
 import org.zenoss.zep.dao.EventSignalSpoolDao;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.DatabaseType;
+import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -26,7 +32,6 @@ import java.util.Map;
 
 public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
 
-    public static final String TABLE_EVENT_TRIGGER_SIGNAL_SPOOL = "event_trigger_signal_spool";
     public static final String COLUMN_UUID = "uuid";
     public static final String COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID = "event_trigger_subscription_uuid";
     public static final String COLUMN_EVENT_SUMMARY_UUID = "event_summary_uuid";
@@ -35,16 +40,17 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     public static final String COLUMN_EVENT_COUNT = "event_count";
     public static final String COLUMN_SENT_SIGNAL = "sent_signal";
 
-    private static final class EventSignalSpoolMapper implements RowMapper<EventSignalSpool> {
+    private class EventSignalSpoolMapper implements RowMapper<EventSignalSpool> {
         @Override
         public EventSignalSpool mapRow(ResultSet rs, int rowNum)
                 throws SQLException {
+            TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
             EventSignalSpool spool = new EventSignalSpool();
-            spool.setUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID)));
-            spool.setCreated(rs.getLong(COLUMN_CREATED));
+            spool.setUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID)));
+            spool.setCreated(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_CREATED)));
             spool.setEventCount(rs.getInt(COLUMN_EVENT_COUNT));
-            spool.setEventSummaryUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_EVENT_SUMMARY_UUID)));
-            spool.setSubscriptionUuid(DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID)));
+            spool.setEventSummaryUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_EVENT_SUMMARY_UUID)));
+            spool.setSubscriptionUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID)));
             spool.setFlushTime(rs.getLong(COLUMN_FLUSH_TIME));
             spool.setSentSignal(rs.getBoolean(COLUMN_SENT_SIGNAL));
             return spool;
@@ -54,10 +60,15 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     @SuppressWarnings("unused")
     private static Logger logger = LoggerFactory.getLogger(EventSignalSpoolDaoImpl.class);
 
+    private final DataSource ds;
     private final SimpleJdbcTemplate template;
     private UUIDGenerator uuidGenerator;
+    private DatabaseCompatibility databaseCompatibility;
+    private TypeConverter<String> uuidConverter;
+    private SimpleJdbcCall postgresUpsertCall;
 
     public EventSignalSpoolDaoImpl(DataSource dataSource) {
+        this.ds = dataSource;
         this.template = new SimpleJdbcTemplate(dataSource);
     }
 
@@ -65,12 +76,29 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
         this.uuidGenerator = uuidGenerator;
     }
 
-    private static Map<String, Object> spoolToFields(EventSignalSpool spool) {
+    public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
+        this.databaseCompatibility = databaseCompatibility;
+        this.uuidConverter = databaseCompatibility.getUUIDConverter();
+        if (this.databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
+            this.postgresUpsertCall = new SimpleJdbcCall(this.ds)
+                    .withFunctionName("event_trigger_signal_spool_upsert")
+                    .declareParameters(new SqlParameter("p_uuid", Types.OTHER),
+                            new SqlParameter("p_event_trigger_subscription_uuid", Types.OTHER),
+                            new SqlParameter("p_event_summary_uuid", Types.OTHER),
+                            new SqlParameter("p_flush_time", Types.BIGINT),
+                            new SqlParameter("p_created", Types.TIMESTAMP),
+                            new SqlParameter("p_event_count", Types.INTEGER),
+                            new SqlParameter("p_sent_signal", Types.BOOLEAN));
+        }
+    }
+
+    private Map<String, Object> spoolToFields(EventSignalSpool spool) {
         final Map<String, Object> fields = new LinkedHashMap<String, Object>();
 
-        fields.put(COLUMN_CREATED, spool.getCreated());
-        fields.put(COLUMN_EVENT_SUMMARY_UUID, DaoUtils.uuidToBytes(spool.getEventSummaryUuid()));
-        fields.put(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID, DaoUtils.uuidToBytes(spool.getSubscriptionUuid()));
+        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
+        fields.put(COLUMN_CREATED, timestampConverter.toDatabaseType(spool.getCreated()));
+        fields.put(COLUMN_EVENT_SUMMARY_UUID, uuidConverter.toDatabaseType(spool.getEventSummaryUuid()));
+        fields.put(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID, uuidConverter.toDatabaseType(spool.getSubscriptionUuid()));
         fields.put(COLUMN_FLUSH_TIME, spool.getFlushTime());
         fields.put(COLUMN_EVENT_COUNT, spool.getEventCount());
         fields.put(COLUMN_SENT_SIGNAL, spool.isSentSignal());
@@ -85,29 +113,33 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
         if (uuid == null) {
             uuid = uuidGenerator.generate().toString();
         }
-        fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
-        try {
-            final StringBuilder names = new StringBuilder();
-            final StringBuilder values = new StringBuilder();
-            for (String key : fields.keySet()) {
-                if (names.length() > 0) {
-                    names.append(',');
-                    values.append(',');
-                }
-                names.append(key);
-                values.append(':').append(key);
+        fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
+        final StringBuilder names = new StringBuilder();
+        final StringBuilder values = new StringBuilder();
+        for (String key : fields.keySet()) {
+            if (names.length() > 0) {
+                names.append(',');
+                values.append(',');
             }
-            final String sql = String
-                    .format("INSERT INTO %s (%s) VALUES (%s) ON DUPLICATE KEY UPDATE %s = %s + 1",
-                            TABLE_EVENT_TRIGGER_SIGNAL_SPOOL, names, values,
-                            COLUMN_EVENT_COUNT, COLUMN_EVENT_COUNT);
-            this.template.update(sql, fields);
-            spool.setUuid(uuid);
-            return uuid;
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
+            names.append(key);
+            values.append(':').append(key);
         }
-
+        if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
+            final String sql = String.format(
+                    "INSERT INTO event_trigger_signal_spool (%s) VALUES (%s) " +
+                            "ON DUPLICATE KEY UPDATE event_count = event_count + 1", names, values);
+            this.template.update(sql, fields);
+        }
+        else if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
+            postgresUpsertCall.execute(fields.get(COLUMN_UUID), fields.get(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID),
+                    fields.get(COLUMN_EVENT_SUMMARY_UUID), fields.get(COLUMN_FLUSH_TIME), fields.get(COLUMN_CREATED),
+                    fields.get(COLUMN_EVENT_COUNT), fields.get(COLUMN_SENT_SIGNAL));
+        }
+        else {
+            throw new IllegalStateException("Unsupported database type: " + databaseCompatibility.getDatabaseType());
+        }
+        spool.setUuid(uuid);
+        return uuid;
     }
 
     @Override
@@ -119,152 +151,109 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int delete(List<String> uuids) throws ZepException {
-        try {
-            final Map<String,List<byte[]>> fields = Collections.singletonMap("_uuids", DaoUtils.uuidsToBytes(uuids));
-            final String sql = "DELETE FROM event_trigger_signal_spool WHERE uuid IN (:_uuids)";
-            return this.template.update(sql, fields);
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        final Map<String,List<Object>> fields = Collections.singletonMap("_uuids",
+                TypeConverterUtils.batchToDatabaseType(uuidConverter, uuids));
+        final String sql = "DELETE FROM event_trigger_signal_spool WHERE uuid IN (:_uuids)";
+        return this.template.update(sql, fields);
     }
 
     @Override
     @TransactionalRollbackAllExceptions
-    public int delete(String triggerUuid, String summaryUuid)
-            throws ZepException {
-        try {
-            final byte[] triggerUuidBytes = DaoUtils.uuidToBytes(triggerUuid);
-            final byte[] eventSummaryUuidBytes = DaoUtils.uuidToBytes(summaryUuid);
+    public int delete(String triggerUuid, String summaryUuid) throws ZepException {
+        Map<String,Object> fields = new HashMap<String, Object>(2);
+        fields.put(COLUMN_EVENT_SUMMARY_UUID, uuidConverter.toDatabaseType(summaryUuid));
+        fields.put(EventTriggerSubscriptionDaoImpl.COLUMN_EVENT_TRIGGER_UUID,
+                uuidConverter.toDatabaseType(triggerUuid));
 
-            final String sql = String
-                    .format("DELETE FROM %s WHERE %s=? AND %s IN (SELECT %s FROM %s WHERE %s=?)",
-                            TABLE_EVENT_TRIGGER_SIGNAL_SPOOL,
-                            COLUMN_EVENT_SUMMARY_UUID,
-                            COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID,
-                            EventTriggerSubscriptionDaoImpl.COLUMN_UUID,
-                            EventTriggerSubscriptionDaoImpl.TABLE_EVENT_TRIGGER_SUBSCRIPTION,
-                            EventTriggerSubscriptionDaoImpl.COLUMN_EVENT_TRIGGER_UUID);
-            return this.template.update(sql, eventSummaryUuidBytes,
-                    triggerUuidBytes);
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        final String sql = "DELETE FROM event_trigger_signal_spool WHERE event_summary_uuid=:event_summary_uuid " +
+                "AND event_trigger_subscription_uuid IN " +
+                "(SELECT uuid FROM event_trigger_subscription WHERE event_trigger_uuid=:event_trigger_uuid)";
+        return this.template.update(sql, fields);
     }
 
     @Override
     @TransactionalRollbackAllExceptions
     public int deleteByEventSummaryUuid(String eventSummaryUuid) throws ZepException {
-        try {
-            final Map<String, byte[]> fields = Collections.singletonMap(COLUMN_EVENT_SUMMARY_UUID,
-                    DaoUtils.uuidToBytes(eventSummaryUuid));
-            final String sql = "DELETE FROM event_trigger_signal_spool WHERE event_summary_uuid=:event_summary_uuid";
-            return this.template.update(sql, fields);
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        final Map<String, Object> fields = Collections.singletonMap(COLUMN_EVENT_SUMMARY_UUID,
+                uuidConverter.toDatabaseType(eventSummaryUuid));
+        final String sql = "DELETE FROM event_trigger_signal_spool WHERE event_summary_uuid=:event_summary_uuid";
+        return this.template.update(sql, fields);
     }
 
     @Override
     @TransactionalRollbackAllExceptions
     public int deleteByTriggerUuid(String triggerUuid) throws ZepException {
-        try {
-            final Map<String, byte[]> fields = Collections.singletonMap(
-                    EventTriggerSubscriptionDaoImpl.COLUMN_EVENT_TRIGGER_UUID, DaoUtils.uuidToBytes(triggerUuid));
-            final String sql = "DELETE FROM event_trigger_signal_spool WHERE event_trigger_subscription_uuid IN " +
-                    "(SELECT uuid FROM event_trigger_subscription WHERE event_trigger_uuid=:event_trigger_uuid)";
-            return this.template.update(sql, fields);
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        final Map<String, Object> fields = Collections.singletonMap(
+                EventTriggerSubscriptionDaoImpl.COLUMN_EVENT_TRIGGER_UUID, uuidConverter.toDatabaseType(triggerUuid));
+        final String sql = "DELETE FROM event_trigger_signal_spool WHERE event_trigger_subscription_uuid IN " +
+                "(SELECT uuid FROM event_trigger_subscription WHERE event_trigger_uuid=:event_trigger_uuid)";
+        return this.template.update(sql, fields);
     }
 
     @Override
     @TransactionalReadOnly
     public EventSignalSpool findByUuid(String uuid) throws ZepException {
-        try {
-            Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
-            final String sql = "SELECT * FROM event_trigger_signal_spool WHERE uuid=:uuid";
-            List<EventSignalSpool> spools = this.template.query(sql, new EventSignalSpoolMapper(), fields);
-            EventSignalSpool spool = null;
-            if (!spools.isEmpty()) {
-                spool = spools.get(0);
-            }
-            return spool;
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
+        Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
+        final String sql = "SELECT * FROM event_trigger_signal_spool WHERE uuid=:uuid";
+        List<EventSignalSpool> spools = this.template.query(sql, new EventSignalSpoolMapper(), fields);
+        EventSignalSpool spool = null;
+        if (!spools.isEmpty()) {
+            spool = spools.get(0);
         }
+        return spool;
     }
 
     @Override
     @TransactionalRollbackAllExceptions
     public int update(EventSignalSpool spool) throws ZepException {
+        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         Map<String, Object> fields = new HashMap<String, Object>();
-        fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(spool.getUuid()));
+        fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(spool.getUuid()));
         fields.put(COLUMN_FLUSH_TIME, spool.getFlushTime());
         fields.put(COLUMN_EVENT_COUNT, spool.getEventCount());
         fields.put(COLUMN_SENT_SIGNAL, spool.isSentSignal());
         final String sql = "UPDATE event_trigger_signal_spool SET flush_time=:flush_time,event_count=:event_count,"
                 + "sent_signal=:sent_signal WHERE uuid=:uuid";
-        try {
-            return this.template.update(sql, fields);
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        return this.template.update(sql, fields);
     }
 
     @Override
     @TransactionalReadOnly
     public EventSignalSpool findBySubscriptionAndEventSummaryUuids(
             String subscriptionUuid, String summaryUuid) throws ZepException {
-        try {
-            final Map<String,byte[]> fields = new HashMap<String,byte[]>();
-            fields.put(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID, DaoUtils.uuidToBytes(subscriptionUuid));
-            fields.put(COLUMN_EVENT_SUMMARY_UUID, DaoUtils.uuidToBytes(summaryUuid));
+        final Map<String,Object> fields = new HashMap<String,Object>();
+        fields.put(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID, uuidConverter.toDatabaseType(subscriptionUuid));
+        fields.put(COLUMN_EVENT_SUMMARY_UUID, uuidConverter.toDatabaseType(summaryUuid));
 
-            final String sql = "SELECT * FROM event_trigger_signal_spool WHERE " +
-                    "event_trigger_subscription_uuid=:event_trigger_subscription_uuid AND " +
-                    "event_summary_uuid=:event_summary_uuid";
-            final List<EventSignalSpool> spools = this.template.query(sql,
-                    new EventSignalSpoolMapper(), fields);
-            return (!spools.isEmpty()) ? spools.get(0) : null;
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        final String sql = "SELECT * FROM event_trigger_signal_spool WHERE " +
+                "event_trigger_subscription_uuid=:event_trigger_subscription_uuid AND " +
+                "event_summary_uuid=:event_summary_uuid";
+        final List<EventSignalSpool> spools = this.template.query(sql,
+                new EventSignalSpoolMapper(), fields);
+        return (!spools.isEmpty()) ? spools.get(0) : null;
     }
 
     @Override
     @TransactionalReadOnly
     public List<EventSignalSpool> findAllDue() throws ZepException {
-        try {
-            Map<String,Long> fields = Collections.singletonMap(COLUMN_FLUSH_TIME, System.currentTimeMillis());
-            final String sql = "SELECT * FROM event_trigger_signal_spool WHERE flush_time <= :flush_time";
-            return this.template.query(sql, new EventSignalSpoolMapper(), fields);
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        Map<String,Long> fields = Collections.singletonMap(COLUMN_FLUSH_TIME,System.currentTimeMillis());
+        final String sql = "SELECT * FROM event_trigger_signal_spool WHERE flush_time <= :flush_time";
+        return this.template.query(sql, new EventSignalSpoolMapper(), fields);
     }
 
     @Override
     @TransactionalReadOnly
     public List<EventSignalSpool> findAllByEventSummaryUuid(String eventSummaryUuid) throws ZepException {
         final String sql = "SELECT * FROM event_trigger_signal_spool WHERE event_summary_uuid=:event_summary_uuid";
-        final Map<String,byte[]> fields =
-                Collections.singletonMap(COLUMN_EVENT_SUMMARY_UUID, DaoUtils.uuidToBytes(eventSummaryUuid));
-        try {
-            return this.template.query(sql, new EventSignalSpoolMapper(), fields);
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        final Map<String,Object> fields =
+                Collections.singletonMap(COLUMN_EVENT_SUMMARY_UUID, uuidConverter.toDatabaseType(eventSummaryUuid));
+        return this.template.query(sql, new EventSignalSpoolMapper(), fields);
     }
 
     @Override
     @TransactionalReadOnly
     public long getNextFlushTime() throws ZepException {
-        try {
-            final String sql = "SELECT MIN(flush_time) FROM event_trigger_signal_spool";
-            return this.template.queryForLong(sql);
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        final String sql = "SELECT MIN(flush_time) FROM event_trigger_signal_spool";
+        return this.template.queryForLong(sql);
     }
 }

@@ -11,12 +11,13 @@ import org.springframework.jdbc.support.DatabaseMetaDataCallback;
 import org.springframework.jdbc.support.JdbcUtils;
 import org.springframework.jdbc.support.MetaDataAccessException;
 import org.zenoss.protobufs.JsonFormat;
-import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.zep.ZepInstance;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibilityMySQL;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibilityPostgreSQL;
 
 import javax.sql.DataSource;
 import java.io.IOException;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -30,10 +31,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.UUID;
 
 public final class DaoUtils {
     private static final Logger logger = LoggerFactory.getLogger(DaoUtils.class.getName());
+    
     private static final String MYSQL_PROTOCOL = "mysql";
     private static final String POSTGRESQL_PROTOCOL = "postgresql";
 
@@ -106,61 +107,16 @@ public final class DaoUtils {
         return ds;
     }
 
-    /**
-     * Converts the UUID string to a 16-byte byte array.
-     * 
-     * @param uuidStr
-     *            UUID string.
-     * @return 16 byte array.
-     */
-    public static byte[] uuidToBytes(String uuidStr) {
-        final ByteBuffer bb = ByteBuffer.allocate(16);
-        final UUID uuid = UUID.fromString(uuidStr);
-        bb.putLong(uuid.getMostSignificantBits());
-        bb.putLong(uuid.getLeastSignificantBits());
-        return bb.array();
-    }
-
-    /**
-     * Converts the UUID to a 16-byte byte array.
-     *
-     * @param uuid
-     *            UUID object.
-     * @return 16 byte array.
-     */
-    public static byte[] uuidToBytes(UUID uuid) {
-        final ByteBuffer bb = ByteBuffer.allocate(16);
-        bb.putLong(uuid.getMostSignificantBits());
-        bb.putLong(uuid.getLeastSignificantBits());
-        return bb.array();
-    }
-
-    /**
-     * Converts a 16-byte byte array to a UUID string.
-     * 
-     * @param bytes
-     *            16-byte byte array.
-     * @return UUID string.
-     */
-    public static String uuidFromBytes(byte[] bytes) {
-        final ByteBuffer bb = ByteBuffer.wrap(bytes);
-        return new UUID(bb.getLong(), bb.getLong()).toString();
-    }
-
-    /**
-     * Convert a collection of String UUIDs to a list of byte[] UUIDs.
-     * 
-     * @param strUuids
-     *            UUIDs to convert.
-     * @return A list of UUID byte arrays (suitable for passing to the
-     *         database).
-     */
-    public static List<byte[]> uuidsToBytes(Collection<String> strUuids) {
-        List<byte[]> uuids = new ArrayList<byte[]>(strUuids.size());
-        for (String strUuid : strUuids) {
-            uuids.add(uuidToBytes(strUuid));
+    public static DatabaseCompatibility createDatabaseCompatibility(Properties globalConf, ZepInstance zepInstance) {
+        final Map<String,String> zepConfig = zepInstance.getConfig();
+        final String protocol = zepConfig.get("zep.jdbc.protocol");
+        if (MYSQL_PROTOCOL.equals(protocol)) {
+            return new DatabaseCompatibilityMySQL();
         }
-        return uuids;
+        else if (POSTGRESQL_PROTOCOL.equals(protocol)) {
+            return new DatabaseCompatibilityPostgreSQL();
+        }
+        throw new RuntimeException("Unsupported database protocol: " + protocol);
     }
 
     /**

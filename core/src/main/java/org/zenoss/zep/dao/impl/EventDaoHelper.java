@@ -26,6 +26,8 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.dao.DaoCache;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -49,6 +51,8 @@ public class EventDaoHelper {
 
     private DaoCache daoCache;
     private UUIDGenerator uuidGenerator;
+    private DatabaseCompatibility databaseCompatibility;
+    private TypeConverter<String> uuidConverter;
 
     @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(EventDaoHelper.class);
@@ -62,6 +66,11 @@ public class EventDaoHelper {
 
     public void setUuidGenerator(UUIDGenerator uuidGenerator) {
         this.uuidGenerator = uuidGenerator;
+    }
+
+    public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
+        this.databaseCompatibility = databaseCompatibility;
+        this.uuidConverter = databaseCompatibility.getUUIDConverter();
     }
 
     public Map<String, Object> createOccurrenceFields(Event event) throws ZepException {
@@ -94,9 +103,9 @@ public class EventDaoHelper {
         }
         fields.put(COLUMN_EVENT_KEY_ID, eventKeyId);
 
-        byte[] eventClassMappingUuid = null;
+        Object eventClassMappingUuid = null;
         if (!event.getEventClassMappingUuid().isEmpty()) {
-            eventClassMappingUuid = DaoUtils.uuidToBytes(event.getEventClassMappingUuid());
+            eventClassMappingUuid = uuidConverter.toDatabaseType(event.getEventClassMappingUuid());
         }
         fields.put(COLUMN_EVENT_CLASS_MAPPING_UUID, eventClassMappingUuid);
 
@@ -267,7 +276,7 @@ public class EventDaoHelper {
 
     private void populateEventActorFields(EventActor actor, Map<String, Object> fields) {
         if (!actor.getElementUuid().isEmpty()) {
-            fields.put(COLUMN_ELEMENT_UUID, DaoUtils.uuidToBytes(actor.getElementUuid()));
+            fields.put(COLUMN_ELEMENT_UUID, uuidConverter.toDatabaseType(actor.getElementUuid()));
         }
         if (actor.hasElementTypeId()) {
             fields.put(COLUMN_ELEMENT_TYPE_ID, actor.getElementTypeId().getNumber());
@@ -285,7 +294,7 @@ public class EventDaoHelper {
         }
 
         if (!actor.getElementSubUuid().isEmpty()) {
-            fields.put(COLUMN_ELEMENT_SUB_UUID, DaoUtils.uuidToBytes(actor.getElementSubUuid()));
+            fields.put(COLUMN_ELEMENT_SUB_UUID, uuidConverter.toDatabaseType(actor.getElementSubUuid()));
         }
         if (actor.hasElementSubTypeId()) {
             fields.put(COLUMN_ELEMENT_SUB_TYPE_ID, actor.getElementSubTypeId().getNumber());
@@ -304,11 +313,11 @@ public class EventDaoHelper {
         }
     }
 
-    public Event eventMapper(ResultSet rs)
-            throws SQLException {
+    public Event eventMapper(ResultSet rs) throws SQLException {
+        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         Event.Builder eventBuilder = Event.newBuilder();
 
-        eventBuilder.setCreatedTime(rs.getLong(COLUMN_LAST_SEEN));
+        eventBuilder.setCreatedTime(timestampConverter.fromDatabaseType(rs.getObject((COLUMN_LAST_SEEN))));
         eventBuilder.setFingerprint(rs.getString(COLUMN_FINGERPRINT));
 
         int eventGroupId = rs.getInt(COLUMN_EVENT_GROUP_ID);
@@ -331,9 +340,9 @@ public class EventDaoHelper {
             eventBuilder.setEventKey(daoCache.getEventKeyFromId(eventKeyId));
         }
 
-        byte[] classMappingUuid = rs.getBytes(COLUMN_EVENT_CLASS_MAPPING_UUID);
+        Object classMappingUuid = rs.getObject(COLUMN_EVENT_CLASS_MAPPING_UUID);
         if (classMappingUuid != null) {
-            eventBuilder.setEventClassMappingUuid(DaoUtils.uuidFromBytes(classMappingUuid));
+            eventBuilder.setEventClassMappingUuid(uuidConverter.fromDatabaseType(classMappingUuid));
         }
 
         eventBuilder.setSeverity(EventSeverity.valueOf(rs.getInt(COLUMN_SEVERITY_ID)));
@@ -395,9 +404,9 @@ public class EventDaoHelper {
     private EventActor deserializeEventActor(ResultSet rs)
             throws SQLException {
         final EventActor.Builder actorBuilder = EventActor.newBuilder();
-        final byte[] elementUuid = rs.getBytes(COLUMN_ELEMENT_UUID);
+        final Object elementUuid = rs.getObject(COLUMN_ELEMENT_UUID);
         if (elementUuid != null) {
-            actorBuilder.setElementUuid(DaoUtils.uuidFromBytes(elementUuid));
+            actorBuilder.setElementUuid(uuidConverter.fromDatabaseType(elementUuid));
         }
 
         final int elementTypeId = rs.getInt(COLUMN_ELEMENT_TYPE_ID);
@@ -419,9 +428,9 @@ public class EventDaoHelper {
             actorBuilder.setElementTitle(elementIdentifier);
         }
 
-        final byte[] subUuid = rs.getBytes(COLUMN_ELEMENT_SUB_UUID);
+        final Object subUuid = rs.getObject(COLUMN_ELEMENT_SUB_UUID);
         if (subUuid != null) {
-            actorBuilder.setElementSubUuid(DaoUtils.uuidFromBytes(subUuid));
+            actorBuilder.setElementSubUuid(uuidConverter.fromDatabaseType(subUuid));
         }
 
         final int subTypeId = rs.getInt(COLUMN_ELEMENT_SUB_TYPE_ID);
@@ -447,6 +456,7 @@ public class EventDaoHelper {
 
     public int addNote(String tableName, String uuid, EventNote note, SimpleJdbcTemplate template)
             throws ZepException {
+        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         EventNote.Builder builder = EventNote.newBuilder(note);
         if (builder.getUuid().isEmpty()) {
             builder.setUuid(this.uuidGenerator.generate().toString());
@@ -455,8 +465,8 @@ public class EventDaoHelper {
         try {
             // Notes are expected to be returned in reverse order
             Map<String,Object> fields = new HashMap<String,Object>();
-            fields.put(COLUMN_UPDATE_TIME, System.currentTimeMillis());
-            fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
+            fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(System.currentTimeMillis()));
+            fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
             fields.put(COLUMN_NOTES_JSON, JsonFormat.writeAsString(builder.build()));
             final String sql = "UPDATE " + tableName + " SET update_time=:update_time," +
                     "notes_json=CONCAT_WS(',\n',:notes_json,notes_json) WHERE uuid=:uuid";
@@ -466,10 +476,10 @@ public class EventDaoHelper {
         }
     }
 
-    public static int updateDetails(String tableName, String uuid, List<EventDetail> details, SimpleJdbcTemplate template)
+    public int updateDetails(String tableName, String uuid, List<EventDetail> details, SimpleJdbcTemplate template)
             throws ZepException {
         Map<String, Object> fields = new HashMap<String, Object>();
-        fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(uuid));
+        fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
         final String selectSql = "SELECT details_json FROM " + tableName + " WHERE uuid = :uuid FOR UPDATE";
 
         final List<EventDetail> existingDetailList;
@@ -492,10 +502,11 @@ public class EventDaoHelper {
         Collection<EventDetail> listWithUpdates = EventDaoHelper.mergeDetails(existingDetailList, details);
         // serialize updated details to json
         try {
+            TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
             final String updatedDetailsJson = JsonFormat.writeAllDelimitedAsString(listWithUpdates);
             // update current event_summary record
             fields.put(COLUMN_DETAILS_JSON, updatedDetailsJson);
-            fields.put(COLUMN_UPDATE_TIME, System.currentTimeMillis());
+            fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(System.currentTimeMillis()));
             String updateSql = "UPDATE " + tableName + " SET details_json=:details_json, "
                     + "update_time=:update_time WHERE uuid = :uuid";
 
@@ -522,18 +533,18 @@ public class EventDaoHelper {
             throws ZepException {
         final String sql;
         final Map<String,Object> fields = new HashMap<String,Object>();
-        fields.put("_max_update_time", maxUpdateTime);
+        fields.put("_max_update_time", databaseCompatibility.getTimestampConverter().toDatabaseType(maxUpdateTime));
         fields.put("_limit", limit);
         
         if (startingUuid == null) {
             sql = "SELECT * FROM " + tableName + " WHERE update_time <= :_max_update_time ORDER BY uuid LIMIT :_limit";
         }
         else {
-            fields.put("_starting_uuid", DaoUtils.uuidToBytes(startingUuid));
+            fields.put("_starting_uuid", uuidConverter.toDatabaseType(startingUuid));
             sql = "SELECT * FROM " + tableName + " WHERE uuid > :_starting_uuid AND update_time <= :_max_update_time " + 
                     "ORDER BY uuid LIMIT :_limit";
         }
-        return template.query(sql, new EventSummaryRowMapper(this), fields);
+        return template.query(sql, new EventSummaryRowMapper(this, databaseCompatibility), fields);
     }
 
     /**
@@ -582,22 +593,23 @@ public class EventDaoHelper {
      * @throws ZepException If the summary can't be serialized.
      */
     public Map<String,Object> createImportedSummaryFields(EventSummary summary) throws ZepException {
+        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         final Map<String, Object> fields = createOccurrenceFields(summary.getOccurrence(0));
-        fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(summary.getUuid()));
+        fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(summary.getUuid()));
         fields.put(COLUMN_STATUS_ID, summary.getStatus().getNumber());
-        fields.put(COLUMN_UPDATE_TIME, summary.getUpdateTime());
-        fields.put(COLUMN_FIRST_SEEN, summary.getFirstSeenTime());
-        fields.put(COLUMN_STATUS_CHANGE, summary.getStatusChangeTime());
-        fields.put(COLUMN_LAST_SEEN, summary.getLastSeenTime());
+        fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(summary.getUpdateTime()));
+        fields.put(COLUMN_FIRST_SEEN, timestampConverter.toDatabaseType(summary.getFirstSeenTime()));
+        fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(summary.getStatusChangeTime()));
+        fields.put(COLUMN_LAST_SEEN, timestampConverter.toDatabaseType(summary.getLastSeenTime()));
         fields.put(COLUMN_EVENT_COUNT, summary.getCount());
         if (summary.hasCurrentUserUuid()) {
-            fields.put(COLUMN_CURRENT_USER_UUID, DaoUtils.uuidToBytes(summary.getCurrentUserUuid()));
+            fields.put(COLUMN_CURRENT_USER_UUID, uuidConverter.toDatabaseType(summary.getCurrentUserUuid()));
         }
         if (summary.hasCurrentUserName()) {
             fields.put(COLUMN_CURRENT_USER_NAME, summary.getCurrentUserName());
         }
         if (summary.hasClearedByEventUuid()) {
-            fields.put(COLUMN_CLEARED_BY_EVENT_UUID, DaoUtils.uuidToBytes(summary.getClearedByEventUuid()));
+            fields.put(COLUMN_CLEARED_BY_EVENT_UUID, uuidConverter.toDatabaseType(summary.getClearedByEventUuid()));
         }
         fields.put(COLUMN_NOTES_JSON, EventDaoHelper.collectionToJsonDelimited(summary.getNotesList()));
         fields.put(COLUMN_AUDIT_JSON, EventDaoHelper.collectionToJsonDelimited(summary.getAuditLogList()));

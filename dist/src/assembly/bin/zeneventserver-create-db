@@ -30,6 +30,12 @@ class SchemaMigration(object):
         """
         raise NotImplementedError()
 
+    def initializeDatabase(self):
+        """
+        Initializes the self.dbname database.
+        """
+        raise NotImplementedError()
+
     def getSchemaVersion(self):
         """
         Returns the current version of the zeneventserver database schema, or 0 if the database is empty.
@@ -74,6 +80,9 @@ FLUSH PRIVILEGES;""".format(self)
         rc = p.wait()
         if rc:
             raise subprocess.CalledProcessError(rc, cmd)
+
+    def initializeDatabase(self):
+        pass
 
     def getSchemaVersion(self):
         cmd = self._getAdminCommand()
@@ -162,6 +171,24 @@ class PostgresMigration(SchemaMigration):
         if rc:
             raise subprocess.CalledProcessError(cmd=createCmd, returncode=rc)
 
+    def initializeDatabase(self):
+        # Load pgcrypto extension into database
+        sharedir = subprocess.check_output(['pg_config','--sharedir'])
+        if not sharedir:
+            raise RuntimeError('Unable to determine PostgreSQL sharedir')
+        sharedir = sharedir.strip()
+
+        pgcrypto_sql = os.path.join(sharedir, 'contrib', 'pgcrypto.sql')
+        if not os.path.isfile(pgcrypto_sql):
+            raise RuntimeError('Unable to locate required file: %s' % pgcrypto_sql)
+
+        psqlCmd = self._getAdminCommand('psql')
+        psqlCmd.extend(['-d', self.dbname])
+        psqlCmd.extend(['-f', pgcrypto_sql])
+        rc, stdout, stderr = self._executeCmd(psqlCmd, save_streams=True)
+        if rc:
+            raise subprocess.CalledProcessError(cmd=psqlCmd, returncode=rc, output=stdout)
+
     def getSchemaVersion(self):
         psqlCmd = self._getAdminCommand('psql')
         psqlCmd.extend(['-t', '-A'])
@@ -227,6 +254,7 @@ if __name__ == '__main__':
             migrator.dropDatabase()
         print 'Creating database: %s' % options.dbname
         migrator.createDatabase()
+        migrator.initializeDatabase()
         current_version = migrator.getSchemaVersion()
         for schema_version, schema_file in schema_files:
             if schema_version > current_version:
@@ -234,5 +262,8 @@ if __name__ == '__main__':
                 migrator.applySchemaFile(schema_file)
     except subprocess.CalledProcessError as e:
         sys.exit(e.returncode)
+    except RuntimeError as e:
+        print >> sys.stderr, str(e)
+        sys.exit(1)
 
     

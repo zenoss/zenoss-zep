@@ -27,6 +27,7 @@ import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
 
 import java.io.UnsupportedEncodingException;
@@ -50,8 +51,7 @@ import static org.junit.Assert.*;
 import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
-public class EventSummaryDaoImplIT extends
-        AbstractTransactionalJUnit4SpringContextTests {
+public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
 
     private static Random random = new Random();
 
@@ -60,6 +60,9 @@ public class EventSummaryDaoImplIT extends
 
     @Autowired
     public EventArchiveDao eventArchiveDao;
+
+    @Autowired
+    public DatabaseCompatibility databaseCompatibility;
 
     private EventSummary createSummaryNew(Event event) throws ZepException {
         return createSummary(event, EventStatus.STATUS_NEW);
@@ -774,7 +777,8 @@ public class EventSummaryDaoImplIT extends
         String clearHashString = EventDaoUtils.join('|', elementSubUuid, occurrence.getEventClass(),
                 occurrence.getEventKey());
         byte[] clearHash = MessageDigest.getInstance("SHA-1").digest(clearHashString.getBytes("UTF-8"));
-        Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(summary.getUuid()));
+        Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID,
+                databaseCompatibility.getUUIDConverter().toDatabaseType(summary.getUuid()));
         byte[] clearHashFromDb = this.simpleJdbcTemplate.query(
                 "SELECT clear_fingerprint_hash FROM event_summary WHERE uuid=:uuid",
                 new RowMapper<byte[]>() {
@@ -817,7 +821,8 @@ public class EventSummaryDaoImplIT extends
                 actor.getElementSubIdentifier(), occurrence.getEventClass(),
                 occurrence.getEventKey());
         byte[] clearHash = MessageDigest.getInstance("SHA-1").digest(clearHashString.getBytes("UTF-8"));
-        Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(summary.getUuid()));
+        Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID,
+                databaseCompatibility.getUUIDConverter().toDatabaseType(summary.getUuid()));
         byte[] clearHashFromDb = this.simpleJdbcTemplate.query(
                 "SELECT clear_fingerprint_hash FROM event_summary WHERE uuid=:uuid",
                 new RowMapper<byte[]>() {

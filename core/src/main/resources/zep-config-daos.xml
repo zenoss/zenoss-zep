@@ -20,7 +20,12 @@
         <constructor-arg index="1" ref="zepInstance" />
     </bean>
 
-    <!-- Partition configuration -->
+    <bean id="databaseCompatibility" class="org.zenoss.zep.dao.impl.DaoUtils" factory-method="createDatabaseCompatibility">
+        <constructor-arg index="0" ref="globalConf" />
+        <constructor-arg index="1" ref="zepInstance" />
+    </bean>
+
+    <!-- PartitionMySQL configuration -->
     <bean id="partitionConfig" class="org.zenoss.zep.dao.impl.PartitionConfig">
         <constructor-arg index="0" ref="zepConfig"/>
     </bean>
@@ -29,16 +34,19 @@
     <bean id="eventDaoHelper" class="org.zenoss.zep.dao.impl.EventDaoHelper">
         <property name="daoCache" ref="daoCache"/>
         <property name="uuidGenerator" ref="uuidGenerator"/>
+        <property name="databaseCompatibility" ref="databaseCompatibility"/>
     </bean>
     <bean id="eventSummaryDao" class="org.zenoss.zep.dao.impl.EventSummaryDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
         <property name="eventDaoHelper" ref="eventDaoHelper"/>
         <property name="uuidGenerator" ref="uuidGenerator"/>
+        <property name="databaseCompatibility" ref="databaseCompatibility"/>
     </bean>
     <bean id="eventArchiveDao" class="org.zenoss.zep.dao.impl.EventArchiveDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
         <constructor-arg index="1" value="${zep.jdbc.dbname}"/>
         <constructor-arg index="2" ref="partitionConfig"/>
+        <constructor-arg index="3" ref="databaseCompatibility"/>
         <property name="eventDaoHelper" ref="eventDaoHelper"/>
         <property name="uuidGenerator" ref="uuidGenerator"/>
     </bean>
@@ -46,54 +54,66 @@
         <constructor-arg index="0" ref="dataSource"/>
         <constructor-arg index="1" value="${zep.jdbc.dbname}"/>
         <constructor-arg index="2" ref="partitionConfig"/>
+        <constructor-arg index="3" ref="databaseCompatibility"/>
     </bean>
     <bean id="eventTriggerDao" class="org.zenoss.zep.dao.impl.EventTriggerDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
         <property name="eventSignalSpoolDao" ref="eventSignalSpoolDao" />
+        <property name="databaseCompatibility" ref="databaseCompatibility"/>
     </bean>
     <bean id="eventSignalSpoolDao" class="org.zenoss.zep.dao.impl.EventSignalSpoolDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
         <property name="uuidGenerator" ref="uuidGenerator"/>
+        <property name="databaseCompatibility" ref="databaseCompatibility"/>
     </bean>
     <bean id="eventTriggerSubscriptionDao" class="org.zenoss.zep.dao.impl.EventTriggerSubscriptionDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
         <property name="uuidGenerator" ref="uuidGenerator"/>
+        <property name="databaseCompatibility" ref="databaseCompatibility"/>
     </bean>
     <bean id="daoCache" class="org.zenoss.zep.dao.impl.DaoCacheImpl" init-method="init">
         <constructor-arg index="0" ref="dataSource"/>
+        <constructor-arg index="1" ref="databaseCompatibility"/>
     </bean>
     <bean id="configDao" class="org.zenoss.zep.dao.impl.ConfigDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
         <constructor-arg index="1" ref="partitionConfig"/>
         <property name="maxEventArchiveIntervalMinutes" value="${zep.max_event_archive_interval_minutes:43200}" />
+        <property name="databaseCompatibility" ref="databaseCompatibility"/>
     </bean>
     <bean id="indexMetadataDao" class="org.zenoss.zep.dao.impl.IndexMetadataDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
         <constructor-arg index="1" ref="zepInstance" />
+        <property name="databaseCompatibility" ref="databaseCompatibility"/>
     </bean>
     <bean id="heartbeatDao" class="org.zenoss.zep.dao.impl.HeartbeatDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
+        <property name="databaseCompatibility" ref="databaseCompatibility" />
     </bean>
     <bean id="eventSummaryIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
         <qualifier value="summary" />
         <constructor-arg index="0" ref="dataSource" />
         <constructor-arg index="1" value="false" />
         <constructor-arg index="2" ref="eventDaoHelper" />
+        <constructor-arg index="3" ref="databaseCompatibility" />
     </bean>
     <bean id="eventArchiveIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
         <qualifier value="archive" />
         <constructor-arg index="0" ref="dataSource" />
         <constructor-arg index="1" value="true" />
         <constructor-arg index="2" ref="eventDaoHelper" />
+        <constructor-arg index="3" ref="databaseCompatibility" />
     </bean>
     <bean id="dbMaintenanceService" class="org.zenoss.zep.dao.impl.DBMaintenanceServiceImpl">
         <constructor-arg index="0" ref="dataSource" />
+        <property name="databaseCompatibility" ref="databaseCompatibility"/>
+    </bean>
+    <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl">
+        <constructor-arg index="0" ref="dataSource" />
+        <property name="databaseCompatibility" ref="databaseCompatibility"/>
     </bean>
 
     <!-- Indexing DAO -->
-    <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl">
-        <constructor-arg index="0" ref="dataSource" />
-    </bean>
 
     <bean id="luceneMaxFieldLength" class="org.apache.lucene.index.IndexWriter$MaxFieldLength">
         <constructor-arg index="0" value="${zep.index.maximum_field_length}" />

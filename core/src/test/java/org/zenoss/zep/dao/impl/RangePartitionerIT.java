@@ -3,38 +3,56 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import static org.junit.Assert.*;
-
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.DatabaseType;
+import org.zenoss.zep.dao.impl.compat.Partition;
+import org.zenoss.zep.dao.impl.compat.RangePartitionerMySQL;
+
+import javax.sql.DataSource;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
+
+import static org.junit.Assert.*;
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
-public class RangePartitionerIT extends
-        AbstractTransactionalJUnit4SpringContextTests {
+public class RangePartitionerIT extends AbstractTransactionalJUnit4SpringContextTests {
+
+    @Autowired
+    public DatabaseCompatibility databaseCompatibility;
+
+    @Autowired
+    public DataSource dataSource;
 
     @Before
     public void createSampleTable() {
-        this.simpleJdbcTemplate
-                .update("CREATE TABLE `range_partition` (`col_ts` BIGINT NOT NULL, `message` VARCHAR(256) NOT NULL)");
+        if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
+            this.simpleJdbcTemplate
+                    .update("CREATE TABLE `range_partition` (`col_ts` BIGINT NOT NULL, `message` VARCHAR(256) NOT NULL)");
+        }
     }
 
     @After
     public void dropSampleTable() {
-        this.simpleJdbcTemplate.update("DROP TABLE range_partition");
+        if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
+            this.simpleJdbcTemplate.update("DROP TABLE range_partition");
+        }
     }
 
     @Test
-    public void testRangePartitioner() {
+    public void testRangePartitionerMySQL() {
+        if (databaseCompatibility.getDatabaseType() != DatabaseType.MYSQL) {
+            return;
+        }
         String dbname = this.simpleJdbcTemplate.queryForObject(
                 "SELECT DATABASE()", String.class);
-        RangePartitioner partitioner = new RangePartitioner(
-                this.simpleJdbcTemplate, dbname, "range_partition", "col_ts",
+        RangePartitionerMySQL partitioner = new RangePartitionerMySQL(
+                this.dataSource, dbname, "range_partition", "col_ts",
                 1, TimeUnit.DAYS);
         assertTrue(partitioner.hasPartitioning());
         assertEquals(0, partitioner.listPartitions().size());

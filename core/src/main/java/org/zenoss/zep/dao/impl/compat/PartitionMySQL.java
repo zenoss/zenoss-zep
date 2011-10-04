@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
  */
-package org.zenoss.zep.dao.impl;
+package org.zenoss.zep.dao.impl.compat;
 
 import java.sql.Timestamp;
 import java.util.Map;
@@ -10,7 +10,7 @@ import java.util.Map;
  * Represents the configuration of a MySQL table partition (loaded from the
  * INFORMATION_SCHEMA.PARTITIONS table).
  */
-public class Partition {
+public class PartitionMySQL implements Partition {
     private String tableCatalog = null;
     private String tableSchema;
     private String tableName;
@@ -37,7 +37,7 @@ public class Partition {
     private String nodeGroup;
     private String tablespaceName;
 
-    private Partition() {
+    private PartitionMySQL() {
     }
 
     public String getTableCatalog() {
@@ -155,7 +155,7 @@ public class Partition {
     @Override
     public String toString() {
         return String
-                .format("Partition [tableCatalog=%s, tableSchema=%s, tableName=%s, "
+                .format("PartitionMySQL [tableCatalog=%s, tableSchema=%s, tableName=%s, "
                         + "partitionName=%s, subpartitionName=%s, "
                         + "partitionOrdinalPosition=%s, "
                         + "subpartitionOrdinalPosition=%s, partitionMethod=%s, "
@@ -176,8 +176,8 @@ public class Partition {
                         partitionComment, nodeGroup, tablespaceName);
     }
 
-    public static Partition fromResultSetFields(Map<String, Object> fields) {
-        Partition partition = new Partition();
+    public static PartitionMySQL fromResultSetFields(Map<String, Object> fields) {
+        PartitionMySQL partition = new PartitionMySQL();
         for (Map.Entry<String, Object> entry : fields.entrySet()) {
             final String field = entry.getKey();
             final Object val = entry.getValue();

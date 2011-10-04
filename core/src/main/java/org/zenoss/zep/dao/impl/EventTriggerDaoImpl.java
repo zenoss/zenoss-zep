@@ -17,6 +17,8 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.EventTriggerDao;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
@@ -29,7 +31,6 @@ import java.util.List;
 import java.util.Map;
 
 public class EventTriggerDaoImpl implements EventTriggerDao {
-    private static final String TABLE_EVENT_TRIGGER = "event_trigger";
     private static final String COLUMN_UUID = "uuid";
     private static final String COLUMN_NAME = "name";
     private static final String COLUMN_ENABLED = "enabled";
@@ -43,6 +44,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     private final SimpleJdbcTemplate template;
 
     private EventSignalSpoolDao eventSignalSpoolDao;
+    private TypeConverter<String> uuidConverter;
 
     public EventTriggerDaoImpl(DataSource dataSource) {
         this.template = new SimpleJdbcTemplate(dataSource);
@@ -52,18 +54,14 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
         this.eventSignalSpoolDao = eventSignalSpoolDao;
     }
 
+    public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
+        this.uuidConverter = databaseCompatibility.getUUIDConverter();
+    }
+
     @Override
     @TransactionalRollbackAllExceptions
     public void create(EventTrigger trigger) throws ZepException {
         final Map<String, Object> fields = triggerToFields(trigger);
-        try {
-            insert("event_trigger", fields);
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
-    }
-
-    private void insert(String tableName, Map<String, Object> fields) {
         final StringBuilder names = new StringBuilder();
         final StringBuilder values = new StringBuilder();
         for (String key : fields.keySet()) {
@@ -74,25 +72,23 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
             names.append(key);
             values.append(':').append(key);
         }
-        this.template.update(String.format("INSERT INTO %s (%s) VALUES (%s)",
-                tableName, names, values), fields);
+        this.template.update(String.format("INSERT INTO event_trigger (%s) VALUES (%s)", names, values), fields);
     }
 
     @Override
     @TransactionalRollbackAllExceptions
     public int delete(String uuidStr) throws ZepException {
-        final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, DaoUtils.uuidToBytes(uuidStr));
+        final Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuidStr));
         return this.template.update("DELETE FROM event_trigger WHERE uuid=:uuid", fields);
     }
 
     @Override
     @TransactionalReadOnly
     public EventTrigger findByUuid(String uuidStr) throws ZepException {
-        final byte[] uuidBytes = DaoUtils.uuidToBytes(uuidStr);
-        final Map<String,byte[]> fields = Collections.singletonMap(COLUMN_UUID, uuidBytes);
+        final Object uuid = uuidConverter.toDatabaseType(uuidStr);
+        final Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID, uuid);
         String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,"
-                + "sub.repeat_seconds,sub.send_initial_occurrence "
-                + "FROM event_trigger "
+                + "sub.repeat_seconds,sub.send_initial_occurrence FROM event_trigger "
                 + "LEFT JOIN event_trigger_subscription AS sub ON event_trigger.uuid = sub.event_trigger_uuid "
                 + "WHERE event_trigger.uuid=:uuid";
         List<EventTrigger> triggers = this.template.getNamedParameterJdbcOperations().query(
@@ -108,31 +104,19 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     @TransactionalReadOnly
     public List<EventTrigger> findAll() throws ZepException {
         String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,"
-                + "sub.repeat_seconds,sub.send_initial_occurrence "
-                + "FROM event_trigger "
+                + "sub.repeat_seconds,sub.send_initial_occurrence FROM event_trigger "
                 + "LEFT JOIN event_trigger_subscription AS sub ON event_trigger.uuid = sub.event_trigger_uuid";
-        try {
-            return this.template.getJdbcOperations().query(sql,
-                    new EventTriggerExtractor());
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+        return this.template.getJdbcOperations().query(sql, new EventTriggerExtractor());
     }
 
     @Override
     @TransactionalReadOnly
     public List<EventTrigger> findAllEnabled() throws ZepException {
         String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,"
-                + "sub.repeat_seconds,sub.send_initial_occurrence "
-                + "FROM event_trigger "
+                + "sub.repeat_seconds,sub.send_initial_occurrence FROM event_trigger "
                 + "LEFT JOIN event_trigger_subscription AS sub ON event_trigger.uuid = sub.event_trigger_uuid "
-                + "WHERE event_trigger.enabled <> 0";
-        try {
-            return this.template.getJdbcOperations().query(sql,
-                    new EventTriggerExtractor());
-        } catch (DataAccessException e) {
-            throw new ZepException(e);
-        }
+                + "WHERE event_trigger.enabled <> ?";
+        return this.template.getJdbcOperations().query(sql, new EventTriggerExtractor(), Boolean.FALSE);
     }
 
     @Override
@@ -152,9 +136,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
             logger.warn("No fields to modify in trigger: {}", trigger);
             return 0;
         }
-        String sql = String.format("UPDATE %s SET %s WHERE %s=:%s",
-                TABLE_EVENT_TRIGGER, fieldsSql.toString(), COLUMN_UUID,
-                COLUMN_UUID);
+        String sql = String.format("UPDATE event_trigger SET %s WHERE uuid=:uuid", fieldsSql.toString());
         int numRows = template.update(sql, fields);
 
         /* If trigger is now disabled, remove any spooled signals */
@@ -164,9 +146,9 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
         return numRows;
     }
 
-    private static Map<String, Object> triggerToFields(EventTrigger trigger) {
+    private Map<String, Object> triggerToFields(EventTrigger trigger) {
         final Map<String, Object> fields = new LinkedHashMap<String, Object>();
-        fields.put(COLUMN_UUID, DaoUtils.uuidToBytes(trigger.getUuid()));
+        fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(trigger.getUuid()));
         fields.put(COLUMN_NAME, trigger.hasName() ? trigger.getName() : null);
         fields.put(COLUMN_ENABLED, trigger.getEnabled());
 
@@ -177,8 +159,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
         return fields;
     }
 
-    private static final class EventTriggerExtractor implements
-            ResultSetExtractor<List<EventTrigger>> {
+    private class EventTriggerExtractor implements ResultSetExtractor<List<EventTrigger>> {
 
         @Override
         public List<EventTrigger> extractData(ResultSet rs)
@@ -186,7 +167,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
             Map<String, EventTrigger.Builder> triggersByUuid = new HashMap<String, EventTrigger.Builder>();
 
             while (rs.next()) {
-                String uuid = DaoUtils.uuidFromBytes(rs.getBytes(COLUMN_UUID));
+                String uuid = uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID));
                 EventTrigger.Builder triggerBuilder = triggersByUuid.get(uuid);
                 if (triggerBuilder == null) {
                     triggerBuilder = EventTrigger.newBuilder();
@@ -197,30 +178,22 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
                     }
                     triggerBuilder.setEnabled(rs.getBoolean(COLUMN_ENABLED));
                     Rule.Builder ruleBuilder = Rule.newBuilder();
-                    ruleBuilder.setApiVersion(rs
-                            .getInt(COLUMN_RULE_API_VERSION));
-                    ruleBuilder.setType(RuleType.valueOf(rs
-                            .getInt(COLUMN_RULE_TYPE_ID)));
+                    ruleBuilder.setApiVersion(rs.getInt(COLUMN_RULE_API_VERSION));
+                    ruleBuilder.setType(RuleType.valueOf(rs.getInt(COLUMN_RULE_TYPE_ID)));
                     ruleBuilder.setSource(rs.getString(COLUMN_RULE_SOURCE));
                     triggerBuilder.setRule(ruleBuilder.build());
                     triggersByUuid.put(uuid, triggerBuilder);
                 }
 
                 /* Add subscriptions (LEFT JOINED table) */
-                byte[] subUuid = rs.getBytes("event_sub_uuid");
+                Object subUuid = rs.getObject("event_sub_uuid");
                 if (subUuid != null) {
-                    EventTriggerSubscription.Builder subBuilder = EventTriggerSubscription
-                            .newBuilder();
-                    subBuilder.setUuid(DaoUtils.uuidFromBytes(subUuid));
-                    subBuilder
-                            .setSubscriberUuid(DaoUtils.uuidFromBytes(rs
-                                    .getBytes(EventTriggerSubscriptionDaoImpl.COLUMN_SUBSCRIBER_UUID)));
-                    subBuilder
-                            .setDelaySeconds(rs
-                                    .getInt(EventTriggerSubscriptionDaoImpl.COLUMN_DELAY_SECONDS));
-                    subBuilder
-                            .setRepeatSeconds(rs
-                                    .getInt(EventTriggerSubscriptionDaoImpl.COLUMN_REPEAT_SECONDS));
+                    EventTriggerSubscription.Builder subBuilder = EventTriggerSubscription.newBuilder();
+                    subBuilder.setUuid(uuidConverter.fromDatabaseType(subUuid));
+                    subBuilder.setSubscriberUuid(uuidConverter.fromDatabaseType(rs
+                            .getObject(EventTriggerSubscriptionDaoImpl.COLUMN_SUBSCRIBER_UUID)));
+                    subBuilder.setDelaySeconds(rs.getInt(EventTriggerSubscriptionDaoImpl.COLUMN_DELAY_SECONDS));
+                    subBuilder.setRepeatSeconds(rs.getInt(EventTriggerSubscriptionDaoImpl.COLUMN_REPEAT_SECONDS));
                     subBuilder.setTriggerUuid(uuid);
                     subBuilder.setSendInitialOccurrence(rs.getBoolean(
                             EventTriggerSubscriptionDaoImpl.COLUMN_SEND_INITIAL_OCCURRENCE));
@@ -228,10 +201,8 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
                 }
             }
 
-            List<EventTrigger> triggers = new ArrayList<EventTrigger>(
-                    triggersByUuid.size());
-            for (EventTrigger.Builder eventTriggerBuilder : triggersByUuid
-                    .values()) {
+            List<EventTrigger> triggers = new ArrayList<EventTrigger>(triggersByUuid.size());
+            for (EventTrigger.Builder eventTriggerBuilder : triggersByUuid.values()) {
                 triggers.add(eventTriggerBuilder.build());
             }
             return triggers;

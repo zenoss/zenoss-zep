@@ -1,15 +1,17 @@
 /*
  * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
  */
-package org.zenoss.zep.dao.impl;
+package org.zenoss.zep.dao.impl.compat;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 
+import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -30,10 +32,10 @@ import java.util.concurrent.TimeUnit;
  * expressions), sub-partitioning, or reorganizing partitions (merging /
  * splitting).
  */
-public class RangePartitioner {
+public class RangePartitionerMySQL implements RangePartitioner {
 
     private static final Logger logger = LoggerFactory
-            .getLogger(RangePartitioner.class);
+            .getLogger(RangePartitionerMySQL.class);
 
     private final SimpleJdbcOperations template;
     private final String databaseName;
@@ -45,8 +47,8 @@ public class RangePartitioner {
      * Creates a range partitioner helper class which creates partitions of the
      * specified range on the table.
      * 
-     * @param template
-     *            JDBC operations.
+     * @param ds
+     *            DataSource.
      * @param databaseName
      *            Database name.
      * @param tableName
@@ -58,16 +60,15 @@ public class RangePartitioner {
      * @param unit
      *            Unit of duration.
      */
-    public RangePartitioner(SimpleJdbcOperations template, String databaseName,
-            String tableName, String columnName, long duration, TimeUnit unit) {
-        if (template == null || databaseName == null || tableName == null
-                || unit == null) {
+    public RangePartitionerMySQL(DataSource ds, String databaseName,
+                                 String tableName, String columnName, long duration, TimeUnit unit) {
+        if (ds == null || databaseName == null || tableName == null || unit == null) {
             throw new NullPointerException();
         }
         if (duration <= 0) {
             throw new IllegalArgumentException("Duration <= 0");
         }
-        this.template = template;
+        this.template = new SimpleJdbcTemplate(ds);
         this.databaseName = databaseName;
         this.tableName = tableName;
         this.columnName = columnName;
@@ -126,7 +127,7 @@ public class RangePartitioner {
                         "SELECT * FROM information_schema.partitions WHERE TABLE_SCHEMA=? AND TABLE_NAME=?",
                         this.databaseName, this.tableName);
         for (Map<String, Object> map : fields) {
-            Partition partition = Partition.fromResultSetFields(map);
+            PartitionMySQL partition = PartitionMySQL.fromResultSetFields(map);
             if (partition.getPartitionName() == null
                     && partition.getSubpartitionName() == null) {
                 continue;
@@ -215,8 +216,7 @@ public class RangePartitioner {
         final List<Partition> partitions = listPartitions();
         long lastPartitionTimestamp = Long.MIN_VALUE;
         if (!partitions.isEmpty()) {
-            lastPartitionTimestamp = Long.valueOf(partitions.get(
-                    partitions.size() - 1).getPartitionDescription());
+            lastPartitionTimestamp = partitions.get(partitions.size() - 1).getRangeLessThan();
         }
         final SimpleDateFormat fmt = new SimpleDateFormat("yyyyMMdd_HHmmss");
         fmt.setTimeZone(TimeZone.getTimeZone("UTC"));

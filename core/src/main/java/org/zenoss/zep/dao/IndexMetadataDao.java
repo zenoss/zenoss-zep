@@ -27,8 +27,7 @@ public interface IndexMetadataDao {
      * @param indexName The index name to update.
      * @param indexVersion The version number of the index.
      * @param indexHash The hash of the index configuration.
-     * @return The number of affected rows by the query.
      * @throws ZepException If an exception occurs updating the database.
      */
-    public int updateIndexVersion(String indexName, int indexVersion, byte[] indexHash) throws ZepException;
+    public void updateIndexVersion(String indexName, int indexVersion, byte[] indexHash) throws ZepException;
 }
