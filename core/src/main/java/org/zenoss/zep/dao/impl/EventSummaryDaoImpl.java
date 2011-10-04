@@ -302,7 +302,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put("_uuid_str", uuid);
         fields.put("_type_id", type.getNumber());
         fields.put("_id", id);
-        fields.put("_title", title);
+        fields.put("_title", DaoUtils.truncateStringToUtf8(title, EventConstants.MAX_ELEMENT_TITLE));
         fields.put(COLUMN_UPDATE_TIME, updateTime);
 
         int numRows = 0;

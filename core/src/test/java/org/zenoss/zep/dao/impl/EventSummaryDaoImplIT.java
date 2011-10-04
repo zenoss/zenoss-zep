@@ -725,6 +725,33 @@ public class EventSummaryDaoImplIT extends
     }
 
     @Test
+    public void testReidentifyLongTitle() throws ZepException {
+        Event.Builder builder = Event.newBuilder(createUniqueEvent());
+        EventActor.Builder actorBuilder = EventActor.newBuilder(builder.getActor());
+        actorBuilder.clearElementSubIdentifier().clearElementSubTypeId().clearElementSubUuid();
+        actorBuilder.clearElementUuid().clearElementTitle();
+        builder.setActor(actorBuilder.build());
+
+        EventSummary summary = createSummaryNew(builder.build());
+        Event occurrence = summary.getOccurrence(0);
+        assertFalse(occurrence.getActor().hasElementUuid());
+
+        final String elementUuid = UUID.randomUUID().toString();
+        final String elementTitle = createRandomMaxString(EventConstants.MAX_ELEMENT_TITLE + 1);
+        int numRows = this.eventSummaryDao.reidentify(occurrence.getActor().getElementTypeId(),
+                occurrence.getActor().getElementIdentifier(), elementUuid, elementTitle,
+                null);
+        assertEquals(1, numRows);
+        EventSummary summaryFromDb = this.eventSummaryDao.findByUuid(summary.getUuid());
+        assertTrue(summaryFromDb.getUpdateTime() > summary.getUpdateTime());
+        assertEquals(elementUuid, summaryFromDb.getOccurrence(0).getActor().getElementUuid());
+        assertEquals(EventConstants.MAX_ELEMENT_TITLE,
+                summaryFromDb.getOccurrence(0).getActor().getElementTitle().length());
+        assertEquals(elementTitle.substring(0, EventConstants.MAX_ELEMENT_TITLE),
+                summaryFromDb.getOccurrence(0).getActor().getElementTitle());
+    }
+
+    @Test
     public void testReidentifyComponent() throws ZepException, NoSuchAlgorithmException, UnsupportedEncodingException {
         Event.Builder builder = Event.newBuilder(createUniqueEvent());
         EventActor.Builder actorBuilder = EventActor.newBuilder(builder.getActor());
