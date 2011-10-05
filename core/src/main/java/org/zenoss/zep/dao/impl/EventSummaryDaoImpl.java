@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.RowMapperResultSetExtractor;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.jdbc.support.MetaDataAccessException;
@@ -21,6 +23,7 @@ import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.protobufs.zep.Zep.EventSummaryOrBuilder;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -28,6 +31,7 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.DatabaseType;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
 import org.zenoss.zep.plugins.EventPreCreateContext;
@@ -69,6 +73,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private TypeConverter<String> uuidConverter;
 
+    private RowMapper<EventSummaryOrBuilder> eventDedupMapper;
+
+    private volatile Map<String,Integer> eventSummaryNamesToTypes;
+
+    private volatile String eventSummaryUpsertQuery;
+
     public EventSummaryDaoImpl(DataSource dataSource) throws MetaDataAccessException {
         this.dataSource = dataSource;
         this.template = new SimpleJdbcTemplate(dataSource);
@@ -83,17 +93,45 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         this.uuidGenerator = uuidGenerator;
     }
 
-    public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
+    public void setDatabaseCompatibility(final DatabaseCompatibility databaseCompatibility) {
         this.databaseCompatibility = databaseCompatibility;
         this.uuidConverter = databaseCompatibility.getUUIDConverter();
+
+        // When we perform de-duping of events, we select a subset of just the fields we care about to determine
+        // the de-duping behavior (depending on the timestamps on the event, we may perform merging or update either
+        // the first_seen or last_seen dates appropriately). This mapper converts the subset of fields to an
+        // EventSummaryOrBuilder object which has convenient accessor methods to retrieve the fields by name.
+        this.eventDedupMapper = new RowMapper<EventSummaryOrBuilder>() {
+            @Override
+            public EventSummaryOrBuilder mapRow(ResultSet rs, int rowNum) throws SQLException {
+                final TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
+                final EventSummary.Builder oldSummaryBuilder = EventSummary.newBuilder();
+                oldSummaryBuilder.setCount(rs.getInt(COLUMN_EVENT_COUNT));
+                oldSummaryBuilder.setFirstSeenTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_FIRST_SEEN)));
+                oldSummaryBuilder.setLastSeenTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_LAST_SEEN)));
+                oldSummaryBuilder.setStatus(EventStatus.valueOf(rs.getInt(COLUMN_STATUS_ID)));
+                oldSummaryBuilder.setUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID)));
+
+                final Event.Builder occurrenceBuilder = oldSummaryBuilder.addOccurrenceBuilder(0);
+                final String detailsJson = rs.getString(COLUMN_DETAILS_JSON);
+                if (detailsJson != null) {
+                    try {
+                        occurrenceBuilder.addAllDetails(JsonFormat.mergeAllDelimitedFrom(detailsJson,
+                                EventDetail.getDefaultInstance()));
+                    } catch (IOException e) {
+                        throw new SQLException(e.getLocalizedMessage(), e);
+                    }
+                }
+                return oldSummaryBuilder;
+            }
+        };
     }
 
     @Override
     @TransactionalRollbackAllExceptions
     public String create(Event event, EventPreCreateContext context) throws ZepException {
         final TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
-        final Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
-        final Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
+        final Map<String, Object> fields = eventDaoHelper.createOccurrenceFields(event);
         final long created = event.getCreatedTime();
         final long updateTime = System.currentTimeMillis();
         final int eventCount = 1;
@@ -126,6 +164,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put(COLUMN_LAST_SEEN, timestampConverter.toDatabaseType(created));
         fields.put(COLUMN_EVENT_COUNT, eventCount);
 
+        final String createdUuid = this.uuidGenerator.generate().toString();
+        fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(createdUuid));
+
         /*
          * Closed events have a unique fingerprint_hash in summary to allow multiple rows
          * but only allow one active event (where the de-duplication occurs).
@@ -138,53 +179,99 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1((String)fields.get(COLUMN_FINGERPRINT)));
         }
 
-        String uuid;
-        try {
-            final String createdUuid = this.uuidGenerator.generate().toString();
-            fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(createdUuid));
-            this.insert.execute(fields);
-            uuid = createdUuid;
-        } catch (DuplicateKeyException e) {
-            final String sql = "SELECT event_count,first_seen,last_seen,details_json,status_id,uuid FROM event_summary" +
-                    " WHERE fingerprint_hash=? FOR UPDATE";
-            final EventSummary oldSummary = this.template.queryForObject(sql, new RowMapper<EventSummary>() {
-                @Override
-                public EventSummary mapRow(ResultSet rs, int rowNum) throws SQLException {
-                    final EventSummary.Builder oldSummaryBuilder = EventSummary.newBuilder();
-                    oldSummaryBuilder.setCount(rs.getInt(COLUMN_EVENT_COUNT));
-                    oldSummaryBuilder.setFirstSeenTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_FIRST_SEEN)));
-                    oldSummaryBuilder.setLastSeenTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_LAST_SEEN)));
-                    oldSummaryBuilder.setStatus(EventStatus.valueOf(rs.getInt(COLUMN_STATUS_ID)));
-                    oldSummaryBuilder.setUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID)));
-                    
-                    final Event.Builder occurrenceBuilder = oldSummaryBuilder.addOccurrenceBuilder(0);
-                    final String detailsJson = rs.getString(COLUMN_DETAILS_JSON);
-                    if (detailsJson != null) {
-                        try {
-                            occurrenceBuilder.addAllDetails(JsonFormat.mergeAllDelimitedFrom(detailsJson,
-                                    EventDetail.getDefaultInstance()));
-                        } catch (IOException e) {
-                            throw new SQLException(e.getLocalizedMessage(), e);
-                        }
-                    }
-                    return oldSummaryBuilder.build();
-                }
-            }, fields.get(COLUMN_FINGERPRINT_HASH));
+        String uuid = null;
+        EventSummaryOrBuilder oldSummary = null;
+        DatabaseType dbType = databaseCompatibility.getDatabaseType();
 
-            final Map<String,Object> updateFields = getUpdateFields(oldSummary, event, fields);
-            final StringBuilder updateSql = new StringBuilder("UPDATE event_summary SET ");
-            for (Iterator<String> it = updateFields.keySet().iterator(); it.hasNext(); ) {
-                final String fieldName = it.next();
-                updateSql.append(fieldName).append("=:").append(fieldName);
-                if (it.hasNext()) {
-                    updateSql.append(',');
+        /*
+         * MySQL propagates a DuplicateKeyException but doesn't close the underlying transaction, so we can perform
+         * a SELECT FOR UPDATE, INSERT (DuplicateKeyException), and SELECT FOR UPDATE safely without having to use
+         * nested transactions or stored functions to perform event de-duplication.
+         */
+        if (dbType == DatabaseType.MYSQL) {
+            do {
+                final String sql = "SELECT event_count,first_seen,last_seen,details_json,status_id,uuid FROM event_summary" +
+                    " WHERE fingerprint_hash=? FOR UPDATE";
+                final List<EventSummaryOrBuilder> oldSummaryList = this.template.getJdbcOperations().query(sql,
+                        new RowMapperResultSetExtractor<EventSummaryOrBuilder>(this.eventDedupMapper, 1),
+                        fields.get(COLUMN_FINGERPRINT_HASH));
+                if (!oldSummaryList.isEmpty()) {
+                    oldSummary = oldSummaryList.get(0);
+                }
+                if (oldSummary != null) {
+                    uuid = dedupEvent(oldSummary, event, fields);
+                }
+                else {
+                    try {
+                        this.insert.execute(fields);
+                        uuid = createdUuid;
+                    } catch (DuplicateKeyException e) {
+                        // Retry the de-duping
+                    }
+                }
+            } while (uuid == null);
+        }
+        /*
+         * Whenever PostgreSQL encounters a DuplicateKeyException, at that point any further attempts to perform
+         * operations on the database will fail with an error message that the underlying transaction has been closed.
+         * Therefore, we have had to move the SELECT FOR UPDATE + INSERT (DuplicateKeyException) + SELECT FOR UPDATE
+         * retry logic into a stored function. The de-duplication and updating the event still happen here (it would
+         * be difficult to merge JSON detail values in a stored procedure), but the UPSERT logic happens in a stored
+         * function.
+         */
+        else if (dbType == DatabaseType.POSTGRESQL) {
+            // We cache the metadata of the column names to JDBC types here.
+            if (this.eventSummaryNamesToTypes == null) {
+                try {
+                    this.eventSummaryNamesToTypes = DaoUtils.getColumnNamesAndTypes(this.dataSource,
+                            TABLE_EVENT_SUMMARY);
+                } catch (MetaDataAccessException e) {
+                    throw new ZepException(e.getLocalizedMessage(), e);
                 }
             }
-            updateSql.append(" WHERE fingerprint_hash=:fingerprint_hash");
-            updateFields.put(COLUMN_FINGERPRINT_HASH, fields.get(COLUMN_FINGERPRINT_HASH));
+            // We cache the query used to invoke the stored function here. We can't call it using a CallableStatement
+            // because that isn't supported to return a ResultSet object.
+            if (this.eventSummaryUpsertQuery == null) {
+                StringBuilder sql = new StringBuilder("SELECT * FROM event_summary_upsert(");
+                for (Iterator<String> it = eventSummaryNamesToTypes.keySet().iterator(); it.hasNext(); ) {
+                    sql.append(':').append(it.next());
+                    if (it.hasNext()) {
+                        sql.append(',');
+                    }
+                }
+                sql.append(')');
+                this.eventSummaryUpsertQuery = sql.toString();
+            }
+            
+            final MapSqlParameterSource source = new MapSqlParameterSource(fields) {
+                @Override
+                public int getSqlType(String paramName) {
+                    return eventSummaryNamesToTypes.get(paramName);
+                }
 
-            this.template.update(updateSql.toString(), updateFields);
-            uuid = oldSummary.getUuid();
+                @Override
+                public boolean hasValue(String paramName) {
+                    return eventSummaryNamesToTypes.containsKey(paramName);
+                }
+            };
+
+            List<EventSummaryOrBuilder> result = this.template.getNamedParameterJdbcOperations().query(
+                    this.eventSummaryUpsertQuery, source,
+                    new RowMapperResultSetExtractor<EventSummaryOrBuilder>(this.eventDedupMapper, 1));
+            /*
+             * If the stored function found an existing row for the event, then it is returned and we perform
+             * de-duplication. Otherwise, the stored function performs the insert and we use the generated UUID for
+             * the event as the return value.
+             */
+            if (!result.isEmpty()) {
+                uuid = dedupEvent(result.get(0), event, fields);
+            }
+            else {
+                uuid = createdUuid;
+            }
+        }
+        else {
+            throw new IllegalStateException("Invalid database type: " + dbType);
         }
 
         // Mark cleared events as cleared by this event
@@ -194,6 +281,24 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             update(clearedEventUuids, EventStatus.STATUS_CLEARED, updateFields, ZepConstants.OPEN_STATUSES);
         }
         return uuid;
+    }
+
+    private String dedupEvent(EventSummaryOrBuilder oldSummary, Event event, Map<String,Object> insertFields)
+            throws ZepException {
+        final Map<String,Object> updateFields = getUpdateFields(oldSummary, event, insertFields);
+        final StringBuilder updateSql = new StringBuilder("UPDATE event_summary SET ");
+        for (Iterator<String> it = updateFields.keySet().iterator(); it.hasNext(); ) {
+            final String fieldName = it.next();
+            updateSql.append(fieldName).append("=:").append(fieldName);
+            if (it.hasNext()) {
+                updateSql.append(',');
+            }
+        }
+        updateSql.append(" WHERE fingerprint_hash=:fingerprint_hash");
+        updateFields.put(COLUMN_FINGERPRINT_HASH, insertFields.get(COLUMN_FINGERPRINT_HASH));
+
+        this.template.update(updateSql.toString(), updateFields);
+        return oldSummary.getUuid();
     }
 
     /**
@@ -209,27 +314,27 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             COLUMN_SYSLOG_PRIORITY, COLUMN_NT_EVENT_CODE, COLUMN_CLEAR_FINGERPRINT_HASH, COLUMN_SUMMARY, COLUMN_MESSAGE,
             COLUMN_TAGS_JSON);
 
-    private Map<String,Object> getUpdateFields(EventSummary oldSummary, Event occurrence,
-                                               Map<String,Object> occurrenceFields) throws ZepException {
+    private Map<String,Object> getUpdateFields(EventSummaryOrBuilder oldSummary, Event occurrence,
+                                               Map<String,Object> insertFields) throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         Map<String,Object> updateFields = new HashMap<String, Object>();
         
         // Always increment count
         updateFields.put(COLUMN_EVENT_COUNT, oldSummary.getCount() + 1);
         
-        updateFields.put(COLUMN_UPDATE_TIME, occurrenceFields.get(COLUMN_UPDATE_TIME));
+        updateFields.put(COLUMN_UPDATE_TIME, insertFields.get(COLUMN_UPDATE_TIME));
             
         if (occurrence.getCreatedTime() >= oldSummary.getLastSeenTime()) {
 
             for (String fieldName : UPDATE_FIELD_NAMES) {
-                updateFields.put(fieldName, occurrenceFields.get(fieldName));
+                updateFields.put(fieldName, insertFields.get(fieldName));
             }
 
             // Update status except for ACKNOWLEDGED -> {NEW|SUPPRESSED}
             // Stays in ACKNOWLEDGED in these cases
             boolean updateStatus = true;
             EventStatus oldStatus = oldSummary.getStatus();
-            EventStatus newStatus = EventStatus.valueOf((Integer) occurrenceFields.get(COLUMN_STATUS_ID));
+            EventStatus newStatus = EventStatus.valueOf((Integer) insertFields.get(COLUMN_STATUS_ID));
             switch (oldStatus) {
                 case STATUS_ACKNOWLEDGED:
                     switch (newStatus) {
@@ -241,7 +346,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                     break;
             }
             if (updateStatus && oldStatus != newStatus) {
-                updateFields.put(COLUMN_STATUS_ID, occurrenceFields.get(COLUMN_STATUS_ID));
+                updateFields.put(COLUMN_STATUS_ID, insertFields.get(COLUMN_STATUS_ID));
                 updateFields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(occurrence.getCreatedTime()));
             }
 

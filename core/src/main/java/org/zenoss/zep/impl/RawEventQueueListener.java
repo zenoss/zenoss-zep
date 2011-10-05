@@ -9,7 +9,6 @@ import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.Channel;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.EventProcessor;
-import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 
 public class RawEventQueueListener extends AbstractQueueListener {
 
@@ -33,7 +32,6 @@ public class RawEventQueueListener extends AbstractQueueListener {
     }
 
     @Override
-    @TransactionalRollbackAllExceptions
     public void handle(com.google.protobuf.Message message) throws Exception {
         if (!(message instanceof ZepRawEvent)) {
             logger.warn("Unexpected message type: {}", message);

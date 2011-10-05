@@ -29,6 +29,7 @@ import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import java.io.UnsupportedEncodingException;
 import java.security.MessageDigest;
@@ -45,6 +46,12 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorCompletionService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
@@ -153,6 +160,40 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         combined.addAll(event.getDetailsList());
         combined.addAll(newEvent.getDetailsList());
         assertEquals(combined, newEventFromSummary.getDetailsList());
+    }
+
+    @Test
+    public void testSummaryMultiThreadDedup() throws ZepException, InterruptedException, ExecutionException {
+        // Attempts to create the same event from multiple threads - verifies we get the appropriate de-duping behavior
+        // for the count and that we are holding the lock on the database appropriately.
+        int poolSize = 10;
+        final CyclicBarrier barrier = new CyclicBarrier(poolSize);
+        ExecutorService executorService = Executors.newFixedThreadPool(poolSize);
+        ExecutorCompletionService<String> ecs = new ExecutorCompletionService<String>(executorService);
+        final Event event = EventTestUtils.createSampleEvent();
+        final EventPreCreateContext context = new EventPreCreateContextImpl();
+        for (int i = 0; i < poolSize; i++) {
+            ecs.submit(new Callable<String>() {
+                @Override
+                public String call() throws Exception {
+                    barrier.await();
+                    return eventSummaryDao.create(event, context);
+                }
+            });
+        }
+        String uuid = null;
+        for (int i = 0; i < poolSize; i++) {
+            String thisUuid = ecs.take().get();
+            if (uuid == null) {
+                assertNotNull(thisUuid);
+                uuid = thisUuid;
+            }
+            else {
+                assertEquals(uuid, thisUuid);
+            }
+        }
+        // Now look up the event and make sure the count is equal to the number of submitted workers
+        assertEquals(poolSize, this.eventSummaryDao.findByUuid(uuid).getCount());
     }
 
     @Test

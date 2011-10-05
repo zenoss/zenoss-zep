@@ -28,6 +28,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -230,6 +231,34 @@ public final class DaoUtils {
             }
         });
         return columnNames;
+    }
+
+    /**
+     * Returns a map of column names to their JDBC type in the specified table. The map is returned in the order
+     * returned by the getColumns query.
+     *
+     * @param dataSource DataSource to use.
+     * @param tableName Table name.
+     * @return A map of column names to the column types in the specified table.
+     * @throws MetaDataAccessException If an exception occurs.
+     */
+    public static Map<String, Integer> getColumnNamesAndTypes(final DataSource dataSource, final String tableName)
+            throws MetaDataAccessException {
+        final Map<String, Integer> columnNamesToTypes = new LinkedHashMap<String, Integer>();
+        JdbcUtils.extractDatabaseMetaData(dataSource, new DatabaseMetaDataCallback() {
+            @Override
+            public Object processMetaData(DatabaseMetaData dbmd) throws SQLException, MetaDataAccessException {
+                ResultSet rs = dbmd.getColumns(null, null, tableName, null);
+                while (rs.next()) {
+                    String columnName = rs.getString("COLUMN_NAME");
+                    int columnType = rs.getInt("DATA_TYPE");
+                    columnNamesToTypes.put(columnName, columnType);
+                }
+                rs.close();
+                return null;
+            }
+        });
+        return columnNamesToTypes;
     }
 
     /**
