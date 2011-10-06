@@ -3,9 +3,9 @@
  */
 package org.zenoss.zep.dao.impl;
 
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.SqlParameter;
-import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.zep.Zep.DaemonHeartbeat;
 import org.zenoss.zep.ZepException;
@@ -13,13 +13,14 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.HeartbeatDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.DatabaseType;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -34,25 +35,20 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
     private static final String COLUMN_TIMEOUT_SECONDS = "timeout_seconds";
     private static final String COLUMN_LAST_TIME = "last_time";
 
-    private final DataSource ds;
     private final SimpleJdbcTemplate template;
     private DatabaseCompatibility databaseCompatibility;
-    private SimpleJdbcCall postgresqlUpsertCall = null;
+    private NestedTransactionService nestedTransactionService;
 
     public HeartbeatDaoImpl(DataSource ds) {
-        this.ds = ds;
         this.template = new SimpleJdbcTemplate(ds);
     }
 
     public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
         this.databaseCompatibility = databaseCompatibility;
-        if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
-            this.postgresqlUpsertCall = new SimpleJdbcCall(ds).withFunctionName("daemon_heartbeat_upsert")
-                    .declareParameters(new SqlParameter("p_monitor", Types.VARCHAR),
-                            new SqlParameter("p_daemon", Types.VARCHAR),
-                            new SqlParameter("p_timeout_seconds", Types.INTEGER),
-                            new SqlParameter("p_last_time", Types.TIMESTAMP));
-        }
+    }
+
+    public void setNestedTransactionService(NestedTransactionService nestedTransactionService) {
+        this.nestedTransactionService = nestedTransactionService;
     }
 
     @Override
@@ -64,21 +60,15 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
         fields.put(COLUMN_MONITOR, heartbeat.getMonitor());
         fields.put(COLUMN_DAEMON, heartbeat.getDaemon());
         fields.put(COLUMN_TIMEOUT_SECONDS, heartbeat.getTimeoutSeconds());
-        fields.put("_now", timestampConverter.toDatabaseType(now));
+        fields.put(COLUMN_LAST_TIME, timestampConverter.toDatabaseType(now));
 
-        if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
-            final String sql = "INSERT INTO daemon_heartbeat (monitor, daemon, timeout_seconds, last_time)" +
-                " VALUES(:monitor, :daemon, :timeout_seconds, :_now)" +
-                " ON DUPLICATE KEY UPDATE timeout_seconds=VALUES(timeout_seconds), last_time=VALUES(last_time)";
-            this.template.update(sql, fields);
-        }
-        else if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
-            this.postgresqlUpsertCall.execute(fields.get(COLUMN_MONITOR), fields.get(COLUMN_DAEMON),
-                    fields.get(COLUMN_TIMEOUT_SECONDS), fields.get("_now"));
-        }
-        else {
-            throw new IllegalStateException("Unsupported database type: " + databaseCompatibility.getDatabaseType());
-        }
+        String insertSql = "INSERT INTO daemon_heartbeat (monitor, daemon, timeout_seconds, last_time)" +
+                        " VALUES(:monitor, :daemon, :timeout_seconds, :last_time)";
+        String updateSql = "UPDATE daemon_heartbeat SET timeout_seconds=:timeout_seconds, last_time=:last_time" +
+                " WHERE monitor=:monitor AND daemon=:daemon";
+        // In most cases, we insert and then retry as an update, however in these cases we will mostly be doing updates
+        // so we try an update first before the insert/update.
+        DaoUtils.updateOrInsert(nestedTransactionService, template, insertSql, updateSql, fields);
     }
 
     @Override

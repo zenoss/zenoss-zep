@@ -3,21 +3,20 @@
  */
 package org.zenoss.zep.dao.impl;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.SqlParameter;
-import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.DaoCache;
-import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.DatabaseType;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 
 import javax.sql.DataSource;
-import java.sql.Types;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -36,14 +35,14 @@ public class DaoCacheImpl implements DaoCache {
     private final DaoTableStringLruCache groupCache;
     private final DaoTableStringLruCache eventKeyCache;
 
-    public DaoCacheImpl(DataSource ds, DatabaseCompatibility databaseCompatibility) {
+    public DaoCacheImpl(DataSource ds, NestedTransactionService nestedTransactionService) {
         JdbcTemplate template = new JdbcTemplate(ds);
-        this.eventClassCache = new DaoTableStringLruCache(template, databaseCompatibility, "event_class");
-        this.eventClassKeyCache = new DaoTableStringLruCache(template, databaseCompatibility, "event_class_key");
-        this.monitorCache = new DaoTableStringLruCache(template, databaseCompatibility, "monitor");
-        this.agentCache = new DaoTableStringLruCache(template, databaseCompatibility, "agent");
-        this.groupCache = new DaoTableStringLruCache(template, databaseCompatibility, "event_group");
-        this.eventKeyCache = new DaoTableStringLruCache(template, databaseCompatibility, "event_key");
+        this.eventClassCache = new DaoTableStringLruCache(template, nestedTransactionService, "event_class");
+        this.eventClassKeyCache = new DaoTableStringLruCache(template, nestedTransactionService, "event_class_key");
+        this.monitorCache = new DaoTableStringLruCache(template, nestedTransactionService, "monitor");
+        this.agentCache = new DaoTableStringLruCache(template, nestedTransactionService, "agent");
+        this.groupCache = new DaoTableStringLruCache(template, nestedTransactionService, "event_group");
+        this.eventKeyCache = new DaoTableStringLruCache(template, nestedTransactionService, "event_key");
     }
 
     public void init() {
@@ -59,13 +58,12 @@ public class DaoCacheImpl implements DaoCache {
         Integer cached = cache.getCache().getIdFromName(name);
         if (cached == null) {
             final int id = cache.insertOrSelect(name);
-            TransactionSynchronizationManager
-                    .registerSynchronization(new TransactionSynchronizationAdapter() {
-                        @Override
-                        public void afterCommit() {
-                            cache.getCache().cache(name, id);
-                        }
-                    });
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+                @Override
+                public void afterCommit() {
+                    cache.getCache().cache(name, id);
+                }
+            });
             cached = id;
         }
         return cached;
@@ -76,13 +74,12 @@ public class DaoCacheImpl implements DaoCache {
         if (cached == null) {
             final T name = cache.findNameFromId(id);
             if (TransactionSynchronizationManager.isSynchronizationActive()) {
-                TransactionSynchronizationManager.registerSynchronization(
-                        new TransactionSynchronizationAdapter() {
-                            @Override
-                            public void afterCommit() {
-                                cache.getCache().cache(name, id);
-                            }
-                        });
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+                    @Override
+                    public void afterCommit() {
+                        cache.getCache().cache(name, id);
+                    }
+                });
             }
             else {
                 // Not part of a transaction - can safely cache
@@ -210,18 +207,18 @@ public class DaoCacheImpl implements DaoCache {
 
     private static abstract class DaoTableCache<T> {
         protected final JdbcTemplate template;
-        protected final DatabaseCompatibility databaseCompatibility;
+        protected final NestedTransactionService nestedTransactionService;
         protected final String tableName;
         protected final BiMap<T> cache;
         protected final String selectNameByIdSql;
         protected final String selectIdByNameSql;
-        static final String COLUMN_ID = "id";
-        static final String COLUMN_NAME = "name";
+        protected static final String COLUMN_ID = "id";
+        protected static final String COLUMN_NAME = "name";
 
-        public DaoTableCache(JdbcTemplate template, DatabaseCompatibility databaseCompatibility,
+        public DaoTableCache(JdbcTemplate template, NestedTransactionService nestedTransactionService,
                              String tableName, BiMap<T> cache) {
             this.template = template;
-            this.databaseCompatibility = databaseCompatibility;
+            this.nestedTransactionService = nestedTransactionService;
             this.tableName = tableName;
             this.cache = cache;
             this.selectNameByIdSql = "SELECT " + COLUMN_NAME + " FROM " + this.tableName + " WHERE " + COLUMN_ID + "=?";
@@ -241,47 +238,37 @@ public class DaoCacheImpl implements DaoCache {
     }
 
     private static class DaoTableStringLruCache extends DaoTableCache<String> {
-        private SimpleJdbcInsert mysqlInsert;
-        private SimpleJdbcCall postgresqlCall;
+        private SimpleJdbcInsert jdbcInsert;
 
-        public DaoTableStringLruCache(JdbcTemplate template, DatabaseCompatibility databaseCompatibility,
+        public DaoTableStringLruCache(JdbcTemplate template, NestedTransactionService nestedTransactionService,
                                       String tableName) {
-            this(template, databaseCompatibility, tableName, DEFAULT_MAX_CACHE_ENTRIES);
+            this(template, nestedTransactionService, tableName, DEFAULT_MAX_CACHE_ENTRIES);
         }
 
-        public DaoTableStringLruCache(JdbcTemplate template, DatabaseCompatibility databaseCompatibility,
+        public DaoTableStringLruCache(JdbcTemplate template, NestedTransactionService nestedTransactionService,
                                       String tableName, final int limit) {
-            super(template, databaseCompatibility, tableName, new BiMap<String>(limit));
+            super(template, nestedTransactionService, tableName, new BiMap<String>(limit));
         }
 
         public void init() {
             super.init();
-            if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
-                this.mysqlInsert = new SimpleJdbcInsert(template).withTableName(tableName)
-                    .usingColumns(COLUMN_NAME).usingGeneratedKeyColumns(COLUMN_ID);
-            }
-            else if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
-                this.postgresqlCall = new SimpleJdbcCall(this.template).withFunctionName("dao_cache_insert")
-                        .declareParameters(new SqlParameter("p_table_name", Types.VARCHAR),
-                                new SqlParameter("p_name", Types.VARCHAR)).withReturnValue();
-            }
+            this.jdbcInsert = new SimpleJdbcInsert(template).withTableName(tableName)
+                .usingColumns(COLUMN_NAME).usingGeneratedKeyColumns(COLUMN_ID);
         }
 
         @Override
-        public int insertOrSelect(String name) {
-            if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
-                try {
-                    final Map<String, Object> args = Collections.<String, Object> singletonMap(COLUMN_NAME, name);
-                    return this.mysqlInsert.executeAndReturnKey(args).intValue();
-                } catch (DuplicateKeyException e) {
-                    return this.template.queryForInt(selectIdByNameSql, name);
-                }
+        public int insertOrSelect(final String name) {
+            try {
+                return this.nestedTransactionService.executeInNestedTransaction(new NestedTransactionCallback<Integer>() {
+                    @Override
+                    public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
+                        final Map<String, Object> args = Collections.singletonMap(COLUMN_NAME, (Object)name);
+                        return jdbcInsert.executeAndReturnKey(args).intValue();
+                    }
+                });
             }
-            else if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
-                return this.postgresqlCall.executeFunction(Integer.class, this.tableName, name);
-            }
-            else {
-                throw new IllegalStateException("Unsupported database type: " + databaseCompatibility.getDatabaseType());
+            catch (DuplicateKeyException e) {
+                return this.template.queryForInt(selectIdByNameSql, name);
             }
         }
 

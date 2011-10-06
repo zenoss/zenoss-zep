@@ -110,11 +110,10 @@ public class TriggersResourceIT {
 
     private void assertSubscriptionsEqual(EventTriggerSubscriptionSet expected,
             EventTriggerSubscriptionSet actual) throws IOException {
+        assertEquals(expected.getSubscriptionsCount(), actual.getSubscriptionsCount());
         int numFound = 0;
-        for (EventTriggerSubscription subscription : expected
-                .getSubscriptionsList()) {
-            for (EventTriggerSubscription subscriptionFromRest : actual
-                    .getSubscriptionsList()) {
+        for (EventTriggerSubscription subscription : expected.getSubscriptionsList()) {
+            for (EventTriggerSubscription subscriptionFromRest : actual.getSubscriptionsList()) {
                 if (subscription.equals(EventTriggerSubscription
                         .newBuilder(subscriptionFromRest).clearUuid().build())) {
                     numFound++;
@@ -122,11 +121,8 @@ public class TriggersResourceIT {
                 }
             }
         }
-        assertEquals(
-                String.format("EXPECTED:%n%s%nACTUAL:%n%s",
-                        JsonFormat.writeAsString(expected),
-                        JsonFormat.writeAsString(actual)), numFound,
-                expected.getSubscriptionsCount());
+        assertEquals(String.format("EXPECTED:%n%s%nACTUAL:%n%s", JsonFormat.writeAsString(expected),
+                JsonFormat.writeAsString(actual)), numFound, expected.getSubscriptionsCount());
     }
 
     @Test

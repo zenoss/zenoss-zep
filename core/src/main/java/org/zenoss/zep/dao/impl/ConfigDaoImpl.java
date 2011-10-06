@@ -13,9 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.ResultSetExtractor;
-import org.springframework.jdbc.core.SqlParameter;
-import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
@@ -25,15 +24,15 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.ConfigDao;
-import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.DatabaseType;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -46,33 +45,25 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 public class ConfigDaoImpl implements ConfigDao {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigDao.class);
-    private final DataSource ds;
     private final SimpleJdbcTemplate template;
     private Messages messages;
     private static final int MAX_PARTITIONS = 1000;
     private final int maxEventArchivePurgeIntervalDays;
     private int maxEventArchiveIntervalMinutes = 30 * 24 * 60;
-    private DatabaseCompatibility databaseCompatibility;
-    private SimpleJdbcCall postgresqlCreateCall;
+    private NestedTransactionService nestedTransactionService;
 
     private static final String COLUMN_CONFIG_NAME = "config_name";
     private static final String COLUMN_CONFIG_VALUE = "config_value";
 
     public ConfigDaoImpl(DataSource ds, PartitionConfig partitionConfig) {
-        this.ds = ds;
         this.template = new SimpleJdbcTemplate(ds);
 
         this.maxEventArchivePurgeIntervalDays = calculateMaximumDays(partitionConfig.getConfig(TABLE_EVENT_ARCHIVE));
         logger.info("Maximum archive days: {}", maxEventArchivePurgeIntervalDays);
     }
 
-    public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
-        this.databaseCompatibility = databaseCompatibility;
-        if (this.databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
-            this.postgresqlCreateCall = new SimpleJdbcCall(this.ds).withFunctionName("config_upsert")
-                    .declareParameters(new SqlParameter("p_config_name", Types.VARCHAR),
-                            new SqlParameter("p_config_value", Types.VARCHAR));
-        }
+    public void setNestedTransactionService(NestedTransactionService nestedTransactionService) {
+        this.nestedTransactionService = nestedTransactionService;
     }
 
     private static int calculateMaximumDays(PartitionTableConfig config) {
@@ -109,16 +100,10 @@ public class ConfigDaoImpl implements ConfigDao {
         }
     }
 
-    private void setConfigValueInternal(Map<String,String> fields) throws ZepException {
-        DatabaseType dbType = databaseCompatibility.getDatabaseType();
-        if (dbType == DatabaseType.MYSQL) {
-            final String sql = "INSERT INTO config (config_name, config_value) VALUES(:config_name, :config_value) " +
-                    "ON DUPLICATE KEY UPDATE config_value=:config_value";
-            this.template.update(sql, fields);
-        }
-        else if (dbType == DatabaseType.POSTGRESQL) {
-            this.postgresqlCreateCall.execute(fields.get(COLUMN_CONFIG_NAME), fields.get(COLUMN_CONFIG_VALUE));
-        }
+    private void setConfigValueInternal(final Map<String,String> fields) throws ZepException {
+        final String insertSql = "INSERT INTO config (config_name,config_value) VALUES(:config_name,:config_value)";
+        final String updateSql = "UPDATE config SET config_value=:config_value WHERE config_name=:config_name";
+        DaoUtils.insertOrUpdate(nestedTransactionService, template, insertSql, updateSql, fields);
     }
 
     @Override

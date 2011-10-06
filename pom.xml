@@ -52,7 +52,7 @@
                 </property>
             </activation>
             <properties>
-                <zep.jdbc.protocol>mysql</zep.jdbc.protocol>
+                <zep.jdbc.protocol>${dbtype}</zep.jdbc.protocol>
                 <zep.jdbc.hostname>localhost</zep.jdbc.hostname>
                 <zep.jdbc.port>3306</zep.jdbc.port>
                 <zep.jdbc.username>root</zep.jdbc.username>
@@ -68,7 +68,7 @@
                 </property>
             </activation>
             <properties>
-                <zep.jdbc.protocol>postgresql</zep.jdbc.protocol>
+                <zep.jdbc.protocol>${dbtype}</zep.jdbc.protocol>
                 <zep.jdbc.hostname>localhost</zep.jdbc.hostname>
                 <zep.jdbc.port>5432</zep.jdbc.port>
                 <zep.jdbc.username>${user.name}</zep.jdbc.username>

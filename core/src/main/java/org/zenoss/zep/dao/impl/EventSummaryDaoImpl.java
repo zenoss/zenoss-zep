@@ -5,10 +5,10 @@ package org.zenoss.zep.dao.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.RowMapperResultSetExtractor;
-import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.jdbc.support.MetaDataAccessException;
@@ -16,6 +16,7 @@ import org.springframework.util.StringUtils;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventAuditLog;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
@@ -32,6 +33,9 @@ import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.DatabaseType;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
 import org.zenoss.zep.plugins.EventPreCreateContext;
@@ -73,11 +77,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private TypeConverter<String> uuidConverter;
 
+    private NestedTransactionService nestedTransactionService;
+
     private RowMapper<EventSummaryOrBuilder> eventDedupMapper;
-
-    private volatile Map<String,Integer> eventSummaryNamesToTypes;
-
-    private volatile String eventSummaryUpsertQuery;
 
     public EventSummaryDaoImpl(DataSource dataSource) throws MetaDataAccessException {
         this.dataSource = dataSource;
@@ -125,6 +127,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 return oldSummaryBuilder;
             }
         };
+    }
+
+    public void setNestedTransactionService(NestedTransactionService nestedTransactionService) {
+        this.nestedTransactionService = nestedTransactionService;
     }
 
     @Override
@@ -180,99 +186,29 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }
 
         String uuid = null;
-        EventSummaryOrBuilder oldSummary = null;
-        DatabaseType dbType = databaseCompatibility.getDatabaseType();
-
-        /*
-         * MySQL propagates a DuplicateKeyException but doesn't close the underlying transaction, so we can perform
-         * a SELECT FOR UPDATE, INSERT (DuplicateKeyException), and SELECT FOR UPDATE safely without having to use
-         * nested transactions or stored functions to perform event de-duplication.
-         */
-        if (dbType == DatabaseType.MYSQL) {
-            do {
-                final String sql = "SELECT event_count,first_seen,last_seen,details_json,status_id,uuid FROM event_summary" +
-                    " WHERE fingerprint_hash=? FOR UPDATE";
-                final List<EventSummaryOrBuilder> oldSummaryList = this.template.getJdbcOperations().query(sql,
-                        new RowMapperResultSetExtractor<EventSummaryOrBuilder>(this.eventDedupMapper, 1),
-                        fields.get(COLUMN_FINGERPRINT_HASH));
-                if (!oldSummaryList.isEmpty()) {
-                    oldSummary = oldSummaryList.get(0);
-                }
-                if (oldSummary != null) {
-                    uuid = dedupEvent(oldSummary, event, fields);
-                }
-                else {
-                    try {
-                        this.insert.execute(fields);
-                        uuid = createdUuid;
-                    } catch (DuplicateKeyException e) {
-                        // Retry the de-duping
-                    }
-                }
-            } while (uuid == null);
-        }
-        /*
-         * Whenever PostgreSQL encounters a DuplicateKeyException, at that point any further attempts to perform
-         * operations on the database will fail with an error message that the underlying transaction has been closed.
-         * Therefore, we have had to move the SELECT FOR UPDATE + INSERT (DuplicateKeyException) + SELECT FOR UPDATE
-         * retry logic into a stored function. The de-duplication and updating the event still happen here (it would
-         * be difficult to merge JSON detail values in a stored procedure), but the UPSERT logic happens in a stored
-         * function.
-         */
-        else if (dbType == DatabaseType.POSTGRESQL) {
-            // We cache the metadata of the column names to JDBC types here.
-            if (this.eventSummaryNamesToTypes == null) {
-                try {
-                    this.eventSummaryNamesToTypes = DaoUtils.getColumnNamesAndTypes(this.dataSource,
-                            TABLE_EVENT_SUMMARY);
-                } catch (MetaDataAccessException e) {
-                    throw new ZepException(e.getLocalizedMessage(), e);
-                }
-            }
-            // We cache the query used to invoke the stored function here. We can't call it using a CallableStatement
-            // because that isn't supported to return a ResultSet object.
-            if (this.eventSummaryUpsertQuery == null) {
-                StringBuilder sql = new StringBuilder("SELECT * FROM event_summary_upsert(");
-                for (Iterator<String> it = eventSummaryNamesToTypes.keySet().iterator(); it.hasNext(); ) {
-                    sql.append(':').append(it.next());
-                    if (it.hasNext()) {
-                        sql.append(',');
-                    }
-                }
-                sql.append(')');
-                this.eventSummaryUpsertQuery = sql.toString();
-            }
-            
-            final MapSqlParameterSource source = new MapSqlParameterSource(fields) {
-                @Override
-                public int getSqlType(String paramName) {
-                    return eventSummaryNamesToTypes.get(paramName);
-                }
-
-                @Override
-                public boolean hasValue(String paramName) {
-                    return eventSummaryNamesToTypes.containsKey(paramName);
-                }
-            };
-
-            List<EventSummaryOrBuilder> result = this.template.getNamedParameterJdbcOperations().query(
-                    this.eventSummaryUpsertQuery, source,
-                    new RowMapperResultSetExtractor<EventSummaryOrBuilder>(this.eventDedupMapper, 1));
-            /*
-             * If the stored function found an existing row for the event, then it is returned and we perform
-             * de-duplication. Otherwise, the stored function performs the insert and we use the generated UUID for
-             * the event as the return value.
-             */
-            if (!result.isEmpty()) {
-                uuid = dedupEvent(result.get(0), event, fields);
+        do {
+            final String sql = "SELECT event_count,first_seen,last_seen,details_json,status_id,uuid FROM event_summary" +
+                " WHERE fingerprint_hash=? FOR UPDATE";
+            final List<EventSummaryOrBuilder> oldSummaryList = this.template.getJdbcOperations().query(sql,
+                    new RowMapperResultSetExtractor<EventSummaryOrBuilder>(this.eventDedupMapper, 1),
+                    fields.get(COLUMN_FINGERPRINT_HASH));
+            if (!oldSummaryList.isEmpty()) {
+                uuid = dedupEvent(oldSummaryList.get(0), event, fields);
             }
             else {
-                uuid = createdUuid;
+                try {
+                    this.nestedTransactionService.executeInNestedTransaction(new NestedTransactionCallback<Integer>() {
+                        @Override
+                        public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
+                            return insert.execute(fields);
+                        }
+                    });
+                    uuid = createdUuid;
+                } catch (DuplicateKeyException e) {
+                    // Retry the de-duping
+                }
             }
-        }
-        else {
-            throw new IllegalStateException("Invalid database type: " + dbType);
-        }
+        } while (uuid == null);
 
         // Mark cleared events as cleared by this event
         if (!clearedEventUuids.isEmpty()) {
@@ -410,6 +346,46 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }, fields);
     }
 
+    /**
+     * When re-identifying or de-identifying events, we recalculate the clear_fingerprint_hash for the event to either
+     * include (re-identify) or exclude (de-identify) the UUID of the sub_element. This mapper retrieves a subset of
+     * fields for the event in order to recalculate the clear_fingerprint_hash.
+     */
+    private static class IdentifyMapper implements RowMapper<Map<String,Object>>
+    {
+        private final Map<String,Object> fields;
+        private final String elementSubUuid;
+
+        public IdentifyMapper(Map<String,Object> fields, String elementSubUuid) {
+            this.fields = Collections.unmodifiableMap(fields);
+            this.elementSubUuid = elementSubUuid;
+        }
+
+        @Override
+        public Map<String, Object> mapRow(ResultSet rs, int rowNum) throws SQLException {
+            Map<String,Object> updateFields = new HashMap<String, Object>(fields);
+            Event.Builder event = Event.newBuilder();
+            EventActor.Builder actor = event.getActorBuilder();
+            actor.setElementIdentifier(rs.getString(COLUMN_ELEMENT_IDENTIFIER));
+            String elementSubIdentifier = rs.getString(COLUMN_ELEMENT_SUB_IDENTIFIER);
+            if (elementSubIdentifier != null) {
+                actor.setElementSubIdentifier(elementSubIdentifier);
+            }
+            if (this.elementSubUuid != null) {
+                actor.setElementSubUuid(this.elementSubUuid);
+            }
+            event.setEventClass(rs.getString("event_class_name"));
+            String eventKey = rs.getString("event_key_name");
+            if (eventKey != null) {
+                event.setEventKey(eventKey);
+            }
+
+            updateFields.put(COLUMN_UUID, rs.getObject(COLUMN_UUID));
+            updateFields.put(COLUMN_CLEAR_FINGERPRINT_HASH, EventDaoUtils.createClearHash(event.build()));
+            return updateFields;
+        }
+    }
+
     @Override
     @TransactionalRollbackAllExceptions
     public int reidentify(ModelElementType type, String id, String uuid, String title, String parentUuid)
@@ -417,7 +393,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         long updateTime = System.currentTimeMillis();
 
-        Map<String, Object> fields = new HashMap<String, Object>();
+        final Map<String, Object> fields = new HashMap<String, Object>();
         fields.put("_uuid", uuidConverter.toDatabaseType(uuid));
         fields.put("_uuid_str", uuid);
         fields.put("_type_id", type.getNumber());
@@ -426,19 +402,35 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(updateTime));
 
         int numRows = 0;
-        String updateSql = "UPDATE event_summary SET element_uuid=:_uuid, element_title=:_title, update_time=:update_time "
-                + "WHERE element_uuid IS NULL AND element_type_id=:_type_id AND element_identifier=:_id";
+        String updateSql = "UPDATE event_summary SET element_uuid=:_uuid, element_title=:_title," +
+                " update_time=:update_time WHERE element_uuid IS NULL AND element_type_id=:_type_id" +
+                " AND element_identifier=:_id";
         numRows += this.template.update(updateSql, fields);
 
         if (parentUuid != null) {
             fields.put("_parent_uuid", uuidConverter.toDatabaseType(parentUuid));
-            updateSql = "UPDATE event_summary es INNER JOIN event_class ON es.event_class_id = event_class.id " +
-                    "LEFT JOIN event_key ON es.event_key_id = event_key.id " +
-                    "SET element_sub_uuid=:_uuid, element_sub_title=:_title, update_time=:update_time, " +
-                    "clear_fingerprint_hash=UNHEX(SHA1(CONCAT_WS('|',:_uuid_str,event_class.name,IFNULL(event_key.name,'')))) " +
-                    "WHERE es.element_uuid=:_parent_uuid AND es.element_sub_uuid IS NULL AND " +
-                    "es.element_sub_type_id=:_type_id AND es.element_sub_identifier=:_id";
-            numRows += this.template.update(updateSql, fields);
+
+            String selectSql = "SELECT uuid,element_identifier,element_sub_identifier," +
+                    "event_class.name AS event_class_name,event_key.name AS event_key_name FROM event_summary es" +
+                    " INNER JOIN event_class ON es.event_class_id = event_class.id" +
+                    " LEFT JOIN event_key on es.event_key_id = event_key.id" +
+                    " WHERE es.element_uuid=:_parent_uuid AND es.element_sub_uuid IS NULL" +
+                    " AND es.element_sub_type_id=:_type_id AND es.element_sub_identifier=:_id FOR UPDATE";
+            // MySQL locks all joined rows, PostgreSQL requires you to specify the rows from each table to lock
+            if (this.databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
+                selectSql += " OF es";
+            }
+            List<Map<String,Object>> updateFields = this.template.query(selectSql, new IdentifyMapper(fields, uuid),
+                    fields);
+            
+            String updateSubElementSql = "UPDATE event_summary SET element_sub_uuid=:_uuid, " +
+                    "element_sub_title=:_title, update_time=:update_time, " +
+                    "clear_fingerprint_hash=:clear_fingerprint_hash WHERE uuid=:uuid";
+            int[] updated = this.template.batchUpdate(updateSubElementSql,
+                    updateFields.toArray(new Map[updateFields.size()]));
+            for (int updatedRows : updated) {
+                numRows += updatedRows;
+            }
         }
         return numRows;
     }
@@ -449,21 +441,33 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         long updateTime = System.currentTimeMillis();
 
-        Map<String,Object> fields = new HashMap<String,Object>();
+        final Map<String,Object> fields = new HashMap<String,Object>(2);
         fields.put("_uuid", uuidConverter.toDatabaseType(uuid));
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(updateTime));
 
         int numRows = 0;
-        String updateSql = "UPDATE event_summary SET element_uuid=NULL, update_time=:update_time "
-                + "WHERE element_uuid=:_uuid";
-        numRows += this.template.update(updateSql, fields);
+        String updateElementSql = "UPDATE event_summary SET element_uuid=NULL, update_time=:update_time" +
+                " WHERE element_uuid=:_uuid";
+        numRows += this.template.update(updateElementSql, fields);
 
-        updateSql = "UPDATE event_summary es INNER JOIN event_class ON es.event_class_id = event_class.id " +
-                "LEFT JOIN event_key ON es.event_key_id = event_key.id " +
-                "SET element_sub_uuid=NULL, update_time=:update_time, " +
-                "clear_fingerprint_hash=UNHEX(SHA1(CONCAT_WS('|',element_identifier,IFNULL(element_sub_identifier,''),event_class.name,IFNULL(event_key.name,'')))) " +
-                "WHERE element_sub_uuid=:_uuid";
-        numRows += this.template.update(updateSql, fields);
+        String selectSql = "SELECT uuid,element_identifier,element_sub_identifier," +
+                "event_class.name AS event_class_name,event_key.name AS event_key_name FROM event_summary es" +
+                " INNER JOIN event_class ON es.event_class_id = event_class.id" +
+                " LEFT JOIN event_key on es.event_key_id = event_key.id WHERE element_sub_uuid=:_uuid FOR UPDATE";
+        // MySQL locks all joined rows, PostgreSQL requires you to specify the rows from each table to lock
+        if (this.databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
+            selectSql += " OF es";
+        }
+        List<Map<String,Object>> updateFields = this.template.query(selectSql, new IdentifyMapper(fields, null),
+                fields);
+
+        String updateSubElementSql = "UPDATE event_summary SET element_sub_uuid=NULL, update_time=:update_time, " +
+                "clear_fingerprint_hash=:clear_fingerprint_hash WHERE uuid=:uuid";
+        int[] updated = this.template.batchUpdate(updateSubElementSql,
+                updateFields.toArray(new Map[updateFields.size()]));
+        for (int updatedRows : updated) {
+            numRows += updatedRows;
+        }
         return numRows;
     }
 
@@ -536,12 +540,25 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
         fields.put("_limit", limit);
 
-        String updateSql = "UPDATE event_summary SET status_id=:status_id, "
+        String selectSql = "SELECT uuid FROM event_summary WHERE last_seen < :last_seen" +
+                " AND severity_id IN (:_severity_ids) AND status_id NOT IN (:_closed_status_ids)" +
+                " LIMIT :_limit FOR UPDATE";
+        List<Object> uuids = this.template.query(selectSql, new RowMapper<Object>() {
+            @Override
+            public Object mapRow(ResultSet rs, int rowNum) throws SQLException {
+                return rs.getObject(COLUMN_UUID);
+            }
+        }, fields);
+
+        int numRows = 0;
+        if (!uuids.isEmpty()) {
+            String updateSql = "UPDATE event_summary SET status_id=:status_id, "
                 + "status_change=:status_change, update_time=:update_time "
-                + "WHERE last_seen < :last_seen AND "
-                + "severity_id IN (:_severity_ids) AND "
-                + "status_id NOT IN (:_closed_status_ids) LIMIT :_limit";
-        return this.template.update(updateSql, fields);
+                + "WHERE uuid IN (:_uuids)";
+            fields.put("_uuids", uuids);
+            numRows = this.template.update(updateSql, fields);
+        }
+        return numRows;
     }
 
     @Override
@@ -594,67 +611,21 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }
     }
 
-    private int update(List<String> uuids, EventStatus status, EventSummaryUpdateFields updateFields,
-                       Collection<EventStatus> currentStatuses) throws ZepException {
-        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
+    private int update(final List<String> uuids, final EventStatus status, final EventSummaryUpdateFields updateFields,
+                       final Collection<EventStatus> currentStatuses) throws ZepException {
         if (uuids.isEmpty()) {
             return 0;
         }
-
+        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         final long now = System.currentTimeMillis();
-        Map<String,Object> updateFieldsMap = updateFields.toMap(uuidConverter);
-        updateFieldsMap.put(COLUMN_STATUS_ID, status.getNumber());
-        updateFieldsMap.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(now));
-        updateFieldsMap.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(now));
-        updateFieldsMap.put("_uuids", TypeConverterUtils.batchToDatabaseType(uuidConverter, uuids));
+        final Map<String,Object> fields = updateFields.toMap(uuidConverter);
+        fields.put(COLUMN_STATUS_ID, status.getNumber());
+        fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(now));
+        fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(now));
+        fields.put("_uuids", TypeConverterUtils.batchToDatabaseType(uuidConverter, uuids));
 
-        /*
-         * IGNORE duplicate key errors on update. This will occur if there is an active
-         * event with the same fingerprint.
-         */
-        StringBuilder sb = new StringBuilder("UPDATE IGNORE event_summary SET status_id=:status_id")
-                .append(",status_change=:status_change,update_time=:update_time")
-                .append(",current_user_uuid=:current_user_uuid")
-                .append(",current_user_name=:current_user_name")
-                .append(",cleared_by_event_uuid=:cleared_by_event_uuid");
-        // When closing an event, give it a unique fingerprint hash
-        if (ZepConstants.CLOSED_STATUSES.contains(status)) {
-            sb.append(",fingerprint_hash=UNHEX(SHA1(CONCAT_WS('|',fingerprint,:update_time)))");
-        }
-        /*
-         * When reopening an event, give it the true fingerprint_hash. This is required
-         * to correctly de-duplicate events.
-         */
-        else {
-            sb.append(",fingerprint_hash=UNHEX(SHA1(fingerprint))");
-        }
-
-        /*
-         * If this is a significant status change, also add an audit note
-         */
-        if (AUDIT_LOG_STATUSES.contains(status)) {
-            EventAuditLog.Builder builder = EventAuditLog.newBuilder();
-            builder.setTimestamp(now);
-            builder.setNewStatus(status);
-            Object event_user_uuid = updateFieldsMap.get(COLUMN_CURRENT_USER_UUID);
-            if (event_user_uuid != null) {
-                builder.setUserUuid(uuidConverter.fromDatabaseType(event_user_uuid));
-            }
-            String event_user = (String)updateFieldsMap.get(COLUMN_CURRENT_USER_NAME);
-            if (event_user != null) {
-                builder.setUserName(event_user);
-            }
-
-            try {
-                updateFieldsMap.put(COLUMN_AUDIT_JSON, JsonFormat.writeAsString(builder.build()));
-            } catch (IOException e) {
-                throw new ZepException(e);
-            }
-            sb.append(",audit_json=CONCAT_WS(',\n',:audit_json,audit_json)");
-        }
-
-        sb.append(" WHERE uuid IN (:_uuids)");
-
+        StringBuilder sb = new StringBuilder("SELECT uuid,fingerprint,audit_json FROM event_summary")
+                .append(" WHERE uuid IN (:_uuids)");
         /*
          * This is required to support well-defined transitions between states. We only allow
          * updates to move events between states that make sense.
@@ -664,13 +635,96 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             for (EventStatus currentStatus : currentStatuses) {
                 currentStatusIds.add(currentStatus.getNumber());
             }
-            sb.append(" AND status_id IN (");
-            sb.append(StringUtils.collectionToCommaDelimitedString(currentStatusIds));
-            sb.append(')');
+            fields.put("_current_status_ids", currentStatusIds);
+            sb.append(" AND status_id IN (:_current_status_ids)");
+        }
+        sb.append(" FOR UPDATE");
+        String selectSql = sb.toString();
+
+        /*
+         * If this is a significant status change, also add an audit note
+         */
+        final String newAuditJson;
+        if (AUDIT_LOG_STATUSES.contains(status)) {
+            EventAuditLog.Builder builder = EventAuditLog.newBuilder();
+            builder.setTimestamp(now);
+            builder.setNewStatus(status);
+            Object event_user_uuid = fields.get(COLUMN_CURRENT_USER_UUID);
+            if (event_user_uuid != null) {
+                builder.setUserUuid(uuidConverter.fromDatabaseType(event_user_uuid));
+            }
+            String event_user = (String)fields.get(COLUMN_CURRENT_USER_NAME);
+            if (event_user != null) {
+                builder.setUserName(event_user);
+            }
+            try {
+                newAuditJson = JsonFormat.writeAsString(builder.build());
+            } catch (IOException e) {
+                throw new ZepException(e);
+            }
+        }
+        else {
+            newAuditJson = null;
         }
 
-        final String updateSql = sb.toString();
-        return this.template.update(updateSql, updateFieldsMap);
+        List<Map<String,Object>> result = this.template.query(selectSql, new RowMapper<Map<String,Object>>() {
+            @Override
+            public Map<String, Object> mapRow(ResultSet rs, int rowNum) throws SQLException {
+                final String fingerprint = rs.getString(COLUMN_FINGERPRINT);
+                final String currentAuditJson = rs.getString(COLUMN_AUDIT_JSON);
+
+                Map<String,Object> updateFields = new HashMap<String, Object>(fields);
+                final String newFingerprint;
+                // When closing an event, give it a unique fingerprint hash
+                if (ZepConstants.CLOSED_STATUSES.contains(status)) {
+                    newFingerprint = EventDaoUtils.join('|', fingerprint, Long.toString(now));
+                }
+                // When re-opening an event, give it the true fingerprint_hash. This is required to correctly
+                // de-duplicate events.
+                else {
+                    newFingerprint = fingerprint;
+                }
+
+                final StringBuilder auditJson = new StringBuilder();
+                if (newAuditJson != null) {
+                    auditJson.append(newAuditJson);
+                }
+                if (currentAuditJson != null) {
+                    if (auditJson.length() > 0) {
+                        auditJson.append(",\n");
+                    }
+                    auditJson.append(currentAuditJson);
+                }
+                String updatedAuditJson = (auditJson.length() > 0) ? auditJson.toString() : null;
+                updateFields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1(newFingerprint));
+                updateFields.put(COLUMN_AUDIT_JSON, updatedAuditJson);
+                updateFields.put(COLUMN_UUID, rs.getObject(COLUMN_UUID));
+                return updateFields;
+            }
+        }, fields);
+
+        final String updateSql = "UPDATE event_summary SET status_id=:status_id,status_change=:status_change," +
+                "update_time=:update_time,current_user_uuid=:current_user_uuid,current_user_name=:current_user_name," +
+                "cleared_by_event_uuid=:cleared_by_event_uuid,fingerprint_hash=:fingerprint_hash," +
+                "audit_json=:audit_json WHERE uuid=:uuid";
+        int numRows = 0;
+        for (final Map<String,Object> update : result) {
+            try {
+                numRows += this.nestedTransactionService.executeInNestedTransaction(
+                        new NestedTransactionCallback<Integer>() {
+                    @Override
+                    public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
+                        return template.update(updateSql, update);
+                    }
+                });
+            } catch (DuplicateKeyException e) {
+                /*
+                 * Ignore duplicate key errors on update. This will occur if there is an active
+                 * event with the same fingerprint.
+                 */
+            }
+        }
+        return numRows;
     }
 
     @Override

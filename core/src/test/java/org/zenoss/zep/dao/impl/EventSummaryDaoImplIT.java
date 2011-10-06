@@ -817,7 +817,7 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         // Ensure clear_fingerprint_hash was updated
         String clearHashString = EventDaoUtils.join('|', elementSubUuid, occurrence.getEventClass(),
                 occurrence.getEventKey());
-        byte[] clearHash = MessageDigest.getInstance("SHA-1").digest(clearHashString.getBytes("UTF-8"));
+        byte[] clearHash = DaoUtils.sha1(clearHashString);
         Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID,
                 databaseCompatibility.getUUIDConverter().toDatabaseType(summary.getUuid()));
         byte[] clearHashFromDb = this.simpleJdbcTemplate.query(
@@ -861,7 +861,7 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         String clearHashString = EventDaoUtils.join('|', actor.getElementIdentifier(),
                 actor.getElementSubIdentifier(), occurrence.getEventClass(),
                 occurrence.getEventKey());
-        byte[] clearHash = MessageDigest.getInstance("SHA-1").digest(clearHashString.getBytes("UTF-8"));
+        byte[] clearHash = DaoUtils.sha1(clearHashString);
         Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID,
                 databaseCompatibility.getUUIDConverter().toDatabaseType(summary.getUuid()));
         byte[] clearHashFromDb = this.simpleJdbcTemplate.query(

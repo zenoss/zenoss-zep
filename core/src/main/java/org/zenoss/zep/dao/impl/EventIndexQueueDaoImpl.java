@@ -32,6 +32,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
     private final EventSummaryRowMapper rowMapper;
 
     private final TypeConverter<String> uuidConverter;
+    private final TypeConverter<Long> timestampConverter;
 
     private final boolean isArchive;
     
@@ -47,6 +48,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
         }
         this.queueTableName = this.tableName + "_index_queue";
         this.uuidConverter = databaseCompatibility.getUUIDConverter();
+        this.timestampConverter = databaseCompatibility.getTimestampConverter();
         this.rowMapper = new EventSummaryRowMapper(daoHelper, databaseCompatibility);
     }
     
@@ -69,7 +71,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
         final String queryJoinLastSeen = (this.isArchive) ? "AND iq.last_seen=es.last_seen " : "";
 
         if (maxUpdateTime > 0L) {
-            selectFields.put("_max_update_time", maxUpdateTime);
+            selectFields.put("_max_update_time", timestampConverter.toDatabaseType(maxUpdateTime));
             sql = "SELECT iq.id AS iq_id, iq.uuid AS iq_uuid, iq.update_time AS iq_update_time," + 
                 "es.* FROM " + this.queueTableName + " AS iq " + 
                 "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " + queryJoinLastSeen +

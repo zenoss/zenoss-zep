@@ -25,7 +25,11 @@
         <constructor-arg index="1" ref="zepInstance" />
     </bean>
 
-    <!-- PartitionMySQL configuration -->
+    <bean id="nestedTransactionService" class="org.zenoss.zep.dao.impl.compat.NestedTransactionServiceImpl">
+        <constructor-arg index="0" ref="dataSource" />
+    </bean>
+
+    <!-- Partition configuration -->
     <bean id="partitionConfig" class="org.zenoss.zep.dao.impl.PartitionConfig">
         <constructor-arg index="0" ref="zepConfig"/>
     </bean>
@@ -41,6 +45,7 @@
         <property name="eventDaoHelper" ref="eventDaoHelper"/>
         <property name="uuidGenerator" ref="uuidGenerator"/>
         <property name="databaseCompatibility" ref="databaseCompatibility"/>
+        <property name="nestedTransactionService" ref="nestedTransactionService"/>
     </bean>
     <bean id="eventArchiveDao" class="org.zenoss.zep.dao.impl.EventArchiveDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
@@ -65,30 +70,34 @@
         <constructor-arg index="0" ref="dataSource" />
         <property name="uuidGenerator" ref="uuidGenerator"/>
         <property name="databaseCompatibility" ref="databaseCompatibility"/>
+        <property name="nestedTransactionService" ref="nestedTransactionService"/>
     </bean>
     <bean id="eventTriggerSubscriptionDao" class="org.zenoss.zep.dao.impl.EventTriggerSubscriptionDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
         <property name="uuidGenerator" ref="uuidGenerator"/>
         <property name="databaseCompatibility" ref="databaseCompatibility"/>
+        <property name="nestedTransactionService" ref="nestedTransactionService"/>
     </bean>
     <bean id="daoCache" class="org.zenoss.zep.dao.impl.DaoCacheImpl" init-method="init">
         <constructor-arg index="0" ref="dataSource"/>
-        <constructor-arg index="1" ref="databaseCompatibility"/>
+        <constructor-arg index="1" ref="nestedTransactionService"/>
     </bean>
     <bean id="configDao" class="org.zenoss.zep.dao.impl.ConfigDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
         <constructor-arg index="1" ref="partitionConfig"/>
         <property name="maxEventArchiveIntervalMinutes" value="${zep.max_event_archive_interval_minutes:43200}" />
-        <property name="databaseCompatibility" ref="databaseCompatibility"/>
+        <property name="nestedTransactionService" ref="nestedTransactionService"/>
     </bean>
     <bean id="indexMetadataDao" class="org.zenoss.zep.dao.impl.IndexMetadataDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
         <constructor-arg index="1" ref="zepInstance" />
         <property name="databaseCompatibility" ref="databaseCompatibility"/>
+        <property name="nestedTransactionService" ref="nestedTransactionService"/>
     </bean>
     <bean id="heartbeatDao" class="org.zenoss.zep.dao.impl.HeartbeatDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
         <property name="databaseCompatibility" ref="databaseCompatibility" />
+        <property name="nestedTransactionService" ref="nestedTransactionService" />
     </bean>
     <bean id="eventSummaryIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
         <qualifier value="summary" />
@@ -110,7 +119,7 @@
     </bean>
     <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
-        <property name="databaseCompatibility" ref="databaseCompatibility"/>
+        <property name="nestedTransactionService" ref="nestedTransactionService"/>
     </bean>
 
     <!-- Indexing DAO -->

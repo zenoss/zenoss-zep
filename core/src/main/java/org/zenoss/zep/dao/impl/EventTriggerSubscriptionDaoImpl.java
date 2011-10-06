@@ -6,6 +6,8 @@ package org.zenoss.zep.dao.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
@@ -16,12 +18,16 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +65,7 @@ public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscription
     private final SimpleJdbcInsert insert;
     private UUIDGenerator uuidGenerator;
     private TypeConverter<String> uuidConverter;
+    private NestedTransactionService nestedTransactionService;
 
     public EventTriggerSubscriptionDaoImpl(DataSource dataSource) {
         this.template = new SimpleJdbcTemplate(dataSource);
@@ -71,6 +78,10 @@ public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscription
 
     public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
         this.uuidConverter = databaseCompatibility.getUUIDConverter();
+    }
+
+    public void setNestedTransactionService(NestedTransactionService nestedTransactionService) {
+        this.nestedTransactionService = nestedTransactionService;
     }
 
     private Map<String, Object> subscriptionToFields(EventTriggerSubscription evtTriggerSub) {
@@ -156,16 +167,24 @@ public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscription
                 fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
                 subscriptionFields.add(fields);
             }
-            numRows += this.template.update(
-                    "DELETE FROM event_trigger_subscription WHERE subscriber_uuid=? AND event_trigger_uuid NOT IN(?)",
-                    subscriberUuidBytes, eventTriggerUuids);
-            String sql = "INSERT INTO event_trigger_subscription (uuid, event_trigger_uuid, subscriber_uuid, " +
-                    "delay_seconds, repeat_seconds, send_initial_occurrence) " +
-                    "VALUES(:uuid, :event_trigger_uuid, :subscriber_uuid, :delay_seconds, :repeat_seconds, " +
-                    ":send_initial_occurrence) ON DUPLICATE KEY UPDATE delay_seconds=:delay_seconds, " +
-                    "repeat_seconds=:repeat_seconds, send_initial_occurrence=:send_initial_occurrence";
-            for (Map<String, Object> fields : subscriptionFields) {
-                numRows += this.template.update(sql, fields);
+
+            Map<String,Object> deleteFields = new HashMap<String, Object>(2);
+            deleteFields.put(COLUMN_SUBSCRIBER_UUID, subscriberUuidBytes);
+            deleteFields.put("_event_trigger_uuids", eventTriggerUuids);
+            String deleteSql = "DELETE FROM event_trigger_subscription WHERE subscriber_uuid=:subscriber_uuid" +
+                    " AND event_trigger_uuid NOT IN (:_event_trigger_uuids)";
+            numRows += this.template.update(deleteSql, deleteFields);
+            
+            final String insertSql = "INSERT INTO event_trigger_subscription (uuid, event_trigger_uuid, " +
+                    "subscriber_uuid, delay_seconds, repeat_seconds, send_initial_occurrence)" +
+                    " VALUES(:uuid,:event_trigger_uuid,:subscriber_uuid,:delay_seconds,:repeat_seconds," +
+                    ":send_initial_occurrence)";
+            final String updateSql = "UPDATE event_trigger_subscription SET delay_seconds=:delay_seconds, " +
+                    "repeat_seconds=:repeat_seconds, send_initial_occurrence=:send_initial_occurrence" +
+                    " WHERE event_trigger_uuid=:event_trigger_uuid AND subscriber_uuid=:subscriber_uuid";
+            for (final Map<String, Object> fields : subscriptionFields) {
+                numRows += DaoUtils.insertOrUpdate(this.nestedTransactionService, template, insertSql, updateSql,
+                        fields);
             }
         }
         return numRows;

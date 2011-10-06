@@ -5,9 +5,9 @@ package org.zenoss.zep.dao.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.SqlParameter;
-import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
@@ -16,14 +16,15 @@ import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSignalSpool;
 import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.DatabaseType;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -60,15 +61,13 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     @SuppressWarnings("unused")
     private static Logger logger = LoggerFactory.getLogger(EventSignalSpoolDaoImpl.class);
 
-    private final DataSource ds;
     private final SimpleJdbcTemplate template;
     private UUIDGenerator uuidGenerator;
     private DatabaseCompatibility databaseCompatibility;
     private TypeConverter<String> uuidConverter;
-    private SimpleJdbcCall postgresUpsertCall;
+    private NestedTransactionService nestedTransactionService;
 
     public EventSignalSpoolDaoImpl(DataSource dataSource) {
-        this.ds = dataSource;
         this.template = new SimpleJdbcTemplate(dataSource);
     }
 
@@ -79,17 +78,10 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
         this.databaseCompatibility = databaseCompatibility;
         this.uuidConverter = databaseCompatibility.getUUIDConverter();
-        if (this.databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
-            this.postgresUpsertCall = new SimpleJdbcCall(this.ds)
-                    .withFunctionName("event_trigger_signal_spool_upsert")
-                    .declareParameters(new SqlParameter("p_uuid", Types.OTHER),
-                            new SqlParameter("p_event_trigger_subscription_uuid", Types.OTHER),
-                            new SqlParameter("p_event_summary_uuid", Types.OTHER),
-                            new SqlParameter("p_flush_time", Types.BIGINT),
-                            new SqlParameter("p_created", Types.TIMESTAMP),
-                            new SqlParameter("p_event_count", Types.INTEGER),
-                            new SqlParameter("p_sent_signal", Types.BOOLEAN));
-        }
+    }
+
+    public void setNestedTransactionService(NestedTransactionService nestedTransactionService) {
+        this.nestedTransactionService = nestedTransactionService;
     }
 
     private Map<String, Object> spoolToFields(EventSignalSpool spool) {
@@ -124,20 +116,12 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
             names.append(key);
             values.append(':').append(key);
         }
-        if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
-            final String sql = String.format(
-                    "INSERT INTO event_trigger_signal_spool (%s) VALUES (%s) " +
-                            "ON DUPLICATE KEY UPDATE event_count = event_count + 1", names, values);
-            this.template.update(sql, fields);
-        }
-        else if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
-            postgresUpsertCall.execute(fields.get(COLUMN_UUID), fields.get(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID),
-                    fields.get(COLUMN_EVENT_SUMMARY_UUID), fields.get(COLUMN_FLUSH_TIME), fields.get(COLUMN_CREATED),
-                    fields.get(COLUMN_EVENT_COUNT), fields.get(COLUMN_SENT_SIGNAL));
-        }
-        else {
-            throw new IllegalStateException("Unsupported database type: " + databaseCompatibility.getDatabaseType());
-        }
+
+        final String insertSql = String.format("INSERT INTO event_trigger_signal_spool (%s) VALUES(%s)", names,
+                    values);
+        final String updateSql = "UPDATE event_trigger_signal_spool SET event_count = event_count + 1" +
+                    " WHERE uuid=:uuid";
+        DaoUtils.insertOrUpdate(nestedTransactionService, template, insertSql, updateSql, fields);
         spool.setUuid(uuid);
         return uuid;
     }
@@ -206,7 +190,6 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int update(EventSignalSpool spool) throws ZepException {
-        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         Map<String, Object> fields = new HashMap<String, Object>();
         fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(spool.getUuid()));
         fields.put(COLUMN_FLUSH_TIME, spool.getFlushTime());

@@ -190,30 +190,7 @@ class PostgresMigration(SchemaMigration):
             raise subprocess.CalledProcessError(cmd=createCmd, returncode=rc)
 
     def initializeDatabase(self):
-        # Load pgcrypto extension into database
-        pgconfigCmd = ['pg_config','--sharedir']
-        p = subprocess.Popen(pgconfigCmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-        rc = p.wait()
-        if rc:
-            log.warning('Failed to determine sharedir: stdout=%s, stderr=%s',
-                    stdout, stderr)
-            raise subprocess.CalledProcessError(cmd=pgconfigCmd, returncode=rc)
-        sharedir = stdout.strip()
-
-        pgcrypto_sql = os.path.join(sharedir, 'contrib', 'pgcrypto.sql')
-        if not os.path.isfile(pgcrypto_sql):
-            raise RuntimeError('Unable to locate required file: %s' % pgcrypto_sql)
-
-        psqlCmd = self._getCommand('psql', admin=True)
-        psqlCmd.append('-q')
-        psqlCmd.extend(['-d', self.dbname])
-        psqlCmd.extend(['-f', pgcrypto_sql])
-        rc, stdout, stderr = self._executeCmd(psqlCmd, admin=True, save_streams=True)
-        if rc:
-            log.warning('Failed to load %s: stdout=%s, stderr=%s',
-                    pgcrypto_sql, stdout, stderr)
-            raise subprocess.CalledProcessError(cmd=psqlCmd, returncode=rc)
+        pass
 
     def getSchemaVersion(self):
         psqlCmd = self._getCommand('psql', admin=False)

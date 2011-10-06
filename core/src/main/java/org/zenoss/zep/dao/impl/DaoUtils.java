@@ -7,6 +7,10 @@ import com.google.protobuf.Message;
 import org.apache.commons.dbcp.BasicDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.springframework.jdbc.support.DatabaseMetaDataCallback;
 import org.springframework.jdbc.support.JdbcUtils;
 import org.springframework.jdbc.support.MetaDataAccessException;
@@ -15,6 +19,9 @@ import org.zenoss.zep.ZepInstance;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibilityMySQL;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibilityPostgreSQL;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 
 import javax.sql.DataSource;
 import java.io.IOException;
@@ -293,5 +300,59 @@ public final class DaoUtils {
         } catch (IOException e) {
             throw new RuntimeException(e.getLocalizedMessage(), e);
         }
+    }
+
+    /**
+     * Performs the equivalent to an INSERT ... ON DUPLICATE KEY UPDATE (or UPSERT) using the specified insert and
+     * update SQL and parameters.
+     *
+     * @param transactionService NestedTransactionService used to safely perform an insert which may lead to
+     * DuplicateKeyErrors.
+     * @param jdbcOperations A SimpleJdbcOperations interface which is used to perform the update (if needed).
+     * @param insertSql The SQL to execute to perform an insert of the specified row.
+     * @param updateSql The SQL to execute to perform an update of the specified row.
+     * @param fields The fields used as parameters in the insert/update SQL statements.
+     * @return The number of affected rows by the query.
+     * @throws DataAccessException If an exception occurs (other than a DuplicateKeyException).
+     */
+    public static int insertOrUpdate(NestedTransactionService transactionService,
+                                     SimpleJdbcOperations jdbcOperations, final String insertSql,
+                                     String updateSql, final Map<String,?> fields) throws DataAccessException {
+        int numRows;
+        try {
+            numRows = transactionService.executeInNestedTransaction(new NestedTransactionCallback<Integer>() {
+                @Override
+                public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
+                    return context.getSimpleJdbcTemplate().update(insertSql, fields);
+                }
+            });
+        } catch (DuplicateKeyException e) {
+            numRows = jdbcOperations.update(updateSql, fields);
+        }
+        return numRows;
+    }
+
+    /**
+     * Performs the same operation as <code>insertOrUpdate</code>, but it attempts the update first, then an insert
+     * and update. This method should be preferred to insertOrUpdate when the majority of operations will be updates
+     * of existing rows instead of new rows added.
+     *
+     * @param transactionService NestedTransactionService used to safely perform an insert which may lead to
+     * DuplicateKeyErrors.
+     * @param jdbcOperations A SimpleJdbcOperations interface which is used to perform the update (if needed).
+     * @param insertSql The SQL to execute to perform an insert of the specified row.
+     * @param updateSql The SQL to execute to perform an update of the specified row.
+     * @param fields The fields used as parameters in the insert/update SQL statements.
+     * @return The number of affected rows by the query.
+     * @throws DataAccessException If an exception occurs (other than a DuplicateKeyException).
+     */
+    public static int updateOrInsert(NestedTransactionService transactionService,
+                                     SimpleJdbcOperations jdbcOperations, String insertSql, String updateSql,
+                                     Map<String,?> fields) throws DataAccessException {
+        int numRows = jdbcOperations.update(updateSql, fields);
+        if (numRows == 0) {
+            numRows = insertOrUpdate(transactionService, jdbcOperations, insertSql, updateSql, fields);
+        }
+        return numRows;
     }
 }

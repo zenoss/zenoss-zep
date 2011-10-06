@@ -4,9 +4,9 @@
 
 package org.zenoss.zep.dao.impl;
 
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.SqlParameter;
-import org.springframework.jdbc.core.simple.SimpleJdbcCall;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepInstance;
@@ -14,14 +14,15 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.IndexMetadata;
 import org.zenoss.zep.dao.IndexMetadataDao;
-import org.zenoss.zep.dao.impl.compat.DatabaseType;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
+import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Types;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,6 @@ import java.util.Map;
 public class IndexMetadataDaoImpl implements IndexMetadataDao {
 
     //private static final Logger logger = LoggerFactory.getLogger(IndexMetadataDaoImpl.class);
-    private final DataSource ds;
     private final SimpleJdbcTemplate template;
     private final String zepInstanceId;
 
@@ -41,26 +41,20 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
     private static final String COLUMN_INDEX_VERSION = "index_version";
     private static final String COLUMN_INDEX_VERSION_HASH = "index_version_hash";
 
-    private DatabaseCompatibility databaseCompatibility;
     private TypeConverter<String> uuidConverter;
-    private SimpleJdbcCall postgresqlUpsertCall;
+    private NestedTransactionService nestedTransactionService;
 
     public IndexMetadataDaoImpl(DataSource ds, ZepInstance instance) {
-        this.ds = ds;
         this.template = new SimpleJdbcTemplate(ds);
         this.zepInstanceId = instance.getId();
     }
 
     public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
-        this.databaseCompatibility = databaseCompatibility; 
         this.uuidConverter = databaseCompatibility.getUUIDConverter();
-        if (this.databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
-            this.postgresqlUpsertCall = new SimpleJdbcCall(this.ds).withFunctionName("index_metadata_upsert")
-                    .declareParameters(new SqlParameter("p_zep_instance", Types.OTHER),
-                            new SqlParameter("p_index_name", Types.VARCHAR),
-                            new SqlParameter("p_index_version", Types.INTEGER),
-                            new SqlParameter("p_index_version_hash", Types.BINARY));
-        }
+    }
+
+    public void setNestedTransactionService(NestedTransactionService nestedTransactionService) {
+        this.nestedTransactionService = nestedTransactionService;
     }
 
     @Override
@@ -93,16 +87,10 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
         fields.put(COLUMN_INDEX_VERSION, indexVersion);
         fields.put(COLUMN_INDEX_VERSION_HASH, indexHash);
 
-        final DatabaseType dbType = databaseCompatibility.getDatabaseType();
-        if (dbType == DatabaseType.MYSQL) {
-            final String sql = "INSERT INTO index_metadata (zep_instance,index_name,index_version,index_version_hash) " +
-                    "VALUES(:zep_instance,:index_name,:index_version,:index_version_hash) ON DUPLICATE KEY UPDATE " +
-                    "index_version=VALUES(index_version),index_version_hash=VALUES(index_version_hash)";
-            this.template.update(sql, fields);
-        }
-        else if (dbType == DatabaseType.POSTGRESQL) {
-            this.postgresqlUpsertCall.execute(fields.get(COLUMN_ZEP_INSTANCE), fields.get(COLUMN_INDEX_NAME),
-                    fields.get(COLUMN_INDEX_VERSION), fields.get(COLUMN_INDEX_VERSION_HASH));
-        }
+        String insertSql = "INSERT INTO index_metadata (zep_instance,index_name,index_version,index_version_hash) " +
+                        "VALUES(:zep_instance,:index_name,:index_version,:index_version_hash)";
+        String updateSql = "UPDATE index_metadata SET index_version=:index_version,index_version_hash=:index_version_hash " +
+                    "WHERE zep_instance=:zep_instance AND index_name=:index_name";
+        DaoUtils.insertOrUpdate(nestedTransactionService, template, insertSql, updateSql, fields);
     }
 }
