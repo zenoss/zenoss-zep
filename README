@@ -3,7 +3,9 @@
 === Development Configuration ===
 
 Prerequisites:
- * MySQL client/server.
+ * One of:
+   - PostgreSQL 8.4 or later.
+   - MySQL 5.1 or later.
  * RabbitMQ v2.x
 
 == Configuration ==
@@ -19,32 +21,6 @@ initialize the database. It assumes the following default settings:
 To override the default values, run 'populate_schema.sh --help' for usage
 information.
 
-== Running ZEP from Maven ==
-
-$ mvn jetty:run
-
-This will assume some default settings for the database connection. To
-override the default settings, you will need to set system properties from
-the Maven command-line. The available configuration properties and their
-default values are:
-
-    * zep.jdbc.hostname: localhost
-    * zep.jdbc.port: 3306
-    * zep.jdbc.dbname: zenoss_zep
-    * zep.jdbc.username: root
-    * zep.jdbc.password: <BLANK>
-    * zep.amqp.uri: amqp://guest:guest@localhost:5672
-    * zep.amqp.retry: 300000
-    * zep.query.limit: 1000
-
-To specify a system property from the Maven command-line, run:
-
-$ mvn jetty:run -D<propname>=<propval> [...]
-
-i.e.
-
-$ mvn jetty:run -Dzep.jdbc.hostname=myhost.zenoss.loc -Dzep.jdbc.username=zenoss
-
 == Running ZEP from a standalone build ==
 
 $ mvn clean package
@@ -56,9 +32,50 @@ $ ./bin/zeneventserver-create-db
 $ ./bin/zeneventserver start
 
 ZEP will log any problems in 'log/zeneventserver.log'. To update the logging
-configuration, edit the 'webapps/zeneventserver/WEB-INF/classes/logback.xml' file
-and restart the ZEP daemon.
+configuration, edit the 'webapps/zeneventserver/WEB-INF/classes/logback.xml'
+file and restart the ZEP daemon.
 
 == Running ZEP Unit and Integration Tests ==
 
-$ mvn clean verify
+To run the integration tests, you need to first create a test RabbitMQ vhost
+at /zenoss-test. Run:
+
+# rabbitmqctl add_vhost /zenoss-test
+# rabbitmqctl set_permissions -p /zenoss-test zenoss '.*' '.*' '.*'
+
+You must specify the database backend to use for running the integration tests
+by specifying the 'dbtype' system property to Maven to either 'postgresql' or
+'mysql'. These are the default settings for connecting to the database for each
+database type:
+
+  PostgreSQL:
+    * zep.jdbc.hostname: localhost
+    * zep.jdbc.port: 5432
+    * zep.jdbc.admin.username: postgres
+    * zep.jdbc.admin.password: postgres
+    * zep.jdbc.username: zenoss
+    * zep.jdbc.password: zenoss
+
+  MySQL:
+    * zep.jdbc.hostname: localhost
+    * zep.jdbc.port: 3306
+    * zep.jdbc.admin.username: root
+    * zep.jdbc.admin.password: <BLANK>
+    * zep.jdbc.username: zenoss
+    * zep.jdbc.password: zenoss
+
+To specify a system property from the Maven command-line, run:
+
+$ mvn -D<propname>=<propval> [...]
+
+To run the integration tests against PostgreSQL, run:
+
+$ mvn clean verify -Ddbtype=postgresql
+
+To run the integration tests against MySQL, run:
+
+$ mvn clean verify -Ddbtype=mysql
+
+You can override any of the default settings for connecting to the database by
+specifying the property above either in a Maven profile in
+$HOME/.m2/settings.xml or on the command line with the -D option to mvn.

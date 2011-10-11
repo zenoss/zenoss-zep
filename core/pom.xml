@@ -186,8 +186,7 @@
             <artifactId>mysql-connector-java</artifactId>
             <version>${version.mysql}</version>
             <type>jar</type>
-            <!-- TODO: Switch to provided here -->
-            <scope>runtime</scope>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>postgresql</groupId>
@@ -287,10 +286,10 @@
                                     <arg value="${zep.jdbc.port}" />
                                     <arg value="--dbname" />
                                     <arg value="${zep.test.jdbc.dbname}" />
-                                    <arg value="--dbrootuser" />
-                                    <arg value="${zep.jdbc.username}" />
-                                    <arg value="--dbrootpass" />
-                                    <arg value="${zep.jdbc.password}" />
+                                    <arg value="--dbadminuser" />
+                                    <arg value="${zep.jdbc.admin.username}" />
+                                    <arg value="--dbadminpass" />
+                                    <arg value="${zep.jdbc.admin.password}" />
                                     <arg value="--dbuser" />
                                     <arg value="${zep.jdbc.username}" />
                                     <arg value="--dbpass" />

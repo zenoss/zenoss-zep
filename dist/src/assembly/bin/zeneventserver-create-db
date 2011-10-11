@@ -10,13 +10,13 @@ logging.basicConfig()
 log = logging.getLogger('zen.createdb')
 
 class SchemaMigration(object):
-    def __init__(self, dbname, dbhost=None, dbport=None, dbrootuser=None, dbrootpass=None, dbuser=None, dbpass=None,
+    def __init__(self, dbname, dbhost=None, dbport=None, dbadminuser=None, dbadminpass=None, dbuser=None, dbpass=None,
                  **args):
         self.dbname = dbname
         self.dbhost = dbhost
         self.dbport = dbport
-        self.dbrootuser = dbrootuser
-        self.dbrootpass = dbrootpass
+        self.dbadminuser = dbadminuser
+        self.dbadminpass = dbadminpass
         self.dbuser = dbuser
         self.dbpass = dbpass
         for k, v in args.iteritems():
@@ -59,10 +59,10 @@ class MysqlMigration(SchemaMigration):
             cmd.extend(['--host', self.dbhost])
         if self.dbport:
             cmd.extend(['--port', str(self.dbport)])
-        if self.dbrootuser:
-            cmd.extend(['--user', self.dbrootuser])
-        if self.dbrootpass:
-            cmd.extend(['--password=%s' % self.dbrootpass])
+        if self.dbadminuser:
+            cmd.extend(['--user', self.dbadminuser])
+        if self.dbadminpass:
+            cmd.extend(['--password=%s' % self.dbadminpass])
         return cmd
 
     def dropDatabase(self):
@@ -112,7 +112,7 @@ class PostgresMigration(SchemaMigration):
     def _passwordFile(self, admin=False):
         from tempfile import NamedTemporaryFile
         tf = NamedTemporaryFile()
-        password = self.dbrootpass if admin else self.dbpass
+        password = self.dbadminpass if admin else self.dbpass
         tf.write('*:*:*:*:{0}\n'.format(password))
         tf.flush()
         return tf
@@ -122,7 +122,7 @@ class PostgresMigration(SchemaMigration):
         cmd.extend(['-h', self.dbhost])
         if self.dbport:
             cmd.extend(['-p', str(self.dbport)])
-        username = self.dbrootuser if admin else self.dbuser
+        username = self.dbadminuser if admin else self.dbuser
         cmd.extend(['-U', username])
         cmd.extend(['-w'])
         return cmd
@@ -230,13 +230,12 @@ def list_schema_files(directory):
 if __name__ == '__main__':
     zenhome = os.getenv('ZENHOME', '/opt/zenoss')
     parser = optparse.OptionParser()
-    # TODO: Change this to postgres
-    parser.add_option('--dbtype', dest='dbtype', default='mysql', help='Database Type')
+    parser.add_option('--dbtype', dest='dbtype', help='Database Type (postgresql/mysql)')
     parser.add_option('--dbname', dest='dbname', default='zenoss_zep', help='Database Name')
     parser.add_option('--dbhost', dest='dbhost', default='localhost', help='Database Host')
     parser.add_option('--dbport', type='int', dest='dbport', help='Database Port')
-    parser.add_option('--dbrootuser', dest='dbrootuser', default='root', help='Database Admin User')
-    parser.add_option('--dbrootpass', dest='dbrootpass', default='', help='Database Admin Password')
+    parser.add_option('--dbadminuser', dest='dbadminuser', help='Database Admin User')
+    parser.add_option('--dbadminpass', dest='dbadminpass', help='Database Admin Password')
     parser.add_option('--dbuser', dest='dbuser', default='zenoss', help='Database User')
     parser.add_option('--dbpass', dest='dbpass', default='zenoss', help='Database Password')
     parser.add_option('--schemadir', dest='schemadir', default=os.path.join(zenhome, 'share', 'zeneventserver', 'sql'))
@@ -249,18 +248,37 @@ if __name__ == '__main__':
         loglevel = getattr(logging, options.logseverity.upper(), logging.INFO)
     logging.getLogger('zen').setLevel(loglevel)
 
-    migrator_classes = {
-        'mysql': MysqlMigration,
-        'postgresql': PostgresMigration,
+    dbtypes = {
+        'mysql': {
+            'migrator' : MysqlMigration,
+            'defaults': {
+                'dbadminuser': 'root',
+                'dbadminpass': '',
+            },
+        },
+        'postgresql': {
+            'migrator': PostgresMigration,
+            'defaults': {
+                'dbadminuser': 'postgres',
+                'dbadminpass': 'postgres',
+            },
+        },
     }
-    if options.dbtype not in migrator_classes:
+    if not options.dbtype:
+        parser.error('Required option --dbtype not specified.')
+    if options.dbtype not in dbtypes:
         parser.error('Unknown database type: %s' % options.dbtype)
     if options.dbport is not None and (options.dbport < 1 or options.dbport > 65535):
         parser.error('Invalid port: %d' % options.dbport)
+    # Set defaults based on database type
+    for k, v in dbtypes[options.dbtype]['defaults'].iteritems():
+        current_value = getattr(options, k, None)
+        if current_value is None:
+            setattr(options, k, v)
 
     schema_files = list_schema_files(os.path.join(options.schemadir, options.dbtype))
     log.debug('Schema files: %s', schema_files)
-    migrator = migrator_classes[options.dbtype](**vars(options))
+    migrator = dbtypes[options.dbtype]['migrator'](**vars(options))
     try:
         if options.force:
             print 'Dropping database: %s' % options.dbname
