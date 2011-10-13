@@ -15,7 +15,7 @@ import org.zenoss.zep.dao.ConfigDao;
 import static org.junit.Assert.*;
 
 @ContextConfiguration({"classpath:zep-config.xml"})
-public class ConfigDaoIT extends AbstractTransactionalJUnit4SpringContextTests {
+public class ConfigDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
     @Autowired
     public ConfigDao configDao;
 

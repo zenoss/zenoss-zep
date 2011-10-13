@@ -22,7 +22,7 @@ import static org.junit.Assert.*;
 
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
-public class EventTimeDaoIT extends AbstractTransactionalJUnit4SpringContextTests {
+public class EventTimeDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
     public EventTimeDao dao;

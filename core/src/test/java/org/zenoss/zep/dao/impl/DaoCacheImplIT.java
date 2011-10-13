@@ -87,4 +87,17 @@ public class DaoCacheImplIT extends
         assertEquals(monitor, daoCache.getMonitorFromId(res));
     }
 
+    @Test
+    public void testEventKeyIdCache() {
+        String tableName = "event_key";
+        String eventKey = "foo" + random.nextInt();
+        int res = daoCache.getEventKeyId(eventKey);
+        String sql = "SELECT id FROM " + tableName + " WHERE name=?";
+        assertEquals(simpleJdbcTemplate.queryForInt(sql, eventKey), res);
+        res = daoCache.getEventKeyId(eventKey);
+        assertEquals(simpleJdbcTemplate.queryForInt(sql, eventKey), res);
+
+        assertEquals(eventKey, daoCache.getEventKeyFromId(res));
+    }
+
 }

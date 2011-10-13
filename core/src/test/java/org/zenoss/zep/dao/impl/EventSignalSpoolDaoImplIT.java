@@ -30,7 +30,7 @@ import java.util.UUID;
 import static org.junit.Assert.*;
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
-public class EventSignalSpoolDaoIT extends
+public class EventSignalSpoolDaoImplIT extends
         AbstractTransactionalJUnit4SpringContextTests {
 
     @Autowired
