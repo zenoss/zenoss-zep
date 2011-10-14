@@ -9,6 +9,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
+import org.zenoss.utils.dao.RangePartitioner;
+import org.zenoss.utils.dao.impl.PostgreSqlRangePartitioner;
+
 /**
  * Database compatibility interface for PostgreSQL support.
  */
@@ -42,33 +45,10 @@ public class DatabaseCompatibilityPostgreSQL implements DatabaseCompatibility {
     }
 
     @Override
-    public RangePartitioner getRangePartitioner(DataSource ds, String databaseName, String tableName, String columnName,
-                                                long duration, TimeUnit unit) {
-        // TODO: Substitute with real partitioner when implemented for PostgreSQL.
-        return new RangePartitioner() {
-            @Override
-            public boolean hasPartitioning() {
-                return false;
-            }
-
-            @Override
-            public List<Partition> listPartitions() {
-                return Collections.emptyList();
-            }
-
-            @Override
-            public int createPartitions(int pastPartitions, int futurePartitions) {
-                return 0;
-            }
-
-            @Override
-            public void removeAllPartitions() {
-            }
-
-            @Override
-            public int dropPartitionsOlderThan(int duration, TimeUnit unit) {
-                return 0;
-            }
-        };
+    public RangePartitioner getRangePartitioner(DataSource ds,
+            String databaseName, String tableName, String columnName,
+            long duration, TimeUnit unit) {
+        return new PostgreSqlRangePartitioner(ds, databaseName, tableName,
+                columnName, duration, unit);
     }
 }

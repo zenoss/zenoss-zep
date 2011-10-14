@@ -11,7 +11,7 @@ import java.util.List;
 /**
  * DAO which provides an interface to the event times table.
  */
-public interface EventTimeDao extends Partitionable, Purgable {
+public interface EventTimeDao extends Partitionable {
 
     /**
      * Find event time occurrences processed since a given time.

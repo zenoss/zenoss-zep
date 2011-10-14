@@ -10,6 +10,7 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.utils.dao.RangePartitioner;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -17,7 +18,6 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.RangePartitioner;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
 import org.zenoss.zep.plugins.EventPreCreateContext;
@@ -51,14 +51,15 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     private final RangePartitioner partitioner;
 
     public EventArchiveDaoImpl(DataSource dataSource, String databaseName,
-            PartitionConfig partitionConfig, DatabaseCompatibility databaseCompatibility) {
+            PartitionConfig partitionConfig,
+            DatabaseCompatibility databaseCompatibility) {
         this.template = new SimpleJdbcTemplate(dataSource);
         this.partitionTableConfig = partitionConfig
                 .getConfig(TABLE_EVENT_ARCHIVE);
         this.databaseCompatibility = databaseCompatibility;
         this.uuidConverter = databaseCompatibility.getUUIDConverter();
-        this.partitioner = databaseCompatibility.getRangePartitioner(dataSource, databaseName,
-                TABLE_EVENT_ARCHIVE, COLUMN_LAST_SEEN,
+        this.partitioner = databaseCompatibility.getRangePartitioner(dataSource,
+                databaseName, TABLE_EVENT_ARCHIVE, COLUMN_LAST_SEEN,
                 partitionTableConfig.getPartitionDuration(),
                 partitionTableConfig.getPartitionUnit());
     }
@@ -125,13 +126,6 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    public int dropPartitionsOlderThan(int duration, TimeUnit unit)
-            throws ZepException {
-        return this.partitioner.dropPartitionsOlderThan(duration, unit);
-    }
-
-    @Override
-    @TransactionalRollbackAllExceptions
     public void initializePartitions() throws ZepException {
         this.partitioner.createPartitions(
                 this.partitionTableConfig.getInitialPastPartitions(),
@@ -160,8 +154,10 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @Override
     @TransactionalRollbackAllExceptions
     public void purge(int duration, TimeUnit unit) throws ZepException {
-        dropPartitionsOlderThan(duration, unit);
-        initializePartitions();
+        this.partitioner.pruneAndCreatePartitions(duration,
+                unit,
+                this.partitionTableConfig.getInitialPastPartitions(),
+                this.partitionTableConfig.getFuturePartitions());
     }
 
     @Override

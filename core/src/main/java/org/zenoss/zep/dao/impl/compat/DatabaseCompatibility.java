@@ -6,6 +6,8 @@ package org.zenoss.zep.dao.impl.compat;
 import javax.sql.DataSource;
 import java.util.concurrent.TimeUnit;
 
+import org.zenoss.utils.dao.RangePartitioner;
+
 /**
  * Database compatibility interface.
  */
@@ -42,6 +44,7 @@ public interface DatabaseCompatibility {
      * @param unit Unit of time.
      * @return The RangePartitioner.
      */
-    public RangePartitioner getRangePartitioner(DataSource ds, String databaseName, String tableName,
-                                                String columnName, long duration, TimeUnit unit);
+    public RangePartitioner getRangePartitioner(DataSource ds,
+            String databaseName, String tableName, String columnName,
+            long duration, TimeUnit unit);
 }

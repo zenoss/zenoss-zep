@@ -831,8 +831,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 " WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
                 StringUtils.collectionToCommaDelimitedString(this.archiveColumnNames), selectColumns);
 
-        final int updated = this.template.update(insertSql, fields);
-        this.template.update("DELETE FROM event_summary WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
+        this.template.update(insertSql, fields);
+        final int updated = this.template.update("DELETE FROM event_summary WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
                 fields);
         return updated;
     }

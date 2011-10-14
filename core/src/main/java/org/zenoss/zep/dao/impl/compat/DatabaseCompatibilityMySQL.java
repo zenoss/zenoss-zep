@@ -6,6 +6,9 @@ package org.zenoss.zep.dao.impl.compat;
 import javax.sql.DataSource;
 import java.util.concurrent.TimeUnit;
 
+import org.zenoss.utils.dao.RangePartitioner;
+import org.zenoss.utils.dao.impl.MySqlRangePartitioner;
+
 /**
  * Database compatibility layer for MySQL.
  */
@@ -39,8 +42,10 @@ public class DatabaseCompatibilityMySQL implements DatabaseCompatibility {
     }
 
     @Override
-    public RangePartitioner getRangePartitioner(DataSource ds, String databaseName, String tableName, String columnName,
-                                                long duration, TimeUnit unit) {
-        return new RangePartitionerMySQL(ds, databaseName, tableName, columnName, duration, unit);
+    public RangePartitioner getRangePartitioner(DataSource ds,
+            String databaseName, String tableName, String columnName,
+            long duration, TimeUnit unit) {
+        return new MySqlRangePartitioner(ds, databaseName, tableName,
+                columnName, duration, unit);
     }
 }

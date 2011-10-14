@@ -10,7 +10,7 @@ import org.zenoss.zep.ZepException;
 /**
  * Interface implemented by tables which support partitioning.
  */
-public interface Partitionable {
+public interface Partitionable extends Purgable {
     /**
      * Initializes partitions in the specified table.
      * 
@@ -18,20 +18,6 @@ public interface Partitionable {
      *             If an exception occurs initializing partitions in the table.
      */
     public void initializePartitions() throws ZepException;
-
-    /**
-     * Purges partitions from the table which are older than the specified time.
-     * 
-     * @param duration
-     *            Duration of time.
-     * @param unit
-     *            Time unit.
-     * @return The number of dropped partitions.
-     * @throws ZepException
-     *             If an exception occurs purging the table.
-     */
-    public int dropPartitionsOlderThan(int duration, TimeUnit unit)
-            throws ZepException;
 
     /**
      * Returns the partition interval in milliseconds. This is used in order to

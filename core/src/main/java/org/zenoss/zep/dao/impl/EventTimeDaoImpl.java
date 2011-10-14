@@ -8,12 +8,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.zep.Zep;
+import org.zenoss.utils.dao.RangePartitioner;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventTimeDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.RangePartitioner;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
 import javax.sql.DataSource;
@@ -29,9 +29,9 @@ import java.util.concurrent.TimeUnit;
 import static org.zenoss.zep.dao.impl.EventConstants.*;
 
 /**
- * NOTE: This table is backed by MyISAM storage instead of InnoDB storage, so normal transaction
- * handling won't work here. Ignore the @Transactional* annotations on the methods as they are
- * ignored.
+ * NOTE: This table may be backed by MyISAM storage so normal transaction
+ * handling won't work here. Ignore the @Transactional* annotations on
+ * the methods as they are ignored.
  */
 public class EventTimeDaoImpl implements EventTimeDao {
 
@@ -45,12 +45,13 @@ public class EventTimeDaoImpl implements EventTimeDao {
     private final TypeConverter<String> uuidConverter;
 
     public EventTimeDaoImpl(DataSource dataSource, String databaseName,
-                            PartitionConfig partitionConfig, DatabaseCompatibility databaseCompatibility) {
+            PartitionConfig partitionConfig,
+            DatabaseCompatibility databaseCompatibility) {
         this.template = new SimpleJdbcTemplate(dataSource);
         this.partitionTableConfig = partitionConfig.getConfig(TABLE_EVENT_TIME);
         this.databaseCompatibility = databaseCompatibility;
-        this.partitioner = databaseCompatibility.getRangePartitioner(dataSource, databaseName,
-                TABLE_EVENT_TIME, COLUMN_PROCESSED,
+        this.partitioner = databaseCompatibility.getRangePartitioner(dataSource,
+                databaseName, TABLE_EVENT_TIME, COLUMN_PROCESSED,
                 partitionTableConfig.getPartitionDuration(),
                 partitionTableConfig.getPartitionUnit());
         this.uuidConverter = databaseCompatibility.getUUIDConverter();
@@ -59,8 +60,10 @@ public class EventTimeDaoImpl implements EventTimeDao {
     @Override
     @TransactionalRollbackAllExceptions
     public void purge(int duration, TimeUnit unit) throws ZepException {
-        dropPartitionsOlderThan(duration, unit);
-        initializePartitions();
+        this.partitioner.pruneAndCreatePartitions(duration,
+                unit,
+                this.partitionTableConfig.getInitialPastPartitions(),
+                this.partitionTableConfig.getFuturePartitions());
     }
 
 
@@ -70,13 +73,6 @@ public class EventTimeDaoImpl implements EventTimeDao {
         this.partitioner.createPartitions(
                 this.partitionTableConfig.getInitialPastPartitions(),
                 this.partitionTableConfig.getFuturePartitions());
-    }
-
-    @Override
-    @TransactionalRollbackAllExceptions
-    public int dropPartitionsOlderThan(int duration, TimeUnit unit)
-            throws ZepException {
-        return this.partitioner.dropPartitionsOlderThan(duration, unit);
     }
 
     @Override

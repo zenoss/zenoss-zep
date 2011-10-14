@@ -9,14 +9,15 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.zenoss.utils.dao.RangePartitioner;
+import org.zenoss.utils.dao.Partition;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.DatabaseType;
-import org.zenoss.zep.dao.impl.compat.Partition;
-import org.zenoss.zep.dao.impl.compat.RangePartitionerMySQL;
 
-import javax.sql.DataSource;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import javax.sql.DataSource;
 
 import static org.junit.Assert.*;
 
@@ -34,27 +35,23 @@ public class RangePartitionerIT extends AbstractTransactionalJUnit4SpringContext
         if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
             this.simpleJdbcTemplate
                     .update("CREATE TABLE `range_partition` (`col_ts` BIGINT NOT NULL, `message` VARCHAR(256) NOT NULL)");
+        } else if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
+            this.simpleJdbcTemplate
+                    .update("CREATE TABLE range_partition (col_ts timestamp without time zone, message VARCHAR(256) NOT NULL)");
         }
     }
 
     @After
     public void dropSampleTable() {
-        if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
-            this.simpleJdbcTemplate.update("DROP TABLE range_partition");
-        }
+        this.simpleJdbcTemplate.update("DROP TABLE range_partition");
     }
 
     @Test
-    public void testRangePartitionerMySQL() {
-        if (databaseCompatibility.getDatabaseType() != DatabaseType.MYSQL) {
-            return;
-        }
-        String dbname = this.simpleJdbcTemplate.queryForObject(
-                "SELECT DATABASE()", String.class);
-        RangePartitionerMySQL partitioner = new RangePartitionerMySQL(
+    public void testRangePartitioner() {
+        String dbname = "zenoss_zep_test";
+        RangePartitioner partitioner = databaseCompatibility.getRangePartitioner(
                 this.dataSource, dbname, "range_partition", "col_ts",
                 1, TimeUnit.DAYS);
-        assertTrue(partitioner.hasPartitioning());
         assertEquals(0, partitioner.listPartitions().size());
         /*
          * Initialize partitions with 5 previous days partitions and 10 future
@@ -62,11 +59,11 @@ public class RangePartitionerIT extends AbstractTransactionalJUnit4SpringContext
          */
         int numBefore = 0, numAfter = 0;
         partitioner.createPartitions(5, 10);
-        long time = System.currentTimeMillis();
+        Timestamp time = new Timestamp(System.currentTimeMillis());
         List<Partition> partitions = partitioner.listPartitions();
         assertEquals(15, partitions.size());
         for (Partition partition : partitions) {
-            if (partition.getRangeLessThan() < time) {
+            if (partition.getRangeLessThan().before(time)) {
                 numBefore++;
             } else {
                 numAfter++;
@@ -86,11 +83,27 @@ public class RangePartitionerIT extends AbstractTransactionalJUnit4SpringContext
         // Test pruning partitions older than 3 days ago
         numBefore = 0;
         numAfter = 0;
-        partitioner.dropPartitionsOlderThan(3, TimeUnit.DAYS);
+        partitioner.pruneAndCreatePartitions(3, TimeUnit.DAYS, 0, 0);
         partitions = partitioner.listPartitions();
         assertEquals(15, partitions.size());
         for (Partition partition : partitions) {
-            if (partition.getRangeLessThan() <= time) {
+            if (partition.getRangeLessThan().before(time)) {
+                numBefore++;
+            } else {
+                numAfter++;
+            }
+        }
+        assertEquals(3, numBefore);
+        assertEquals(12, numAfter);
+
+        // Test pruning partitions again, expecting same results
+        numBefore = 0;
+        numAfter = 0;
+        partitioner.pruneAndCreatePartitions(3, TimeUnit.DAYS, 0, 0);
+        partitions = partitioner.listPartitions();
+        assertEquals(15, partitions.size());
+        for (Partition partition : partitions) {
+            if (partition.getRangeLessThan().before(time)) {
                 numBefore++;
             } else {
                 numAfter++;
