@@ -21,7 +21,7 @@
         <zep.test.amqp.uri>amqp://zenoss:zenoss@localhost:5672/zenoss-test</zep.test.amqp.uri>
         <!-- Dependency Versions -->
         <version.jackson>1.6.3</version.jackson>
-        <version.jetty>7.5.2.v20111006</version.jetty>
+        <version.jetty>7.5.3.v20111011</version.jetty>
         <version.logback>0.9.26</version.logback>
         <version.lucene>3.0.3</version.lucene>
         <version.mysql>5.1.15</version.mysql>
