@@ -3,6 +3,7 @@
  */
 package org.zenoss.zep.dao.impl;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -104,6 +105,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
     }
 
     @Test
+    @Ignore
     public void testIndexCreatedEvents()  throws ZepException {
         testCreate(eventSummaryDao, eventSummaryIndexQueueDao, false);
         testCreate(eventArchiveDao, eventArchiveIndexQueueDao, true);
@@ -136,6 +138,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
     }
 
     @Test
+    @Ignore
     public void testIndexModifiedEvents() throws ZepException {
         testModify(eventSummaryDao, eventSummaryIndexQueueDao, false);
         testModify(eventArchiveDao, eventArchiveIndexQueueDao, true);
@@ -168,6 +171,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
     }
 
     @Test
+    @Ignore
     public void testIndexDeletedEvents() throws ZepException {
         testDelete(eventSummaryDao, eventSummaryIndexQueueDao, false);
         testDelete(eventArchiveDao, eventArchiveIndexQueueDao, true);
