@@ -19,6 +19,14 @@
         <zep.test.jdbc.dbname>zenoss_zep_test</zep.test.jdbc.dbname>
         <zep.test.index.dir>${project.build.directory}/index</zep.test.index.dir>
         <zep.test.amqp.uri>amqp://zenoss:zenoss@localhost:5672/zenoss-test</zep.test.amqp.uri>
+        <!-- Default to postgresql database type for integration tests -->
+        <zep.jdbc.protocol>postgresql</zep.jdbc.protocol>
+        <zep.jdbc.hostname>localhost</zep.jdbc.hostname>
+        <zep.jdbc.port>5432</zep.jdbc.port>
+        <zep.jdbc.admin.username>postgres</zep.jdbc.admin.username>
+        <zep.jdbc.admin.password>postgres</zep.jdbc.admin.password>
+        <zep.jdbc.username>zenoss</zep.jdbc.username>
+        <zep.jdbc.password>zenoss</zep.jdbc.password>
         <!-- Dependency Versions -->
         <version.jackson>1.6.3</version.jackson>
         <version.jetty>7.5.3.v20111011</version.jetty>
@@ -31,18 +39,6 @@
         <version.spring>3.0.5.RELEASE</version.spring>
     </properties>
     <profiles>
-        <profile>
-            <!-- Disable the integration tests if we haven't specified a database type -->
-            <id>integration-tests</id>
-            <activation>
-                <property>
-                    <name>!dbtype</name>
-                </property>
-            </activation>
-            <properties>
-                <skipITs>true</skipITs>
-            </properties>
-        </profile>
         <profile>
             <id>mysql</id>
             <activation>
@@ -57,24 +53,6 @@
                 <zep.jdbc.port>3306</zep.jdbc.port>
                 <zep.jdbc.admin.username>root</zep.jdbc.admin.username>
                 <zep.jdbc.admin.password></zep.jdbc.admin.password>
-                <zep.jdbc.username>zenoss</zep.jdbc.username>
-                <zep.jdbc.password>zenoss</zep.jdbc.password>
-            </properties>
-        </profile>
-        <profile>
-            <id>postgresql</id>
-            <activation>
-                <property>
-                    <name>dbtype</name>
-                    <value>postgresql</value>
-                </property>
-            </activation>
-            <properties>
-                <zep.jdbc.protocol>${dbtype}</zep.jdbc.protocol>
-                <zep.jdbc.hostname>localhost</zep.jdbc.hostname>
-                <zep.jdbc.port>5432</zep.jdbc.port>
-                <zep.jdbc.admin.username>postgres</zep.jdbc.admin.username>
-                <zep.jdbc.admin.password>postgres</zep.jdbc.admin.password>
                 <zep.jdbc.username>zenoss</zep.jdbc.username>
                 <zep.jdbc.password>zenoss</zep.jdbc.password>
             </properties>

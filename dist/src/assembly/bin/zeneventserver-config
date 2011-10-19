@@ -16,13 +16,14 @@ def parse_properties(conf_file):
     with open(conf_file) as global_conf:
         for line in global_conf:
             name = None
+            value = None
             if not line.startswith('#'):
-                fields = re.split(PROPERTY_DELIM, line, 1)
+                fields = re.split(PROPERTY_DELIM, line.rstrip(), 1)
                 if len(fields) > 1:
-                    name = fields[0]
+                    name, value = fields
             # Strip trailing whitespace and ensure each line has a trailing
             # newline (fixes issues with noeol).
-            yield (line.rstrip() + '\n', name)
+            yield (line.rstrip() + '\n', name, value)
 
 def create_tmpfile(path):
     paths = (path, path + '.example')
@@ -35,9 +36,16 @@ def create_tmpfile(path):
         # Clone permissions from original file
         os.chmod(tmpname, statinfo.st_mode)
         os.chown(tmpname, statinfo.st_uid, statinfo.st_gid)
-        return (tmpfd,tmpname)
+        return tmpfd, tmpname
 
     return tempfile.mkstemp(suffix='.conf', dir=os.path.dirname(path), text=True)
+
+def print_property(property_name):
+    filename = zenPath('etc', 'zeneventserver.conf')
+    for line, name, value in parse_properties(filename):
+        if name == property_name:
+            print value
+            break
 
 def remove_properties(properties_to_remove):
     filename = zenPath('etc', 'zeneventserver.conf')
@@ -45,7 +53,7 @@ def remove_properties(properties_to_remove):
     output_file = os.fdopen(tmpfd, 'wb')
     found_properties = set()
     try:
-        for line, name in parse_properties(filename):
+        for line, name, value in parse_properties(filename):
             if name is None or name not in properties_to_remove:
                 output_file.write(line)
             else:
@@ -65,7 +73,7 @@ def update_properties(properties_dict):
     output_file = os.fdopen(tmpfd, 'wb')
     found_properties = set()
     try:
-        for line, name in parse_properties(filename):
+        for line, name, value in parse_properties(filename):
             if name is None or not name in properties_dict:
                 output_file.write(line)
             elif name not in found_properties:
@@ -91,19 +99,29 @@ def main():
             "ZENHOME not set. You must run this script as the zenoss user.")
         sys.exit(1)
     parser = optparse.OptionParser(usage='%prog <-r|-u> prop_name[=prop_val] [...]')
-    parser.add_option('-r', '--remove', dest='remove', action='store_true',
+    parser.add_option('-p', '--print', dest='get', action="store_true", default=False,
+            help='Prints property from the configuration file.')
+    parser.add_option('-r', '--remove', dest='remove', action='store_true', default=False,
             help='Removes properties from the configuration file')
-    parser.add_option('-u', '--update', dest='update', action='store_true',
+    parser.add_option('-u', '--update', dest='update', action='store_true', default=False,
             help='Adds or updates properties in the configuration file')
     (options, args) = parser.parse_args(args=sys.argv[1:])
 
-    if len(args) == 0:
+    if not args:
         parser.error('required property names not provided')
 
-    if options.remove and options.update:
-        parser.error('options -r and -u are mutually exclusive')
+    numcmds = int(options.get) + int(options.remove) + int(options.update)
 
-    if options.remove:
+    if not numcmds:
+        parser.error("Must specify command (-p|-r|-u)")
+    if numcmds > 1:
+        parser.error('Only one command can be specified (-p|-r|-u)')
+
+    if options.get:
+        if len(args) > 1:
+            parser.error("Print option only takes one property name")
+        print_property(args[0])
+    elif options.remove:
         remove_properties(args)
     else:
         argsdict = {}

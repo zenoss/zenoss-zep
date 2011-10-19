@@ -70,18 +70,19 @@ public final class DaoUtils {
     }
 
     public static BasicDataSource createDataSource(Properties globalConf, ZepInstance zepInstance) {
-        // TODO: Update to look in global.conf first, then defer to ZEP's own configuration file
         final Map<String,String> zepConfig = zepInstance.getConfig();
-        final String protocol = zepConfig.get("zep.jdbc.protocol");
-        final String hostname = zepConfig.get("zep.jdbc.hostname");
-        final String port = zepConfig.get("zep.jdbc.port");
-        final String dbname = zepConfig.get("zep.jdbc.dbname");
-        final String username = zepConfig.get("zep.jdbc.username");
-        final String password = zepConfig.get("zep.jdbc.password");
+        final String protocol = globalConf.getProperty("zep_db_type", zepConfig.get("zep.jdbc.protocol"));
+        final String hostname = globalConf.getProperty("zep_host", zepConfig.get("zep.jdbc.hostname"));
+        final String port = globalConf.getProperty("zep_port", zepConfig.get("zep.jdbc.port"));
+        final String dbname = globalConf.getProperty("zep_db", zepConfig.get("zep.jdbc.dbname"));
+        final String username = globalConf.getProperty("zep_user", zepConfig.get("zep.jdbc.username"));
+        final String password = globalConf.getProperty("zep_password", zepConfig.get("zep.jdbc.password"));
         final int initialSize = getIntProperty(zepConfig.get("zep.jdbc.pool.initial_size"), 3);
         final int maxActive = getIntProperty(zepConfig.get("zep.jdbc.pool.max_active"), 10);
-        final boolean poolPreparedStatements = getBoolProperty(zepConfig.get("zep.jdbc.pool.pool_prepared_statements"), true);
-        final int maxOpenPreparedStatements = getIntProperty(zepConfig.get("zep.jdbc.pool.max_open_prepared_statements"), 1000);
+        final boolean poolPreparedStatements =
+                getBoolProperty(zepConfig.get("zep.jdbc.pool.pool_prepared_statements"), true);
+        final int maxOpenPreparedStatements =
+                getIntProperty(zepConfig.get("zep.jdbc.pool.max_open_prepared_statements"), 1000);
         final String driverClassName;
         final String jdbcParameters;
         if (MYSQL_PROTOCOL.equals(protocol)) {
@@ -117,7 +118,7 @@ public final class DaoUtils {
 
     public static DatabaseCompatibility createDatabaseCompatibility(Properties globalConf, ZepInstance zepInstance) {
         final Map<String,String> zepConfig = zepInstance.getConfig();
-        final String protocol = zepConfig.get("zep.jdbc.protocol");
+        final String protocol = globalConf.getProperty("zep_db_type", zepConfig.get("zep.jdbc.protocol"));
         if (MYSQL_PROTOCOL.equals(protocol)) {
             return new DatabaseCompatibilityMySQL();
         }
