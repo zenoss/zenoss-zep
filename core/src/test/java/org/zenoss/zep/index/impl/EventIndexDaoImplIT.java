@@ -80,7 +80,6 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     }
 
     @Test
-    @Ignore
     public void testList() throws ZepException {
         Set<String> uuidsToSearch = new HashSet<String>();
 

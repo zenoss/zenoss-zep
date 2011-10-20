@@ -327,6 +327,10 @@
                                 <zep.amqp.uri>${zep.test.amqp.uri}</zep.amqp.uri>
                                 <!-- Don't load ZenPack plug-ins when running integration tests -->
                                 <zep.plugins.external.disabled>true</zep.plugins.external.disabled>
+                                <!--
+                                Disable background indexing during integration testing.
+                                -->
+                                <zep.index.enabled>false</zep.index.enabled>
                             </systemPropertyVariables>
                         </configuration>
                     </execution>
