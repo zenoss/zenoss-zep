@@ -3,6 +3,7 @@
  */
 package org.zenoss.zep.dao.impl;
 
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +52,12 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
 
     @Autowired
     public DatabaseCompatibility databaseCompatibility;
+
+    @Before
+    public void setup() {
+        this.simpleJdbcTemplate.update("TRUNCATE TABLE event_summary_index_queue");
+        this.simpleJdbcTemplate.update("TRUNCATE TABLE event_archive_index_queue");
+    }
 
     private EventSummary create(EventSummaryBaseDao eventSummaryBaseDao, boolean archive) throws ZepException {
         Event event = EventTestUtils.createSampleEvent();
