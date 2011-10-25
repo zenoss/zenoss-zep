@@ -109,10 +109,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 final TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
                 final EventSummary.Builder oldSummaryBuilder = EventSummary.newBuilder();
                 oldSummaryBuilder.setCount(rs.getInt(COLUMN_EVENT_COUNT));
-                oldSummaryBuilder.setFirstSeenTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_FIRST_SEEN)));
-                oldSummaryBuilder.setLastSeenTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_LAST_SEEN)));
+                oldSummaryBuilder.setFirstSeenTime(timestampConverter.fromDatabaseType(rs, COLUMN_FIRST_SEEN));
+                oldSummaryBuilder.setLastSeenTime(timestampConverter.fromDatabaseType(rs, COLUMN_LAST_SEEN));
                 oldSummaryBuilder.setStatus(EventStatus.valueOf(rs.getInt(COLUMN_STATUS_ID)));
-                oldSummaryBuilder.setUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID)));
+                oldSummaryBuilder.setUuid(uuidConverter.fromDatabaseType(rs, COLUMN_UUID));
 
                 final Event.Builder occurrenceBuilder = oldSummaryBuilder.addOccurrenceBuilder(0);
                 final String detailsJson = rs.getString(COLUMN_DETAILS_JSON);
@@ -341,7 +341,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         return this.template.query(sql, new RowMapper<String>() {
             @Override
             public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-                return uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID));
+                return uuidConverter.fromDatabaseType(rs, COLUMN_UUID);
             }
         }, fields);
     }
@@ -598,12 +598,24 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             return m;
         }
 
+        public String getCurrentUserUuid() {
+            return currentUserUuid;
+        }
+
         public void setCurrentUserUuid(String currentUserUuid) {
             this.currentUserUuid = currentUserUuid;
         }
 
+        public String getCurrentUserName() {
+            return currentUserName;
+        }
+
         public void setCurrentUserName(String currentUserName) {
             this.currentUserName = DaoUtils.truncateStringToUtf8(currentUserName, MAX_CURRENT_USER_NAME);
+        }
+
+        public String getClearedByEventUuid() {
+            return clearedByEventUuid;
         }
 
         public void setClearedByEventUuid(String clearedByEventUuid) {
@@ -649,13 +661,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             EventAuditLog.Builder builder = EventAuditLog.newBuilder();
             builder.setTimestamp(now);
             builder.setNewStatus(status);
-            Object event_user_uuid = fields.get(COLUMN_CURRENT_USER_UUID);
-            if (event_user_uuid != null) {
-                builder.setUserUuid(uuidConverter.fromDatabaseType(event_user_uuid));
+            if (updateFields.getCurrentUserUuid() != null) {
+                builder.setUserUuid(updateFields.getCurrentUserUuid());
             }
-            String event_user = (String)fields.get(COLUMN_CURRENT_USER_NAME);
-            if (event_user != null) {
-                builder.setUserName(event_user);
+            if (updateFields.getCurrentUserName() != null) {
+                builder.setUserName(updateFields.getCurrentUserName());
             }
             try {
                 newAuditJson = JsonFormat.writeAsString(builder.build());
@@ -756,7 +766,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                     @Override
                     public String mapRow(ResultSet rs, int rowNum)
                             throws SQLException {
-                        return uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID));
+                        return uuidConverter.fromDatabaseType(rs, COLUMN_UUID);
                     }
                 }, fields);
         return archive(uuids);

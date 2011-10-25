@@ -4,6 +4,8 @@
 package org.zenoss.zep.dao.impl.compat;
 
 import java.nio.ByteBuffer;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.UUID;
 
 /**
@@ -11,8 +13,8 @@ import java.util.UUID;
  */
 public class UUIDConverterMySQL implements TypeConverter<String> {
     @Override
-    public String fromDatabaseType(Object uuid) {
-        return uuidFromBytes((byte[]) uuid);
+    public String fromDatabaseType(ResultSet rs, String columnName) throws SQLException {
+        return uuidFromBytes(rs.getBytes(columnName));
     }
 
     @Override
@@ -28,6 +30,9 @@ public class UUIDConverterMySQL implements TypeConverter<String> {
      * @return 16 byte array.
      */
     private static byte[] uuidToBytes(String uuidStr) {
+        if (uuidStr == null) {
+            return null;
+        }
         final ByteBuffer bb = ByteBuffer.allocate(16);
         final UUID uuid = UUID.fromString(uuidStr);
         bb.putLong(uuid.getMostSignificantBits());
@@ -43,6 +48,9 @@ public class UUIDConverterMySQL implements TypeConverter<String> {
      * @return UUID string.
      */
     private static String uuidFromBytes(byte[] bytes) {
+        if (bytes == null) {
+            return null;
+        }
         final ByteBuffer bb = ByteBuffer.wrap(bytes);
         return new UUID(bb.getLong(), bb.getLong()).toString();
     }

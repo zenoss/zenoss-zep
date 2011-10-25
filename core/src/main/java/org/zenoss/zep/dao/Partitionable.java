@@ -3,8 +3,6 @@
  */
 package org.zenoss.zep.dao;
 
-import java.util.concurrent.TimeUnit;
-
 import org.zenoss.zep.ZepException;
 
 /**

@@ -3,6 +3,15 @@
  */
 package org.zenoss.zep.rest;
 
+import org.jboss.resteasy.annotations.GZIP;
+import org.zenoss.protobufs.ProtobufConstants;
+import org.zenoss.protobufs.zep.Zep.EventTrigger;
+import org.zenoss.protobufs.zep.Zep.EventTriggerSet;
+import org.zenoss.protobufs.zep.Zep.EventTriggerSubscriptionSet;
+import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.EventTriggerDao;
+import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
+
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -15,15 +24,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 import javax.ws.rs.core.UriInfo;
-
-import org.jboss.resteasy.annotations.GZIP;
-import org.zenoss.protobufs.ProtobufConstants;
-import org.zenoss.protobufs.zep.Zep.EventTrigger;
-import org.zenoss.protobufs.zep.Zep.EventTriggerSet;
-import org.zenoss.protobufs.zep.Zep.EventTriggerSubscriptionSet;
-import org.zenoss.zep.ZepException;
-import org.zenoss.zep.dao.EventTriggerDao;
-import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
 
 /**
  * REST API used to manage event triggers.

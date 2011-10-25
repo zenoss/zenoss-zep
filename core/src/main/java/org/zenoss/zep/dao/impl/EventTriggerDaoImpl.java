@@ -167,7 +167,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
             Map<String, EventTrigger.Builder> triggersByUuid = new HashMap<String, EventTrigger.Builder>();
 
             while (rs.next()) {
-                String uuid = uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID));
+                String uuid = uuidConverter.fromDatabaseType(rs, COLUMN_UUID);
                 EventTrigger.Builder triggerBuilder = triggersByUuid.get(uuid);
                 if (triggerBuilder == null) {
                     triggerBuilder = EventTrigger.newBuilder();
@@ -186,12 +186,12 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
                 }
 
                 /* Add subscriptions (LEFT JOINED table) */
-                Object subUuid = rs.getObject("event_sub_uuid");
+                String subUuid = uuidConverter.fromDatabaseType(rs, "event_sub_uuid");
                 if (subUuid != null) {
                     EventTriggerSubscription.Builder subBuilder = EventTriggerSubscription.newBuilder();
-                    subBuilder.setUuid(uuidConverter.fromDatabaseType(subUuid));
-                    subBuilder.setSubscriberUuid(uuidConverter.fromDatabaseType(rs
-                            .getObject(EventTriggerSubscriptionDaoImpl.COLUMN_SUBSCRIBER_UUID)));
+                    subBuilder.setUuid(subUuid);
+                    subBuilder.setSubscriberUuid(uuidConverter.fromDatabaseType(rs,
+                            EventTriggerSubscriptionDaoImpl.COLUMN_SUBSCRIBER_UUID));
                     subBuilder.setDelaySeconds(rs.getInt(EventTriggerSubscriptionDaoImpl.COLUMN_DELAY_SECONDS));
                     subBuilder.setRepeatSeconds(rs.getInt(EventTriggerSubscriptionDaoImpl.COLUMN_REPEAT_SECONDS));
                     subBuilder.setTriggerUuid(uuid);

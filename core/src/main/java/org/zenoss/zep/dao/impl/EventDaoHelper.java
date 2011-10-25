@@ -318,7 +318,7 @@ public class EventDaoHelper {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         Event.Builder eventBuilder = Event.newBuilder();
 
-        eventBuilder.setCreatedTime(timestampConverter.fromDatabaseType(rs.getObject((COLUMN_LAST_SEEN))));
+        eventBuilder.setCreatedTime(timestampConverter.fromDatabaseType(rs, COLUMN_LAST_SEEN));
         eventBuilder.setFingerprint(rs.getString(COLUMN_FINGERPRINT));
 
         int eventGroupId = rs.getInt(COLUMN_EVENT_GROUP_ID);
@@ -341,9 +341,9 @@ public class EventDaoHelper {
             eventBuilder.setEventKey(daoCache.getEventKeyFromId(eventKeyId));
         }
 
-        Object classMappingUuid = rs.getObject(COLUMN_EVENT_CLASS_MAPPING_UUID);
-        if (classMappingUuid != null) {
-            eventBuilder.setEventClassMappingUuid(uuidConverter.fromDatabaseType(classMappingUuid));
+        String eventClassMappingUuid = uuidConverter.fromDatabaseType(rs, COLUMN_EVENT_CLASS_MAPPING_UUID);
+        if (eventClassMappingUuid != null) {
+            eventBuilder.setEventClassMappingUuid(eventClassMappingUuid);
         }
 
         eventBuilder.setSeverity(EventSeverity.valueOf(rs.getInt(COLUMN_SEVERITY_ID)));
@@ -405,9 +405,9 @@ public class EventDaoHelper {
     private EventActor deserializeEventActor(ResultSet rs)
             throws SQLException {
         final EventActor.Builder actorBuilder = EventActor.newBuilder();
-        final Object elementUuid = rs.getObject(COLUMN_ELEMENT_UUID);
+        String elementUuid = uuidConverter.fromDatabaseType(rs, COLUMN_ELEMENT_UUID);
         if (elementUuid != null) {
-            actorBuilder.setElementUuid(uuidConverter.fromDatabaseType(elementUuid));
+            actorBuilder.setElementUuid(elementUuid);
         }
 
         final int elementTypeId = rs.getInt(COLUMN_ELEMENT_TYPE_ID);
@@ -429,9 +429,9 @@ public class EventDaoHelper {
             actorBuilder.setElementTitle(elementIdentifier);
         }
 
-        final Object subUuid = rs.getObject(COLUMN_ELEMENT_SUB_UUID);
+        String subUuid = uuidConverter.fromDatabaseType(rs, COLUMN_ELEMENT_SUB_UUID);
         if (subUuid != null) {
-            actorBuilder.setElementSubUuid(uuidConverter.fromDatabaseType(subUuid));
+            actorBuilder.setElementSubUuid(subUuid);
         }
 
         final int subTypeId = rs.getInt(COLUMN_ELEMENT_SUB_TYPE_ID);

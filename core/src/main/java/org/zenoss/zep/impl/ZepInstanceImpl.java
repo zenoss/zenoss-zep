@@ -3,6 +3,12 @@
  */
 package org.zenoss.zep.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.zenoss.zep.UUIDGenerator;
+import org.zenoss.zep.ZepInstance;
+import org.zenoss.zep.ZepUtils;
+
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -14,12 +20,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.zenoss.zep.UUIDGenerator;
-import org.zenoss.zep.ZepInstance;
-import org.zenoss.zep.ZepUtils;
 
 public class ZepInstanceImpl implements ZepInstance {
 

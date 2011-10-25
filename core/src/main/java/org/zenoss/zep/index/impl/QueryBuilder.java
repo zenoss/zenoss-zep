@@ -49,7 +49,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static org.zenoss.zep.index.impl.IndexConstants.SORT_SUFFIX;
+import static org.zenoss.zep.index.impl.IndexConstants.*;
 
 public class QueryBuilder {
     private static final Logger logger = LoggerFactory.getLogger(QueryBuilder.class);

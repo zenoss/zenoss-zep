@@ -32,7 +32,6 @@ import org.zenoss.zep.impl.EventPreCreateContextImpl;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import java.io.UnsupportedEncodingException;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.ResultSet;
 import java.sql.SQLException;

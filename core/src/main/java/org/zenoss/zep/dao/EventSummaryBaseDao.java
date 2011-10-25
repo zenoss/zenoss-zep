@@ -7,8 +7,8 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import java.util.List;
 

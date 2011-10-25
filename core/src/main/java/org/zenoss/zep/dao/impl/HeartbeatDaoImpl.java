@@ -3,8 +3,6 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.zep.Zep.DaemonHeartbeat;
@@ -13,8 +11,6 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.HeartbeatDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
@@ -110,7 +106,7 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
             hb.setMonitor(rs.getString(COLUMN_MONITOR));
             hb.setDaemon(rs.getString(COLUMN_DAEMON));
             hb.setTimeoutSeconds(rs.getInt(COLUMN_TIMEOUT_SECONDS));
-            hb.setLastTime(timestampConverter.fromDatabaseType(rs.getObject((COLUMN_LAST_TIME))));
+            hb.setLastTime(timestampConverter.fromDatabaseType(rs, COLUMN_LAST_TIME));
             return hb.build();
         }
     };

@@ -113,10 +113,10 @@ public class EventTimeDaoImpl implements EventTimeDao {
         public Zep.EventTime mapRow(ResultSet rs, int rowNum) throws SQLException {
             Zep.EventTime.Builder builder = Zep.EventTime.newBuilder();
             TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
-            builder.setCreatedTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_CREATED)));
-            builder.setProcessedTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_PROCESSED)));
-            builder.setFirstSeenTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_FIRST_SEEN)));
-            String summaryUuid = uuidConverter.fromDatabaseType(rs.getObject(COLUMN_SUMMARY_UUID));
+            builder.setCreatedTime(timestampConverter.fromDatabaseType(rs, COLUMN_CREATED));
+            builder.setProcessedTime(timestampConverter.fromDatabaseType(rs, COLUMN_PROCESSED));
+            builder.setFirstSeenTime(timestampConverter.fromDatabaseType(rs, COLUMN_FIRST_SEEN));
+            String summaryUuid = uuidConverter.fromDatabaseType(rs, COLUMN_SUMMARY_UUID);
             builder.setSummaryUuid(summaryUuid);
             return builder.build();
         }

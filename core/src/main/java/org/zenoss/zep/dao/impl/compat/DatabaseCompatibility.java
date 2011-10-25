@@ -3,10 +3,10 @@
  */
 package org.zenoss.zep.dao.impl.compat;
 
+import org.zenoss.utils.dao.RangePartitioner;
+
 import javax.sql.DataSource;
 import java.util.concurrent.TimeUnit;
-
-import org.zenoss.utils.dao.RangePartitioner;
 
 /**
  * Database compatibility interface.

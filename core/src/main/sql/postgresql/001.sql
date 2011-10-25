@@ -3,7 +3,7 @@
 CREATE TABLE schema_version
 (
     version INTEGER NOT NULL,
-    installed_time TIMESTAMP NOT NULL,
+    installed_time TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY(version)
 );
 
@@ -78,10 +78,10 @@ CREATE TABLE event_summary
     element_sub_type_id SMALLINT,
     element_sub_identifier VARCHAR(255),
     element_sub_title VARCHAR(255),
-    update_time TIMESTAMP NOT NULL,
-    first_seen TIMESTAMP NOT NULL,
-    status_change TIMESTAMP NOT NULL,
-    last_seen TIMESTAMP  NOT NULL,
+    update_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    first_seen TIMESTAMP WITH TIME ZONE NOT NULL,
+    status_change TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_seen TIMESTAMP WITH TIME ZONE NOT NULL,
     event_count INTEGER NOT NULL,
     monitor_id INTEGER,
     agent_id INTEGER,
@@ -119,7 +119,7 @@ CREATE TABLE event_summary_index_queue
 (
     id BIGSERIAL NOT NULL,
     uuid UUID NOT NULL,
-    update_time TIMESTAMP NOT NULL,
+    update_time TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY(id)
 );
 
@@ -142,10 +142,10 @@ CREATE TABLE event_archive
     element_sub_type_id SMALLINT,
     element_sub_identifier VARCHAR(255),
     element_sub_title VARCHAR(255),
-    update_time TIMESTAMP NOT NULL,
-    first_seen TIMESTAMP NOT NULL,
-    status_change TIMESTAMP NOT NULL,
-    last_seen TIMESTAMP NOT NULL,
+    update_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    first_seen TIMESTAMP WITH TIME ZONE NOT NULL,
+    status_change TIMESTAMP WITH TIME ZONE NOT NULL,
+    last_seen TIMESTAMP WITH TIME ZONE NOT NULL,
     event_count INTEGER NOT NULL,
     monitor_id INTEGER,
     agent_id INTEGER,
@@ -169,8 +169,8 @@ CREATE TABLE event_archive_index_queue
     id BIGSERIAL NOT NULL,
     uuid UUID NOT NULL,
     -- Used for partition pruning in event_archive
-    last_seen TIMESTAMP NOT NULL,
-    update_time TIMESTAMP NOT NULL,
+    last_seen TIMESTAMP WITH TIME ZONE NOT NULL,
+    update_time TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY(id)
 );
 
@@ -212,7 +212,7 @@ CREATE TABLE event_trigger_signal_spool
     event_trigger_subscription_uuid UUID NOT NULL,
     event_summary_uuid UUID NOT NULL,
     flush_time BIGINT NOT NULL,
-    created TIMESTAMP NOT NULL,
+    created TIMESTAMP WITH TIME ZONE NOT NULL,
     event_count INTEGER DEFAULT 1 NOT NULL,
     sent_signal BOOLEAN DEFAULT FALSE NOT NULL,
     PRIMARY KEY (uuid),
@@ -237,16 +237,16 @@ CREATE TABLE daemon_heartbeat
     monitor VARCHAR(255) NOT NULL,
     daemon VARCHAR(255),
     timeout_seconds INTEGER NOT NULL,
-    last_time TIMESTAMP NOT NULL,
+    last_time TIMESTAMP WITH TIME ZONE NOT NULL,
     PRIMARY KEY (monitor, daemon)
 );
 
 CREATE TABLE event_time
 (
     summary_uuid UUID NOT NULL,
-    processed TIMESTAMP NOT NULL,
-    created TIMESTAMP NOT NULL,
-    first_seen TIMESTAMP NOT NULL
+    processed TIMESTAMP WITH TIME ZONE NOT NULL,
+    created TIMESTAMP WITH TIME ZONE NOT NULL,
+    first_seen TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
 CREATE INDEX event_time_processed_idx ON event_time(processed);

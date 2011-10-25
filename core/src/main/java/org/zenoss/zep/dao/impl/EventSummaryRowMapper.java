@@ -34,24 +34,24 @@ public class EventSummaryRowMapper implements RowMapper<EventSummary> {
     public EventSummary mapRow(ResultSet rs, int rowNum) throws SQLException {
         final EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
         summaryBuilder.addOccurrence(helper.eventMapper(rs));
-        summaryBuilder.setUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID)));
+        summaryBuilder.setUuid(uuidConverter.fromDatabaseType(rs, COLUMN_UUID));
         summaryBuilder.setStatus(EventStatus.valueOf(rs.getInt(COLUMN_STATUS_ID)));
-        summaryBuilder.setFirstSeenTime(timestampConverter.fromDatabaseType(rs.getObject((COLUMN_FIRST_SEEN))));
-        summaryBuilder.setStatusChangeTime(timestampConverter.fromDatabaseType(rs.getObject((COLUMN_STATUS_CHANGE))));
-        summaryBuilder.setLastSeenTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_LAST_SEEN)));
-        summaryBuilder.setUpdateTime(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_UPDATE_TIME)));
+        summaryBuilder.setFirstSeenTime(timestampConverter.fromDatabaseType(rs, COLUMN_FIRST_SEEN));
+        summaryBuilder.setStatusChangeTime(timestampConverter.fromDatabaseType(rs, COLUMN_STATUS_CHANGE));
+        summaryBuilder.setLastSeenTime(timestampConverter.fromDatabaseType(rs, COLUMN_LAST_SEEN));
+        summaryBuilder.setUpdateTime(timestampConverter.fromDatabaseType(rs, COLUMN_UPDATE_TIME));
         summaryBuilder.setCount(rs.getInt(COLUMN_EVENT_COUNT));
-        Object currentUserUuid = rs.getObject(COLUMN_CURRENT_USER_UUID);
+        String currentUserUuid = uuidConverter.fromDatabaseType(rs, COLUMN_CURRENT_USER_UUID);
         if (currentUserUuid != null) {
-            summaryBuilder.setCurrentUserUuid(uuidConverter.fromDatabaseType(currentUserUuid));
+            summaryBuilder.setCurrentUserUuid(currentUserUuid);
         }
         String currentUserName = rs.getString(COLUMN_CURRENT_USER_NAME);
         if (currentUserName != null) {
             summaryBuilder.setCurrentUserName(currentUserName);
         }
-        Object clearedByEventUuid = rs.getObject(COLUMN_CLEARED_BY_EVENT_UUID);
+        String clearedByEventUuid = uuidConverter.fromDatabaseType(rs, COLUMN_CLEARED_BY_EVENT_UUID);
         if (clearedByEventUuid != null) {
-            summaryBuilder.setClearedByEventUuid(uuidConverter.fromDatabaseType(clearedByEventUuid));
+            summaryBuilder.setClearedByEventUuid(clearedByEventUuid);
         }
         String notesJson = rs.getString(COLUMN_NOTES_JSON);
         if (notesJson != null) {

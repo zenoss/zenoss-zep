@@ -10,7 +10,6 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
-import org.apache.lucene.document.Fieldable;
 import org.apache.lucene.document.NumericField;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,7 +21,6 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
-import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.utils.IpUtils;
 
 import java.io.ByteArrayInputStream;

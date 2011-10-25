@@ -6,9 +6,6 @@ package org.zenoss.zep.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-
 /**
  * Renames threads while they are running, then restores the name back to
  * the original.

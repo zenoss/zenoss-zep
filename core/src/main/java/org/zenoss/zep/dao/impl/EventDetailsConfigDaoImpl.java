@@ -4,8 +4,6 @@
 package org.zenoss.zep.dao.impl;
 
 
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
@@ -15,8 +13,6 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 
 import javax.sql.DataSource;

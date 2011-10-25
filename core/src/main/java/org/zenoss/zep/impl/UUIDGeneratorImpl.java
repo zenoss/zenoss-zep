@@ -9,7 +9,6 @@ import com.fasterxml.uuid.impl.TimeBasedGenerator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.zep.UUIDGenerator;
-import org.zenoss.zep.dao.impl.DaoUtils;
 
 import java.net.NetworkInterface;
 import java.net.SocketException;

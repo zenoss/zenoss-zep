@@ -3,10 +3,10 @@
  */
 package org.zenoss.zep.dao;
 
-import java.util.List;
-
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.zep.ZepException;
+
+import java.util.List;
 
 /**
  * DAO for EventTriggerSubscription.

@@ -4,13 +4,11 @@
 package org.zenoss.zep.dao;
 
 import org.zenoss.protobufs.model.Model.ModelElementType;
-import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.zep.ZepException;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**

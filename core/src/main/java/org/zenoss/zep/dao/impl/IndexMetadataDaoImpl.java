@@ -4,8 +4,6 @@
 
 package org.zenoss.zep.dao.impl;
 
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.zep.ZepException;
@@ -15,8 +13,6 @@ import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.IndexMetadata;
 import org.zenoss.zep.dao.IndexMetadataDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
@@ -68,7 +64,7 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
             @Override
             public IndexMetadata mapRow(ResultSet rs, int rowNum) throws SQLException {
                 IndexMetadata md = new IndexMetadata();
-                md.setZepInstance(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_ZEP_INSTANCE)));
+                md.setZepInstance(uuidConverter.fromDatabaseType(rs, COLUMN_ZEP_INSTANCE));
                 md.setIndexName(rs.getString(COLUMN_INDEX_NAME));
                 md.setIndexVersion(rs.getInt(COLUMN_INDEX_VERSION));
                 md.setIndexVersionHash(rs.getBytes(COLUMN_INDEX_VERSION_HASH));

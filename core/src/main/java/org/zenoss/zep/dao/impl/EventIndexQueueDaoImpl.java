@@ -100,7 +100,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
                 }
                 else {
                     try {
-                        handler.handleDeleted(uuidConverter.fromDatabaseType(rs.getObject("iq_uuid")));
+                        handler.handleDeleted(uuidConverter.fromDatabaseType(rs, "iq_uuid"));
                     } catch (Exception e) {
                         throw new SQLException(e.getLocalizedMessage(), e);
                     }

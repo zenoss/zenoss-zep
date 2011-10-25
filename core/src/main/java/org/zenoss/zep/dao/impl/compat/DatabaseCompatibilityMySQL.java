@@ -3,11 +3,13 @@
  */
 package org.zenoss.zep.dao.impl.compat;
 
-import javax.sql.DataSource;
-import java.util.concurrent.TimeUnit;
-
 import org.zenoss.utils.dao.RangePartitioner;
 import org.zenoss.utils.dao.impl.MySqlRangePartitioner;
+
+import javax.sql.DataSource;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Database compatibility layer for MySQL.
@@ -25,8 +27,9 @@ public class DatabaseCompatibilityMySQL implements DatabaseCompatibility {
     public TypeConverter<Long> getTimestampConverter() {
         return new TypeConverter<Long>() {
             @Override
-            public Long fromDatabaseType(Object object) {
-                return (Long)object;
+            public Long fromDatabaseType(ResultSet rs, String columnName) throws SQLException {
+                long l = rs.getLong(columnName);
+                return (rs.wasNull()) ? null : l;
             }
 
             @Override

@@ -6,8 +6,6 @@ package org.zenoss.zep.dao.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
@@ -18,8 +16,6 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
@@ -48,11 +44,11 @@ public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscription
         public EventTriggerSubscription mapRow(ResultSet rs, int rowNum) throws SQLException {
             EventTriggerSubscription.Builder evtTriggerSub = EventTriggerSubscription.newBuilder();
 
-            evtTriggerSub.setUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID)));
+            evtTriggerSub.setUuid(uuidConverter.fromDatabaseType(rs, COLUMN_UUID));
             evtTriggerSub.setDelaySeconds(rs.getInt(COLUMN_DELAY_SECONDS));
             evtTriggerSub.setRepeatSeconds(rs.getInt(COLUMN_REPEAT_SECONDS));
-            evtTriggerSub.setTriggerUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_EVENT_TRIGGER_UUID)));
-            evtTriggerSub.setSubscriberUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_SUBSCRIBER_UUID)));
+            evtTriggerSub.setTriggerUuid(uuidConverter.fromDatabaseType(rs, COLUMN_EVENT_TRIGGER_UUID));
+            evtTriggerSub.setSubscriberUuid(uuidConverter.fromDatabaseType(rs, COLUMN_SUBSCRIBER_UUID));
             evtTriggerSub.setSendInitialOccurrence(rs.getBoolean(COLUMN_SEND_INITIAL_OCCURRENCE));
             return evtTriggerSub.build();
         }

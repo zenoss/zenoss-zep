@@ -3,15 +3,15 @@
  */
 package org.zenoss.zep.dao.impl;
 
-import static org.junit.Assert.*;
-
-import java.util.Random;
-
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.zenoss.zep.dao.DaoCache;
+
+import java.util.Random;
+
+import static org.junit.Assert.*;
 
 @ContextConfiguration({ "classpath:zep-config.xml" })
 public class DaoCacheImplIT extends

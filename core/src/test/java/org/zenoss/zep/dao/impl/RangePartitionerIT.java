@@ -9,15 +9,15 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.zenoss.utils.dao.RangePartitioner;
 import org.zenoss.utils.dao.Partition;
+import org.zenoss.utils.dao.RangePartitioner;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.DatabaseType;
 
+import javax.sql.DataSource;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import javax.sql.DataSource;
 
 import static org.junit.Assert.*;
 

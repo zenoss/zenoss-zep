@@ -4,7 +4,6 @@
 
 package org.zenoss.zep.index;
 
-import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
 import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -15,7 +14,6 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.Purgable;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * DAO for Event Index.

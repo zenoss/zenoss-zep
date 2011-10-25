@@ -5,8 +5,6 @@ package org.zenoss.zep.dao.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataAccessException;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.zenoss.zep.UUIDGenerator;
@@ -16,8 +14,6 @@ import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSignalSpool;
 import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
@@ -47,11 +43,11 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
                 throws SQLException {
             TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
             EventSignalSpool spool = new EventSignalSpool();
-            spool.setUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_UUID)));
-            spool.setCreated(timestampConverter.fromDatabaseType(rs.getObject(COLUMN_CREATED)));
+            spool.setUuid(uuidConverter.fromDatabaseType(rs, COLUMN_UUID));
+            spool.setCreated(timestampConverter.fromDatabaseType(rs, COLUMN_CREATED));
             spool.setEventCount(rs.getInt(COLUMN_EVENT_COUNT));
-            spool.setEventSummaryUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_EVENT_SUMMARY_UUID)));
-            spool.setSubscriptionUuid(uuidConverter.fromDatabaseType(rs.getObject(COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID)));
+            spool.setEventSummaryUuid(uuidConverter.fromDatabaseType(rs, COLUMN_EVENT_SUMMARY_UUID));
+            spool.setSubscriptionUuid(uuidConverter.fromDatabaseType(rs, COLUMN_EVENT_TRIGGER_SUBSCRIPTION_UUID));
             spool.setFlushTime(rs.getLong(COLUMN_FLUSH_TIME));
             spool.setSentSignal(rs.getBoolean(COLUMN_SENT_SIGNAL));
             return spool;
