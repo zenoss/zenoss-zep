@@ -36,13 +36,6 @@
             <type>jar</type>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>${version.mysql}</version>
-            <type>jar</type>
-            <scope>provided</scope>
-        </dependency>
     </dependencies>
     <build>
         <plugins>
