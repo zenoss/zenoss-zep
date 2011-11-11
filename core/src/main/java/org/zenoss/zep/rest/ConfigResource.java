@@ -103,7 +103,7 @@ public class ConfigResource implements ApplicationEventPublisherAware {
             this.applicationEventPublisher.publishEvent(new ZepConfigUpdatedEvent(this, newConfig));
         }
         
-        return Response.ok(Status.NO_CONTENT).build();
+        return Response.status(Status.NO_CONTENT).build();
     }
 
     @GET
