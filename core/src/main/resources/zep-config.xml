@@ -123,9 +123,9 @@
         <property name="queueExecutor" ref="queueExecutor" />
         <property name="scheduler" ref="scheduler" />
         <property name="agingIntervalMilliseconds" value="${zep.aging.interval_milliseconds:60000}" />
-        <property name="agingLimit" value="${zep.aging.limit:100}" />
+        <property name="agingLimit" value="${zep.aging.limit:1000}" />
         <property name="archiveIntervalMilliseconds" value="${zep.archive.interval_milliseconds:60000}" />
-        <property name="archiveLimit" value="${zep.archive.limit:100}" />
+        <property name="archiveLimit" value="${zep.archive.limit:1000}" />
         <property name="dbMaintenanceService" ref="dbMaintenanceService" />
         <property name="dbMaintenanceIntervalMinutes" value="${zep.database.optimize_minutes:60}" />
     </bean>

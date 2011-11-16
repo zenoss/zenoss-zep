@@ -276,7 +276,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
                                     logger.debug("Aged {} events", numAged);
                                 }
                             } catch (TransientDataAccessException e) {
-                                logger.debug("Failed to archive events", e);
+                                logger.debug("Failed to age events", e);
                             } catch (Exception e) {
                                 logger.warn("Failed to age events", e);
                             }
