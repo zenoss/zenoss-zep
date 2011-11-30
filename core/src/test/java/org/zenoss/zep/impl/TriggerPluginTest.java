@@ -12,8 +12,10 @@ import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
+import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
+import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSignalSpool;
 import org.zenoss.zep.dao.EventSignalSpoolDao;
@@ -29,7 +31,7 @@ import static org.easymock.EasyMock.*;
 import static org.junit.Assert.*;
 
 
-public class TriggerPluginImplTest {
+public class TriggerPluginTest {
 
     public TriggerPlugin triggerPlugin = null;
     private EventSignalSpoolDao spoolDaoMock;
@@ -75,6 +77,11 @@ public class TriggerPluginImplTest {
         evtBuilder.setEventClass("/Defcon/1");
         evtBuilder.setSeverity(Zep.EventSeverity.SEVERITY_WARNING);
         evtBuilder.setSyslogPriority(SyslogPriority.SYSLOG_PRIORITY_DEBUG);
+        EventDetail.Builder groupBuilder = evtBuilder.addDetailsBuilder().setName(ZepConstants.DETAIL_DEVICE_GROUPS);
+        groupBuilder.addValue("/US/Texas/Austin");
+
+        EventDetail.Builder systemsBuilder = evtBuilder.addDetailsBuilder().setName(ZepConstants.DETAIL_DEVICE_SYSTEMS);
+        systemsBuilder.addValue("/Production/Infrastructure");
         Event evt = evtBuilder.build();
 
         // build test EventSummary
@@ -97,6 +104,11 @@ public class TriggerPluginImplTest {
                 "sub_elem.type == 'COMPONENT'",
                 "sub_elem.name.lower().startswith('fuse')",
                 "evt.syslog_priority == 7",
+                "\"/US\" in dev.groups",
+                "\"/US/Texas\" in dev.groups",
+                "\"/US/Texas/Austin\" in dev.groups",
+                "\"/Production\" in dev.systems",
+                "\"/Production/Infrastructure\" in dev.systems"
         };
         String[] false_rules = {
                 "1 = 0", // try a syntax error
@@ -108,6 +120,13 @@ public class TriggerPluginImplTest {
                 "evt.severity = 'critical'",
                 "dev.name == 'BHM1001'",
                 "evt.syslog_priority == 5",
+                "\"/US/Tex\" in dev.groups",
+                "\"/US/TexasTheLoneStarState\" in dev.groups",
+                "\"/US/Texas/Austin/Bridge Point\" in dev.groups",
+                "\"/Texas\" in dev.groups",
+                "\"/Austin\" in dev.groups",
+                "\"/Prod\" in dev.systems",
+                "\"/Infrastructure\" in dev.systems"
         };
 
         RuleContext ctx = RuleContext.createContext(triggerPlugin.toObject, evtSummary);

@@ -3,6 +3,7 @@
  */
 package org.zenoss.zep.impl;
 
+import com.google.common.base.Splitter;
 import org.python.core.Py;
 import org.python.core.PyDictionary;
 import org.python.core.PyException;
@@ -55,6 +56,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -229,6 +232,29 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             }
         }
 
+        private static final Splitter ORGANIZER_SPLITTER = Splitter.on('/').omitEmptyStrings();
+
+        /**
+         * Given a list of organizers, returns a list containing those same organizers plus
+         * any parent organizers. For example, ['/First/Second/Third','/OtherFirst/OtherSecond']
+         * will return ['/First', '/First/Second', '/First/Second/Third', '/OtherFirst',
+         * '/OtherFirst/OtherSecond'].
+         *
+         * @param baseOrganizers List of most-specific organizer names.
+         * @return A list containing all of the organizers plus their parent organizers.
+         */
+        private static List<String> includeParentOrganizers(List<String> baseOrganizers) {
+            Set<String> allOrganizers = new TreeSet<String>();
+            for (String organizer : baseOrganizers) {
+                final StringBuilder sb = new StringBuilder(organizer.length());
+                for (String subOrganizer : ORGANIZER_SPLITTER.split(organizer)) {
+                    sb.append('/').append(subOrganizer);
+                    allOrganizers.add(sb.toString());
+                }
+            }
+            return new ArrayList<String>(allOrganizers);
+        }
+
         /**
          * Creates a rule context from the toObject function and event summary.
          *
@@ -342,8 +368,8 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                     else if (ZepConstants.DETAIL_DEVICE_SYSTEMS.equals(detailName)) {
                         try {
                             // expect that this is a multi-value detail.
-                            List systems = detail.getValueList();
-                            devdict.put("systems", new PyList(systems));
+                            List<String> systemsAndParents = includeParentOrganizers(detail.getValueList());
+                            devdict.put("systems", new PyList(systemsAndParents));
                         } catch (Exception e) {
                             logger.warn("Failed retrieving device systems", e);
                         }
@@ -351,8 +377,8 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                     else if (ZepConstants.DETAIL_DEVICE_GROUPS.equals(detailName)) {
                         try {
                             // expect that this is a multi-value detail.
-                            List groups = detail.getValueList();
-                            devdict.put("groups", new PyList(groups));
+                            List<String> groupsAndParents = includeParentOrganizers(detail.getValueList());
+                            devdict.put("groups", new PyList(groupsAndParents));
                         } catch (Exception e) {
                             logger.warn("Failed retrieving device groups", e);
                         }
