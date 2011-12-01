@@ -1107,14 +1107,23 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         Event eventFromSummary = eventSummaryFromDb.getOccurrence(0);
         compareEvents(event, eventFromSummary);
 
-        Event earlierEvent = Event.newBuilder(event).setCreatedTime(event.getCreatedTime() - 5000)
+        Event firstEvent = Event.newBuilder(event).setCreatedTime(event.getCreatedTime() - 10000)
                 .setSummary("New summary entry").build();
-        EventSummary updatedEventSummaryFromDb = createSummaryNew(earlierEvent);
+        EventSummary updatedEventSummaryFromDb = createSummaryNew(firstEvent);
         Event updatedEventFromSummary = updatedEventSummaryFromDb.getOccurrence(0);
         compareEvents(event, updatedEventFromSummary);
-        assertEquals(earlierEvent.getCreatedTime(), updatedEventSummaryFromDb.getFirstSeenTime());
+        assertEquals(firstEvent.getCreatedTime(), updatedEventSummaryFromDb.getFirstSeenTime());
         assertEquals(event.getCreatedTime(), updatedEventSummaryFromDb.getLastSeenTime());
         assertEquals(2, updatedEventSummaryFromDb.getCount());
+
+        Event middleEvent = Event.newBuilder(event).setCreatedTime(event.getCreatedTime() - 5000)
+                .setSummary("New summary entry").build();
+        updatedEventSummaryFromDb = createSummaryNew(middleEvent);
+        updatedEventFromSummary = updatedEventSummaryFromDb.getOccurrence(0);
+        compareEvents(event, updatedEventFromSummary);
+        assertEquals(firstEvent.getCreatedTime(), updatedEventSummaryFromDb.getFirstSeenTime());
+        assertEquals(event.getCreatedTime(), updatedEventSummaryFromDb.getLastSeenTime());
+        assertEquals(3, updatedEventSummaryFromDb.getCount());
 
         // Compare old and new summary items to verify the old event didn't change anything but update time and
         // first seen time.

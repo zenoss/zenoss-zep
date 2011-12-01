@@ -312,7 +312,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             }
         }
 
-        if (occurrence.getCreatedTime() < oldSummary.getLastSeenTime()) {
+        if (occurrence.getCreatedTime() < oldSummary.getFirstSeenTime()) {
             updateFields.put(COLUMN_FIRST_SEEN, timestampConverter.toDatabaseType(occurrence.getCreatedTime()));
         }
         return updateFields;
