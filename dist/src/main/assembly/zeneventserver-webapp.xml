@@ -50,6 +50,11 @@
             <outputDirectory>etc/</outputDirectory>
             <filtered>false</filtered>
         </fileSet>
+        <fileSet>
+            <directory>target/generated-sources/conf</directory>
+            <outputDirectory>etc/</outputDirectory>
+            <filtered>false</filtered>
+        </fileSet>
         <!-- Only way I can figure out for creating empty directory -->
         <fileSet>
             <directory>src/assembly/bin</directory>

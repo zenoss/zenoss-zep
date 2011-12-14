@@ -4,7 +4,8 @@
 package org.zenoss.zep.dao.impl;
 
 import com.google.protobuf.Message;
-import org.apache.commons.dbcp.BasicDataSource;
+import org.apache.tomcat.jdbc.pool.DataSource;
+import org.apache.tomcat.jdbc.pool.PoolProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -22,12 +23,10 @@ import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 
-import javax.sql.DataSource;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -48,11 +47,11 @@ public final class DaoUtils {
     private DaoUtils() {
     }
 
-    private static int getIntProperty(String value, int defaultValue) {
-        int intVal = defaultValue;
+    private static Integer getIntProperty(String value) {
+        Integer intVal = null;
         if (value!= null) {
             try {
-                intVal = Integer.parseInt(value);
+                intVal = Integer.parseInt(value.trim());
             } catch (NumberFormatException e) {
                 logger.warn("Invalid value for property: {}", value);
             }
@@ -60,58 +59,78 @@ public final class DaoUtils {
         return intVal;
     }
 
-    private static boolean getBoolProperty(String value, boolean defaultValue) {
-        boolean boolVal = defaultValue;
+    private static Boolean getBoolProperty(String value) {
+        Boolean boolVal = null;
         if (value != null) {
-            boolVal = Boolean.valueOf(value);
+            boolVal = Boolean.valueOf(value.trim());
         }
         return boolVal;
     }
 
-    public static BasicDataSource createDataSource(Properties globalConf, ZepInstance zepInstance) {
+    private static final String POOL_PREFIX = "zep.jdbc.pool.";
+
+    private static PoolProperties getPoolProperties(Properties globalConf, ZepInstance zepInstance) {
+        final PoolProperties p = new PoolProperties();
+
         final Map<String,String> zepConfig = zepInstance.getConfig();
         final String protocol = globalConf.getProperty("zep_db_type", zepConfig.get("zep.jdbc.protocol"));
         final String hostname = globalConf.getProperty("zep_host", zepConfig.get("zep.jdbc.hostname"));
         final String port = globalConf.getProperty("zep_port", zepConfig.get("zep.jdbc.port"));
         final String dbname = globalConf.getProperty("zep_db", zepConfig.get("zep.jdbc.dbname"));
-        final String username = globalConf.getProperty("zep_user", zepConfig.get("zep.jdbc.username"));
-        final String password = globalConf.getProperty("zep_password", zepConfig.get("zep.jdbc.password"));
-        final int initialSize = getIntProperty(zepConfig.get("zep.jdbc.pool.initial_size"), 3);
-        final int maxActive = getIntProperty(zepConfig.get("zep.jdbc.pool.max_active"), 10);
-        final boolean poolPreparedStatements =
-                getBoolProperty(zepConfig.get("zep.jdbc.pool.pool_prepared_statements"), true);
-        final int maxOpenPreparedStatements =
-                getIntProperty(zepConfig.get("zep.jdbc.pool.max_open_prepared_statements"), 1000);
-        final String driverClassName;
-        final String jdbcParameters;
+        p.setUrl(String.format("jdbc:%s://%s:%s/%s", protocol, hostname, port, dbname));
+        p.setUsername(globalConf.getProperty("zep_user", zepConfig.get("zep.jdbc.username")));
+        p.setPassword(globalConf.getProperty("zep_password", zepConfig.get("zep.jdbc.password")));
+
+        final String connectionProperties = zepConfig.get(POOL_PREFIX + "connection_properties");
+        if (connectionProperties != null) {
+            p.setConnectionProperties(connectionProperties);
+        }
         if (MYSQL_PROTOCOL.equals(protocol)) {
-            driverClassName = "com.mysql.jdbc.Driver";
-            // Make this configurable?
-            jdbcParameters = "characterEncoding=UTF-8&amp;autoReconnect=true&amp;rewriteBatchedStatements=true";
+            p.setDriverClassName("com.mysql.jdbc.Driver");
+            // MySQL has default connection properties if not overridden from configuration file
+            if (connectionProperties == null) {
+                p.setConnectionProperties("characterEncoding=UTF-8;rewriteBatchedStatements=true;");
+            }
         }
         else if (POSTGRESQL_PROTOCOL.equals(protocol)) {
-            driverClassName = "org.postgresql.Driver";
-            jdbcParameters = "";
+            p.setDriverClassName("org.postgresql.Driver");
         }
         else {
             throw new RuntimeException("Unsupported database protocol: " + protocol);
         }
 
-        final BasicDataSource ds = new BasicDataSource();
-        ds.setDriverClassName(driverClassName);
-        ds.setUrl(String.format("jdbc:%s://%s:%s/%s?%s", protocol, hostname, port, dbname, jdbcParameters));
-        ds.setUsername(username);
-        ds.setPassword(password);
-        ds.setInitialSize(initialSize);
-        ds.setMaxActive(maxActive);
-        ds.setTestWhileIdle(true);
-        ds.setTestOnBorrow(false);
-        ds.setTestOnReturn(false);
-        ds.setDefaultAutoCommit(false);
-        ds.setValidationQuery("SELECT 1");
-        ds.setDefaultTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
-        ds.setPoolPreparedStatements(poolPreparedStatements);
-        ds.setMaxOpenPreparedStatements(maxOpenPreparedStatements);
+        p.setDefaultAutoCommit(getBoolProperty(zepConfig.get(POOL_PREFIX + "default_auto_commit")));
+        p.setDefaultReadOnly(getBoolProperty(zepConfig.get(POOL_PREFIX + "default_read_only")));
+        p.setDefaultTransactionIsolation(getIntProperty(zepConfig.get(POOL_PREFIX + "default_transaction_isolation")));
+        p.setMaxActive(getIntProperty(zepConfig.get(POOL_PREFIX + "max_active")));
+        p.setMaxIdle(getIntProperty(zepConfig.get(POOL_PREFIX + "max_idle")));
+        p.setMinIdle(getIntProperty(zepConfig.get(POOL_PREFIX + "min_idle")));
+        p.setInitialSize(getIntProperty(zepConfig.get(POOL_PREFIX + "initial_size")));
+        p.setMaxWait(getIntProperty(zepConfig.get(POOL_PREFIX + "max_wait")));
+        p.setTestOnBorrow(getBoolProperty(zepConfig.get(POOL_PREFIX + "test_on_borrow")));
+        p.setTestOnReturn(getBoolProperty(zepConfig.get(POOL_PREFIX + "test_on_return")));
+        p.setTestWhileIdle(getBoolProperty(zepConfig.get(POOL_PREFIX + "test_while_idle")));
+        p.setTimeBetweenEvictionRunsMillis(
+                getIntProperty(zepConfig.get(POOL_PREFIX + "time_between_eviction_runs_millis")));
+        p.setMinEvictableIdleTimeMillis(getIntProperty(zepConfig.get(POOL_PREFIX + "min_evictable_idle_time_millis")));
+        p.setJdbcInterceptors(zepConfig.get(POOL_PREFIX + "jdbc_interceptors"));
+        p.setValidationInterval(getIntProperty(zepConfig.get(POOL_PREFIX + "validation_interval")));
+        p.setJmxEnabled(getBoolProperty(zepConfig.get(POOL_PREFIX + "jmx_enabled")));
+        p.setFairQueue(getBoolProperty(zepConfig.get(POOL_PREFIX + "fair_queue")));
+        p.setAbandonWhenPercentageFull(getIntProperty(zepConfig.get(POOL_PREFIX + "abandon_when_percentage_full")));
+        p.setMaxAge(getIntProperty(zepConfig.get(POOL_PREFIX + "max_age")));
+        p.setUseEquals(getBoolProperty(zepConfig.get(POOL_PREFIX + "use_equals")));
+        p.setRemoveAbandoned(getBoolProperty(zepConfig.get(POOL_PREFIX + "remove_abandoned")));
+        p.setRemoveAbandonedTimeout(getIntProperty(zepConfig.get(POOL_PREFIX + "remove_abandoned_timeout")));
+        p.setLogAbandoned(getBoolProperty(zepConfig.get(POOL_PREFIX + "log_abandoned")));
+        p.setSuspectTimeout(getIntProperty(zepConfig.get(POOL_PREFIX + "suspect_timeout")));
+
+        return p;
+    }
+
+    public static DataSource createDataSource(Properties globalConf, ZepInstance zepInstance) {
+        final DataSource ds = new DataSource();
+        ds.setPoolProperties(getPoolProperties(globalConf, zepInstance));
         return ds;
     }
 
@@ -222,7 +241,7 @@ public final class DaoUtils {
      * @return A list of column names in the table.
      * @throws MetaDataAccessException If an exception occurs.
      */
-    public static List<String> getColumnNames(final DataSource dataSource, final String tableName)
+    public static List<String> getColumnNames(final javax.sql.DataSource dataSource, final String tableName)
             throws MetaDataAccessException {
         final List<String> columnNames = new ArrayList<String>();
         JdbcUtils.extractDatabaseMetaData(dataSource, new DatabaseMetaDataCallback() {

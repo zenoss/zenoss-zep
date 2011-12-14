@@ -12,6 +12,9 @@
         <artifactId>zep-parent</artifactId>
         <version>1.2-SNAPSHOT</version>
     </parent>
+    <properties>
+        <genconf.dir>${project.build.directory}/generated-sources/conf</genconf.dir>
+    </properties>
     <dependencies>
         <dependency>
             <groupId>org.zenoss.zep</groupId>
@@ -42,6 +45,52 @@
     </dependencies>
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>1.6</version>
+                <executions>
+                    <execution>
+                        <id>generate-example-conf</id>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <!-- Generates a default configuration file with all options commented out -->
+                            <target>
+                                <delete dir="${genconf.dir}" quiet="true" includeemptydirs="true" defaultexcludes="false" />
+                                <unzip src="${org.zenoss.zep:zep-webapp:war}"
+                                       dest="${genconf.dir}">
+                                    <patternset>
+                                        <include name="**/zep-core-*.jar" />
+                                    </patternset>
+                                    <mapper type="flatten" />
+                                </unzip>
+                                <unzip dest="${genconf.dir}">
+                                    <fileset dir="${genconf.dir}">
+                                        <include name="zep-core-*.jar" />
+                                    </fileset>
+                                    <patternset>
+                                        <include name="zeneventserver.conf" />
+                                    </patternset>
+                                </unzip>
+                                <delete>
+                                    <fileset dir="${genconf.dir}">
+                                        <include name="zep-core-*.jar" />
+                                    </fileset>
+                                </delete>
+                                <replaceregexp file="${genconf.dir}/zeneventserver.conf"
+                                               match="^([a-zA-Z0-9].+)"
+                                               replace="#\1"
+                                               byline="true" />
+                                <move file="${genconf.dir}/zeneventserver.conf"
+                                      tofile="${genconf.dir}/zeneventserver.conf.example" />
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>2.2.1</version>
