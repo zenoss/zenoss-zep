@@ -32,12 +32,12 @@ wait_for_startup() {
     local elapsed=0
     echo -n "Waiting for zeneventserver to start"
     while [ "${elapsed}" -lt "${timeout}" ]; do
-        netstat -an | awk '$6 ~ /LISTEN/ { print $4 }' | grep "[.:]${port}$" > /dev/null
+        netstat -lant | awk '$6 ~ /LISTEN/ { print $4 }' | grep "[.:]${port}$" > /dev/null
         if [ $? -eq 0 ]; then
             break
         fi
-        echo -n "."
         sleep 1
+        echo -n "."
         elapsed=$((${elapsed}+1))
     done
     echo ""
@@ -59,7 +59,7 @@ start() {
         echo starting...
         JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
         # Redirect stdout/stderr to separate log file
-        JETTY_ARGS="$JETTY_ARGS etc/zeneventserver/jetty/jetty-logging.xml"
+        JETTY_ARGS="$JETTY_ARGS --pre=etc/zeneventserver/jetty/jetty-logging.xml"
         java ${JVM_ARGS} -jar ${JETTYSTART_JAR} ${JETTY_ARGS} \
         ${START_ARGS} > /dev/null 2>&1 &
         PID=$!
@@ -185,6 +185,36 @@ generic() {
             ;;
         debug)
             JVM_ARGS="${JVM_ARGS} -Xdebug -Xrunjdwp:transport=dt_socket,address=8000,server=y,suspend=y"
+            run "$@"
+            ;;
+        profile)
+            yjp_agent=""
+            case `uname -s` in
+                Linux)
+                    case `uname -i` in
+                        x86_64)
+                            yjp_agent="linux-x86-64/libyjpagent.so"
+                            ;;
+                        i[3456]86)
+                            yjp_agent="linux-x86-32/libyjpagent.so"
+                            ;;
+                    esac
+                    ;;
+                Darwin)
+                    yjp_agent="bin/mac/libjypagent.jnilib"
+                    ;;
+            esac
+            if [ -z "$yjp_agent" ]; then
+                echo "Unknown hardware type: `uname -s` (`uname -i`)" >&2
+                exit 1
+            fi
+            yjp_bin=`which yjp.sh`
+            if [ -z "$yjp_bin" ]; then
+                echo "Failed to find yjp.sh in PATH" >&2
+                exit 1
+            fi
+            yjp_home=`dirname "$yjp_bin"`
+            JVM_ARGS="${JVM_ARGS} -agentpath:$yjp_home/$yjp_agent=tracing,disablealloc"
             run "$@"
             ;;
         run)

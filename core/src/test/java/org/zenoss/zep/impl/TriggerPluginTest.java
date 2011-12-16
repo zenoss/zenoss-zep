@@ -129,7 +129,7 @@ public class TriggerPluginTest {
                 "\"/Infrastructure\" in dev.systems"
         };
 
-        RuleContext ctx = RuleContext.createContext(triggerPlugin.toObject, evtSummary);
+        RuleContext ctx = RuleContext.createContext(triggerPlugin.pythonHelper.getToObject(), evtSummary);
         for(String rule: true_rules) {
             assertTrue(rule + " (should evaluate True)",
                     this.triggerPlugin.eventSatisfiesRule(ctx, rule));

@@ -7,6 +7,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+import org.springframework.jdbc.core.simple.SimpleJdbcInsertOperations;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
@@ -238,7 +239,7 @@ public class DaoCacheImpl implements DaoCache {
     }
 
     private static class DaoTableStringLruCache extends DaoTableCache<String> {
-        private SimpleJdbcInsert jdbcInsert;
+        private SimpleJdbcInsertOperations jdbcInsert;
 
         public DaoTableStringLruCache(JdbcTemplate template, NestedTransactionService nestedTransactionService,
                                       String tableName) {
@@ -253,7 +254,8 @@ public class DaoCacheImpl implements DaoCache {
         public void init() {
             super.init();
             this.jdbcInsert = new SimpleJdbcInsert(template).withTableName(tableName)
-                .usingColumns(COLUMN_NAME).usingGeneratedKeyColumns(COLUMN_ID);
+                .usingColumns(COLUMN_NAME).usingGeneratedKeyColumns(COLUMN_ID)
+                .withoutTableColumnMetaDataAccess();
         }
 
         @Override

@@ -28,7 +28,6 @@ import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
-import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
@@ -51,7 +50,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,10 +84,6 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
     private AmqpConnectionManager connectionManager;
 
-    protected PythonInterpreter python;
-    protected PyFunction toObject;
-    protected static final Map<EventSeverity, PyString> severityAsPyString = new EnumMap<EventSeverity, PyString>(
-            EventSeverity.class);
     protected static final int MAX_RULE_CACHE_SIZE = 200;
     protected static final Map<String, PyFunction> ruleFunctionCache = Collections
             .synchronizedMap(ZepUtils
@@ -100,17 +94,63 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
     private TaskScheduler scheduler;
     private ScheduledFuture<?> spoolFuture;
+    PythonHelper pythonHelper = new PythonHelper();
 
-    static {
-        PythonInterpreter.initialize(System.getProperties(), new Properties(), new String[0]);
+    /**
+     * Helper class to enable lazy-initialization of Jython. Initializing the runtime and compiling code is expensive
+     * to perform on each startup - better to do it when we first need it for evaluating triggers.
+     */
+    static final class PythonHelper {
+        private volatile boolean initialized = false;
 
-        severityAsPyString.put(EventSeverity.SEVERITY_CLEAR, new PyString("clear"));
-        severityAsPyString.put(EventSeverity.SEVERITY_DEBUG, new PyString("debug"));
-        severityAsPyString.put(EventSeverity.SEVERITY_INFO, new PyString("info"));
-        severityAsPyString.put(EventSeverity.SEVERITY_WARNING, new PyString("warning"));
-        severityAsPyString.put(EventSeverity.SEVERITY_ERROR, new PyString("error"));
-        severityAsPyString.put(EventSeverity.SEVERITY_CRITICAL, new PyString("critical"));
+        private PythonInterpreter python;
+        private PyFunction toObject;
+
+        private synchronized void initialize() {
+            if (initialized) {
+                return;
+            }
+            logger.info("Initializing Jython");
+            this.initialized = true;
+            PythonInterpreter.initialize(System.getProperties(), new Properties(), new String[0]);
+
+            this.python = new PythonInterpreter();
+
+            // define basic infrastructure class for evaluating rules
+            this.python.exec(
+                "class DictAsObj(object):\n" +
+                "  def __init__(self, **kwargs):\n" +
+                "    for k,v in kwargs.iteritems(): setattr(self,k,v)");
+
+            // expose to Java a Python dict->DictAsObj conversion function
+            this.toObject = (PyFunction)this.python.eval("lambda dd : DictAsObj(**dd)");
+
+            // import some helpful modules from the standard lib
+            this.python.exec("import string, re, datetime");
+            logger.info("Completed Jython initialization");
+        }
+
+        public PythonInterpreter getPythonInterpreter() {
+            if (!initialized) {
+                initialize();
+            }
+            return this.python;
+        }
+
+        public PyFunction getToObject() {
+            if (!initialized) {
+                initialize();
+            }
+            return this.toObject;
+        }
+
+        public void cleanup() {
+            if (initialized) {
+                this.python.cleanup();
+            }
+        }
     }
+
 
     public TriggerPlugin() {
     }
@@ -128,27 +168,12 @@ public class TriggerPlugin extends EventPostIndexPlugin {
     @Override
     public void start(Map<String, String> properties) {
         super.start(properties);
-
-        this.python = new PythonInterpreter();
-
-        // define basic infrastructure class for evaluating rules
-        this.python.exec(
-            "class DictAsObj(object):\n" +
-            "  def __init__(self, **kwargs):\n" +
-            "    for k,v in kwargs.iteritems(): setattr(self,k,v)");
-
-        // expose to Java a Python dict->DictAsObj conversion function
-        this.toObject = (PyFunction)this.python.eval("lambda dd : DictAsObj(**dd)");
-
-        // import some helpful modules from the standard lib
-        this.python.exec("import string, re, datetime");
-
         scheduleSpool();
     }
 
     @Override
     public void stop() {
-        this.python.cleanup();
+        this.pythonHelper.cleanup();
         if (spoolFuture != null) {
             spoolFuture.cancel(true);
         }
@@ -426,9 +451,9 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             // use rule to build and evaluate a Python lambda expression
             PyFunction fn = ruleFunctionCache.get(ruleSource);
             if (fn == null) {
-                fn = (PyFunction)this.python.eval(
-                    "lambda evt, dev, elem, sub_elem : " + ruleSource
-                    );
+                fn = (PyFunction)this.pythonHelper.getPythonInterpreter().eval(
+                        "lambda evt, dev, elem, sub_elem : " + ruleSource
+                );
                 ruleFunctionCache.put(ruleSource, fn);
             }
 
@@ -538,7 +563,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
             // Determine if event matches trigger rule
             if (ruleContext == null) {
-                ruleContext = RuleContext.createContext(this.toObject, eventSummary);
+                ruleContext = RuleContext.createContext(this.pythonHelper.getToObject(), eventSummary);
             }
             final boolean eventSatisfiesRule = eventSatisfiesRule(ruleContext, ruleSource);
 
