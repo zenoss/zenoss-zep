@@ -98,7 +98,7 @@ def main():
         print >> sys.stderr, (
             "ZENHOME not set. You must run this script as the zenoss user.")
         sys.exit(1)
-    parser = optparse.OptionParser(usage='%prog <-r|-u> prop_name[=prop_val] [...]')
+    parser = optparse.OptionParser(usage='%prog <-p|-r|-u> prop_name[=prop_val] [...]')
     parser.add_option('-p', '--print', dest='get', action="store_true", default=False,
             help='Prints property from the configuration file.')
     parser.add_option('-r', '--remove', dest='remove', action='store_true', default=False,

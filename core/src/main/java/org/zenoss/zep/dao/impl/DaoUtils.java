@@ -73,13 +73,13 @@ public final class DaoUtils {
         final PoolProperties p = new PoolProperties();
 
         final Map<String,String> zepConfig = zepInstance.getConfig();
-        final String protocol = globalConf.getProperty("zep_db_type", zepConfig.get("zep.jdbc.protocol"));
-        final String hostname = globalConf.getProperty("zep_host", zepConfig.get("zep.jdbc.hostname"));
-        final String port = globalConf.getProperty("zep_port", zepConfig.get("zep.jdbc.port"));
-        final String dbname = globalConf.getProperty("zep_db", zepConfig.get("zep.jdbc.dbname"));
+        final String protocol = globalConf.getProperty("zep-db-type", zepConfig.get("zep.jdbc.protocol"));
+        final String hostname = globalConf.getProperty("zep-host", zepConfig.get("zep.jdbc.hostname"));
+        final String port = globalConf.getProperty("zep-port", zepConfig.get("zep.jdbc.port"));
+        final String dbname = globalConf.getProperty("zep-db", zepConfig.get("zep.jdbc.dbname"));
         p.setUrl(String.format("jdbc:%s://%s:%s/%s", protocol, hostname, port, dbname));
-        p.setUsername(globalConf.getProperty("zep_user", zepConfig.get("zep.jdbc.username")));
-        p.setPassword(globalConf.getProperty("zep_password", zepConfig.get("zep.jdbc.password")));
+        p.setUsername(globalConf.getProperty("zep-user", zepConfig.get("zep.jdbc.username")));
+        p.setPassword(globalConf.getProperty("zep-password", zepConfig.get("zep.jdbc.password")));
 
         final String connectionProperties = zepConfig.get(POOL_PREFIX + "connection_properties");
         if (connectionProperties != null) {
@@ -136,7 +136,7 @@ public final class DaoUtils {
 
     public static DatabaseCompatibility createDatabaseCompatibility(Properties globalConf, ZepInstance zepInstance) {
         final Map<String,String> zepConfig = zepInstance.getConfig();
-        final String protocol = globalConf.getProperty("zep_db_type", zepConfig.get("zep.jdbc.protocol"));
+        final String protocol = globalConf.getProperty("zep-db-type", zepConfig.get("zep.jdbc.protocol"));
         if (MYSQL_PROTOCOL.equals(protocol)) {
             return new DatabaseCompatibilityMySQL();
         }
