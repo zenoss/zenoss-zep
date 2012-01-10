@@ -302,6 +302,33 @@
                             <goal>run</goal>
                         </goals>
                     </execution>
+                    <execution>
+                        <id>drop-test-schema</id>
+                        <phase>post-integration-test</phase>
+                        <configuration>
+                            <target unless="skipITs">
+                                <echo message="Dropping database: ${zep.test.jdbc.dbname}" />
+                                <exec executable="bash" dir=".." failonerror="true">
+                                    <arg value="./drop_schema.sh" />
+                                    <arg value="--dbtype" />
+                                    <arg value="${zep.jdbc.protocol}" />
+                                    <arg value="--dbhost" />
+                                    <arg value="${zep.jdbc.hostname}" />
+                                    <arg value="--dbport" />
+                                    <arg value="${zep.jdbc.port}" />
+                                    <arg value="--dbname" />
+                                    <arg value="${zep.test.jdbc.dbname}" />
+                                    <arg value="--dbadminuser" />
+                                    <arg value="${zep.jdbc.admin.username}" />
+                                    <arg value="--dbadminpass" />
+                                    <arg value="${zep.jdbc.admin.password}" />
+                                </exec>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
                 </executions>
             </plugin>
             <plugin>
