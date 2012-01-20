@@ -75,8 +75,8 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
                         recreateIndexIfNeeded();
 
                         // Wait to be interrupted if the configuration changes for the index
-                        if (!shutdown && !configurationChanged) {
-                            synchronized (lock) {
+                        synchronized (lock) {
+                            if (!shutdown && !configurationChanged) {
                                 lock.wait();
                             }
                         }

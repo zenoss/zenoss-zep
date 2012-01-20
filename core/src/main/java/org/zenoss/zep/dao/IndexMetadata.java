@@ -43,11 +43,11 @@ public class IndexMetadata {
     }
 
     public byte[] getIndexVersionHash() {
-        return indexVersionHash;
+        return (this.indexVersionHash != null) ? this.indexVersionHash.clone() : null;
     }
 
-    public void setIndexVersionHash(byte[] indexDetailsHash) {
-        this.indexVersionHash = indexDetailsHash;
+    public void setIndexVersionHash(byte[] indexVersionHash) {
+        this.indexVersionHash = (indexVersionHash != null) ? indexVersionHash.clone() : null;
     }
 
     @Override

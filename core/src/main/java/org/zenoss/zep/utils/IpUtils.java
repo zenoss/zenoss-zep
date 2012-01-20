@@ -262,7 +262,9 @@ public final class IpUtils {
                         }
                         fromAddr[3] = (byte) lastByte;
                         to = InetAddress.getByAddress(fromAddr);
-                    } catch (Exception ex) {
+                    } catch (RuntimeException ex) {
+                        throw new IllegalArgumentException(e.getLocalizedMessage(), e);
+                    } catch (UnknownHostException ex) {
                         throw new IllegalArgumentException(e.getLocalizedMessage(), e);
                     }
                 }
@@ -274,7 +276,9 @@ public final class IpUtils {
                         }
                         ByteBuffer.wrap(fromAddr).putShort(14, (short) lastTwoBytes);
                         to = InetAddress.getByAddress(fromAddr);
-                    } catch (Exception ex) {
+                    } catch (RuntimeException ex) {
+                        throw new IllegalArgumentException(e.getLocalizedMessage(), e);
+                    } catch (UnknownHostException ex) {
                         throw new IllegalArgumentException(e.getLocalizedMessage(), e);
                     }
                 }
