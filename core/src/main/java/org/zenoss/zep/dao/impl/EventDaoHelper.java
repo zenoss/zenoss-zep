@@ -22,6 +22,7 @@ import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.EventTag.Builder;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.UUIDGenerator;
+import org.zenoss.zep.ZepConfigService;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
@@ -54,16 +55,23 @@ public class EventDaoHelper {
     private UUIDGenerator uuidGenerator;
     private DatabaseCompatibility databaseCompatibility;
     private TypeConverter<String> uuidConverter;
+    private ZepConfigService zepConfigService;
+
 
     @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(EventDaoHelper.class);
 
     public EventDaoHelper() {
     }
+    
+    public void setZepConfigService(ZepConfigService zepConfigService) throws ZepException {
+        this.zepConfigService = zepConfigService;
+    }
 
     public void setDaoCache(DaoCache daoCache) {
         this.daoCache = daoCache;
     }
+
 
     public void setUuidGenerator(UUIDGenerator uuidGenerator) {
         this.uuidGenerator = uuidGenerator;
@@ -72,6 +80,20 @@ public class EventDaoHelper {
     public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
         this.databaseCompatibility = databaseCompatibility;
         this.uuidConverter = databaseCompatibility.getUUIDConverter();
+    }
+
+    private boolean isValidDetailsSize(String str, long eventMaxSizeBytes) throws ZepException {
+        return str.length() * 2 < eventMaxSizeBytes;
+    }
+
+    private List<EventDetail> removeNonZenossDetails(List<EventDetail> details) {
+        List<EventDetail> cleanDetails = new ArrayList<EventDetail>();
+        for (EventDetail detail : details) {
+            if (detail.getName().startsWith("zenoss.")) {
+                cleanDetails.add(detail);
+            }
+        }
+        return cleanDetails;
     }
 
     public Map<String, Object> createOccurrenceFields(Event event) throws ZepException {
@@ -149,10 +171,27 @@ public class EventDaoHelper {
         fields.put(COLUMN_SUMMARY, DaoUtils.truncateStringToUtf8(event.getSummary(), MAX_SUMMARY));
         fields.put(COLUMN_MESSAGE, DaoUtils.truncateStringToUtf8(event.getMessage(), MAX_MESSAGE));
 
+
         String detailsJson = null;
         if (event.getDetailsCount() > 0) {
             try {
                 detailsJson = JsonFormat.writeAllDelimitedAsString(mergeDuplicateDetails(event.getDetailsList()));
+
+                // if the detailsJson string is too big, filter out non-Zenoss
+                // details and try again.
+                long eventMaxSizeBytes = zepConfigService.getConfig().getEventMaxSizeBytes();
+                if (!isValidDetailsSize(detailsJson, eventMaxSizeBytes)) {
+                    detailsJson = JsonFormat.writeAllDelimitedAsString(
+                            mergeDuplicateDetails(removeNonZenossDetails(event.getDetailsList())));
+
+                    if (!isValidDetailsSize(detailsJson, eventMaxSizeBytes)) {
+                        // TODO: What to do when we can't reduce the size enough?
+                        logger.warn("Could not reduce event size below event_max_size_bytes setting: " +
+                                zepConfigService.getConfig().getEventMaxSizeBytes() + " Event: " + event);
+                    }
+                }
+
+
             } catch (IOException e) {
                 throw new ZepException(e.getLocalizedMessage(), e);
             }
@@ -175,7 +214,7 @@ public class EventDaoHelper {
 
     /**
      * Removes duplicate tags from the event.
-     * 
+     *
      * @param event
      *            Original event.
      * @return New event with duplicate tags removed.
@@ -232,9 +271,43 @@ public class EventDaoHelper {
      *
      * @param oldDetails Old event details.
      * @param newDetails New event details.
-     * @return A merged collections of event details.
+     * @return A JSON string of the details aftering merging.
+     * @throws org.zenoss.zep.ZepException X
      */
-    static Collection<EventDetail> mergeDetails(List<EventDetail> oldDetails, List<EventDetail> newDetails) {
+    public String mergeDetailsToJson(List<EventDetail> oldDetails, List<EventDetail> newDetails) throws ZepException {
+
+        Map<String, EventDetail> detailsMap = mergeDetails(oldDetails, newDetails);
+
+        try {
+            String results = JsonFormat.writeAllDelimitedAsString(detailsMap.values());
+            long eventMaxSizeBytes = zepConfigService.getConfig().getEventMaxSizeBytes();
+            if (!isValidDetailsSize(results, eventMaxSizeBytes)) {
+                final String newDetailsJson = JsonFormat.writeAllDelimitedAsString(newDetails);
+                if (isValidDetailsSize(newDetailsJson, eventMaxSizeBytes)) {
+                    // new details are a valid size, truncate the old and use the new
+                    results = newDetailsJson;
+                    logger.warn("Truncating old details because details are not a valid size: " + oldDetails);
+                }
+                else {
+                    // If the entire set of new details is not small enough,
+                    // truncate all non-zenoss details.
+                    final String originalResults = results;
+                    final List<EventDetail> newZenossDetails = removeNonZenossDetails(newDetails);
+                    results = JsonFormat.writeAllDelimitedAsString(newZenossDetails);
+                    logger.warn("Truncating old details because details are not a valid size. " +
+                            "New non-Zenoss details have also been truncated due to size. " +
+                            "ORIGINAL DATA: " + originalResults);
+                }
+            }
+
+            return results;
+        } catch (IOException e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        }
+    }
+
+    public static Map<String, EventDetail> mergeDetails(List<EventDetail> oldDetails, List<EventDetail> newDetails) {
+
         Map<String, EventDetail> detailsMap = new LinkedHashMap<String, EventDetail>(oldDetails.size() + newDetails.size());
         for (EventDetail detail : oldDetails) {
             detailsMap.put(detail.getName(), detail);
@@ -272,7 +345,7 @@ public class EventDaoHelper {
                 }
             }
         }
-        return detailsMap.values();
+        return detailsMap;
     }
 
     private void populateEventActorFields(EventActor actor, Map<String, Object> fields) {
@@ -484,7 +557,7 @@ public class EventDaoHelper {
                 newNoteJson.append(",\n").append(currentNoteJson);
             }
             fields.put(COLUMN_NOTES_JSON, newNoteJson.toString());
-            
+
             final String updateSql = "UPDATE " + tableName + " SET update_time=:update_time,notes_json=:notes_json" +
                     " WHERE uuid=:uuid";
             return template.update(updateSql, fields);
@@ -514,23 +587,18 @@ public class EventDaoHelper {
         } catch (IOException e) {
             throw new ZepException(e);
         }
-        
-        // update details with new values
-        Collection<EventDetail> listWithUpdates = EventDaoHelper.mergeDetails(existingDetailList, details);
-        // serialize updated details to json
-        try {
-            TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
-            final String updatedDetailsJson = JsonFormat.writeAllDelimitedAsString(listWithUpdates);
-            // update current event_summary record
-            fields.put(COLUMN_DETAILS_JSON, updatedDetailsJson);
-            fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(System.currentTimeMillis()));
-            String updateSql = "UPDATE " + tableName + " SET details_json=:details_json, "
-                    + "update_time=:update_time WHERE uuid = :uuid";
 
-            return template.update(updateSql, fields);
-        } catch (IOException ioe) {
-            throw new ZepException(ioe);
-        }
+        // update details with new values
+        final String updatedDetailsJson = mergeDetailsToJson(existingDetailList, details);
+        fields.put(COLUMN_DETAILS_JSON, updatedDetailsJson);
+
+        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
+        fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(System.currentTimeMillis()));
+
+        String updateSql = "UPDATE " + tableName + " SET details_json=:details_json, "
+                + "update_time=:update_time WHERE uuid = :uuid";
+
+        return template.update(updateSql, fields);
     }
 
     public static List<Integer> getSeverityIdsLessThan(EventSeverity severity) {
@@ -543,7 +611,7 @@ public class EventDaoHelper {
         }
         return severityIds;
     }
-    
+
     @TransactionalReadOnly
     public List<EventSummary> listBatch(SimpleJdbcTemplate template, String tableName, String startingUuid,
                                         long maxUpdateTime, int limit)
@@ -552,13 +620,13 @@ public class EventDaoHelper {
         final Map<String,Object> fields = new HashMap<String,Object>();
         fields.put("_max_update_time", databaseCompatibility.getTimestampConverter().toDatabaseType(maxUpdateTime));
         fields.put("_limit", limit);
-        
+
         if (startingUuid == null) {
             sql = "SELECT * FROM " + tableName + " WHERE update_time <= :_max_update_time ORDER BY uuid LIMIT :_limit";
         }
         else {
             fields.put("_starting_uuid", uuidConverter.toDatabaseType(startingUuid));
-            sql = "SELECT * FROM " + tableName + " WHERE uuid > :_starting_uuid AND update_time <= :_max_update_time " + 
+            sql = "SELECT * FROM " + tableName + " WHERE uuid > :_starting_uuid AND update_time <= :_max_update_time " +
                     "ORDER BY uuid LIMIT :_limit";
         }
         return template.query(sql, new EventSummaryRowMapper(this, databaseCompatibility), fields);
@@ -568,7 +636,7 @@ public class EventDaoHelper {
      * Adds the {@link ZepConstants#DETAIL_MIGRATE_UPDATE_TIME} detail to the event occurrence.
      *
      * @param eventBuilder Event builder.
-     * @param updateTime Update time to use as value for event detail.
+     * @param updateTime   Update time to use as value for event detail.
      */
     public static void addMigrateUpdateTimeDetail(Event.Builder eventBuilder, long updateTime) {
         // Add migrate_update_time detail
@@ -632,4 +700,5 @@ public class EventDaoHelper {
         fields.put(COLUMN_AUDIT_JSON, EventDaoHelper.collectionToJsonDelimited(summary.getAuditLogList()));
         return fields;
     }
+
 }

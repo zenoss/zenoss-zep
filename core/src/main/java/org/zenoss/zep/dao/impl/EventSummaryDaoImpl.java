@@ -66,7 +66,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     private final SimpleJdbcTemplate template;
 
     private final SimpleJdbcInsert insert;
-    
+
     private volatile List<String> archiveColumnNames;
 
     private EventDaoHelper eventDaoHelper;
@@ -141,7 +141,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         final long created = event.getCreatedTime();
         final long updateTime = System.currentTimeMillis();
         final int eventCount = 1;
-        
+
         /*
          * Clear events are dropped if they don't clear any corresponding events.
          */
@@ -188,7 +188,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         String uuid = null;
         do {
             final String sql = "SELECT event_count,first_seen,last_seen,details_json,status_id,uuid FROM event_summary" +
-                " WHERE fingerprint_hash=? FOR UPDATE";
+                    " WHERE fingerprint_hash=? FOR UPDATE";
             final List<EventSummaryOrBuilder> oldSummaryList = this.template.getJdbcOperations().query(sql,
                     new RowMapperResultSetExtractor<EventSummaryOrBuilder>(this.eventDedupMapper, 1),
                     fields.get(COLUMN_FINGERPRINT_HASH));
@@ -251,15 +251,15 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             COLUMN_TAGS_JSON);
 
     private Map<String,Object> getUpdateFields(EventSummaryOrBuilder oldSummary, Event occurrence,
-                                               Map<String,Object> insertFields) throws ZepException {
+                                                Map<String,Object> insertFields) throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         Map<String,Object> updateFields = new HashMap<String, Object>();
-        
+
         // Always increment count
         updateFields.put(COLUMN_EVENT_COUNT, oldSummary.getCount() + 1);
-        
+
         updateFields.put(COLUMN_UPDATE_TIME, insertFields.get(COLUMN_UPDATE_TIME));
-            
+
         if (occurrence.getCreatedTime() >= oldSummary.getLastSeenTime()) {
 
             for (String fieldName : UPDATE_FIELD_NAMES) {
@@ -289,26 +289,21 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             // Merge event details
             List<EventDetail> newDetails = occurrence.getDetailsList();
             if (!newDetails.isEmpty()) {
-                Collection<EventDetail> merged = EventDaoHelper.mergeDetails(
+                final String mergedDetails = eventDaoHelper.mergeDetailsToJson(
                         oldSummary.getOccurrence(0).getDetailsList(), newDetails);
-                try {
-                    updateFields.put(COLUMN_DETAILS_JSON, JsonFormat.writeAllDelimitedAsString(merged));
-                } catch (IOException e) {
-                    throw new ZepException(e.getLocalizedMessage(), e);
-                }
+                updateFields.put(COLUMN_DETAILS_JSON, mergedDetails);
             }
         }
         else {
+            // This is the case where the event that we're processing is OLDER
+            // than the last seen time on the summary.
+
             // Merge event details - order swapped b/c of out of order event
             List<EventDetail> oldDetails = occurrence.getDetailsList();
             if (!oldDetails.isEmpty()) {
-                Collection<EventDetail> merged = EventDaoHelper.mergeDetails(oldDetails,
-                        oldSummary.getOccurrence(0).getDetailsList());
-                try {
-                    updateFields.put(COLUMN_DETAILS_JSON, JsonFormat.writeAllDelimitedAsString(merged));
-                } catch (IOException e) {
-                    throw new ZepException(e.getLocalizedMessage(), e);
-                }
+                final String mergedDetails = eventDaoHelper.mergeDetailsToJson(
+                        oldDetails, oldSummary.getOccurrence(0).getDetailsList());
+                updateFields.put(COLUMN_DETAILS_JSON, mergedDetails);
             }
         }
 
@@ -422,7 +417,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             }
             List<Map<String,Object>> updateFields = this.template.query(selectSql, new IdentifyMapper(fields, uuid),
                     fields);
-            
+
             String updateSubElementSql = "UPDATE event_summary SET element_sub_uuid=:_uuid, " +
                     "element_sub_title=:_title, update_time=:update_time, " +
                     "clear_fingerprint_hash=:clear_fingerprint_hash WHERE uuid=:uuid";
@@ -492,7 +487,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         return this.template.query("SELECT * FROM event_summary WHERE uuid IN(:uuids)",
                 new EventSummaryRowMapper(this.eventDaoHelper, this.databaseCompatibility), fields);
     }
-    
+
     @Override
     @TransactionalReadOnly
     public List<EventSummary> listBatch(String startingUuid, long maxUpdateTime, int limit) throws ZepException {
@@ -511,7 +506,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int ageEvents(long agingInterval, TimeUnit unit,
-            EventSeverity maxSeverity, int limit, boolean inclusiveSeverity) throws ZepException {
+                         EventSeverity maxSeverity, int limit, boolean inclusiveSeverity) throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         long agingIntervalMs = unit.toMillis(agingInterval);
         if (agingIntervalMs < 0 || agingIntervalMs == Long.MAX_VALUE) {
@@ -553,8 +548,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         int numRows = 0;
         if (!uuids.isEmpty()) {
             String updateSql = "UPDATE event_summary SET status_id=:status_id, "
-                + "status_change=:status_change, update_time=:update_time "
-                + "WHERE uuid IN (:_uuids)";
+                    + "status_change=:status_change, update_time=:update_time "
+                    + "WHERE uuid IN (:_uuids)";
             fields.put("_uuids", uuids);
             numRows = this.template.update(updateSql, fields);
         }
@@ -722,11 +717,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             try {
                 numRows += this.nestedTransactionService.executeInNestedTransaction(
                         new NestedTransactionCallback<Integer>() {
-                    @Override
-                    public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
-                        return template.update(updateSql, update);
-                    }
-                });
+                            @Override
+                            public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
+                                return template.update(updateSql, update);
+                            }
+                        });
             } catch (DuplicateKeyException e) {
                 /*
                  * Ignore duplicate key errors on update. This will occur if there is an active
@@ -763,12 +758,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         final String sql = "SELECT uuid FROM event_summary WHERE status_id IN (:_closed_status_ids) AND "
                 + "last_seen < :_last_seen LIMIT :_limit FOR UPDATE";
         final List<String> uuids = this.template.query(sql, new RowMapper<String>() {
-                    @Override
-                    public String mapRow(ResultSet rs, int rowNum)
-                            throws SQLException {
-                        return uuidConverter.fromDatabaseType(rs, COLUMN_UUID);
-                    }
-                }, fields);
+            @Override
+            public String mapRow(ResultSet rs, int rowNum)
+                    throws SQLException {
+                return uuidConverter.fromDatabaseType(rs, COLUMN_UUID);
+            }
+        }, fields);
         return archive(uuids);
     }
 

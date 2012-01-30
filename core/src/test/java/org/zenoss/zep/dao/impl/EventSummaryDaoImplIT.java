@@ -11,6 +11,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.Event.Builder;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventAuditLog;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
@@ -25,6 +26,7 @@ import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ClearFingerprintGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
@@ -69,6 +71,9 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
 
     @Autowired
     public DatabaseCompatibility databaseCompatibility;
+
+    @Autowired
+    public ConfigDao configDao;
 
     private EventSummary createSummaryNew(Event event) throws ZepException {
         return createSummary(event, EventStatus.STATUS_NEW);
@@ -1156,5 +1161,304 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         assertEquals(Arrays.asList("b", "c"), detailsMap.get("a"));
         assertEquals(Arrays.asList("b1", "b2"), detailsMap.get("b"));
         assertEquals(Arrays.asList("c1", "c2"), detailsMap.get("c"));
+    }
+
+
+    private EventDetail createDetailOfSize(String name, int detailLength,
+                                           String prefix, EventDetailMergeBehavior behavior) {
+        EventDetail.Builder detailBuilder = EventDetail.newBuilder();
+        detailBuilder.setName(name);
+        detailBuilder.addValue(prefix + createRandomMaxString(detailLength));
+
+        if (behavior != null) {
+            detailBuilder.setMergeBehavior(behavior);
+        }
+        return detailBuilder.build();
+    }
+
+    private int getStringStepSize() throws ZepException {
+        // Maximum bytes divided by 2 will give the ballpark length of the largest
+        // string. Subdivide this length by 4 so we get a decent step length
+        // and can control when we go over the maximum size.
+        return (int) configDao.getConfig().getEventMaxSizeBytes() / 8;
+    }
+
+
+    /**
+     * Test that normal events with large details do not get modified if they are
+     * smaller than the event_max_size_bytes parameter.
+     *
+     * @throws ZepException
+     */
+    @Test
+    public void testMaxEventSizeCreationNormal() throws ZepException {
+        int stringStepSize = getStringStepSize();
+
+        List<EventDetail> baseDetails = new ArrayList<EventDetail>();
+
+        baseDetails.add(createDetailOfSize("foo_append", stringStepSize, "validDetails-",
+                EventDetailMergeBehavior.APPEND));
+        baseDetails.add(createDetailOfSize("bar_replace", stringStepSize, "validDetails-",
+                EventDetailMergeBehavior.REPLACE));
+        baseDetails.add(createDetailOfSize("baz_unique", stringStepSize, "validDetails-",
+                EventDetailMergeBehavior.UNIQUE));
+
+        Builder baseEventBuilder = Event.newBuilder(EventTestUtils.createSampleEvent()).clearDetails();
+        baseEventBuilder.addAllDetails(baseDetails);
+
+        Event validEvent = baseEventBuilder.build();
+        EventSummary validSummary = createSummaryNew(validEvent);
+
+        // Verify large, but not too large, details get created and indexed
+        assertTrue(validSummary != null);
+
+        // Verify that the details haven't been changed as they were saved
+        assertEquals(validSummary.getOccurrence(0).getDetailsList(), baseDetails);
+    }
+
+
+    /**
+     * Test that during creation events with details that are too large have their
+     * non-Zenoss details truncated.
+     *
+     * @throws ZepException
+     */
+    @Test
+    public void testMaxEventSizeCreationLarge() throws ZepException {
+        int stringStepSize = getStringStepSize();
+
+        List<EventDetail> baseDetails = new ArrayList<EventDetail>();
+
+        baseDetails.add(createDetailOfSize("foo_append", stringStepSize*50, "tooLarge-",
+                EventDetailMergeBehavior.APPEND));
+        baseDetails.add(createDetailOfSize("bar_replace", stringStepSize*50, "tooLarge-",
+                EventDetailMergeBehavior.REPLACE));
+        baseDetails.add(createDetailOfSize("baz_unique", stringStepSize*50, "tooLarge-",
+                EventDetailMergeBehavior.UNIQUE));
+
+        // Note: The event for this is a new sample event. This is to verify that
+        // when creating a new event, if the details data is too large, the event
+        // will have it's non-zenoss details truncated completely.
+        final Builder invalidEventBuilder = Event.newBuilder(
+                EventTestUtils.createSampleEvent()).clearDetails();
+        invalidEventBuilder.addAllDetails(baseDetails);
+
+        // Add a legitimate zenoss detail and make sure it's not removed.
+        invalidEventBuilder.addDetails(EventDetail.newBuilder()
+                .setName(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE)
+                .addValue("1000"));
+
+        EventSummary invalidSummary = createSummaryNew(invalidEventBuilder.build());
+
+        for (EventDetail detail : invalidSummary.getOccurrence(0).getDetailsList()) {
+            assertTrue("Detail should be a zenoss detail: " + detail.getName(),
+                    detail.getName().startsWith("zenoss."));
+        }
+
+        final Map<String, List<String>> createdDetails = detailsToMap(
+                invalidSummary.getOccurrence(0).getDetailsList());
+        assertTrue("Created event should contain Zenoss details (production state).",
+                createdDetails.keySet().contains(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE));
+
+    }
+
+
+    /**
+     * Sets up an event for testing with detail size tests.
+     *
+     * @param stringStepSize The length of the string value for each detail.
+     * @return Event The original event to use in tests.
+     * @throws ZepException
+     */
+    private Event setupEventForDetails(int stringStepSize) throws ZepException {
+        final List<EventDetail> baseDetails = new ArrayList<EventDetail>();
+        baseDetails.add(createDetailOfSize("foo_append", stringStepSize, "baseDetail-",
+                EventDetailMergeBehavior.APPEND));
+        baseDetails.add(createDetailOfSize("bar_replace", stringStepSize, "baseDetail-",
+                EventDetailMergeBehavior.REPLACE));
+        baseDetails.add(createDetailOfSize("baz_unique", stringStepSize, "baseDetail-",
+                EventDetailMergeBehavior.UNIQUE));
+
+        final Builder baseEventBuilder = Event.newBuilder(EventTestUtils.createSampleEvent()).clearDetails();
+        baseEventBuilder.addAllDetails(baseDetails);
+        final Event originalEvent = baseEventBuilder.build();
+        final EventSummary originalSummary = createSummaryNew(originalEvent);
+
+        return originalEvent;
+    }
+
+
+    /**
+     * Three cases to test for UPDATE scenario:
+     *
+     *  1.) new details + old details > max size && new details <= max size
+     *      drop old details, add new details
+     *
+     *  2.) new details + old details > max size && new details > max size
+     *      drop old details, drop non-zenoss new details
+     *
+     *  3.) new details + old details <= max size
+     *      merge details like normal
+     */
+
+    /**
+     * Verify that old details get dropped if new details are less than max
+     * size and combined details are greater than max size.
+     *
+     * @throws org.zenoss.zep.ZepException
+     */
+    @Test
+    public void testMaxEventSizeUpdateDropOld() throws ZepException {
+        final int stringStepSize = getStringStepSize();
+        final Event originalEvent = setupEventForDetails(stringStepSize);
+
+        final List<EventDetail> additionalDetails = new ArrayList<EventDetail>();
+        additionalDetails.add(createDetailOfSize("foo_append", stringStepSize, "additionalDetail-",
+                EventDetailMergeBehavior.APPEND));
+        additionalDetails.add(createDetailOfSize("bar_replace", stringStepSize, "additionalDetail-",
+                EventDetailMergeBehavior.REPLACE));
+        additionalDetails.add(createDetailOfSize("baz_unique", stringStepSize, "additionalDetail-",
+                EventDetailMergeBehavior.UNIQUE));
+
+        final Event.Builder newEventBuilder = Event.newBuilder(originalEvent);
+        newEventBuilder.setCreatedTime(newEventBuilder.getCreatedTime() + 1);
+        newEventBuilder.clearDetails();
+        newEventBuilder.addAllDetails(additionalDetails);
+
+        final Event newEvent = newEventBuilder.build();
+        assertTrue("New details don't contain additional details at all?",
+                detailsToMap(newEvent.getDetailsList()).containsKey("foo_append"));
+
+        final EventSummary newSummary = createSummaryNew(newEventBuilder.build());
+
+        assertEquals("Old details should have been dropped.",
+                additionalDetails, newSummary.getOccurrence(0).getDetailsList());
+    }
+
+    /**
+     * Verify that new details that are too large have non-Zenoss details dropped.
+     *
+     * If combined new and old details are too large and the new details alone
+     * are too large, drop the old details as well as the non-Zenoss new details.
+     *
+     * @throws org.zenoss.zep.ZepException
+     */
+    @Test
+    public void testMaxEventSizeUpdateDropNew() throws ZepException {
+        final int stringStepSize = getStringStepSize();
+        final Event originalEvent = setupEventForDetails(stringStepSize);
+
+        final List<EventDetail> largeDetails = new ArrayList<EventDetail>();
+        largeDetails.add(createDetailOfSize("foo_append", stringStepSize*30, "largeDetail-",
+                EventDetailMergeBehavior.APPEND));
+        largeDetails.add(createDetailOfSize("bar_replace", stringStepSize*30, "largeDetail-",
+                EventDetailMergeBehavior.REPLACE));
+        largeDetails.add(createDetailOfSize("baz_unique", stringStepSize*30, "largeDetail-",
+                EventDetailMergeBehavior.UNIQUE));
+
+        final Event.Builder largeEventBuilder = Event.newBuilder(originalEvent);
+        largeEventBuilder.setCreatedTime(largeEventBuilder.getCreatedTime() + 2);
+        largeEventBuilder.clearDetails();
+        largeEventBuilder.addAllDetails(largeDetails);
+
+        // Add a legitimate Zenoss detail and verify that it's not removed.
+        largeEventBuilder.addDetails(EventDetail.newBuilder()
+                .setName(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE)
+                .addValue("1000"));
+
+        final EventSummary largeSummary = createSummaryNew(largeEventBuilder.build());
+
+        // Only Zenoss details should remain...
+        for (EventDetail detail : largeSummary.getOccurrence(0).getDetailsList()) {
+            assertTrue("Detail should be a zenoss detail: " + detail.getName(),
+                    detail.getName().startsWith("zenoss."));
+        }
+
+
+        final Map<String, List<String>> createdDetails = detailsToMap(
+                largeSummary.getOccurrence(0).getDetailsList());
+        // ...and verify that our SPECIFIC detail was not somehow removed.
+        assertTrue("Created event should contain Zenoss details (production state).",
+                createdDetails.keySet().contains(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE));
+
+
+
+    }
+
+    /**
+     * Verify that new details and old details get merged correctly if less than
+     * max size. This is normal behavior.
+     *
+     * @throws org.zenoss.zep.ZepException
+     */
+    @Test
+    public void testMaxEventSizeUpdateMerge() throws ZepException {
+        final int stringStepSize = getStringStepSize();
+        final Event originalEvent = setupEventForDetails(stringStepSize);
+
+        // This step size is much smaller because I want to add each detail and
+        // make sure it doesn't go over the max size limit.
+        final int additionalDetailStepSize = 8;
+
+        final List<EventDetail> normalDetails = new ArrayList<EventDetail>();
+        normalDetails.add(createDetailOfSize("foo_append", additionalDetailStepSize, "normalDetail-",
+                EventDetailMergeBehavior.APPEND));
+        normalDetails.add(createDetailOfSize("bar_replace", additionalDetailStepSize, "normalDetail-",
+                EventDetailMergeBehavior.REPLACE));
+        normalDetails.add(createDetailOfSize("baz_unique", additionalDetailStepSize, "normalDetail-",
+                EventDetailMergeBehavior.UNIQUE));
+
+        final Event.Builder normalEventBuilder = Event.newBuilder(originalEvent);
+        normalEventBuilder.setCreatedTime(normalEventBuilder.getCreatedTime() + 3);
+        normalEventBuilder.clearDetails();
+        normalEventBuilder.addAllDetails(normalDetails);
+        final EventSummary normalSummary = createSummaryNew(normalEventBuilder.build());
+
+        Map<String, List<String>> createdDetails = detailsToMap(normalSummary.getOccurrence(0).getDetailsList());
+        Map<String, List<String>> mapNormalDetails = detailsToMap(normalDetails);
+        Map<String, List<String>> mapOriginalDetails = detailsToMap(originalEvent.getDetailsList());
+
+        // assert that normalDetails and originalDetails values for foo_append are present
+        assertTrue("Created details should contain normal details 'foo_append' value.",
+                createdDetails.get("foo_append").contains(mapNormalDetails.get("foo_append").get(0)));
+        assertTrue("Created details should contain original details 'foo_append' value.",
+                createdDetails.get("foo_append").contains(mapOriginalDetails.get("foo_append").get(0)));
+
+        // assert that only normalDetails value for bar_replace is present
+        assertTrue("Created details should contain normal details 'bar_replace' value.",
+                createdDetails.get("bar_replace").contains(mapNormalDetails.get("bar_replace").get(0)));
+        assertFalse("Created details should NOT contain original details 'bar_replace' value.",
+                createdDetails.get("bar_replace").contains(mapOriginalDetails.get("bar_replace").get(0)));
+
+        // assert that normalDetails and originalDetails values for baz_unique are present.
+        assertTrue("Created details should contain normal details 'baz_unique' value.",
+                createdDetails.get("baz_unique").contains(mapNormalDetails.get("baz_unique").get(0)));
+        assertTrue("Created details should contain original details 'baz_unique' value.",
+                createdDetails.get("baz_unique").contains(mapOriginalDetails.get("baz_unique").get(0)));
+    }
+
+    
+    @Test
+    public void testMaxEventSizeUpdateOutOfOrder() throws ZepException {
+        final int stringStepSize = getStringStepSize();
+        final Event newestEvent = setupEventForDetails(stringStepSize);
+
+        final List<EventDetail> oldDetails = new ArrayList<EventDetail>();
+        oldDetails.add(createDetailOfSize("foo_append", stringStepSize, "oldDetail-",
+                EventDetailMergeBehavior.APPEND));
+        oldDetails.add(createDetailOfSize("bar_replace", stringStepSize, "oldDetail-",
+                EventDetailMergeBehavior.REPLACE));
+        oldDetails.add(createDetailOfSize("baz_unique", stringStepSize, "oldDetail-",
+                EventDetailMergeBehavior.UNIQUE));
+
+        final Event.Builder oldEventBuilder = Event.newBuilder(newestEvent);
+        oldEventBuilder.setCreatedTime(oldEventBuilder.getCreatedTime() - 5000);
+        oldEventBuilder.clearDetails();
+        oldEventBuilder.addAllDetails(oldDetails);
+
+        final EventSummary oldSummary = createSummaryNew(oldEventBuilder.build());
+
+        assertEquals("Oldest details should have been dropped.",
+                newestEvent.getDetailsList(), oldSummary.getOccurrence(0).getDetailsList());
     }
 }

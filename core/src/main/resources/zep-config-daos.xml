@@ -34,11 +34,16 @@
         <constructor-arg index="0" ref="zepConfig"/>
     </bean>
 
+    <bean id="configService" class="org.zenoss.zep.impl.ZepConfigServiceImpl">
+        <property name="configDao" ref="configDao"/>
+    </bean>
+    
     <!-- DAO -->
     <bean id="eventDaoHelper" class="org.zenoss.zep.dao.impl.EventDaoHelper">
         <property name="daoCache" ref="daoCache"/>
         <property name="uuidGenerator" ref="uuidGenerator"/>
         <property name="databaseCompatibility" ref="databaseCompatibility"/>
+        <property name="zepConfigService" ref="configService"/>
     </bean>
     <bean id="eventSummaryDao" class="org.zenoss.zep.dao.impl.EventSummaryDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>

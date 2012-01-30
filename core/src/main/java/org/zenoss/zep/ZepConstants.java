@@ -6,8 +6,10 @@ package org.zenoss.zep;
 
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Set;
 
 /**

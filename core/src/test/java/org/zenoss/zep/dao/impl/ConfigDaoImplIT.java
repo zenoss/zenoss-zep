@@ -28,6 +28,7 @@ public class ConfigDaoImplIT extends AbstractTransactionalJUnit4SpringContextTes
         builder.setEventArchiveIntervalMinutes(7*24*60);
         builder.setEventArchivePurgeIntervalDays(90);
         builder.setEventTimePurgeIntervalDays(7);
+        builder.setEventMaxSizeBytes(40000);
         ZepConfig cnf = builder.build();
         configDao.setConfig(cnf);
 
