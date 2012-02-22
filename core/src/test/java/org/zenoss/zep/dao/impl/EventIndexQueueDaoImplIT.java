@@ -179,4 +179,16 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         testDelete(eventSummaryDao, eventSummaryIndexQueueDao, false);
         testDelete(eventArchiveDao, eventArchiveIndexQueueDao, true);
     }
+
+    @Test
+    public void testSummaryQueueLength() throws ZepException {
+        eventSummaryIndexQueueDao.getQueueLength();
+    }
+
+    @Test
+    public void testArchiveQueueLength() throws ZepException {
+        long actual = eventSummaryIndexQueueDao.getQueueLength();
+        assertEquals(0L, actual);
+    }
+
 }

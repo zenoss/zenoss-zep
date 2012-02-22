@@ -1057,4 +1057,12 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             }
         }
     }
+
+    @Test
+    public void testSize() throws ZepException {
+        long size = eventIndexDao.getSize();
+        String msg = String.format("eventIndexDao.getSize(): %d > 0", size);
+        assertTrue(msg, size > 0);
+    }
+
 }

@@ -20,6 +20,7 @@ import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.store.Directory;
 import org.apache.lucene.util.OpenBitSet;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -917,4 +918,20 @@ public class EventIndexDaoImpl implements EventIndexDao {
         search.getTimeoutFuture().cancel(false);
         return search.getUuid();
     }
+
+    @Override
+    public long getSize() {
+        try {
+            Directory directory = writer.getDirectory();
+            long size = 0L;
+            for(String name: directory.listAll()) {
+                size += directory.fileLength(name);
+            }
+            return size;
+        } catch (IOException e) {
+            logger.warn("Cannot get index size.");
+            return -1L;
+        }
+    }
+
 }

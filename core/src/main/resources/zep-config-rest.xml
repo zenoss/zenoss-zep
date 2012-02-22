@@ -37,5 +37,9 @@
     <bean id="protobufMessageRegistry" class="org.zenoss.zep.rest.ProtobufMessageRegistryImpl">
         <constructor-arg index="0" ref="extensionRegistry" />
     </bean>
+    <bean id="statisticsResource" class="org.zenoss.zep.rest.StatisticsResource">
+        <property name="statisticsService" ref="statisticsService" />
+    </bean>
+    
 
 </beans>

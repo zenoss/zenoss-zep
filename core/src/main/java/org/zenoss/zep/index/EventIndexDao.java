@@ -208,4 +208,9 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException If the saved search could not be deleted.
      */
     public String deleteSavedSearch(String uuid) throws ZepException;
+
+    /**
+     * @return the sum of the file sizes in the index directory.
+     */
+    public long getSize();
 }

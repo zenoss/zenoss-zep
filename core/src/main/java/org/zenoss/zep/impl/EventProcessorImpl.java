@@ -11,6 +11,7 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.EventProcessor;
 import org.zenoss.zep.PluginService;
+import org.zenoss.zep.StatisticsService;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSummaryDao;
@@ -33,6 +34,8 @@ public class EventProcessorImpl implements EventProcessor {
 
     private EventSummaryDao eventSummaryDao;
 
+    private StatisticsService statisticsService;
+
     public void setEventSummaryDao(EventSummaryDao eventSummaryDao) {
         this.eventSummaryDao = eventSummaryDao;
     }
@@ -45,6 +48,10 @@ public class EventProcessorImpl implements EventProcessor {
      */
     public void setPluginService(PluginService pluginService) {
         this.pluginService = pluginService;
+    }
+
+    public void setStatisticsService(final StatisticsService statisticsService) {
+        this.statisticsService = statisticsService;
     }
 
     private static Event eventFromRawEvent(ZepRawEvent zepRawEvent) {
@@ -60,17 +67,21 @@ public class EventProcessorImpl implements EventProcessor {
     @TransactionalRollbackAllExceptions
     public void processEvent(ZepRawEvent zepRawEvent) throws ZepException {
         logger.debug("processEvent: event={}", zepRawEvent);
+        statisticsService.addToProcessedEventCount(1);
 
         if (zepRawEvent.getEvent().getStatus() == EventStatus.STATUS_DROPPED) {
             logger.debug("Event dropped: {}", zepRawEvent);
+            statisticsService.addToDroppedEventCount(1);
             return;
         } else if (zepRawEvent.getEvent().getUuid().isEmpty()) {
             logger.error("Could not process event, has no uuid: {}",
                     zepRawEvent);
+            statisticsService.addToDroppedEventCount(1);
             return;
         } else if (!zepRawEvent.getEvent().hasCreatedTime()) {
             logger.error("Could not process event, has no created_time: {}",
                     zepRawEvent);
+            statisticsService.addToDroppedEventCount(1);
             return;
         }
 
@@ -81,6 +92,7 @@ public class EventProcessorImpl implements EventProcessor {
             Event modified = plugin.processEvent(event, ctx);
             if (modified != null && modified.getStatus() == EventStatus.STATUS_DROPPED) {
                 logger.debug("Event dropped by {}", plugin.getId());
+                statisticsService.addToDroppedEventCount(1);
                 return;
             }
 

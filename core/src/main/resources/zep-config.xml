@@ -48,6 +48,7 @@
     <bean id="eventProcessor" class="org.zenoss.zep.impl.EventProcessorImpl">
         <property name="pluginService" ref="pluginService"/>
         <property name="eventSummaryDao" ref="eventSummaryDao"/>
+        <property name="statisticsService" ref="statisticsService"/>
     </bean>
 
     <bean id="eventPublisher" class="org.zenoss.zep.impl.EventPublisherImpl">
@@ -155,7 +156,6 @@
     </bean>
 
     <!-- Framework for MBeans support -->
-    <!--
     <bean id="mbeanServer" class="org.springframework.jmx.support.MBeanServerFactoryBean">
         <property name="locateExistingServerIfPossible" value="true"/>
     </bean>
@@ -165,9 +165,18 @@
         <property name="autodetect" value="true"/>
         <property name="beans">
             <map>
+                <entry key="org.zenoss.zep:name=stats,type=ZepMXBean" value-ref="statisticsService"/>
             </map>
         </property>
     </bean>
-    -->
+
+    <bean id="statisticsService" class="org.zenoss.zep.impl.StatisticsServiceImpl">
+        <property name="configDao" ref="configDao"/>
+        <property name="eventSummaryDao" ref="eventSummaryDao"/>
+        <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao"/>
+        <property name="eventArchiveIndexDao" ref="eventArchiveIndexDao"/>
+        <property name="eventSummaryIndexQueueDao" ref="eventSummaryIndexQueueDao"/>
+        <property name="eventArchiveIndexQueueDao" ref="eventArchiveIndexQueueDao"/>
+    </bean>
 
 </beans>

@@ -10,6 +10,7 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.PluginService;
+import org.zenoss.zep.StatisticsService;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.plugins.EventPostCreateContext;
@@ -64,6 +65,7 @@ public class EventProcessorImplTest {
             AmqpException {
         PluginService pluginService = createMock(PluginService.class);
         EventSummaryDao eventSummaryDao = createMock(EventSummaryDao.class);
+        StatisticsService statisticsService = createMock(StatisticsService.class);
         SamplePostPlugin postPlugin = new SamplePostPlugin();
 
         Capture<Event> transformedEvent = new Capture<Event>();
@@ -87,6 +89,7 @@ public class EventProcessorImplTest {
         EventProcessorImpl eventProcessor = new EventProcessorImpl();
         eventProcessor.setPluginService(pluginService);
         eventProcessor.setEventSummaryDao(eventSummaryDao);
+        eventProcessor.setStatisticsService(statisticsService);
 
         Event.Builder eventBuilder = Event.newBuilder();
         eventBuilder.setUuid(UUID.randomUUID().toString());
@@ -110,6 +113,7 @@ public class EventProcessorImplTest {
             IOException, AmqpException {
         PluginService pluginService = createMock(PluginService.class);
         EventSummaryDao eventSummaryDao = createMock(EventSummaryDao.class);
+        StatisticsService statisticsService = createMock(StatisticsService.class);
 
         Capture<Event> transformedEvent = new Capture<Event>();
         Capture<EventPreCreateContext> transformedContext = new Capture<EventPreCreateContext>();
@@ -127,6 +131,7 @@ public class EventProcessorImplTest {
         EventProcessorImpl eventProcessor = new EventProcessorImpl();
         eventProcessor.setPluginService(pluginService);
         eventProcessor.setEventSummaryDao(eventSummaryDao);
+        eventProcessor.setStatisticsService(statisticsService);
 
         Event.Builder eventBuilder = Event.newBuilder();
         eventBuilder.setUuid(UUID.randomUUID().toString());

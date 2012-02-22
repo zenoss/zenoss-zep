@@ -25,6 +25,7 @@ import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryOrBuilder;
+import org.zenoss.zep.StatisticsService;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -81,6 +82,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private RowMapper<EventSummaryOrBuilder> eventDedupMapper;
 
+    private StatisticsService statisticsService;
+
     public EventSummaryDaoImpl(DataSource dataSource) throws MetaDataAccessException {
         this.dataSource = dataSource;
         this.template = new SimpleJdbcTemplate(dataSource);
@@ -131,6 +134,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     public void setNestedTransactionService(NestedTransactionService nestedTransactionService) {
         this.nestedTransactionService = nestedTransactionService;
+    }
+
+    public void setStatisticsService(final StatisticsService statisticsService) {
+        this.statisticsService = statisticsService;
     }
 
     @Override
@@ -221,6 +228,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private String dedupEvent(EventSummaryOrBuilder oldSummary, Event event, Map<String,Object> insertFields)
             throws ZepException {
+        statisticsService.addToDedupedEventCount(1);
         final Map<String,Object> updateFields = getUpdateFields(oldSummary, event, insertFields);
         final StringBuilder updateSql = new StringBuilder("UPDATE event_summary SET ");
         for (Iterator<String> it = updateFields.keySet().iterator(); it.hasNext(); ) {
@@ -333,12 +341,14 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put("_clear_created_time", timestampConverter.toDatabaseType(lastSeen));
         fields.put("_clear_hashes", clearHashes);
         fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
-        return this.template.query(sql, new RowMapper<String>() {
+        List<String> results = this.template.query(sql, new RowMapper<String>() {
             @Override
             public String mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return uuidConverter.fromDatabaseType(rs, COLUMN_UUID);
             }
         }, fields);
+        statisticsService.addToClearedEventCount(results.size());
+        return results;
     }
 
     /**
@@ -503,6 +513,22 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             EventStatus.STATUS_CLEARED.getNumber(),
             EventStatus.STATUS_CLOSED.getNumber());
 
+    private static List<Integer> getSeverityIds(EventSeverity maxSeverity, boolean inclusiveSeverity) {
+        List<Integer> severityIds = EventDaoHelper.getSeverityIdsLessThan(maxSeverity);
+        if (inclusiveSeverity) {
+            severityIds.add(maxSeverity.getNumber());
+        }
+        return severityIds;
+    }
+
+    @Override
+    public long getAgeEligibleEventCount(long duration, TimeUnit unit, EventSeverity maxSeverity, boolean inclusiveSeverity) {
+        String sql = "SELECT count(*) FROM event_summary WHERE status_id NOT IN (:_closed_status_ids) AND last_seen < :_last_seen AND severity_id IN (:_severity_ids)";
+        Map <String, Object> fields = createSharedFields(duration, unit);
+        fields.put("_severity_ids", getSeverityIds(maxSeverity, inclusiveSeverity));
+        return template.queryForInt(sql, fields);
+    }
+
     @Override
     @TransactionalRollbackAllExceptions
     public int ageEvents(long agingInterval, TimeUnit unit,
@@ -515,10 +541,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         if (limit <= 0) {
             throw new ZepException("Limit can't be negative: " + limit);
         }
-        List<Integer> severityIds = EventDaoHelper.getSeverityIdsLessThan(maxSeverity);
-        if (inclusiveSeverity) {
-            severityIds.add(maxSeverity.getNumber());
-        }
+        List<Integer> severityIds = getSeverityIds(maxSeverity, inclusiveSeverity);
         if (severityIds.isEmpty()) {
             logger.debug("Not aging events - max severity specified");
             return 0;
@@ -553,6 +576,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             fields.put("_uuids", uuids);
             numRows = this.template.update(updateSql, fields);
         }
+        statisticsService.addToAgedEventCount(numRows);
         return numRows;
     }
 
@@ -744,15 +768,27 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         return update(uuids, EventStatus.STATUS_ACKNOWLEDGED, userfields, currentStatuses);
     }
 
+    private Map<String, Object> createSharedFields(long duration, TimeUnit unit) {
+        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
+        long delta = System.currentTimeMillis() - unit.toMillis(duration);
+        Object lastSeen = timestampConverter.toDatabaseType(delta);
+        Map<String, Object> fields = new HashMap<String, Object>();
+        fields.put("_last_seen", lastSeen);
+        fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
+        return fields;
+    }
+
+    @Override
+    public long getArchiveEligibleEventCount(long duration, TimeUnit unit) {
+        String sql = "SELECT COUNT(*) FROM event_summary WHERE status_id IN (:_closed_status_ids) AND last_seen < :_last_seen";
+        Map<String, Object> fields = createSharedFields(duration, unit);
+        return template.queryForInt(sql, fields);
+    }
+
     @Override
     @TransactionalRollbackAllExceptions
     public int archive(long duration, TimeUnit unit, int limit) throws ZepException {
-        TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
-        final long updateTime = System.currentTimeMillis();
-        final long lastSeen = updateTime - unit.toMillis(duration);
-        Map<String, Object> fields = new HashMap<String, Object>();
-        fields.put("_last_seen", timestampConverter.toDatabaseType(lastSeen));
-        fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
+        Map<String, Object> fields = createSharedFields(duration, unit);
         fields.put("_limit", limit);
 
         final String sql = "SELECT uuid FROM event_summary WHERE status_id IN (:_closed_status_ids) AND "
@@ -839,6 +875,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         this.template.update(insertSql, fields);
         final int updated = this.template.update("DELETE FROM event_summary WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
                 fields);
+        statisticsService.addToArchivedEventCount(1);
         return updated;
     }
 
@@ -872,4 +909,5 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         this.insert.execute(fields);
     }
+
 }

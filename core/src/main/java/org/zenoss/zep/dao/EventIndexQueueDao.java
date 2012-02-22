@@ -29,4 +29,7 @@ public interface EventIndexQueueDao {
      * @throws ZepException If an exception occurs.
      */
     public int indexEvents(EventIndexHandler handler, int limit, long maxUpdateTime) throws ZepException;
+
+    public long getQueueLength();
+
 }

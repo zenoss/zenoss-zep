@@ -1461,4 +1461,24 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         assertEquals("Oldest details should have been dropped.",
                 newestEvent.getDetailsList(), oldSummary.getOccurrence(0).getDetailsList());
     }
+
+    @Test
+    public void testAgeEligibleEventCount() throws ZepException {
+        long initial = eventSummaryDao.getAgeEligibleEventCount(0L, TimeUnit.SECONDS, EventSeverity.SEVERITY_CRITICAL, true);
+        createSummaryNew(EventTestUtils.createSampleEvent());
+        long actual = eventSummaryDao.getAgeEligibleEventCount(0L, TimeUnit.SECONDS, EventSeverity.SEVERITY_CRITICAL, true);
+        assertEquals(initial + 1L, actual);
+    }
+
+    @Test
+    public void testArchiveEligibleEventCount() throws ZepException {
+        long initial = eventSummaryDao.getArchiveEligibleEventCount(0L, TimeUnit.SECONDS);
+        EventSummary summary = createSummaryNew(EventTestUtils.createSampleEvent());
+        String userUuid = UUID.randomUUID().toString();
+        String userName = "user" + random.nextInt(500);
+        eventSummaryDao.close(Collections.singletonList(summary.getUuid()), userUuid, userName);
+        long actual = eventSummaryDao.getArchiveEligibleEventCount(0L, TimeUnit.SECONDS);
+        assertEquals(initial + 1L, actual);
+    }
+
 }

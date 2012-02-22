@@ -123,4 +123,10 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
         }
         return numIndexed[0];
     }
+
+    @Override
+    public long getQueueLength() {
+        String sql = String.format("SELECT COUNT(*) FROM %s", queueTableName);
+        return template.queryForLong(sql);
+    }
 }

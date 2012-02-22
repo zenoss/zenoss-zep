@@ -44,6 +44,8 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      */
     public int deidentify(String uuid) throws ZepException;
 
+    public long getAgeEligibleEventCount(long duration, TimeUnit unit, EventSeverity maxSeverity, boolean inclusiveSeverity);
+
     /**
      * Ages events from the summary database which are older than the specified
      * interval and whose severity is less than the specified maximum severity.
@@ -136,6 +138,8 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      */
     public int archive(List<String> uuids) throws ZepException;
 
+    public long getArchiveEligibleEventCount(long duration, TimeUnit unit);
+
     /**
      * Moves all events with last seen time before the duration and a closed
      * status ({@link EventStatus#STATUS_CLOSED},
@@ -154,4 +158,5 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      */
     public int archive(long duration, TimeUnit unit, int limit)
             throws ZepException;
+
 }
