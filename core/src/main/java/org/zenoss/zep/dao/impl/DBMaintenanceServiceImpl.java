@@ -5,13 +5,14 @@ package org.zenoss.zep.dao.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.support.JdbcUtils;
-import org.springframework.jdbc.support.SQLErrorCodeSQLExceptionTranslator;
-import org.springframework.util.StringUtils;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.DBMaintenanceService;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.DatabaseType;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -25,7 +26,6 @@ import java.util.List;
  */
 public class DBMaintenanceServiceImpl implements DBMaintenanceService {
 
-    private final DataSource ds;
     private final JdbcTemplate template;
     private DatabaseCompatibility databaseCompatibility;
 
@@ -36,7 +36,6 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
             "event_archive_index_queue", "event_trigger_signal_spool", "daemon_heartbeat");
 
     public DBMaintenanceServiceImpl(DataSource ds) {
-        this.ds = ds;
         this.template = new JdbcTemplate(ds);
     }
 
@@ -47,47 +46,43 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
     @Override
     public void optimizeTables() throws ZepException {
         logger.debug("Optimizing tables: {}", tablesToOptimize);
-        
-        switch (databaseCompatibility.getDatabaseType()) {
-            case MYSQL:
-                this.template.update("OPTIMIZE TABLE " +
-                        StringUtils.collectionToCommaDelimitedString(this.tablesToOptimize));
-                break;
-            
-            case POSTGRESQL:
-                Connection connection = null;
+
+        final DatabaseType dbType = databaseCompatibility.getDatabaseType();
+
+        this.template.execute(new ConnectionCallback<Object>() {
+            @Override
+            public Object doInConnection(Connection con) throws SQLException, DataAccessException {
+                Boolean currentAutoCommit = null;
                 Statement statement = null;
-                boolean currentAutoCommit = false;
                 try {
-                    connection = this.ds.getConnection();
-                    currentAutoCommit = connection.getAutoCommit();
-                    // Running VACUUM requires not running in a transaction - to do this we have to enable autocommit.
-                    connection.setAutoCommit(true);
-                    statement = connection.createStatement();
+                    currentAutoCommit = con.getAutoCommit();
+                    con.setAutoCommit(true);
+                    statement = con.createStatement();
                     for (String tableToOptimize : tablesToOptimize) {
-                        statement.execute("VACUUM ANALYZE " + tableToOptimize);
+                        logger.debug("Optimizing table: {}", tableToOptimize);
+                        final String sql;
+                        switch (dbType) {
+                            case MYSQL:
+                                sql = "OPTIMIZE TABLE " + tableToOptimize;
+                                break;
+                            case POSTGRESQL:
+                                sql = "VACUUM ANALYZE " + tableToOptimize;
+                                break;
+                            default:
+                                throw new IllegalStateException("Unsupported database type: " + dbType);
+                        }
+                        statement.execute(sql);
+                        logger.debug("Completed optimizing table: {}", tableToOptimize);
                     }
-                } catch (SQLException e) {
-                    throw new SQLErrorCodeSQLExceptionTranslator(this.ds).translate("optimizeTables", "" , e);
                 } finally {
                     JdbcUtils.closeStatement(statement);
-                    if (connection != null) {
-                        try {
-                            connection.setAutoCommit(currentAutoCommit);
-                        } catch (SQLException e) {
-                            /* Ignored */
-                            logger.debug("Failed to reset autocommit", e);
-                        } finally {
-                            JdbcUtils.closeConnection(connection);
-                        }
+                    if (currentAutoCommit != null) {
+                        con.setAutoCommit(currentAutoCommit);
                     }
                 }
-                break;
-            
-            default:
-                throw new ZepException("Unsupported database type: " + databaseCompatibility.getDatabaseType());
-
-        }
+                return null;
+            }
+        });
 
         logger.debug("Completed Optimizing tables: {}", tablesToOptimize);
     }
