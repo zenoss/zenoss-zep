@@ -6,14 +6,18 @@ package org.zenoss.zep.index.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationListener;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventIndexQueueDao;
+import org.zenoss.zep.events.ZepConfigUpdatedEvent;
 import org.zenoss.zep.impl.ThreadRenamingRunnable;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.EventIndexer;
@@ -27,11 +31,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
-public class EventIndexerImpl implements EventIndexer {
+public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepConfigUpdatedEvent> {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
-
-    private int indexLimit = 1000;
-    private long indexIntervalMilliseconds = 1000L;
 
     private final Object lock = new Object();
     private volatile boolean shutdown = false;
@@ -41,10 +42,8 @@ public class EventIndexerImpl implements EventIndexer {
     private EventIndexDao indexDao;
     private EventIndexQueueDao queueDao;
     private PluginService pluginService;
-
-    public void setIndexIntervalMilliseconds(long indexIntervalMilliseconds) {
-        this.indexIntervalMilliseconds = indexIntervalMilliseconds;
-    }
+    private volatile int limit;
+    private volatile long intervalMilliseconds;
 
     public void setIndexDao(EventIndexDao indexDao) {
         this.indexDao = indexDao;
@@ -58,8 +57,30 @@ public class EventIndexerImpl implements EventIndexer {
         this.pluginService = pluginService;
     }
 
-    public void setIndexLimit(int indexLimit) {
-        this.indexLimit = indexLimit;
+    private void updateIndexConfig(ZepConfig zepConfig) {
+        limit = zepConfig.getIndexLimit();
+        if (indexDao.getName().equals("event_summary")) {
+            intervalMilliseconds = zepConfig.getIndexSummaryIntervalMilliseconds();
+        } else {
+            intervalMilliseconds = zepConfig.getIndexArchiveIntervalMilliseconds();
+        }
+    }
+
+    public void setConfigDao(final ConfigDao configDao) throws ZepException {
+        ZepConfig zepConfig;
+        try {
+            zepConfig = configDao.getConfig();
+        } catch (ZepException e) {
+            logger.warn("Failed to load configuration", e);
+            zepConfig = ZepConfig.getDefaultInstance();
+        }
+        updateIndexConfig(zepConfig);
+    }
+
+    @Override
+    public void onApplicationEvent(ZepConfigUpdatedEvent event) {
+        ZepConfig zepConfig = event.getConfig();
+        updateIndexConfig(zepConfig);
     }
 
     @Override
@@ -81,10 +102,10 @@ public class EventIndexerImpl implements EventIndexer {
                     }
                     // If we aren't shut down and we aren't processing a large backlog of events, wait to index the
                     // next batch of events after a delay.
-                    if (!shutdown && numIndexed < indexLimit) {
+                    if (!shutdown && numIndexed < limit) {
                         synchronized (lock) {
                             try {
-                                lock.wait(indexIntervalMilliseconds);
+                                lock.wait(intervalMilliseconds);
                             } catch (InterruptedException e) {
                                 logger.info("Interrupted while waiting to index more events");
                             }
@@ -175,7 +196,6 @@ public class EventIndexerImpl implements EventIndexer {
     private int doIndex(long throughTime) throws ZepException {
         final EventPostIndexContext context = new EventPostIndexContext() {};
         final List<EventPostIndexPlugin> plugins = this.pluginService.getPluginsByType(EventPostIndexPlugin.class);
-        
         int numIndexed = queueDao.indexEvents(new EventIndexHandler() {
             @Override
             public void handle(EventSummary event) throws Exception {
@@ -201,7 +221,7 @@ public class EventIndexerImpl implements EventIndexer {
             public void handleComplete() throws Exception {
                 indexDao.commit();
             }
-        }, this.indexLimit, throughTime);
+        }, limit, throughTime);
         
         if (numIndexed > 0) {
             logger.debug("Completed indexing {} events on {}", numIndexed, indexDao.getName());            

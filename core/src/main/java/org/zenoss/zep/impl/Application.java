@@ -64,12 +64,6 @@ public class Application implements ApplicationContextAware, ApplicationListener
 
     private int heartbeatIntervalSeconds = 60;
 
-    private long agingIntervalMilliseconds = TimeUnit.MINUTES.toMillis(1);
-    private int agingLimit = 100;
-
-    private long archiveIntervalMilliseconds = TimeUnit.MINUTES.toMillis(1);
-    private int archiveLimit = 100;
-
     private long dbMaintenanceIntervalMinutes = 3600;
 
     private AmqpConnectionManager amqpConnectionManager;
@@ -143,22 +137,6 @@ public class Application implements ApplicationContextAware, ApplicationListener
 
     public void setScheduler(ThreadPoolTaskScheduler scheduler) {
         this.scheduler = scheduler;
-    }
-
-    public void setAgingIntervalMilliseconds(long agingIntervalMilliseconds) {
-        this.agingIntervalMilliseconds = agingIntervalMilliseconds;
-    }
-
-    public void setAgingLimit(int agingLimit) {
-        this.agingLimit = agingLimit;
-    }
-
-    public void setArchiveIntervalMilliseconds(long archiveIntervalMilliseconds) {
-        this.archiveIntervalMilliseconds = archiveIntervalMilliseconds;
-    }
-
-    public void setArchiveLimit(int archiveLimit) {
-        this.archiveLimit = archiveLimit;
     }
 
     public void setDbMaintenanceService(DBMaintenanceService dbMaintenanceService) {
@@ -246,13 +224,19 @@ public class Application implements ApplicationContextAware, ApplicationListener
     }
 
     private void startEventSummaryAging() {
+
         final int duration = config.getEventAgeIntervalMinutes();
         final EventSeverity severity = config.getEventAgeDisableSeverity();
         final boolean inclusive = config.getEventAgeSeverityInclusive();
+        final long agingIntervalMilliseconds = config.getAgingIntervalMilliseconds();
+        final int agingLimit = config.getAgingLimit();
+
         if (oldConfig != null
                 && duration == oldConfig.getEventAgeIntervalMinutes()
                 && severity == oldConfig.getEventAgeDisableSeverity()
                 && inclusive == oldConfig.getEventAgeSeverityInclusive()
+                && agingIntervalMilliseconds == oldConfig.getAgingIntervalMilliseconds()
+                && agingLimit == oldConfig.getAgingLimit()
                 ) {
             logger.info("Event aging configuration not changed.");
             return;
@@ -263,7 +247,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
 
         if (duration > 0) {
             logger.info("Starting event aging at interval: {} milliseconds(s), inclusive severity: {}",
-                    this.agingIntervalMilliseconds, inclusive);
+                    agingIntervalMilliseconds, inclusive);
             Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
             this.eventSummaryAger = scheduler.scheduleWithFixedDelay(
                     new ThreadRenamingRunnable(new Runnable() {
@@ -281,15 +265,24 @@ public class Application implements ApplicationContextAware, ApplicationListener
                                 logger.warn("Failed to age events", e);
                             }
                         }
-                    }, "ZEP_EVENT_AGER"), startTime, this.agingIntervalMilliseconds);
+                    }, "ZEP_EVENT_AGER"), startTime, agingIntervalMilliseconds);
         } else {
             logger.info("Event aging disabled");
         }
     }
 
     private void startEventSummaryArchiving() {
+
         final int duration = config.getEventArchiveIntervalMinutes();
-        if (oldConfig != null && duration == oldConfig.getEventArchiveIntervalMinutes()) {
+        final long archiveIntervalMilliseconds = config.getArchiveIntervalMilliseconds();
+        final int archiveLimit = config.getArchiveLimit();
+
+
+        if (oldConfig != null
+                && duration == oldConfig.getEventArchiveIntervalMinutes()
+                && archiveIntervalMilliseconds == oldConfig.getArchiveIntervalMilliseconds()
+                && archiveLimit == oldConfig.getArchiveLimit()
+                ) {
             logger.info("Event archiving configuration not changed.");
             return;
         }
@@ -298,7 +291,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
         cancelFuture(this.eventSummaryArchiver);
         this.eventSummaryArchiver = null;
         if (duration > 0) {
-            logger.info("Starting event archiving at interval: {} milliseconds(s)", this.archiveIntervalMilliseconds);
+            logger.info("Starting event archiving at interval: {} milliseconds(s)", archiveIntervalMilliseconds);
             this.eventSummaryArchiver = scheduler.scheduleWithFixedDelay(
                     new ThreadRenamingRunnable(new Runnable() {
                         @Override
@@ -315,7 +308,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
                                 logger.warn("Failed to archive events", e);
                             }
                         }
-                    }, "ZEP_EVENT_ARCHIVER"), startTime, this.archiveIntervalMilliseconds);
+                    }, "ZEP_EVENT_ARCHIVER"), startTime, archiveIntervalMilliseconds);
         } else {
             logger.info("Event archiving disabled");
         }

@@ -194,31 +194,29 @@
 
     <bean id="eventSummaryIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl">
         <qualifier value="summary" />
-        <property name="indexIntervalMilliseconds" value="${zep.index.summary.interval_milliseconds:1000}" />
         <property name="indexDao" ref="eventSummaryIndexDao" />
         <property name="queueDao" ref="eventSummaryIndexQueueDao" />
         <property name="pluginService" ref="pluginService"/>
-        <property name="indexLimit" value="${zep.index.limit:1000}" />
+        <property name="configDao" ref="configDao"/>
     </bean>
 
     <bean id="eventArchiveIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl">
         <qualifier value="archive" />
-        <property name="indexIntervalMilliseconds" value="${zep.index.archive.interval_milliseconds:30000}" />
         <property name="indexDao" ref="eventArchiveIndexDao" />
         <property name="queueDao" ref="eventArchiveIndexQueueDao" />
         <property name="pluginService" ref="pluginService"/>
-        <property name="indexLimit" value="${zep.index.limit:1000}" />
+        <property name="configDao" ref="configDao"/>
     </bean>
 
     <bean id="eventSummaryIndexRebuilder" class="org.zenoss.zep.index.impl.EventIndexRebuilderImpl" init-method="init">
         <qualifier value="summary" />
         <constructor-arg index="0" value="${zep.index.enabled:true}"/>
         <property name="eventIndexer" ref="eventSummaryIndexer" />
+        <property name="configDao" ref="configDao"/>
         <property name="summaryBaseDao" ref="eventSummaryDao" />
         <property name="indexDao" ref="eventSummaryIndexDao" />
         <property name="indexMetadataDao" ref="indexMetadataDao" />
         <property name="indexedDetailsConfiguration" ref="indexedDetailsConfiguration"/>
-        <property name="indexLimit" value="${zep.index.limit:1000}" />
         <property name="indexDir" value="${zep.index.dir}" />
     </bean>
 
@@ -226,11 +224,11 @@
         <qualifier value="archive" />
         <constructor-arg index="0" value="${zep.index.enabled:true}"/>
         <property name="eventIndexer" ref="eventArchiveIndexer" />
+        <property name="configDao" ref="configDao"/>
         <property name="summaryBaseDao" ref="eventArchiveDao" />
         <property name="indexDao" ref="eventArchiveIndexDao" />
         <property name="indexMetadataDao" ref="indexMetadataDao" />
         <property name="indexedDetailsConfiguration" ref="indexedDetailsConfiguration"/>
-        <property name="indexLimit" value="${zep.index.limit:1000}" />
         <property name="indexDir" value="${zep.index.dir}" />
     </bean>
 

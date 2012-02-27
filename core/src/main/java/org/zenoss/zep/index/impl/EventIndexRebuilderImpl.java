@@ -8,7 +8,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationListener;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventSummaryBaseDao;
 import org.zenoss.zep.dao.IndexMetadata;
 import org.zenoss.zep.dao.IndexMetadataDao;
@@ -38,9 +40,9 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
     private static final Logger logger = LoggerFactory.getLogger(EventIndexRebuilderImpl.class);
 
     private final boolean enableIndexing;
-    private int indexLimit = 1000;
 
     private EventIndexer eventIndexer;
+    private ConfigDao configDao;
     private EventSummaryBaseDao summaryBaseDao;
     private EventIndexDao indexDao;
     private IndexMetadataDao indexMetadataDao;
@@ -102,10 +104,6 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
         }, "INDEX_REBUILDER_" + this.indexDao.getName().toUpperCase()));
     }
 
-    public void setIndexLimit(int indexLimit) {
-        this.indexLimit = indexLimit;
-    }
-
     public void setIndexDir(File indexDir) {
         this.indexStateFile = new File(indexDir, ".index_state_" + indexDao.getName() + ".properties");
         if (this.enableIndexing) {
@@ -118,6 +116,10 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
 
     public void setEventIndexer(EventIndexer eventIndexer) {
         this.eventIndexer = eventIndexer;
+    }
+
+    public void setConfigDao(final ConfigDao configDao) {
+        this.configDao = configDao;
     }
 
     public void setSummaryBaseDao(EventSummaryBaseDao summaryBaseDao) {
@@ -273,7 +275,8 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
         int numIndexed = 0;
         List<EventSummary> events;
         do {
-            events = summaryBaseDao.listBatch(startingUuid, throughTime, indexLimit);
+            ZepConfig config = configDao.getConfig();
+            events = summaryBaseDao.listBatch(startingUuid, throughTime, config.getIndexLimit());
             i++;
             for (EventSummary event : events) {
                 indexDao.stage(event);
