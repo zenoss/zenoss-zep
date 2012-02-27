@@ -3,8 +3,11 @@
  */
 package org.zenoss.zep.dao.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsertOperations;
@@ -27,7 +30,7 @@ import java.util.Map;
 public class DaoCacheImpl implements DaoCache {
 
     private static final int DEFAULT_MAX_CACHE_ENTRIES = 500;
-    //private static final Logger logger = LoggerFactory.getLogger(DaoCacheImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(DaoCacheImpl.class);
 
     private final DaoTableStringLruCache eventClassCache;
     private final DaoTableStringLruCache eventClassKeyCache;
@@ -276,7 +279,13 @@ public class DaoCacheImpl implements DaoCache {
 
         @Override
         public String findNameFromId(int id) {
-            return template.queryForObject(this.selectNameByIdSql, String.class, id);
+            try {
+                return template.queryForObject(this.selectNameByIdSql, String.class, id);
+            } catch (IncorrectResultSizeDataAccessException e) {
+                logger.error("Database integrity error - id \"{}\" not found in table \"{}\". " +
+                        "Manual table recovery required.", id, this.tableName);
+                throw e;
+            }
         }
     }
 }
