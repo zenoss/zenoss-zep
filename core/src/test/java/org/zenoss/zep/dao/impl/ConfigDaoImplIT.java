@@ -23,12 +23,19 @@ public class ConfigDaoImplIT extends AbstractTransactionalJUnit4SpringContextTes
     public void testConfig() throws ZepException {
         ZepConfig.Builder builder = ZepConfig.newBuilder();
         builder.setEventAgeDisableSeverity(EventSeverity.SEVERITY_CRITICAL);
-        builder.setEventAgeSeverityInclusive(false);
+        builder.setEventAgeSeverityInclusive(true);
         builder.setEventAgeIntervalMinutes(60);
         builder.setEventArchiveIntervalMinutes(7*24*60);
-        builder.setEventArchivePurgeIntervalDays(90);
-        builder.setEventTimePurgeIntervalDays(7);
+        builder.setEventArchivePurgeIntervalDays(30);
+        builder.setEventTimePurgeIntervalDays(2);
         builder.setEventMaxSizeBytes(40000);
+        builder.setIndexSummaryIntervalMilliseconds(5000);
+        builder.setIndexArchiveIntervalMilliseconds(15000);
+        builder.setIndexLimit(500);
+        builder.setAgingLimit(600);
+        builder.setArchiveLimit(750);
+        builder.setAgingIntervalMilliseconds(30000);
+        builder.setArchiveIntervalMilliseconds(45000);
         ZepConfig cnf = builder.build();
         configDao.setConfig(cnf);
 
