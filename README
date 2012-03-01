@@ -32,8 +32,9 @@ $ ./bin/zeneventserver-create-db
 $ ./bin/zeneventserver start
 
 ZEP will log any problems in 'log/zeneventserver.log'. To update the logging
-configuration, edit the 'webapps/zeneventserver/WEB-INF/classes/logback.xml'
-file and restart the ZEP daemon.
+configuration, edit the 'etc/zeneventserver/logback.xml' file. This file is
+reloaded once a minute (or you can restart the ZEP daemon for the changes to
+take affect immediately.)
 
 == Running ZEP Unit and Integration Tests ==
 
