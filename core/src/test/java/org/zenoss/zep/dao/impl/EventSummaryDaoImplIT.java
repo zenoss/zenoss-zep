@@ -1464,10 +1464,16 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
 
     @Test
     public void testAgeEligibleEventCount() throws ZepException {
-        long initial = eventSummaryDao.getAgeEligibleEventCount(0L, TimeUnit.SECONDS, EventSeverity.SEVERITY_CRITICAL, true);
+        long initial = eventSummaryDao.getAgeEligibleEventCount(0L, TimeUnit.SECONDS, EventSeverity.SEVERITY_CRITICAL,
+                true);
         createSummaryNew(EventTestUtils.createSampleEvent());
-        long actual = eventSummaryDao.getAgeEligibleEventCount(0L, TimeUnit.SECONDS, EventSeverity.SEVERITY_CRITICAL, true);
+        long actual = eventSummaryDao.getAgeEligibleEventCount(0L, TimeUnit.SECONDS, EventSeverity.SEVERITY_CRITICAL,
+                true);
         assertEquals(initial + 1L, actual);
+        
+        // Test condition where aging is disabled
+        assertEquals(0, eventSummaryDao.getAgeEligibleEventCount(0L, TimeUnit.SECONDS, EventSeverity.SEVERITY_CLEAR,
+                false));
     }
 
     @Test

@@ -522,10 +522,17 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    public long getAgeEligibleEventCount(long duration, TimeUnit unit, EventSeverity maxSeverity, boolean inclusiveSeverity) {
-        String sql = "SELECT count(*) FROM event_summary WHERE status_id NOT IN (:_closed_status_ids) AND last_seen < :_last_seen AND severity_id IN (:_severity_ids)";
+    public long getAgeEligibleEventCount(long duration, TimeUnit unit, EventSeverity maxSeverity,
+                                         boolean inclusiveSeverity) {
+        List<Integer> severityIds = getSeverityIds(maxSeverity, inclusiveSeverity);
+        // Aging disabled.
+        if (severityIds.isEmpty()) {
+            return 0;
+        }
+        String sql = "SELECT count(*) FROM event_summary WHERE status_id NOT IN (:_closed_status_ids) AND " +
+                "last_seen < :_last_seen AND severity_id IN (:_severity_ids)";
         Map <String, Object> fields = createSharedFields(duration, unit);
-        fields.put("_severity_ids", getSeverityIds(maxSeverity, inclusiveSeverity));
+        fields.put("_severity_ids", severityIds);
         return template.queryForInt(sql, fields);
     }
 
@@ -543,7 +550,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }
         List<Integer> severityIds = getSeverityIds(maxSeverity, inclusiveSeverity);
         if (severityIds.isEmpty()) {
-            logger.debug("Not aging events - max severity specified");
+            logger.debug("Not aging events - min severity specified");
             return 0;
         }
         long now = System.currentTimeMillis();
@@ -575,8 +582,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                     + "WHERE uuid IN (:_uuids)";
             fields.put("_uuids", uuids);
             numRows = this.template.update(updateSql, fields);
+            statisticsService.addToAgedEventCount(numRows);
         }
-        statisticsService.addToAgedEventCount(numRows);
         return numRows;
     }
 
@@ -875,7 +882,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         this.template.update(insertSql, fields);
         final int updated = this.template.update("DELETE FROM event_summary WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
                 fields);
-        statisticsService.addToArchivedEventCount(1);
+        statisticsService.addToArchivedEventCount(updated);
         return updated;
     }
 
