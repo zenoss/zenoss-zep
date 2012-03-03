@@ -29,6 +29,11 @@ public final class ZepConstants {
     public static final String DETAIL_DEVICE_PRIORITY = "zenoss.device.priority";
 
     /**
+     * The default device priority if one is not specified.
+     */
+    public static final int DEVICE_PRIORITY_NORMAL = 3;
+
+    /**
      * Constant for the device production state stored in event details.
      */
     public static final String DETAIL_DEVICE_PRODUCTION_STATE = "zenoss.device.production_state";

@@ -12,7 +12,9 @@ import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
+import org.zenoss.protobufs.zep.Zep.EventActorOrBuilder;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
+import org.zenoss.protobufs.zep.Zep.EventOrBuilder;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepConstants;
@@ -59,9 +61,7 @@ public class TriggerPluginTest {
         verify(this.spoolDaoMock, this.schedulerMock, this.futureMock);
     }
 
-    @Test
-    public void testTriggerRules() throws IOException {
-        
+    private EventActor.Builder createActor() {
         EventActor.Builder actorBuilder = EventActor.newBuilder();
         actorBuilder.setElementTypeId(ModelElementType.DEVICE);
         actorBuilder.setElementIdentifier("BHM1000");
@@ -69,27 +69,43 @@ public class TriggerPluginTest {
         actorBuilder.setElementSubTypeId(ModelElementType.COMPONENT);
         actorBuilder.setElementSubIdentifier("Fuse-10A");
         actorBuilder.setElementSubTitle("Fuse-10A Title");
-
-        // build test Event to add to EventSummary as occurrence[0]
+        return actorBuilder;
+    }
+    
+    private Event.Builder createEventOccurrence(EventActor actor) {
         Event.Builder evtBuilder = Event.newBuilder();
-        evtBuilder.setActor(actorBuilder.build());
+        evtBuilder.setActor(actor);
         evtBuilder.setMessage("TEST - 1-2-check");
         evtBuilder.setEventClass("/Defcon/1");
         evtBuilder.setSeverity(Zep.EventSeverity.SEVERITY_WARNING);
         evtBuilder.setSyslogPriority(SyslogPriority.SYSLOG_PRIORITY_DEBUG);
+
         EventDetail.Builder groupBuilder = evtBuilder.addDetailsBuilder().setName(ZepConstants.DETAIL_DEVICE_GROUPS);
         groupBuilder.addValue("/US/Texas/Austin");
 
         EventDetail.Builder systemsBuilder = evtBuilder.addDetailsBuilder().setName(ZepConstants.DETAIL_DEVICE_SYSTEMS);
         systemsBuilder.addValue("/Production/Infrastructure");
-        Event evt = evtBuilder.build();
 
-        // build test EventSummary
+        return evtBuilder;
+    }
+    
+    private EventSummary.Builder createEvent(Event event) {
         EventSummary.Builder evtSumBuilder = EventSummary.newBuilder();
         evtSumBuilder.setCount(10);
         evtSumBuilder.setStatus(Zep.EventStatus.STATUS_NEW);
-        evtSumBuilder.addOccurrence(evt);
-        EventSummary evtSummary = evtSumBuilder.build();
+        evtSumBuilder.addOccurrence(event);
+        return evtSumBuilder;
+    }
+
+    @Test
+    public void testTriggerRules() throws IOException {
+        EventActor.Builder actorBuilder = createActor();
+
+        // build test Event to add to EventSummary as occurrence[0]
+        Event.Builder eventBuilder = createEventOccurrence(actorBuilder.build());
+
+        // build test EventSummary
+        EventSummary evtSummary = createEvent(eventBuilder.build()).build();
 
         // test various rules
         String[] true_rules = {
@@ -139,6 +155,32 @@ public class TriggerPluginTest {
             assertFalse(rule + " (should evaluate False)",
                     this.triggerPlugin.eventSatisfiesRule(ctx, rule));
         }
+    }
+
+    @Test
+    public void testEmptyGroups() {
+        EventSummary.Builder evtSummary = createEvent(createEventOccurrence(createActor().build()).build());
+        // Remove the group detail
+        evtSummary.getOccurrenceBuilder(0).removeDetails(0);
+        
+        String rule = "\"/Production/Infrastructure\" not in dev.groups";
+
+        RuleContext ctx = RuleContext.createContext(triggerPlugin.pythonHelper.getToObject(), evtSummary.build());
+        assertEquals(0, ctx.device.__getattr__("groups").__len__());
+        assertTrue(rule + " (should evaluate True)", this.triggerPlugin.eventSatisfiesRule(ctx, rule));
+    }
+
+    @Test
+    public void testEmptySystems() {
+        EventSummary.Builder evtSummary = createEvent(createEventOccurrence(createActor().build()).build());
+        // Remove the systems detail
+        evtSummary.getOccurrenceBuilder(0).removeDetails(1);
+
+        String rule = "\"/Production/Infrastructure\" not in dev.systems";
+
+        RuleContext ctx = RuleContext.createContext(triggerPlugin.pythonHelper.getToObject(), evtSummary.build());
+        assertEquals(0, ctx.device.__getattr__("systems").__len__());
+        assertTrue(rule + " (should evaluate True)", this.triggerPlugin.eventSatisfiesRule(ctx, rule));
     }
 }
 

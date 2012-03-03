@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2012, Zenoss Inc.  All Rights Reserved.
  */
 package org.zenoss.zep.impl;
 
@@ -34,7 +34,6 @@ import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.protobufs.zep.Zep.Signal;
 import org.zenoss.zep.UUIDGenerator;
-import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.EventSignalSpool;
@@ -58,6 +57,8 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+
+import static org.zenoss.zep.ZepConstants.*;
 
 /**
  * Post processing plug-in used to determine if NEW  or CLEARED events match a specified trigger. If the
@@ -240,10 +241,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
      * trigger's rule for evaluation.
      */
     static class RuleContext {
-        private PyObject event;
-        private PyObject device;
-        private PyObject element;
-        private PyObject subElement;
+        PyObject event;
+        PyObject device;
+        PyObject element;
+        PyObject subElement;
 
         private RuleContext() {
         }
@@ -293,148 +294,122 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             PyDictionary devdict = new PyDictionary();
             PyDictionary elemdict = new PyDictionary();
             PyDictionary subelemdict = new PyDictionary();
+
+            // Match old behavior (pre-4.x)
+            int prodState = 0;
+            int devicePriority = DEVICE_PRIORITY_NORMAL;
+            String ipAddress = "";
+            List<String> systemsAndParents = Collections.emptyList();
+            List<String> groupsAndParents = Collections.emptyList();
+            String location = "";
+            String deviceClass = "";
+
             // extract event data from most recent occurrence
-            if (evtsummary.getOccurrenceCount() > 0) {
-                Event event = evtsummary.getOccurrence(0);
+            Event event = evtsummary.getOccurrence(0);
 
-                // copy event data to eventdict
-                if (event.hasSummary()) {
-                    eventdict.put("summary", new PyString(event.getSummary()));
-                }
-                if (event.hasMessage()) {
-                    eventdict.put("message", new PyString(event.getMessage()));
-                }
-                if (event.hasEventClass()) {
-                    eventdict.put("event_class", new PyString(event.getEventClass()));
-                }
-                if (event.hasFingerprint()) {
-                    eventdict.put("fingerprint", new PyString(event.getFingerprint()));
-                }
-                if (event.hasEventKey()) {
-                    eventdict.put("event_key", new PyString(event.getEventKey()));
-                }
-                if (event.hasAgent()) {
-                    eventdict.put("agent", new PyString(event.getAgent()));
-                }
-                if (event.hasMonitor()) {
-                    eventdict.put("monitor", new PyString(event.getMonitor()));
-                }
-                eventdict.put("severity", event.getSeverity().getNumber());
-                eventdict.put("status", evtsummary.getStatus().getNumber());
+            // copy event data to eventdict
+            eventdict.put("summary", new PyString(event.getSummary()));
+            eventdict.put("message", new PyString(event.getMessage()));
+            eventdict.put("event_class", new PyString(event.getEventClass()));
+            eventdict.put("fingerprint", new PyString(event.getFingerprint()));
+            eventdict.put("event_key", new PyString(event.getEventKey()));
+            eventdict.put("agent", new PyString(event.getAgent()));
+            eventdict.put("monitor", new PyString(event.getMonitor()));
+            eventdict.put("severity", event.getSeverity().getNumber());
+            eventdict.put("event_class_key", new PyString(event.getEventClassKey()));
+            if (event.hasSyslogPriority()) {
+                eventdict.put("syslog_priority", new PyInteger(event.getSyslogPriority().getNumber()));
+            }
+            if (event.hasSyslogFacility()) {
+                eventdict.put("syslog_facility", event.getSyslogFacility());
+            }
+            if (event.hasNtEventCode()) {
+                eventdict.put("nt_event_code", event.getNtEventCode());
+            }
 
-                if (event.hasEventClassKey()) {
-                    eventdict.put("event_class_key", new PyString(event.getEventClassKey()));
-                }
-                if (event.hasSyslogPriority()) {
-                    eventdict.put("syslog_priority", new PyInteger(event.getSyslogPriority().getNumber()));
-                }
-                if (event.hasSyslogFacility()) {
-                    eventdict.put("syslog_facility", event.getSyslogFacility());
-                }
-                if (event.hasNtEventCode()) {
-                    eventdict.put("nt_event_code", event.getNtEventCode());
+            EventActor actor = event.getActor();
+
+            if (actor.hasElementTypeId()) {
+                if (actor.getElementTypeId() == ModelElementType.DEVICE) {
+                    devdict = elemdict;
                 }
 
-                if (event.hasActor()) {
-                    EventActor actor = event.getActor();
+                elemdict.put("type", actor.getElementTypeId().name());
+                final String id = (actor.hasElementIdentifier()) ? actor.getElementIdentifier() : null;
+                final String uuid = actor.hasElementUuid() ? actor.getElementUuid() : null;
 
-                    if (actor.hasElementTypeId()) {
-                        if (actor.getElementTypeId() == ModelElementType.DEVICE) {
-                            devdict = elemdict;
-                        }
+                putIdAndUuidInDict(elemdict, id, uuid);
+            }
 
-                        elemdict.put("type", actor.getElementTypeId().name());
-                        final String id = (actor.hasElementIdentifier()) ? actor.getElementIdentifier() : null;
-                        final String uuid = actor.hasElementUuid() ? actor.getElementUuid() : null;
+            if (actor.hasElementSubTypeId()) {
+                if (actor.getElementSubTypeId() == ModelElementType.DEVICE) {
+                    devdict = subelemdict;
+                }
 
-                        putIdAndUuidInDict(elemdict, id, uuid);
-                    }
+                subelemdict.put("type", actor.getElementSubTypeId().name());
+                final String id = (actor.hasElementSubIdentifier()) ? actor.getElementSubIdentifier() : null;
+                final String uuid = actor.hasElementSubUuid() ? actor.getElementSubUuid() : null;
 
-                    if (actor.hasElementSubTypeId()) {
-                        if (actor.getElementSubTypeId() == ModelElementType.DEVICE) {
-                            devdict = subelemdict;
-                        }
+                putIdAndUuidInDict(subelemdict, id, uuid);
+            }
 
-                        subelemdict.put("type", actor.getElementSubTypeId().name());
-                        final String id = (actor.hasElementSubIdentifier()) ? actor.getElementSubIdentifier() : null;
-                        final String uuid = actor.hasElementSubUuid() ? actor.getElementSubUuid() : null;
-
-                        putIdAndUuidInDict(subelemdict, id, uuid);
+            for (EventDetail detail : event.getDetailsList()) {
+                final String detailName = detail.getName();
+                // This should never happen
+                if (detail.getValueCount() == 0) {
+                    continue;
+                }
+                final String singleDetailValue = detail.getValue(0);
+                
+                if (DETAIL_DEVICE_PRODUCTION_STATE.equals(detailName)) {
+                    try {
+                        prodState = Integer.parseInt(singleDetailValue);
+                    } catch (NumberFormatException e) {
+                        logger.warn("Failed retrieving production state", e);
                     }
                 }
-
-                for (EventDetail detail : event.getDetailsList()) {
-                    final String detailName = detail.getName();
-                    if (ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE.equals(detailName)) {
-                        try {
-                            int prodState = Integer.parseInt(detail.getValue(0));
-                            devdict.put("production_state", new PyInteger(prodState));
-                        } catch (Exception e) {
-                            logger.warn("Failed retrieving production state", e);
-                        }
+                else if (DETAIL_DEVICE_PRIORITY.equals(detailName)) {
+                    try {
+                        devicePriority = Integer.parseInt(singleDetailValue);
+                    } catch (NumberFormatException e) {
+                        logger.warn("Failed retrieving device priority", e);
                     }
-                    else if (ZepConstants.DETAIL_DEVICE_PRIORITY.equals(detailName)) {
-                        try {
-                            int priority = Integer.parseInt(detail.getValue(0));
-                            devdict.put("priority", new PyInteger(priority));
-                        } catch (Exception e) {
-                            logger.warn("Failed retrieving device priority", e);
-                        }
-                    }
-                    else if (ZepConstants.DETAIL_DEVICE_CLASS.equals(detailName)) {
-                        try {
-                            // expect that this is a single-value detail.
-                            String device_class = String.valueOf(detail.getValue(0));
-                            devdict.put("device_class", new PyString(device_class));
-                        } catch (Exception e) {
-                            logger.warn("Failed retrieving device class", e);
-                        }
-                    }
-                    else if (ZepConstants.DETAIL_DEVICE_SYSTEMS.equals(detailName)) {
-                        try {
-                            // expect that this is a multi-value detail.
-                            List<String> systemsAndParents = includeParentOrganizers(detail.getValueList());
-                            devdict.put("systems", new PyList(systemsAndParents));
-                        } catch (Exception e) {
-                            logger.warn("Failed retrieving device systems", e);
-                        }
-                    }
-                    else if (ZepConstants.DETAIL_DEVICE_GROUPS.equals(detailName)) {
-                        try {
-                            // expect that this is a multi-value detail.
-                            List<String> groupsAndParents = includeParentOrganizers(detail.getValueList());
-                            devdict.put("groups", new PyList(groupsAndParents));
-                        } catch (Exception e) {
-                            logger.warn("Failed retrieving device groups", e);
-                        }
-                    }
-                    else if (ZepConstants.DETAIL_DEVICE_IP_ADDRESS.equals(detailName)) {
-                        try {
-                            // expect that this is a single-value detail.
-                            String ip_address = String.valueOf(detail.getValue(0));
-                            devdict.put("ip_address", new PyString(ip_address));
-                        } catch (Exception e) {
-                            logger.warn("Failed retrieving device ip address", e);
-                        }
-                    }
-                    else if (ZepConstants.DETAIL_DEVICE_LOCATION.equals(detailName)) {
-                        try {
-                            // expect that this is a single-value detail.
-                            String location = String.valueOf(detail.getValue(0));
-                            devdict.put("location", new PyString(location));
-                        } catch (Exception e) {
-                            logger.warn("Failed retrieving device location", e);
-                        }
-                    }
+                }
+                else if (DETAIL_DEVICE_CLASS.equals(detailName)) {
+                    // expect that this is a single-value detail.
+                    deviceClass = singleDetailValue;
+                }
+                else if (DETAIL_DEVICE_SYSTEMS.equals(detailName)) {
+                    // expect that this is a multi-value detail.
+                    systemsAndParents = includeParentOrganizers(detail.getValueList());
+                }
+                else if (DETAIL_DEVICE_GROUPS.equals(detailName)) {
+                    // expect that this is a multi-value detail.
+                    groupsAndParents = includeParentOrganizers(detail.getValueList());
+                }
+                else if (DETAIL_DEVICE_IP_ADDRESS.equals(detailName)) {
+                    // expect that this is a single-value detail.
+                    ipAddress = singleDetailValue;
+                }
+                else if (DETAIL_DEVICE_LOCATION.equals(detailName)) {
+                    // expect that this is a single-value detail.
+                    location = singleDetailValue;
                 }
             }
 
-            if (evtsummary.hasCurrentUserName()) {
-                eventdict.put("current_user_name", new PyString(evtsummary.getCurrentUserName()));
-            }
+            devdict.put("device_class", new PyString(deviceClass));
+            devdict.put("production_state", new PyInteger(prodState));
+            devdict.put("priority", new PyInteger(devicePriority));
+            devdict.put("groups", new PyList(groupsAndParents));
+            devdict.put("systems", new PyList(systemsAndParents));
+            devdict.put("ip_address", new PyString(ipAddress));
+            devdict.put("location", new PyString(location));
 
             // add more data from the EventSummary itself
+            eventdict.put("status", evtsummary.getStatus().getNumber());
             eventdict.put("count", new PyInteger(evtsummary.getCount()));
+            eventdict.put("current_user_name", new PyString(evtsummary.getCurrentUserName()));
+
             RuleContext ctx = new RuleContext();
             // create vars to pass to rule expression function
             ctx.event = toObject.__call__(eventdict);
@@ -488,7 +463,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
     public void processEvent(EventSummary eventSummary, EventPostIndexContext context) throws ZepException {
         final EventStatus evtstatus = eventSummary.getStatus();
 
-        if (ZepConstants.OPEN_STATUSES.contains(evtstatus)) {
+        if (OPEN_STATUSES.contains(evtstatus)) {
             processOpenEvent(eventSummary);
         }
         else {
@@ -731,7 +706,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
                 // These should have been deleted when the event was run through the TriggerPlugin when the status
                 // changed, but just in case delete them as the event is now in a closed state.
-                if (!ZepConstants.OPEN_STATUSES.contains(status)) {
+                if (!OPEN_STATUSES.contains(status)) {
                     spoolsToDelete.add(spool.getUuid());
                     continue;
                 }
@@ -752,13 +727,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                     continue;
                 }
 
-                boolean modifiedSpool = false;
-
                 if (trigger.getEnabled()) {
                     publishSignal(eventSummary, trSub);
                     if (!spool.isSentSignal()) {
                         spool.setSentSignal(true);
-                        modifiedSpool = true;
                     }
                 }
 
@@ -768,16 +740,12 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                 if (repeatInterval > 0 && repeatInterval != Long.MAX_VALUE) {
                     long nextFlush = processCutoffTime + TimeUnit.SECONDS.toMillis(repeatInterval);
                     spool.setFlushTime(nextFlush);
-                    modifiedSpool = true;
                 }
                 else {
                     // Update the existing spool entry to make sure it won't send again
                     spool.setFlushTime(Long.MAX_VALUE);
-                    modifiedSpool = true;
                 }
-                if (modifiedSpool) {
-                    this.signalSpoolDao.update(spool);
-                }
+                this.signalSpoolDao.update(spool);
             }
             if (!spoolsToDelete.isEmpty()) {
                 this.signalSpoolDao.delete(spoolsToDelete);
