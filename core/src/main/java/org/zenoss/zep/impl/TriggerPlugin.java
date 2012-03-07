@@ -326,6 +326,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             if (event.hasNtEventCode()) {
                 eventdict.put("nt_event_code", event.getNtEventCode());
             }
+            // Initialize to empty attributes on elem and subelem in case a rule references
+            // it and they do not exist
+            putIdAndUuidInDict(subelemdict, "", "");
+            putIdAndUuidInDict(elemdict, "", "");
 
             EventActor actor = event.getActor();
 

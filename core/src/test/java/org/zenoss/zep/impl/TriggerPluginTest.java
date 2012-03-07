@@ -182,5 +182,20 @@ public class TriggerPluginTest {
         assertEquals(0, ctx.device.__getattr__("systems").__len__());
         assertTrue(rule + " (should evaluate True)", this.triggerPlugin.eventSatisfiesRule(ctx, rule));
     }
+
+    @Test
+    public void testEmptyComponent() {
+        // do not set a sub element but have a rule referencing it
+        EventActor.Builder actorBuilder = EventActor.newBuilder();
+        actorBuilder.setElementTypeId(ModelElementType.DEVICE);
+        actorBuilder.setElementIdentifier("BHM1000");
+        actorBuilder.setElementTitle("BHM TITLE");
+
+        EventSummary.Builder evtSummary = createEvent(createEventOccurrence(actorBuilder.build()).build());
+
+        String rule = "(\"chassis-12\" not in sub_elem.name) and (\"ucs-12\" not in elem.name)";
+        RuleContext ctx = RuleContext.createContext(triggerPlugin.pythonHelper.getToObject(), evtSummary.build());
+        assertTrue(rule + " (should evalutate True)", this.triggerPlugin.eventSatisfiesRule(ctx, rule));
+    }
 }
 
