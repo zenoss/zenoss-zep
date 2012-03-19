@@ -12,9 +12,7 @@ import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventActor;
-import org.zenoss.protobufs.zep.Zep.EventActorOrBuilder;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
-import org.zenoss.protobufs.zep.Zep.EventOrBuilder;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.ZepConstants;
@@ -22,11 +20,13 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSignalSpool;
 import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.impl.TriggerPlugin.RuleContext;
+import org.zenoss.zep.impl.TriggerPlugin.TriggerRuleCache;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ScheduledFuture;
 
 import static org.easymock.EasyMock.*;
@@ -146,14 +146,16 @@ public class TriggerPluginTest {
         };
 
         RuleContext ctx = RuleContext.createContext(triggerPlugin.pythonHelper.getToObject(), evtSummary);
-        for(String rule: true_rules) {
+        for (String rule : true_rules) {
+            String triggerUuid = UUID.randomUUID().toString();
             assertTrue(rule + " (should evaluate True)",
-                    this.triggerPlugin.eventSatisfiesRule(ctx, rule));
+                    this.triggerPlugin.eventSatisfiesRule(ctx, triggerUuid, rule));
         }
 
-        for(String rule: false_rules) {
+        for (String rule : false_rules) {
+            String triggerUuid = UUID.randomUUID().toString();
             assertFalse(rule + " (should evaluate False)",
-                    this.triggerPlugin.eventSatisfiesRule(ctx, rule));
+                    this.triggerPlugin.eventSatisfiesRule(ctx, triggerUuid, rule));
         }
     }
 
@@ -162,12 +164,13 @@ public class TriggerPluginTest {
         EventSummary.Builder evtSummary = createEvent(createEventOccurrence(createActor().build()).build());
         // Remove the group detail
         evtSummary.getOccurrenceBuilder(0).removeDetails(0);
-        
+
+        String triggerUuid = UUID.randomUUID().toString();
         String rule = "\"/Production/Infrastructure\" not in dev.groups";
 
         RuleContext ctx = RuleContext.createContext(triggerPlugin.pythonHelper.getToObject(), evtSummary.build());
         assertEquals(0, ctx.device.__getattr__("groups").__len__());
-        assertTrue(rule + " (should evaluate True)", this.triggerPlugin.eventSatisfiesRule(ctx, rule));
+        assertTrue(rule + " (should evaluate True)", this.triggerPlugin.eventSatisfiesRule(ctx, triggerUuid, rule));
     }
 
     @Test
@@ -176,11 +179,12 @@ public class TriggerPluginTest {
         // Remove the systems detail
         evtSummary.getOccurrenceBuilder(0).removeDetails(1);
 
+        String triggerUuid = UUID.randomUUID().toString();
         String rule = "\"/Production/Infrastructure\" not in dev.systems";
 
         RuleContext ctx = RuleContext.createContext(triggerPlugin.pythonHelper.getToObject(), evtSummary.build());
         assertEquals(0, ctx.device.__getattr__("systems").__len__());
-        assertTrue(rule + " (should evaluate True)", this.triggerPlugin.eventSatisfiesRule(ctx, rule));
+        assertTrue(rule + " (should evaluate True)", this.triggerPlugin.eventSatisfiesRule(ctx, triggerUuid, rule));
     }
 
     @Test
@@ -193,9 +197,39 @@ public class TriggerPluginTest {
 
         EventSummary.Builder evtSummary = createEvent(createEventOccurrence(actorBuilder.build()).build());
 
+        String triggerUuid = UUID.randomUUID().toString();
         String rule = "(\"chassis-12\" not in sub_elem.name) and (\"ucs-12\" not in elem.name)";
         RuleContext ctx = RuleContext.createContext(triggerPlugin.pythonHelper.getToObject(), evtSummary.build());
-        assertTrue(rule + " (should evalutate True)", this.triggerPlugin.eventSatisfiesRule(ctx, rule));
+        assertTrue(rule + " (should evalutate True)", this.triggerPlugin.eventSatisfiesRule(ctx, triggerUuid, rule));
+    }
+
+    @Test
+    public void testCacheInvalidSyntax() {
+        EventActor.Builder actorBuilder = createActor();
+        Event.Builder eventBuilder = createEventOccurrence(actorBuilder.build());
+        EventSummary evtSummary = createEvent(eventBuilder.build()).build();
+
+        // Validate that we cache an invalid rule - prevents compiling the same rule over and over again
+        String triggerUuid = UUID.randomUUID().toString();
+        String rule = "THIS IS INVALID PYTHON";
+        RuleContext ctx = RuleContext.createContext(triggerPlugin.pythonHelper.getToObject(), evtSummary);
+        assertFalse(this.triggerPlugin.eventSatisfiesRule(ctx, triggerUuid, rule));
+        TriggerRuleCache ruleCache = this.triggerPlugin.triggerRuleCache.get(triggerUuid);
+        assertNotNull(ruleCache);
+        assertEquals(rule, ruleCache.getRuleSource());
+        assertNull(ruleCache.getPyFunction());
+
+        // Run it again and validate that the ruleCache didn't change.
+        assertFalse(this.triggerPlugin.eventSatisfiesRule(ctx, triggerUuid, rule));
+        assertEquals(ruleCache, this.triggerPlugin.triggerRuleCache.get(triggerUuid));
+
+        // Validate that changing trigger rule to valid stores new value in cache
+        rule = "evt.status == " + evtSummary.getStatus().getNumber();
+        assertTrue(this.triggerPlugin.eventSatisfiesRule(ctx, triggerUuid, rule));
+        ruleCache = this.triggerPlugin.triggerRuleCache.get(triggerUuid);
+        assertNotNull(ruleCache);
+        assertEquals(rule, ruleCache.getRuleSource());
+        assertNotNull(ruleCache.getPyFunction());
     }
 }
 

@@ -85,10 +85,42 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
     private AmqpConnectionManager connectionManager;
 
-    protected static final int MAX_RULE_CACHE_SIZE = 200;
-    protected static final Map<String, PyFunction> ruleFunctionCache = Collections
-            .synchronizedMap(ZepUtils
-                    .<String, PyFunction> createBoundedMap(MAX_RULE_CACHE_SIZE));
+    /**
+     * Caches the result of compiling a trigger rule. Contains the original rule source, and the compiled PyFunction
+     * from the source. The PyFunction can be null if the rule source is invalid and can't be compiled to valid
+     * Python. It is cached no matter what to prevent trying to compile an invalid rule over and over again.
+     */
+    static final class TriggerRuleCache {
+        private final String ruleSource;
+        private final PyFunction pyFunction;
+        
+        public TriggerRuleCache(String ruleSource, PyFunction pyFunction) {
+            this.ruleSource = ruleSource;
+            this.pyFunction = pyFunction;
+        }
+
+        public String getRuleSource() {
+            return ruleSource;
+        }
+
+        public PyFunction getPyFunction() {
+            return pyFunction;
+        }
+
+        @Override
+        public String toString() {
+            return "TriggerRuleCache{" +
+                    "ruleSource='" + ruleSource + '\'' +
+                    '}';
+        }
+    }
+
+    // Default size of trigger rule cache - can be overridden by specifying plugin.TriggerPlugin.triggerRuleCacheSize
+    // in the zeneventserver.conf file.
+    private static final int DEFAULT_TRIGGER_RULE_CACHE_SIZE = 200;
+
+    // Map of Trigger UUID -> TriggerRuleCache.
+    protected Map<String, TriggerRuleCache> triggerRuleCache;
 
     // The maximum amount of time to wait between processing the signal spool.
     private static final long MAXIMUM_DELAY_MS = TimeUnit.SECONDS.toMillis(60);
@@ -168,6 +200,18 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
     @Override
     public void start(Map<String, String> properties) {
+        int triggerRuleCacheSize = DEFAULT_TRIGGER_RULE_CACHE_SIZE;
+        String cacheSize = properties.get("triggerRuleCacheSize");
+        if (cacheSize != null) {
+            try {
+                triggerRuleCacheSize = Integer.parseInt(cacheSize.trim());
+                logger.info("TriggerPlugin trigger rule cache size: {}", cacheSize);
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid trigger rule cache size: {}", cacheSize);
+            }
+        }
+        Map<String,TriggerRuleCache> boundedMap = ZepUtils.createBoundedMap(triggerRuleCacheSize);
+        this.triggerRuleCache = Collections.synchronizedMap(boundedMap);
         super.start(properties);
         scheduleSpool();
     }
@@ -424,18 +468,32 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         }
     }
 
-    protected boolean eventSatisfiesRule(RuleContext ruleContext, String ruleSource) {
+    protected boolean eventSatisfiesRule(RuleContext ruleContext, String triggerUuid, String ruleSource) {
         PyObject result;
         try {
             // use rule to build and evaluate a Python lambda expression
-            PyFunction fn = ruleFunctionCache.get(ruleSource);
-            if (fn == null) {
-                fn = (PyFunction)this.pythonHelper.getPythonInterpreter().eval(
-                        "lambda evt, dev, elem, sub_elem : " + ruleSource
-                );
-                ruleFunctionCache.put(ruleSource, fn);
+            TriggerRuleCache cacheItem = triggerRuleCache.get(triggerUuid);
+            PyFunction fn = null;
+            if (cacheItem == null || !cacheItem.getRuleSource().equals(ruleSource)) {
+                try {
+                    fn = (PyFunction)this.pythonHelper.getPythonInterpreter().eval(
+                            "lambda evt, dev, elem, sub_elem : " + ruleSource
+                    );
+                } catch (PySyntaxError e) {
+                    String fmt = Py.formatException(e.type, e.value);
+                    logger.warn("syntax error exception raised while compiling rule: {}, {}", ruleSource, fmt);
+                }
+                // Cache result of trigger evaluation (even if it failed to compile). This will prevent trying to
+                // recompile the same invalid rule over and over again.
+                triggerRuleCache.put(triggerUuid, new TriggerRuleCache(ruleSource, fn));
             }
-
+            else {
+                fn = cacheItem.getPyFunction();
+            }
+            if (fn == null) {
+                logger.debug("Invalid rule source: {}", ruleSource);
+                return false;
+            }
             // evaluate the rule function
             result = fn.__call__(ruleContext.event, ruleContext.device, ruleContext.element, ruleContext.subElement);
         } catch (PySyntaxError pysynerr) {
@@ -544,7 +602,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             if (ruleContext == null) {
                 ruleContext = RuleContext.createContext(this.pythonHelper.getToObject(), eventSummary);
             }
-            final boolean eventSatisfiesRule = eventSatisfiesRule(ruleContext, ruleSource);
+            final boolean eventSatisfiesRule = eventSatisfiesRule(ruleContext, trigger.getUuid(), ruleSource);
 
             if (eventSatisfiesRule) {
                 logger.debug("Trigger {} ({}) MATCHES", trigger.getName(), ruleSource);
