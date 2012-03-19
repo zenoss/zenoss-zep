@@ -1486,5 +1486,40 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         long actual = eventSummaryDao.getArchiveEligibleEventCount(0L, TimeUnit.SECONDS);
         assertEquals(initial + 1L, actual);
     }
+    
+    @Test
+    public void testNoExceptionWhenNoClearHashes() throws ZepException {
+        Event event = Event.newBuilder(EventTestUtils.createSampleEvent()).setSeverity(EventSeverity.SEVERITY_CLEAR)
+                .build();
+        eventSummaryDao.create(event, new EventPreCreateContext() {
+            @Override
+            public Set<String> getClearClasses() {
+                return Collections.emptySet();
+            }
+
+            @Override
+            public void setClearClasses(Set<String> clearClasses) {
+            }
+
+            @Override
+            public ClearFingerprintGenerator getClearFingerprintGenerator() {
+                return new ClearFingerprintGenerator() {
+                    @Override
+                    public String generateClearFingerprint(Event event) {
+                        return null;
+                    }
+
+                    @Override
+                    public List<String> generateClearFingerprints(Event event, Set<String> clearClasses) {
+                        return Collections.emptyList();
+                    }
+                };
+            }
+
+            @Override
+            public void setClearFingerprintGenerator(ClearFingerprintGenerator clearFingerprintGenerator) {
+            }
+        });
+    }
 
 }

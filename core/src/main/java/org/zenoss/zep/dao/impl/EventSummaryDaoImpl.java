@@ -327,7 +327,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         final List<byte[]> clearHashes = EventDaoUtils.createClearHashes(event, context);
         if (clearHashes.isEmpty()) {
             logger.debug("Clear event didn't contain any clear hashes: {}, {}", event, context);
-            return null;
+            return Collections.emptyList();
         }
         final long lastSeen = event.getCreatedTime();
 
