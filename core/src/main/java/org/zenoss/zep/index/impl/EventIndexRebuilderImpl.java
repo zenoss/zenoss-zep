@@ -48,7 +48,7 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
     private IndexMetadataDao indexMetadataDao;
     private IndexedDetailsConfiguration indexedDetailsConfiguration;
 
-    private ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private Future<?> rebuildFuture = null;
     private volatile boolean shutdown = false;
     private volatile boolean configurationChanged = false;
@@ -305,7 +305,7 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
         }
 
         if (numIndexed > 0) {
-            indexDao.commit(true);
+            indexDao.commit();
             indexMetadataDao.updateIndexVersion(indexDao.getName(), IndexConstants.INDEX_VERSION, indexVersionHash);
         }
         logger.info("Finished recreating index for {} events on table: {}", numIndexed, indexDao.getName());

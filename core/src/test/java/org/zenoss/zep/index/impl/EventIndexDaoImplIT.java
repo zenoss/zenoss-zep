@@ -94,7 +94,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         uuidsToSearch.add(eventSummaryFromDb.getUuid());
 
         eventIndexDao.index(eventSummaryFromDb);
-        eventIndexDao.commit(true);
+        eventIndexDao.commit();
 
         EventSummaryRequest.Builder requestBuilder = EventSummaryRequest.newBuilder();
         requestBuilder.setLimit(10);

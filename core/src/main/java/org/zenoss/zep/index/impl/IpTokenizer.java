@@ -16,25 +16,25 @@ public class IpTokenizer extends CharTokenizer {
      * {@inheritDoc}
      */
     public IpTokenizer(Reader input) {
-        super(input);
+        super(IndexConstants.LUCENE_VERSION, input);
     }
 
     /**
      * {@inheritDoc}
      */
     public IpTokenizer(AttributeSource source, Reader input) {
-        super(source, input);
+        super(IndexConstants.LUCENE_VERSION, source, input);
     }
 
     /**
      * {@inheritDoc}
      */
     public IpTokenizer(AttributeFactory factory, Reader input) {
-        super(factory, input);
+        super(IndexConstants.LUCENE_VERSION, factory, input);
     }
 
     @Override
-    protected boolean isTokenChar(char c) {
+    protected boolean isTokenChar(int c) {
         return (c != '.' && c != ':');
     }
 }

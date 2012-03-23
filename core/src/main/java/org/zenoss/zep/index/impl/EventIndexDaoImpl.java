@@ -162,7 +162,11 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void commit() throws ZepException {
-        commit(false);
+        try {
+            this.writer.commit();
+        } catch (IOException e) {
+            throw new ZepException(e);
+        }
     }
 
     private static class IndexSearcherCache {
@@ -186,12 +190,12 @@ public class EventIndexDaoImpl implements EventIndexDao {
          */
         public synchronized IndexSearcher getIndexSearcher() throws IOException {
             if (this.indexReader == null) {
-                this.indexReader = this.indexWriter.getReader();
+                this.indexReader = IndexReader.open(this.indexWriter, true);
             }
             else {
                 IndexReader oldReader = this.indexReader;
-                IndexReader newReader = oldReader.reopen();
-                if (oldReader != newReader) {
+                IndexReader newReader = IndexReader.openIfChanged(oldReader);
+                if (newReader != null) {
                     this.indexReader = newReader;
                     oldReader.close();
                 }
@@ -237,14 +241,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void commit(boolean forceOptimize) throws ZepException {
-        try {
-            this.writer.commit();
-            if (forceOptimize) {
-                this.writer.optimize();
-            }
-        } catch (IOException e) {
-            throw new ZepException(e);
-        }
+        commit();
     }
 
     @Override
@@ -350,8 +347,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 terms.add(new Term(FIELD_UUID, uuid));
             }
             writer.deleteDocuments(terms.toArray(new Term[terms.size()]));
-            // Optimize only when we delete in batches as optimizing one at a time would be expensive
-            commit(true);
+            commit();
         } catch (IOException e) {
             throw new ZepException(e);
         }
@@ -385,7 +381,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         logger.debug("Deleting all events for: {}", this.name);
         try {
             this.writer.deleteAll();
-            commit(true);
+            commit();
         } catch (IOException e) {
             throw new ZepException(e);
         }
@@ -399,7 +395,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             Query query = buildQuery(searcher.getIndexReader(), request.getEventFilter(), request.getExclusionFilter());
             logger.debug("Deleting events matching: {}", query);
             this.writer.deleteDocuments(query);
-            commit(true);
+            commit();
         } catch (IOException e) {
             throw new ZepException(e);
         } catch (OutOfMemoryError oome) {
@@ -423,7 +419,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         logger.info("Purging events older than {}", new Date(pruneTimestamp));
         try {
             this.writer.deleteDocuments(query.build());
-            commit(true);
+            commit();
         } catch (IOException e) {
             throw new ZepException(e);
         }

@@ -16,7 +16,7 @@ import java.io.Reader;
 /**
  * Lower-case version of {@link KeywordAnalyzer}.
  */
-public class KeywordLowercaseAnalyzer extends Analyzer {
+public final class KeywordLowercaseAnalyzer extends Analyzer {
     private static class SavedStreams {
         Tokenizer source;
         TokenStream result;
@@ -28,7 +28,7 @@ public class KeywordLowercaseAnalyzer extends Analyzer {
         if (streams == null) {
             streams = new SavedStreams();
             streams.source = new KeywordTokenizer(reader);
-            streams.result = new LowerCaseFilter(streams.source);
+            streams.result = new LowerCaseFilter(IndexConstants.LUCENE_VERSION, streams.source);
             setPreviousTokenStream(streams);
         }
         else {
@@ -40,7 +40,7 @@ public class KeywordLowercaseAnalyzer extends Analyzer {
     @Override
     public TokenStream tokenStream(String fieldName, Reader reader) {
         TokenStream ts = new KeywordTokenizer(reader);
-        ts = new LowerCaseFilter(ts);
+        ts = new LowerCaseFilter(IndexConstants.LUCENE_VERSION, ts);
         return ts;
     }
 }

@@ -129,11 +129,6 @@
     </bean>
 
     <!-- Indexing DAO -->
-
-    <bean id="luceneMaxFieldLength" class="org.apache.lucene.index.IndexWriter$MaxFieldLength">
-        <constructor-arg index="0" value="${zep.index.maximum_field_length}" />
-    </bean>
-
     <bean id="luceneSummaryDir" class="org.apache.lucene.store.FSDirectory"
             factory-method="open" destroy-method="close">
         <qualifier value="summary" />
@@ -147,9 +142,13 @@
     <bean id="luceneSummaryIndexWriter" class="org.apache.lucene.index.IndexWriter" destroy-method="close">
         <qualifier value="summary" />
         <constructor-arg index="0" ref="luceneSummaryDir"/>
-        <constructor-arg index="1" ref="luceneAnalyzer"/>
-        <constructor-arg index="2" ref="luceneMaxFieldLength"/>
-        <property name="RAMBufferSizeMB" value="${zep.index.ram_buffer_size_mb:16.0}"/>
+        <constructor-arg index="1">
+            <bean class="org.zenoss.zep.index.impl.EventIndexMapper"
+                  factory-method="createIndexWriterConfig">
+                <constructor-arg ref="luceneAnalyzer" />
+                <constructor-arg ref="zepInstance" />
+            </bean>
+        </constructor-arg>
     </bean>
 
     <bean id="eventSummaryIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl" destroy-method="shutdown">
@@ -169,9 +168,13 @@
     <bean id="luceneArchiveIndexWriter" class="org.apache.lucene.index.IndexWriter" destroy-method="close">
         <qualifier value="archive" />
         <constructor-arg index="0" ref="luceneArchiveDir"/>
-        <constructor-arg index="1" ref="luceneAnalyzer"/>
-        <constructor-arg index="2" ref="luceneMaxFieldLength"/>
-        <property name="RAMBufferSizeMB" value="${zep.index.ram_buffer_size_mb:16.0}"/>
+        <constructor-arg index="1">
+            <bean class="org.zenoss.zep.index.impl.EventIndexMapper"
+                  factory-method="createIndexWriterConfig">
+                <constructor-arg ref="luceneAnalyzer" />
+                <constructor-arg ref="zepInstance" />
+            </bean>
+        </constructor-arg>
     </bean>
 
     <bean id="eventArchiveIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl" destroy-method="shutdown">

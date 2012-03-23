@@ -4,6 +4,8 @@
 
 package org.zenoss.zep.index.impl;
 
+import org.apache.lucene.util.Version;
+
 /**
  * Constants for the event index (field names stored with the Lucene documents).
  */
@@ -48,5 +50,10 @@ public class IndexConstants {
     public static final String IP_ADDRESS_TYPE_SUFFIX = "_type";
     public static final String IP_ADDRESS_TYPE_4 = "4";
     public static final String IP_ADDRESS_TYPE_6 = "6";
+
+    /**
+     * The version of Lucene we wish to use.
+     */
+    public static final Version LUCENE_VERSION = Version.LUCENE_35;
 }
 

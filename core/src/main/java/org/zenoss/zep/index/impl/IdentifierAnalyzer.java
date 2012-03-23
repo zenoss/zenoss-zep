@@ -16,7 +16,7 @@ import java.io.Reader;
 /**
  * Analyzer used for element and sub element identifiers.
  */
-public class IdentifierAnalyzer extends Analyzer {
+public final class IdentifierAnalyzer extends Analyzer {
 
     public static final int MIN_NGRAM_SIZE = 3;
     public static final int MAX_NGRAM_SIZE = MIN_NGRAM_SIZE;
@@ -31,8 +31,8 @@ public class IdentifierAnalyzer extends Analyzer {
         SavedStreams streams = (SavedStreams) getPreviousTokenStream();
         if (streams == null) {
             streams = new SavedStreams();
-            streams.source = new WhitespaceTokenizer(reader);
-            streams.result = new LowerCaseFilter(streams.source);
+            streams.source = new WhitespaceTokenizer(IndexConstants.LUCENE_VERSION, reader);
+            streams.result = new LowerCaseFilter(IndexConstants.LUCENE_VERSION, streams.source);
             streams.result = new NGramTokenFilter(streams.result, MIN_NGRAM_SIZE, MAX_NGRAM_SIZE);
             setPreviousTokenStream(streams);
         }
@@ -44,8 +44,8 @@ public class IdentifierAnalyzer extends Analyzer {
 
     @Override
     public TokenStream tokenStream(String fieldName, Reader reader) {
-        TokenStream tokenStream = new WhitespaceTokenizer(reader);
-        tokenStream = new LowerCaseFilter(tokenStream);
+        TokenStream tokenStream = new WhitespaceTokenizer(IndexConstants.LUCENE_VERSION, reader);
+        tokenStream = new LowerCaseFilter(IndexConstants.LUCENE_VERSION, tokenStream);
         tokenStream = new NGramTokenFilter(tokenStream, MIN_NGRAM_SIZE, MAX_NGRAM_SIZE);
         return tokenStream;
     }

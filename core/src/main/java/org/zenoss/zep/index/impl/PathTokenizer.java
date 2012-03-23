@@ -12,11 +12,11 @@ import java.io.Reader;
  */
 public class PathTokenizer extends CharTokenizer {
     public PathTokenizer(Reader input) {
-        super(input);
+        super(IndexConstants.LUCENE_VERSION, input);
     }
 
     @Override
-    protected boolean isTokenChar(char c) {
+    protected boolean isTokenChar(int c) {
         return (c != '/');
     }
 }

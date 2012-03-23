@@ -14,12 +14,12 @@ import java.io.Reader;
 /**
  * Analyzer used for storing event classes.
  */
-public class PathAnalyzer extends Analyzer {
+public final class PathAnalyzer extends Analyzer {
 
     @Override
     public TokenStream tokenStream(String fieldName, Reader reader) {
         TokenStream tokenStream = new PathTokenizer(reader);
-        tokenStream = new LowerCaseFilter(tokenStream);
+        tokenStream = new LowerCaseFilter(IndexConstants.LUCENE_VERSION, tokenStream);
         return tokenStream;
     }
 
@@ -34,7 +34,7 @@ public class PathAnalyzer extends Analyzer {
         if (streams == null) {
             streams = new SavedStreams();
             streams.source = new PathTokenizer(reader);
-            streams.result = new LowerCaseFilter(streams.source);
+            streams.result = new LowerCaseFilter(IndexConstants.LUCENE_VERSION, streams.source);
             setPreviousTokenStream(streams);
         }
         else {

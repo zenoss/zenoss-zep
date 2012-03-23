@@ -11,6 +11,7 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.document.NumericField;
+import org.apache.lucene.index.IndexWriterConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.zep.Zep.Event;
@@ -20,6 +21,7 @@ import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.ZepInstance;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.utils.IpUtils;
 
@@ -29,6 +31,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.net.Inet6Address;
 import java.net.InetAddress;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
@@ -39,14 +42,28 @@ import static org.zenoss.zep.index.impl.IndexConstants.*;
 public class EventIndexMapper {
 
     public static Analyzer createAnalyzer() {
-        final PerFieldAnalyzerWrapper analyzer = new PerFieldAnalyzerWrapper(new KeywordAnalyzer());
-        analyzer.addAnalyzer(FIELD_ELEMENT_IDENTIFIER, new IdentifierAnalyzer());
-        analyzer.addAnalyzer(FIELD_ELEMENT_SUB_IDENTIFIER, new IdentifierAnalyzer());
-        analyzer.addAnalyzer(FIELD_ELEMENT_TITLE, new IdentifierAnalyzer());
-        analyzer.addAnalyzer(FIELD_ELEMENT_SUB_TITLE, new IdentifierAnalyzer());
-        analyzer.addAnalyzer(FIELD_SUMMARY, new SummaryAnalyzer());
-        analyzer.addAnalyzer(FIELD_EVENT_CLASS, new PathAnalyzer());
-        return analyzer;
+        Map<String,Analyzer> fieldAnalyzers = new HashMap<String,Analyzer>();
+        fieldAnalyzers.put(FIELD_ELEMENT_IDENTIFIER, new IdentifierAnalyzer());
+        fieldAnalyzers.put(FIELD_ELEMENT_SUB_IDENTIFIER, new IdentifierAnalyzer());
+        fieldAnalyzers.put(FIELD_ELEMENT_TITLE, new IdentifierAnalyzer());
+        fieldAnalyzers.put(FIELD_ELEMENT_SUB_TITLE, new IdentifierAnalyzer());
+        fieldAnalyzers.put(FIELD_SUMMARY, new SummaryAnalyzer());
+        fieldAnalyzers.put(FIELD_EVENT_CLASS, new PathAnalyzer());
+        return new PerFieldAnalyzerWrapper(new KeywordAnalyzer(), fieldAnalyzers);
+    }
+    
+    public static IndexWriterConfig createIndexWriterConfig(Analyzer analyzer, ZepInstance zepInstance) {
+        IndexWriterConfig indexWriterConfig = new IndexWriterConfig(LUCENE_VERSION, analyzer);
+        Map<String,String> cfg = zepInstance.getConfig();
+        String ramBufferSizeMb = cfg.get("zep.index.ram_buffer_size_mb");
+        if (ramBufferSizeMb != null) {
+            try {
+                indexWriterConfig.setRAMBufferSizeMB(Double.valueOf(ramBufferSizeMb.trim()));
+            } catch (NumberFormatException nfe) {
+                logger.warn("Invalid value for zep.index.ram_buffer_size_mb: {}", ramBufferSizeMb);
+            }
+        }
+        return indexWriterConfig;
     }
 
     private static byte[] compressProtobuf(EventSummary eventSummary) throws ZepException {
@@ -90,7 +107,7 @@ public class EventIndexMapper {
         Document doc = new Document();
 
         // Store the entire serialized protobuf so we can reproduce the entire event from the index.
-        doc.add(new Field(FIELD_PROTOBUF, compressProtobuf(summary), Store.YES));
+        doc.add(new Field(FIELD_PROTOBUF, compressProtobuf(summary)));
 
         // Store the UUID for more lightweight queries against the index
         doc.add(new Field(FIELD_UUID, summary.getUuid(), Store.YES, Index.NOT_ANALYZED_NO_NORMS));
@@ -241,10 +258,6 @@ public class EventIndexMapper {
     }
 
     public static EventSummary toEventSummary(Document item) throws ZepException {
-        return toEventSummary(item, INDEX_VERSION);
-    }
-
-    public static EventSummary toEventSummary(Document item, int indexVersion) throws ZepException {
         final EventSummary summary;
         final byte[] protobuf = item.getBinaryValue(FIELD_PROTOBUF);
         if (protobuf != null) {

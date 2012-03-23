@@ -69,6 +69,8 @@ public interface EventIndexDao extends Purgable {
      *
      * @param forceOptimize If true, the index is optimized after committing the changes.
      * @throws ZepException If an error occurs.
+     * @deprecated Optimizing the index is discouraged - the forceOptimize option is ignored. Use
+     *             {@link #commit()} instead.
      */
     public void commit(boolean forceOptimize) throws ZepException;
 

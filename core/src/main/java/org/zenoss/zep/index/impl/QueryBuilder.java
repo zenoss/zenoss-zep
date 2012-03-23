@@ -7,7 +7,7 @@ package org.zenoss.zep.index.impl;
 import com.google.protobuf.ProtocolMessageEnum;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.tokenattributes.TermAttribute;
+import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermEnum;
@@ -16,8 +16,8 @@ import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.ConstantScoreQuery;
 import org.apache.lucene.search.MultiPhraseQuery;
+import org.apache.lucene.search.NGramPhraseQuery;
 import org.apache.lucene.search.NumericRangeQuery;
-import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
@@ -106,10 +106,10 @@ public class QueryBuilder {
     private static List<String> getTokens(String fieldName, Analyzer analyzer, String query) throws ZepException {
         final List<String> tokens = new ArrayList<String>();
         TokenStream ts = analyzer.tokenStream(fieldName, new StringReader(query));
-        TermAttribute term = ts.addAttribute(TermAttribute.class);
+        CharTermAttribute term = ts.addAttribute(CharTermAttribute.class);
         try {
             while (ts.incrementToken()) {
-                tokens.add(term.term());
+                tokens.add(term.toString());
             }
             ts.end();
             return tokens;
@@ -154,7 +154,8 @@ public class QueryBuilder {
                 } else if (value.length() < IdentifierAnalyzer.MIN_NGRAM_SIZE) {
                     query = new PrefixQuery(new Term(analyzedFieldName, value));
                 } else {
-                    final PhraseQuery pq = new PhraseQuery();
+                    // Use NGramPhraseQuery (new in Lucene 3.5 and optimized for searching NGram fields)
+                    final NGramPhraseQuery pq = new NGramPhraseQuery(IdentifierAnalyzer.MIN_NGRAM_SIZE);
                     query = pq;
                     List<String> tokens = getTokens(analyzedFieldName, analyzer, value);
                     for (String token : tokens) {
