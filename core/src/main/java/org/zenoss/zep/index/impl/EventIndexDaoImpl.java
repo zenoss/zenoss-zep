@@ -488,6 +488,9 @@ public class EventIndexDaoImpl implements EventIndexDao {
             case MONITOR:
                 sortFields.add(new SortField(FIELD_MONITOR, SortField.STRING, reverse));
                 break;
+            case EVENT_KEY:
+                sortFields.add(new SortField(FIELD_EVENT_KEY, SortField.STRING, reverse));
+                break;
             case UUID:
                 sortFields.add(new SortField(FIELD_UUID, SortField.STRING, reverse));
                 break;
@@ -591,6 +594,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         qb.addFieldOfEnumNumbers(FIELD_SEVERITY, filter.getSeverityList());
         qb.addWildcardFields(FIELD_AGENT, filter.getAgentList(), false);
         qb.addWildcardFields(FIELD_MONITOR, filter.getMonitorList(), false);
+        qb.addWildcardFields(FIELD_EVENT_KEY, filter.getEventKeyList(), false);
 
         qb.addPathFields(FIELD_EVENT_CLASS, FIELD_EVENT_CLASS_NOT_ANALYZED, filter.getEventClassList(),
                 reader);

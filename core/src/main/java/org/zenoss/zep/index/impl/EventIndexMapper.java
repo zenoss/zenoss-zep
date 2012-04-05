@@ -134,6 +134,7 @@ public class EventIndexMapper {
                 Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_AGENT, event.getAgent(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_MONITOR, event.getMonitor(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_EVENT_KEY, event.getEventKey(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         for (EventTag tag : event.getTagsList()) {
             for (String tagUuid : tag.getUuidList()) {

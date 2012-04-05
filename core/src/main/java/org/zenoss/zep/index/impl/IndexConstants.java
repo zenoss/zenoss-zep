@@ -14,7 +14,7 @@ public class IndexConstants {
      * The version of the event index. This should be updated each time a new field
      * is added to the index or the way a field gets indexed changes.
      */
-    public static final int INDEX_VERSION = 6;
+    public static final int INDEX_VERSION = 7;
 
     public static final String FIELD_UUID = "uuid";
     public static final String FIELD_STATUS = "status";
@@ -41,6 +41,7 @@ public class IndexConstants {
     public static final String FIELD_CURRENT_USER_NAME = "current_user_name";
     public static final String FIELD_AGENT = "agent";
     public static final String FIELD_MONITOR = "monitor";
+    public static final String FIELD_EVENT_KEY = "event_key";
     public static final String FIELD_PROTOBUF = "protobuf";
 
     // For PATH and IP_ADDRESS details
