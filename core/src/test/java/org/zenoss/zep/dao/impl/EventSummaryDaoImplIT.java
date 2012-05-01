@@ -398,6 +398,50 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         assertTrue(summary.getUpdateTime() > origUpdateTime);
 
         compareSummary(origSummary, summary);
+
+        /* Try acknowleding event again with the same user / uuid */
+        assertEquals(0, eventSummaryDao.acknowledge(Collections.singletonList(summary.getUuid()), userUuid, userName));
+
+        /* Change uuid and verify acknowledgement goes through */
+        userUuid = UUID.randomUUID().toString();
+        assertEquals(1, eventSummaryDao.acknowledge(Collections.singletonList(summary.getUuid()), userUuid, userName));
+
+        /* Change username and verify acknowledgement goes through */
+        userName = userName + "_1";
+        assertEquals(1, eventSummaryDao.acknowledge(Collections.singletonList(summary.getUuid()), userUuid, userName));
+
+        /* Change uuid to null and verify acknowledgement goes through */
+        userUuid = null;
+        assertEquals(1, eventSummaryDao.acknowledge(Collections.singletonList(summary.getUuid()), userUuid, userName));
+
+        /* Change username to null and verify acknowledgement goes through */
+        userName = null;
+        assertEquals(1, eventSummaryDao.acknowledge(Collections.singletonList(summary.getUuid()), userUuid, userName));
+
+        /* Acknowledge again with both set to null - shouldn't change */
+        assertEquals(0, eventSummaryDao.acknowledge(Collections.singletonList(summary.getUuid()), userUuid, userName));
+    }
+
+    @Test
+    public void testAcknowledgeNullUserNameUuid() throws ZepException {
+        EventSummary summary = createSummaryNew(createUniqueEvent());
+        long origStatusChange = summary.getStatusChangeTime();
+        long origUpdateTime = summary.getUpdateTime();
+        assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
+        assertFalse(summary.hasCurrentUserUuid());
+        assertFalse(summary.hasCurrentUserName());
+
+        EventSummary origSummary = summary;
+        int numUpdated = eventSummaryDao.acknowledge(Collections.singletonList(summary.getUuid()), null, null);
+        assertEquals(1, numUpdated);
+        summary = eventSummaryDao.findByUuid(summary.getUuid());
+        assertFalse(summary.hasCurrentUserUuid());
+        assertFalse(summary.hasCurrentUserName());
+        assertEquals(EventStatus.STATUS_ACKNOWLEDGED, summary.getStatus());
+        assertTrue(summary.getStatusChangeTime() > origStatusChange);
+        assertTrue(summary.getUpdateTime() > origUpdateTime);
+
+        compareSummary(origSummary, summary);
     }
 
     @Test

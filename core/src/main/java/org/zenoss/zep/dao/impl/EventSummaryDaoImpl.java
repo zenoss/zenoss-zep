@@ -54,6 +54,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
@@ -637,7 +638,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }
 
         public void setCurrentUserName(String currentUserName) {
-            this.currentUserName = DaoUtils.truncateStringToUtf8(currentUserName, MAX_CURRENT_USER_NAME);
+            if (currentUserName == null) {
+                this.currentUserName = null;
+            }
+            else {
+                this.currentUserName = DaoUtils.truncateStringToUtf8(currentUserName, MAX_CURRENT_USER_NAME);
+            }
         }
 
         public String getClearedByEventUuid() {
@@ -675,6 +681,30 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             }
             fields.put("_current_status_ids", currentStatusIds);
             sb.append(" AND status_id IN (:_current_status_ids)");
+        }
+        /*
+         * Disallow acknowledging an event again as the same user name / user uuid. If the event is not
+         * already acknowledged, we will allow it to be acknowledged (assuming state filter above doesn't
+         * exclude it). Otherwise, we will only acknowledge it again if *either* the user name or user
+         * uuid has changed. If neither of these fields have changed, it is a NO-OP.
+         */
+        if (status == EventStatus.STATUS_ACKNOWLEDGED) {
+            fields.put("_status_acknowledged", EventStatus.STATUS_ACKNOWLEDGED.getNumber());
+            sb.append(" AND (status_id != :_status_acknowledged OR ");
+            if (updateFields.getCurrentUserName() == null) {
+                sb.append("current_user_name IS NOT NULL");
+            }
+            else {
+                sb.append("(current_user_name IS NULL OR current_user_name != :current_user_name)");
+            }
+            sb.append(" OR ");
+            if (updateFields.getCurrentUserUuid() == null) {
+                sb.append("current_user_uuid IS NOT NULL");
+            }
+            else {
+                sb.append("(current_user_uuid IS NULL OR current_user_uuid != :current_user_uuid)");
+            }
+            sb.append(")");
         }
         sb.append(" FOR UPDATE");
         String selectSql = sb.toString();
@@ -767,8 +797,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @TransactionalRollbackAllExceptions
     public int acknowledge(List<String> uuids, String userUuid, String userName)
             throws ZepException {
-        /* NEW | SUPPRESSED -> ACKNOWLEDGED */
-        List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_NEW, EventStatus.STATUS_SUPPRESSED);
+        /* NEW | ACKNOWLEDGED | SUPPRESSED -> ACKNOWLEDGED */
+        Set<EventStatus> currentStatuses = ZepConstants.OPEN_STATUSES;
         EventSummaryUpdateFields userfields = new EventSummaryUpdateFields();
         userfields.setCurrentUserName(userName);
         userfields.setCurrentUserUuid(userUuid);
