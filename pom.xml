@@ -23,7 +23,7 @@
         <version.jackson>1.9.2</version.jackson>
         <version.jetty>7.5.3.v20111011</version.jetty>
         <version.logback>0.9.26</version.logback>
-        <version.lucene>3.5.0</version.lucene>
+        <version.lucene>3.6.0</version.lucene>
         <version.mysql>5.1.15</version.mysql>
         <version.postgresql>9.0-801.jdbc4</version.postgresql>
         <version.resteasy>2.0.1.GA</version.resteasy>
