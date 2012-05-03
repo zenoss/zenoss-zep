@@ -67,7 +67,7 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
                     "VALUES (:detail_item_name, :proto_json)";
         final String updateSql = "UPDATE event_detail_index_config SET proto_json=:proto_json" +
                 " WHERE detail_item_name=:detail_item_name";
-        DaoUtils.insertOrUpdate(nestedTransactionService, template, insertSql, updateSql, fields);
+        DaoUtils.updateOrInsert(nestedTransactionService, template, insertSql, updateSql, fields);
     }
 
     @Override

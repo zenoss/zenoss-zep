@@ -39,7 +39,10 @@ public class IndexedDetailsConfigurationImpl implements IndexedDetailsConfigurat
     public Map<String, EventDetailItem> getEventDetailItemsByName() throws ZepException {
         if (!initialized) {
             synchronized (this) {
-                this.eventDetailsConfigDao.init();
+                // Don't initialize twice
+                if (!initialized) {
+                    this.eventDetailsConfigDao.init();
+                }
                 initialized = true;
             }
         }

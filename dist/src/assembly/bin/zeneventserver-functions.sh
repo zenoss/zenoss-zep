@@ -201,7 +201,7 @@ generic() {
                     esac
                     ;;
                 Darwin)
-                    yjp_agent="bin/mac/libjypagent.jnilib"
+                    yjp_agent="mac/libyjpagent.jnilib"
                     ;;
             esac
             if [ -z "$yjp_agent" ]; then

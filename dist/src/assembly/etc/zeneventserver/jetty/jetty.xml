@@ -74,4 +74,13 @@
     <Set name="sendDateHeader">true</Set>
     <Set name="gracefulShutdown">1000</Set>
 
+    <!-- Uncomment the following section to enable debug logging on startup -->
+    <!--
+    <Get class="org.eclipse.jetty.util.log.Log" name="log">
+        <Call name="setDebugEnabled">
+            <Arg type="boolean">true</Arg>
+        </Call>
+    </Get>
+    -->
+
 </Configure>
