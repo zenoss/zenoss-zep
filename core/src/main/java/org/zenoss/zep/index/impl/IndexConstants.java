@@ -42,6 +42,8 @@ public class IndexConstants {
     public static final String FIELD_AGENT = "agent";
     public static final String FIELD_MONITOR = "monitor";
     public static final String FIELD_EVENT_KEY = "event_key";
+    public static final String FIELD_EVENT_CLASS_KEY = "event_class_key";
+    public static final String FIELD_EVENT_GROUP = "event_group";
     public static final String FIELD_PROTOBUF = "protobuf";
 
     // For PATH and IP_ADDRESS details

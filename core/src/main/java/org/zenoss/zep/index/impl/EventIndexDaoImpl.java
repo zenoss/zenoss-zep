@@ -531,6 +531,12 @@ public class EventIndexDaoImpl implements EventIndexDao {
                         throw new IllegalArgumentException("Unsupported detail type: " + item.getType());
                 }
                 break;
+            case EVENT_CLASS_KEY:
+                sortFields.add(new SortField(FIELD_EVENT_CLASS_KEY, SortField.STRING, reverse));
+                break;
+            case EVENT_GROUP:
+                sortFields.add(new SortField(FIELD_EVENT_GROUP, SortField.STRING, reverse));
+                break;
         }
         if (sortFields.isEmpty()) {
             throw new IllegalArgumentException("Unsupported sort field: " + sort.getField());
@@ -595,6 +601,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
         qb.addWildcardFields(FIELD_AGENT, filter.getAgentList(), false);
         qb.addWildcardFields(FIELD_MONITOR, filter.getMonitorList(), false);
         qb.addWildcardFields(FIELD_EVENT_KEY, filter.getEventKeyList(), false);
+        qb.addWildcardFields(FIELD_EVENT_CLASS_KEY, filter.getEventClassKeyList(), false);
+        qb.addWildcardFields(FIELD_EVENT_GROUP, filter.getEventGroupList(), false);
 
         qb.addPathFields(FIELD_EVENT_CLASS, FIELD_EVENT_CLASS_NOT_ANALYZED, filter.getEventClassList(),
                 reader);
