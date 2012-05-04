@@ -47,8 +47,8 @@ public class ConfigDaoImpl implements ConfigDao {
     private static final int MAX_PARTITIONS = 1000;
     private final int maxEventArchivePurgeIntervalDays;
     private int maxEventArchiveIntervalMinutes = 30 * 24 * 60;
-    private int minEventMaxSizeBytes = 8 * 1024;
-    private long maxEventMaxSizeBytes = 100 * 1024 * 1024;
+    private static final long MIN_EVENT_SIZE_MAX_BYTES = 8 * 1024;
+    private static final long MAX_EVENT_SIZE_MAX_BYTES = 100 * 1024;
     private NestedTransactionService nestedTransactionService;
 
     private static final String COLUMN_CONFIG_NAME = "config_name";
@@ -149,10 +149,10 @@ public class ConfigDaoImpl implements ConfigDao {
         }
 
         long eventMaxSizeBytes = config.getEventMaxSizeBytes();
-        if (eventMaxSizeBytes < minEventMaxSizeBytes ||
-                eventMaxSizeBytes > maxEventMaxSizeBytes) {
+        if (eventMaxSizeBytes < MIN_EVENT_SIZE_MAX_BYTES ||
+                eventMaxSizeBytes > MAX_EVENT_SIZE_MAX_BYTES) {
             throw new ZepException(messages.getMessage("invalid_event_max_size_bytes",
-                    minEventMaxSizeBytes, maxEventMaxSizeBytes));
+                    MIN_EVENT_SIZE_MAX_BYTES, MAX_EVENT_SIZE_MAX_BYTES));
         }
     }
 
