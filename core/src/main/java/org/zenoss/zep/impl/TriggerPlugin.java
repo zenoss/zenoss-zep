@@ -84,6 +84,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
     private UUIDGenerator uuidGenerator;
 
     private AmqpConnectionManager connectionManager;
+    private ExchangeConfiguration destinationExchange;
 
     /**
      * Caches the result of compiling a trigger rule. Contains the original rule source, and the compiled PyFunction
@@ -185,7 +186,8 @@ public class TriggerPlugin extends EventPostIndexPlugin {
     }
 
 
-    public TriggerPlugin() {
+    public TriggerPlugin() throws IOException {
+        destinationExchange = ZenossQueueConfig.getConfig().getExchange("$Signals");
     }
 
     @Autowired
@@ -527,24 +529,19 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
         if (OPEN_STATUSES.contains(evtstatus)) {
             processOpenEvent(eventSummary);
-        }
-        else {
-            if (evtstatus == EventStatus.STATUS_CLEARED) {
-                List<EventSignalSpool> spools = this.signalSpoolDao.findAllByEventSummaryUuid(eventSummary.getUuid());
-                for (EventSignalSpool spool : spools) {
-                    // Send clear signal
-                    if (spool.isSentSignal()) {
-                        logger.debug("sending clear signal for event: {}", eventSummary.getUuid());
-                        final EventTriggerSubscription subscription = this.eventTriggerSubscriptionDao.findByUuid(spool
-                                .getSubscriptionUuid());
-                        publishSignal(eventSummary, subscription);
-                    } else {
-                        logger.debug("Skipping sending of clear signal for event {} and subscription {} - !sentSignal",
-                                eventSummary.getUuid(), spool.getSubscriptionUuid());
-                    }
+        } else {
+            List<EventSignalSpool> spools = signalSpoolDao.findAllByEventSummaryUuid(eventSummary.getUuid());
+            for (EventSignalSpool spool : spools) {
+                if (spool.isSentSignal()) {
+                    logger.debug("sending clear signal for event: {}", eventSummary.getUuid());
+                    EventTriggerSubscription subscription = eventTriggerSubscriptionDao.findByUuid(spool.getSubscriptionUuid());
+                    publishSignal(eventSummary, subscription);
+                } else {
+                    logger.debug("Skipping sending of clear signal for event {} and subscription {} - !sentSignal",
+                            eventSummary.getUuid(), spool.getSubscriptionUuid());
                 }
             }
-            this.signalSpoolDao.deleteByEventSummaryUuid(eventSummary.getUuid());
+            signalSpoolDao.deleteByEventSummaryUuid(eventSummary.getUuid());
         }
     }
 
@@ -717,36 +714,29 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         }
     }
 
-    protected void publishSignal(EventSummary summary, EventTriggerSubscription subscription) throws ZepException {
-        try {
-            final Event occurrence = summary.getOccurrence(0);
-            Signal.Builder signalBuilder = Signal.newBuilder();
-            signalBuilder.setUuid(this.uuidGenerator.generate().toString());
-            signalBuilder.setCreatedTime(System.currentTimeMillis());
-            signalBuilder.setEvent(summary);
-            signalBuilder.setSubscriberUuid(subscription.getSubscriberUuid());
-            signalBuilder.setTriggerUuid(subscription.getTriggerUuid());
-
-            final boolean cleared = (summary.getStatus() == EventStatus.STATUS_CLEARED);
-            signalBuilder.setClear(cleared);
-            if (cleared) {
-                // Look up event which cleared this one
-                EventSummary clearEventSummary = this.eventStoreDao.findByUuid(summary.getClearedByEventUuid());
-                if (clearEventSummary != null) {
-                    signalBuilder.setClearEvent(clearEventSummary);
-                }
-                else {
-                    logger.warn("Unable to look up clear event with UUID: {}", summary.getClearedByEventUuid());
-                }
+    protected void publishSignal(EventSummary eventSummary, EventTriggerSubscription subscription) throws ZepException {
+        Event occurrence = eventSummary.getOccurrence(0);
+        Signal.Builder signalBuilder = Signal.newBuilder();
+        signalBuilder.setUuid(uuidGenerator.generate().toString());
+        signalBuilder.setCreatedTime(System.currentTimeMillis());
+        signalBuilder.setEvent(eventSummary);
+        signalBuilder.setSubscriberUuid(subscription.getSubscriberUuid());
+        signalBuilder.setTriggerUuid(subscription.getTriggerUuid());
+        signalBuilder.setMessage(occurrence.getMessage());
+        signalBuilder.setClear(CLOSED_STATUSES.contains(eventSummary.getStatus()));
+        if (EventStatus.STATUS_CLEARED == eventSummary.getStatus()) {
+            // Look up event which cleared this one
+            EventSummary clearEventSummary = this.eventStoreDao.findByUuid(eventSummary.getClearedByEventUuid());
+            if (clearEventSummary != null) {
+                signalBuilder.setClearEvent(clearEventSummary);
+            } else {
+                logger.warn("Unable to look up clear event with UUID: {}", eventSummary.getClearedByEventUuid());
             }
-            signalBuilder.setMessage(occurrence.getMessage());
-            final Signal signal = signalBuilder.build();
-
-            ExchangeConfiguration destExchange = ZenossQueueConfig.getConfig().getExchange("$Signals");
-            logger.debug("Publishing signal: {}", signal);
-            this.connectionManager.publish(destExchange, "zenoss.signal", signal);
-        } catch (IOException ioe) {
-            throw new ZepException(ioe);
+        }
+        Signal signal = signalBuilder.build();
+        logger.debug("Publishing signal: {}", signal);
+        try {
+            this.connectionManager.publish(destinationExchange, "zenoss.signal", signal);
         } catch (AmqpException e) {
             throw new ZepException(e);
         }
