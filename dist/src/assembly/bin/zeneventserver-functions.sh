@@ -118,9 +118,24 @@ status() {
     fi
 }
 
+audit() {
+    case "${CMD}" in
+      status)
+        ;;
+      help)
+        ;;
+      *)
+        if [ -e $ZENHOME/bin/zensendaudit ] ; then
+          zensendaudit kind=Daemon action=$CMD daemon=zeneventserver
+        fi
+        ;;
+    esac
+}
+
 generic() {
     CMD=$1
     shift
+    audit
 
     ZEP_PORT=8084
     while getopts "p:v:" flag
@@ -201,7 +216,7 @@ generic() {
                     esac
                     ;;
                 Darwin)
-                    yjp_agent="mac/libyjpagent.jnilib"
+                    yjp_agent="mac/libjypagent.jnilib"
                     ;;
             esac
             if [ -z "$yjp_agent" ]; then
