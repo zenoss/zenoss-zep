@@ -5,6 +5,7 @@ package org.zenoss.zep.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DuplicateKeyException;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -13,7 +14,6 @@ import org.zenoss.zep.EventProcessor;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.StatisticsService;
 import org.zenoss.zep.ZepException;
-import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.plugins.EventPostCreateContext;
 import org.zenoss.zep.plugins.EventPostCreatePlugin;
@@ -64,7 +64,6 @@ public class EventProcessorImpl implements EventProcessor {
     }
 
     @Override
-    @TransactionalRollbackAllExceptions
     public void processEvent(ZepRawEvent zepRawEvent) throws ZepException {
         logger.debug("processEvent: event={}", zepRawEvent);
         statisticsService.addToProcessedEventCount(1);
@@ -102,7 +101,16 @@ public class EventProcessorImpl implements EventProcessor {
             }
         }
 
-        final String uuid = this.eventSummaryDao.create(event, ctx);
+        String uuid;
+        try {
+            uuid = this.eventSummaryDao.create(event, ctx);
+        } catch (DuplicateKeyException e) {
+            // Catch DuplicateKeyException and retry creating the event. Otherwise, the failure
+            // will propagate to the AMQP consumer, the message will be rejected (and re-queued),
+            // leading to unnecessary load on the AMQP server re-queueing/re-delivering the event.
+            logger.debug("DuplicateKeyException - retrying event: {}", event);
+            uuid = this.eventSummaryDao.create(event, ctx);
+        }
 
         EventSummary summary = null;
         EventPostCreateContext context = new EventPostCreateContext() {

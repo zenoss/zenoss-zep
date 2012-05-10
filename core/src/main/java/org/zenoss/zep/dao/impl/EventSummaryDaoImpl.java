@@ -193,30 +193,19 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1((String)fields.get(COLUMN_FINGERPRINT)));
         }
 
-        String uuid = null;
-        do {
-            final String sql = "SELECT event_count,first_seen,last_seen,details_json,status_id,uuid FROM event_summary" +
-                    " WHERE fingerprint_hash=? FOR UPDATE";
-            final List<EventSummaryOrBuilder> oldSummaryList = this.template.getJdbcOperations().query(sql,
-                    new RowMapperResultSetExtractor<EventSummaryOrBuilder>(this.eventDedupMapper, 1),
-                    fields.get(COLUMN_FINGERPRINT_HASH));
-            if (!oldSummaryList.isEmpty()) {
-                uuid = dedupEvent(oldSummaryList.get(0), event, fields);
-            }
-            else {
-                try {
-                    this.nestedTransactionService.executeInNestedTransaction(new NestedTransactionCallback<Integer>() {
-                        @Override
-                        public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
-                            return insert.execute(fields);
-                        }
-                    });
-                    uuid = createdUuid;
-                } catch (DuplicateKeyException e) {
-                    // Retry the de-duping
-                }
-            }
-        } while (uuid == null);
+        final String sql = "SELECT event_count,first_seen,last_seen,details_json,status_id,uuid FROM event_summary" +
+                " WHERE fingerprint_hash=? FOR UPDATE";
+        final List<EventSummaryOrBuilder> oldSummaryList = this.template.getJdbcOperations().query(sql,
+                new RowMapperResultSetExtractor<EventSummaryOrBuilder>(this.eventDedupMapper, 1),
+                fields.get(COLUMN_FINGERPRINT_HASH));
+        final String uuid;
+        if (!oldSummaryList.isEmpty()) {
+            uuid = dedupEvent(oldSummaryList.get(0), event, fields);
+        }
+        else {
+            insert.execute(fields);
+            uuid = createdUuid;
+        }
 
         // Mark cleared events as cleared by this event
         if (!clearedEventUuids.isEmpty()) {
