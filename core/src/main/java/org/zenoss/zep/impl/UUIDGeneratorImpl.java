@@ -27,7 +27,12 @@ public class UUIDGeneratorImpl implements UUIDGenerator {
 
     public UUIDGeneratorImpl() throws SocketException {
         /* Use a generator from a MAC address on the system */
-        this.generator = Generators.timeBasedGenerator(new EthernetAddress(getMacAddress()));
+        EthernetAddress ethAddress = null;
+        byte[] macAddr = getMacAddress();
+        if (macAddr != null) {
+            ethAddress = new EthernetAddress(macAddr);
+        }
+        this.generator = Generators.timeBasedGenerator(ethAddress);
     }
 
     /**
