@@ -126,7 +126,7 @@ audit() {
         ;;
       *)
         if [ -e $ZENHOME/bin/zensendaudit ] ; then
-          zensendaudit kind=Daemon action=$CMD daemon=zeneventserver
+          zensendaudit kind=Daemon action=$CMD daemon=zeneventserver > /dev/null 2>&1
         fi
         ;;
     esac
