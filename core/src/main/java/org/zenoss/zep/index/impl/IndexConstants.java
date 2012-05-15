@@ -57,6 +57,6 @@ public class IndexConstants {
     /**
      * The version of Lucene we wish to use.
      */
-    public static final Version LUCENE_VERSION = Version.LUCENE_35;
+    public static final Version LUCENE_VERSION = Version.LUCENE_36;
 }
 
