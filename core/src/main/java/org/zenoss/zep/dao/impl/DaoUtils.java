@@ -99,6 +99,7 @@ public final class DaoUtils {
             throw new RuntimeException("Unsupported database protocol: " + protocol);
         }
 
+        p.setValidationQuery("SELECT 1");
         p.setDefaultAutoCommit(getBoolProperty(zepConfig.get(POOL_PREFIX + "default_auto_commit")));
         p.setDefaultReadOnly(getBoolProperty(zepConfig.get(POOL_PREFIX + "default_read_only")));
         p.setDefaultTransactionIsolation(getIntProperty(zepConfig.get(POOL_PREFIX + "default_transaction_isolation")));
