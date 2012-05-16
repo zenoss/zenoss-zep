@@ -216,7 +216,7 @@ generic() {
                     esac
                     ;;
                 Darwin)
-                    yjp_agent="mac/libjypagent.jnilib"
+                    yjp_agent="mac/libyjpagent.jnilib"
                     ;;
             esac
             if [ -z "$yjp_agent" ]; then
@@ -229,7 +229,7 @@ generic() {
                 exit 1
             fi
             yjp_home=`dirname "$yjp_bin"`
-            JVM_ARGS="${JVM_ARGS} -agentpath:$yjp_home/$yjp_agent=tracing,disablealloc"
+            JVM_ARGS="${JVM_ARGS} -agentpath:$yjp_home/$yjp_agent=sampling,disablealloc"
             run "$@"
             ;;
         run)
