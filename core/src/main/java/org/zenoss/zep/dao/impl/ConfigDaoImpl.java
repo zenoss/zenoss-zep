@@ -136,6 +136,16 @@ public class ConfigDaoImpl implements ConfigDao {
             throw new ZepException(messages.getMessage("invalid_event_age_interval"));
         }
 
+        long agingIntervalMilliseconds = config.getAgingIntervalMilliseconds();
+        if (agingIntervalMilliseconds < 1L) {
+            throw new ZepException(messages.getMessage("invalid_aging_interval_milliseconds"));
+        }
+
+        int agingLimit = config.getAgingLimit();
+        if (agingLimit < 1) {
+            throw new ZepException(messages.getMessage("invalid_aging_limit"));
+        }
+
         int eventArchivePurgeIntervalDays = config.getEventArchivePurgeIntervalDays();
         if (eventArchivePurgeIntervalDays < 1 || eventArchivePurgeIntervalDays > maxEventArchivePurgeIntervalDays) {
             throw new ZepException(messages.getMessage("invalid_event_archive_purge_interval", 1,
@@ -148,11 +158,40 @@ public class ConfigDaoImpl implements ConfigDao {
                     maxEventArchiveIntervalMinutes));
         }
 
+        long archiveIntervalMilliseconds = config.getArchiveIntervalMilliseconds();
+        if (archiveIntervalMilliseconds < 1L) {
+            throw new ZepException(messages.getMessage("invalid_archive_interval_milliseconds"));
+        }
+
+        int archiveLimit = config.getArchiveLimit();
+        if (archiveLimit < 1) {
+            throw new ZepException(messages.getMessage("invalid_archive_limit"));
+        }
+
         long eventMaxSizeBytes = config.getEventMaxSizeBytes();
-        if (eventMaxSizeBytes < MIN_EVENT_SIZE_MAX_BYTES ||
-                eventMaxSizeBytes > MAX_EVENT_SIZE_MAX_BYTES) {
+        if (eventMaxSizeBytes < MIN_EVENT_SIZE_MAX_BYTES || eventMaxSizeBytes > MAX_EVENT_SIZE_MAX_BYTES) {
             throw new ZepException(messages.getMessage("invalid_event_max_size_bytes",
                     MIN_EVENT_SIZE_MAX_BYTES, MAX_EVENT_SIZE_MAX_BYTES));
+        }
+
+        long indexSummaryIntervalMilliseconds = config.getIndexSummaryIntervalMilliseconds();
+        if (indexSummaryIntervalMilliseconds < 1L) {
+            throw new ZepException(messages.getMessage("invalid_index_summary_interval_milliseconds"));
+        }
+
+        long indexArchiveIntervalMilliseconds = config.getIndexArchiveIntervalMilliseconds();
+        if (indexArchiveIntervalMilliseconds < 1L) {
+            throw new ZepException(messages.getMessage("invalid_index_archive_interval_milliseconds"));
+        }
+
+        int indexLimit = config.getIndexLimit();
+        if (indexLimit < 1) {
+            throw new ZepException(messages.getMessage("invalid_index_limit"));
+        }
+
+        int eventTimePurgeIntervalDays = config.getEventTimePurgeIntervalDays();
+        if (eventTimePurgeIntervalDays < 1) {
+            throw new ZepException(messages.getMessage("invalid_event_time_purge_interval_days"));
         }
     }
 
