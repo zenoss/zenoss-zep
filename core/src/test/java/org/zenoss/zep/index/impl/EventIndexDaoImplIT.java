@@ -388,7 +388,8 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         eventIndexDao.index(summary);
 
         List<String> queries = Arrays.asList("tes*", "test", "test-jboss*", "zenoss", "loc", "test-jboss*",
-                "test-jboss.zenoss.loc", "\"test-jboss.zenoss.loc\"", "noss", "\"TEST-jBoss.Zenoss.lOc\"");
+                "test-jboss.zenoss.loc", "\"test-jboss.zenoss.loc\"", "noss", "\"TEST-jBoss.Zenoss.lOc\"",
+                "\"test-jboss*\"");
         for (String query : queries) {
             EventFilter.Builder filterBuilder = EventFilter.newBuilder();
             filterBuilder.addElementIdentifier(query);
