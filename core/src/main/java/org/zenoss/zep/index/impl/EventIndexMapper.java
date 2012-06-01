@@ -49,6 +49,7 @@ public class EventIndexMapper {
         fieldAnalyzers.put(FIELD_ELEMENT_SUB_TITLE, new IdentifierAnalyzer());
         fieldAnalyzers.put(FIELD_SUMMARY, new SummaryAnalyzer());
         fieldAnalyzers.put(FIELD_EVENT_CLASS, new PathAnalyzer());
+        fieldAnalyzers.put(FIELD_MESSAGE, new SummaryAnalyzer());
         return new PerFieldAnalyzerWrapper(new KeywordAnalyzer(), fieldAnalyzers);
     }
     
@@ -124,11 +125,11 @@ public class EventIndexMapper {
 
         Event event = summary.getOccurrence(0);
         doc.add(new Field(FIELD_FINGERPRINT, event.getFingerprint(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-        doc.add(new Field(FIELD_SUMMARY, event.getSummary(), Store.NO, Index.ANALYZED));
+        doc.add(new Field(FIELD_SUMMARY, event.getSummary(), Store.NO, Index.ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_SUMMARY_NOT_ANALYZED, event.getSummary().toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new NumericField(FIELD_SEVERITY, Store.NO, true).setIntValue(event.getSeverity().getNumber()));
 
-        doc.add(new Field(FIELD_EVENT_CLASS, event.getEventClass(), Store.NO, Index.ANALYZED));
+        doc.add(new Field(FIELD_EVENT_CLASS, event.getEventClass(), Store.NO, Index.ANALYZED_NO_NORMS));
         // Store with a trailing slash to make lookups simpler
         doc.add(new Field(FIELD_EVENT_CLASS_NOT_ANALYZED, event.getEventClass().toLowerCase() + "/", Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
@@ -137,6 +138,8 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_EVENT_KEY, event.getEventKey(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_EVENT_CLASS_KEY, event.getEventClassKey(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_EVENT_GROUP, event.getEventGroup(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+
+        doc.add(new Field(FIELD_MESSAGE, event.getMessage(), Store.NO, Index.ANALYZED_NO_NORMS));
 
         for (EventTag tag : event.getTagsList()) {
             for (String tagUuid : tag.getUuidList()) {

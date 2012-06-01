@@ -592,6 +592,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         qb.addWildcardFields(FIELD_FINGERPRINT, filter.getFingerprintList(), false);
         qb.addFullTextFields(FIELD_SUMMARY, filter.getEventSummaryList(), reader, this.writer.getAnalyzer());
+        qb.addFullTextFields(FIELD_MESSAGE, filter.getMessageList(), reader, this.writer.getAnalyzer());
         qb.addTimestampRanges(FIELD_FIRST_SEEN_TIME, filter.getFirstSeenList());
         qb.addTimestampRanges(FIELD_LAST_SEEN_TIME, filter.getLastSeenList());
         qb.addTimestampRanges(FIELD_STATUS_CHANGE_TIME, filter.getStatusChangeList());

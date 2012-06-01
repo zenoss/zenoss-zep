@@ -1066,4 +1066,16 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         assertTrue(msg, size > 0);
     }
 
+    @Test
+    public void testSearchMessage() throws ZepException {
+        EventSummary event1 = createSummaryNew(Event.newBuilder(EventTestUtils.createSampleEvent())
+                .setMessage("This is a Sample message").build());
+        this.eventIndexDao.index(event1);
+
+        EventFilter filter = EventFilter.newBuilder().addMessage("sampl? MESS*").build();
+        EventSummaryRequest req = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
+        EventSummaryResult result = this.eventIndexDao.list(req);
+        assertContainsEvents(result, event1);
+    }
+
 }

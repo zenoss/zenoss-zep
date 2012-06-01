@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.io.Reader;
 
 /**
- * Analyzer used for event summaries. Uses combination of lower case filter and
+ * Analyzer used for event summaries and messages. Uses combination of lower case filter and
  * whitespace tokenizer.
  */
 public final class SummaryAnalyzer extends Analyzer {
