@@ -21,7 +21,7 @@ public class IpUtilsTest {
     @Test
     public void testParseAddress() throws UnknownHostException {
         List<String> validIps = Arrays.asList("192.168.1.2", "0.0.0.0", "255.255.255.0", "::1",
-                "fe80::d69a:20ff:febe:2e22");
+                "fe80::d69a:20ff:febe:2e22", "[::1]", "[fe80::d69a:20ff:febe:2e22]");
         for (String ip : validIps) {
             InetAddress parsed = IpUtils.parseAddress(ip);
             assertEquals(InetAddress.getByName(ip), parsed);

@@ -3,6 +3,8 @@
  */
 package org.zenoss.zep.utils;
 
+import com.google.common.net.InetAddresses;
+
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -33,15 +35,12 @@ public final class IpUtils {
         // to prevent long running hostname lookups.
         final InetAddress addr;
         if (value.indexOf(':') != -1) {
-            if (!value.startsWith("[")) {
+            if (value.startsWith("[") && value.endsWith("]")) {
                 // We expect an IPv6 address
-                value = "[" + value + "]";
+                value = value.substring(1, value.length()-1);
             }
-            try {
-                addr = InetAddress.getByName(value);
-            } catch (UnknownHostException e) {
-                throw new IllegalArgumentException(e.getLocalizedMessage(), e);
-            }
+            // Use Guava IPv6 parsing - previous parsing performed DNS lookups
+            addr = InetAddresses.forString(value);
         }
         else {
             Matcher matcher = IPV4_PATTERN.matcher(value);

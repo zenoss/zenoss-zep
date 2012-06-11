@@ -3,6 +3,17 @@
  */
 package org.zenoss.zep.index.impl;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Fieldable;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TopDocs;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Ignore;
@@ -11,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.zenoss.protobufs.model.Model;
 import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
@@ -33,17 +45,24 @@ import org.zenoss.protobufs.zep.Zep.EventTagSeverity;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
+import org.zenoss.zep.ZepUtils;
+import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.EventTestUtils;
+import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
+import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
 import org.zenoss.zep.index.EventIndexDao;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -59,14 +78,26 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     @Qualifier("summary")
     public EventIndexDao eventIndexDao;
 
+    @Autowired
+    public EventArchiveDao eventArchiveDao;
+
+    @Autowired
+    @Qualifier("archive")
+    public EventIndexDao eventArchiveIndexDao;
+
+    @Autowired
+    public DatabaseCompatibility databaseCompatibility;
+
     @Before
     public void setUp() throws ZepException {
         eventIndexDao.clear();
+        eventArchiveIndexDao.clear();
     }
 
     @After
     public void tearDown() throws ZepException {
         eventIndexDao.clear();
+        eventArchiveIndexDao.clear();
     }
 
     private EventSummary createSummaryNew(Event event) throws ZepException {
@@ -77,6 +108,16 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         Event changedStatus = Event.newBuilder(event).setStatus(status).build();
         String uuid = eventSummaryDao.create(changedStatus, new EventPreCreateContextImpl());
         return eventSummaryDao.findByUuid(uuid);
+    }
+
+    private EventSummary createArchiveClosed(Event event) throws ZepException {
+        return createArchive(event, EventStatus.STATUS_CLOSED);
+    }
+
+    private EventSummary createArchive(Event event, EventStatus status) throws ZepException {
+        Event changedStatus = Event.newBuilder(event).setStatus(status).build();
+        String uuid = eventArchiveDao.create(changedStatus, new EventPreCreateContextImpl());
+        return eventArchiveDao.findByUuid(uuid);
     }
 
     @Test
@@ -200,11 +241,11 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         /* Create some closed events for all tags - these should be ignored. */
         for (int i = 0; i < 2; i++) {
             createEventWithSeverity(EventSeverity.SEVERITY_CRITICAL,
-                    EventStatus.STATUS_CLOSED, tag1, tag2, tag2);
+                    EventStatus.STATUS_CLOSED, tag1, tag2, tag3);
             createEventWithSeverity(EventSeverity.SEVERITY_ERROR,
-                    EventStatus.STATUS_CLOSED, tag1, tag2, tag2);
+                    EventStatus.STATUS_CLOSED, tag1, tag2, tag3);
             createEventWithSeverity(EventSeverity.SEVERITY_INFO,
-                    EventStatus.STATUS_CLEARED, tag1, tag2, tag2);
+                    EventStatus.STATUS_CLEARED, tag1, tag2, tag3);
         }
 
         EventTagSeveritiesSet tagSeveritiesSet = eventIndexDao.getEventTagSeverities(eventFilter);
@@ -902,7 +943,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     }
 
     private void assertContainsEvents(EventSummaryResult result, EventSummary... summaries) {
-        final Map<String,EventSummary> summaryMap = new HashMap<String,EventSummary>();
+        final Map<String,EventSummary> summaryMap = Maps.newHashMap();
         for (EventSummary summary : summaries) {
             summaryMap.put(summary.getUuid(), summary);
         }
@@ -911,6 +952,10 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             assertEquals("Unable to find event in expected map: " + event, expected, event);
         }
         assertTrue("Expected empty map, still contains: " + summaryMap, summaryMap.isEmpty());
+    }
+
+    private void assertContainsEvents(EventSummaryResult result, Collection<EventSummary> summaries) {
+        assertContainsEvents(result, summaries.toArray(new EventSummary[summaries.size()]));
     }
 
     @Test
@@ -1026,7 +1071,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     
     @Test
     public void testInvalidIpAddress() throws ZepException {
-        EventSummary ev1 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::1");
+        createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::1");
         
         List<String> invalid = Arrays.asList(":::", ":", "....", "not an ip");
         for (String query : invalid) {
@@ -1076,6 +1121,194 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         EventSummaryRequest req = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
         EventSummaryResult result = this.eventIndexDao.list(req);
         assertContainsEvents(result, event1);
+    }
+
+    @Test
+    public void testArchive() throws ZepException {
+        List<EventSummary> created = Lists.newArrayList();
+        for (int i = 0; i < 50; i++) {
+            String summary = String.format("Event Archive %03d", i);
+            EventSummary event = createArchiveClosed(
+                    Event.newBuilder(EventTestUtils.createSampleEvent()).setSummary(summary).build());
+            created.add(event);
+        }
+        this.eventArchiveIndexDao.indexMany(created);
+
+        EventSort sort = EventSort.newBuilder().setField(Field.EVENT_SUMMARY).build();
+        EventSummaryRequest req = EventSummaryRequest.newBuilder().addSort(sort).setOffset(30).setLimit(17).build();
+        EventSummaryResult result = this.eventArchiveIndexDao.list(req);
+        assertContainsEvents(result, created.subList(req.getOffset(), req.getOffset() + req.getLimit()));
+    }
+
+    @Test
+    public void testArchiveMissingInDb() throws ZepException {
+        List<EventSummary> created = Lists.newArrayList();
+        for (int i = 0; i < 10; i++) {
+            String summary = String.format("Event Archive %03d", i);
+            EventSummary event = createArchiveClosed(
+                    Event.newBuilder(EventTestUtils.createSampleEvent()).setSummary(summary).build());
+
+            created.add(event);
+        }
+        this.eventArchiveIndexDao.indexMany(created);
+
+        // Delete the first 3 events from the database (but don't delete from index)
+        List<String> summariesToDelete = Lists.newArrayList();
+        for (int i = 0; i < 3; i++) {
+            summariesToDelete.add(created.get(i).getOccurrence(0).getSummary());
+        }
+        Map<String, List<String>> args = Collections.singletonMap("_summaries", summariesToDelete);
+        this.simpleJdbcTemplate.update("DELETE FROM event_archive WHERE summary IN (:_summaries)", args);
+
+        EventSort sort = EventSort.newBuilder().setField(Field.EVENT_SUMMARY).build();
+        EventSummaryRequest req = EventSummaryRequest.newBuilder().addSort(sort).build();
+        EventSummaryResult result = this.eventArchiveIndexDao.list(req);
+        assertContainsEvents(result, created.subList(3, 10));
+
+        // Test sorting descending by summary
+        sort = EventSort.newBuilder().setField(Field.EVENT_SUMMARY).setDirection(Direction.DESCENDING).build();
+        req = EventSummaryRequest.newBuilder().addSort(sort).build();
+        result = this.eventArchiveIndexDao.list(req);
+        List<EventSummary> subList = created.subList(3, 10);
+        assertContainsEvents(result, subList);
+        ListIterator<EventSummary> it = subList.listIterator(subList.size());
+        int i = 0;
+        while (it.hasPrevious()) {
+            assertEquals(result.getEvents(i), it.previous());
+            ++i;
+        }
+    }
+
+    private Set<String> getFieldNames(EventIndexDao indexDao, String eventUuid) throws IOException {
+        IndexWriter indexWriter = (IndexWriter) ReflectionTestUtils.getField(indexDao, "writer");
+        IndexReader reader = null;
+        IndexSearcher searcher = null;
+        try {
+            reader = IndexReader.open(indexWriter, true);
+            searcher = new IndexSearcher(reader);
+            TopDocs docs = searcher.search(new TermQuery(new Term(IndexConstants.FIELD_UUID,
+                    eventUuid)), null, 1);
+            assertEquals(1, docs.totalHits);
+            int docId = docs.scoreDocs[0].doc;
+            Document document = reader.document(docId);
+            Set<String> fieldNames = Sets.newHashSet();
+            for (Fieldable field : document.getFields()) {
+                fieldNames.add(field.name());
+            }
+            return fieldNames;
+        } finally {
+            ZepUtils.close(searcher);
+            ZepUtils.close(reader);
+        }
+    }
+
+    @Test
+    public void testSummaryStoredEvent() throws ZepException, IOException {
+        // Verify that the event summary index stores serialized versions of the events
+        EventSummary event = createSummaryNew(Event.newBuilder(EventTestUtils.createSampleEvent()).build());
+        this.eventIndexDao.index(event);
+        Set<String> fieldNames = getFieldNames(this.eventIndexDao, event.getUuid());
+        assertEquals(Sets.newHashSet(IndexConstants.FIELD_UUID, IndexConstants.FIELD_PROTOBUF), fieldNames);
+    }
+
+    @Test
+    public void testArchiveNoStoredEvent() throws ZepException, IOException {
+        // Verify that the event archive index doesn't store events in the index but gets them from the database
+        EventSummary event = createArchiveClosed(Event.newBuilder(EventTestUtils.createSampleEvent()).build());
+        this.eventArchiveIndexDao.index(event);
+        Set<String> fieldNames = getFieldNames(this.eventArchiveIndexDao, event.getUuid());
+        assertEquals(Collections.singleton(IndexConstants.FIELD_UUID), fieldNames);
+    }
+
+    @Test
+    public void testArchiveFindByUuid() throws ZepException, IOException {
+        EventSummary event = createArchiveClosed(Event.newBuilder(EventTestUtils.createSampleEvent()).build());
+        this.eventArchiveIndexDao.index(event);
+        assertEquals(this.eventArchiveIndexDao.findByUuid(event.getUuid()), event);
+    }
+
+    @Test
+    public void testArchiveFindByUuidNotInDb() throws ZepException {
+        TypeConverter<String> uuidConverter = databaseCompatibility.getUUIDConverter();
+        EventSummary event = createArchiveClosed(Event.newBuilder(EventTestUtils.createSampleEvent()).build());
+        this.eventArchiveIndexDao.index(event);
+        this.simpleJdbcTemplate.update("DELETE FROM event_archive WHERE uuid=:uuid",
+                Collections.singletonMap("uuid", uuidConverter.toDatabaseType(event.getUuid())));
+        assertNull(this.eventArchiveIndexDao.findByUuid(event.getUuid()));
+    }
+
+    @Test
+    public void testArchiveGetEventTagSeverities() throws ZepException {
+        String tag1 = UUID.randomUUID().toString();
+        String tag2 = UUID.randomUUID().toString();
+        String tag3 = UUID.randomUUID().toString();
+        EventTagFilter.Builder tagFilterBuilder =  EventTagFilter.newBuilder();
+        tagFilterBuilder.addAllTagUuids(Arrays.asList(tag1, tag2, tag3));
+        EventFilter.Builder eventFilterBuilder = EventFilter.newBuilder();
+        eventFilterBuilder.addTagFilter(tagFilterBuilder.build());
+        eventFilterBuilder.addAllStatus(Arrays.asList(EventStatus.STATUS_CLOSED, EventStatus.STATUS_AGED));
+        EventFilter eventFilter = eventFilterBuilder.build();
+
+        /* Create error severity with two tags */
+        for (int i = 0; i < 5; i++) {
+            createEventWithSeverity(EventSeverity.SEVERITY_ERROR,
+                    EventStatus.STATUS_CLOSED, tag1, tag2);
+            createEventWithSeverity(EventSeverity.SEVERITY_ERROR,
+                    EventStatus.STATUS_AGED, tag1, tag2);
+        }
+        /* Create critical severity with one tag */
+        for (int i = 0; i < 3; i++) {
+            createEventWithSeverity(EventSeverity.SEVERITY_CRITICAL,
+                    EventStatus.STATUS_CLOSED, tag2);
+            createEventWithSeverity(EventSeverity.SEVERITY_CRITICAL,
+                    EventStatus.STATUS_AGED, tag2);
+        }
+        /* Create some cleared events for all tags - these should be ignored. */
+        for (int i = 0; i < 2; i++) {
+            createEventWithSeverity(EventSeverity.SEVERITY_CRITICAL,
+                    EventStatus.STATUS_CLEARED, tag1, tag2, tag3);
+            createEventWithSeverity(EventSeverity.SEVERITY_ERROR,
+                    EventStatus.STATUS_CLEARED, tag1, tag2, tag3);
+            createEventWithSeverity(EventSeverity.SEVERITY_INFO,
+                    EventStatus.STATUS_CLEARED, tag1, tag2, tag3);
+        }
+
+        EventTagSeveritiesSet tagSeveritiesSet = eventIndexDao.getEventTagSeverities(eventFilter);
+        Map<String, EventTagSeverities> tagSeveritiesMap = new HashMap<String, EventTagSeverities>();
+        for (EventTagSeverities tagSeverities : tagSeveritiesSet.getSeveritiesList()) {
+            tagSeveritiesMap.put(tagSeverities.getTagUuid(), tagSeverities);
+        }
+
+        EventTagSeverities tag1Severities = tagSeveritiesMap.get(tag1);
+        assertEquals(10, tag1Severities.getTotal());
+        assertEquals(1, tag1Severities.getSeveritiesCount());
+        for (EventTagSeverity tagSeverity : tag1Severities.getSeveritiesList()) {
+            assertEquals(EventSeverity.SEVERITY_ERROR, tagSeverity.getSeverity());
+            assertEquals(10, tagSeverity.getCount());
+            assertEquals(0, tagSeverity.getAcknowledgedCount());
+        }
+
+        EventTagSeverities tag2Severities = tagSeveritiesMap.get(tag2);
+        assertEquals(16, tag2Severities.getTotal());
+        assertEquals(2, tag2Severities.getSeveritiesCount());
+        for (EventTagSeverity tagSeverity : tag1Severities.getSeveritiesList()) {
+            switch (tagSeverity.getSeverity()) {
+                case SEVERITY_ERROR:
+                    assertEquals(10, tagSeverity.getCount());
+                    assertEquals(0, tagSeverity.getAcknowledgedCount());
+                    break;
+                case SEVERITY_CRITICAL:
+                    assertEquals(6, tagSeverity.getCount());
+                    assertEquals(0, tagSeverity.getAcknowledgedCount());
+                    break;
+                default:
+                    throw new RuntimeException("Unexpected severity: " + tagSeverity.getSeverity());
+            }
+        }
+
+        EventTagSeverities tag3Severities = tagSeveritiesMap.get(tag3);
+        assertEquals(0, tag3Severities.getTotal());
+        assertEquals(0, tag3Severities.getSeveritiesCount());
     }
 
 }

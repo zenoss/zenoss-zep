@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ This program is part of Zenoss Core, an open source monitoring platform.
+  ~ Copyright (C) 2010, Zenoss Inc.
+  ~
+  ~ This program is free software; you can redistribute it and/or modify it
+  ~ under the terms of the GNU General Public License version 2 as published by
+  ~ the Free Software Foundation.
+  ~
+  ~ For complete information please visit: http://www.zenoss.com/oss/
+  -->
+<!--
+  This file can be used to change the logging settings for unit/integration
+  tests. It is not shipped with the application, but can be used during
+  development to change log settings as needed.
+  -->
+<configuration scan="true">
+    <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener" />
+    
+    <appender name="APPENDER" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <contextName>zeneventserver</contextName>
+    <logger name="org.springframework" level="WARN"/>
+    <logger name="ch.qos.logback" level="WARN"/>
+    <logger name="com.zenoss" level="${ZENOSS_LOG_LEVEL:-INFO}" />
+    <logger name="org.zenoss" level="${ZENOSS_LOG_LEVEL:-INFO}" />
+
+    <root level="INFO">
+        <appender-ref ref="APPENDER"/>
+    </root>
+</configuration>

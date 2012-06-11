@@ -104,11 +104,15 @@ public class EventIndexMapper {
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexMapper.class);
 
-    public static Document fromEventSummary(EventSummary summary, Map<String,EventDetailItem> detailsConfig) throws ZepException {
+    public static Document fromEventSummary(EventSummary summary, Map<String,EventDetailItem> detailsConfig,
+                                            boolean isArchive) throws ZepException {
         Document doc = new Document();
 
         // Store the entire serialized protobuf so we can reproduce the entire event from the index.
-        doc.add(new Field(FIELD_PROTOBUF, compressProtobuf(summary)));
+        // Archive events don't store serialized protobufs - see ZEN-2159
+        if (!isArchive) {
+            doc.add(new Field(FIELD_PROTOBUF, compressProtobuf(summary)));
+        }
 
         // Store the UUID for more lightweight queries against the index
         doc.add(new Field(FIELD_UUID, summary.getUuid(), Store.YES, Index.NOT_ANALYZED_NO_NORMS));

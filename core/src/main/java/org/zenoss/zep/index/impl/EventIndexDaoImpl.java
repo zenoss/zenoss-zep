@@ -3,6 +3,7 @@
  */
 package org.zenoss.zep.index.impl;
 
+import com.google.common.collect.Lists;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldSelector;
 import org.apache.lucene.index.IndexReader;
@@ -48,6 +49,7 @@ import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
+import org.zenoss.zep.dao.EventSummaryBaseDao;
 import org.zenoss.zep.impl.ThreadRenamingRunnable;
 import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.IndexedDetailsConfiguration;
@@ -60,6 +62,7 @@ import java.util.Date;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,6 +75,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
     private final IndexWriter writer;
     private final IndexSearcherCache indexSearcherCache;
     private final String name;
+    private final boolean archive;
+    private final EventSummaryBaseDao eventSummaryBaseDao;
     
     @Autowired
     private UUIDGenerator uuidGenerator;
@@ -88,10 +93,13 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImpl.class);
 
-    public EventIndexDaoImpl(String name, IndexWriter writer) throws IOException {
+    public EventIndexDaoImpl(String name, IndexWriter writer, EventSummaryBaseDao eventSummaryBaseDao)
+            throws IOException {
         this.name = name;
         this.writer = writer;
         this.indexSearcherCache = new IndexSearcherCache(writer);
+        this.eventSummaryBaseDao = eventSummaryBaseDao;
+        this.archive = "event_archive".equals(name);
     }
 
     public synchronized void shutdown() throws IOException {
@@ -142,8 +150,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void stage(EventSummary event) throws ZepException {
-        Document doc = EventIndexMapper.fromEventSummary(event, indexedDetailsConfiguration.getEventDetailItemsByName());
-
+        Document doc = EventIndexMapper.fromEventSummary(event,
+                indexedDetailsConfiguration.getEventDetailItemsByName(), this.archive);
         try {
             this.writer.updateDocument(new Term(FIELD_UUID, event.getUuid()), doc);
         } catch (IOException e) {
@@ -294,18 +302,19 @@ public class EventIndexDaoImpl implements EventIndexDao {
         if (limit > queryLimit) {
             limit = queryLimit;
         }
-        if ( offset < 0 ) {
+        if (offset < 0) {
             offset = 0;
         }
-        logger.debug("Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[] { query, sort, offset, limit });
         final TopDocs docs;
 
         // Lucene doesn't like querying for 0 documents - search for at least one here
         final int numDocs = Math.max(limit + offset, 1);
         if (sort != null) {
+            logger.debug("Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[] { query, sort, offset, limit });
             docs = searcher.search(query, null, numDocs, sort);
         }
         else {
+            logger.debug("Query: {}, Offset: {}, Limit: {}", new Object[] { query, offset, limit });
             docs = searcher.search(query, null, numDocs);
         }
         logger.debug("Found {} results", docs.totalHits);
@@ -319,10 +328,46 @@ public class EventIndexDaoImpl implements EventIndexDao {
         // Return the number of results they asked for (the query has to return at least one match
         // but the request may specified a limit of zero).
         final int lastDocument = Math.min(limit + offset, docs.scoreDocs.length);
+        Map<String,EventSummary> archiveResultsFromDb = null;
+
         for (int i = offset; i < lastDocument; i++) {
-            EventSummary summary = EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector));
-            result.addEvents(summary);
+            // Event archive only stores UUIDs - have to query results from database
+            if (this.archive && selector != UUID_SELECTOR) {
+                if (archiveResultsFromDb == null) {
+                    archiveResultsFromDb = new LinkedHashMap<String, EventSummary>();
+                }
+                Document doc = searcher.doc(docs.scoreDocs[i].doc, UUID_SELECTOR);
+                archiveResultsFromDb.put(doc.get(FIELD_UUID), null);
+            }
+            else {
+                result.addEvents(EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector)));
+            }
         }
+
+        if (archiveResultsFromDb != null && !archiveResultsFromDb.isEmpty()) {
+            // Perform a batch query against the event archive for the found UUIDs
+            List<EventSummary> eventSummaries =
+                    this.eventSummaryBaseDao.findByUuids(Lists.newArrayList(archiveResultsFromDb.keySet()));
+
+            // Log if we detect an inconsistency between the index and the database
+            if (eventSummaries.size() != archiveResultsFromDb.size()) {
+                logger.info("Event archive index out of sync - expected {} results, found {} results",
+                        archiveResultsFromDb.size(), eventSummaries.size());
+            }
+
+            // Add back the events to the linked hash map (this preserves the lucene sort).
+            for (EventSummary eventSummary : eventSummaries) {
+                archiveResultsFromDb.put(eventSummary.getUuid(), eventSummary);
+            }
+
+            // Iterate over the linked hash map and add non-null events to the results
+            for (EventSummary eventSummaryInOrder : archiveResultsFromDb.values()) {
+                if (eventSummaryInOrder != null) {
+                    result.addEvents(eventSummaryInOrder);
+                }
+            }
+        }
+
         return result.build();
     }
 
@@ -356,14 +401,24 @@ public class EventIndexDaoImpl implements EventIndexDao {
     @Override
     public EventSummary findByUuid(String uuid) throws ZepException {
         TermQuery query = new TermQuery(new Term(FIELD_UUID, uuid));
-
         EventSummary summary = null;
         IndexSearcher searcher = null;
         try {
             searcher = getSearcher();
             TopDocs docs = searcher.search(query, 1);
             if (docs.scoreDocs.length > 0) {
-                summary = EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[0].doc));
+                // Not the most efficient way to search the archive, however this should give consistent results
+                // with other queries of the index (only returning indexed documents).
+                if (this.archive) {
+                    Document doc = searcher.doc(docs.scoreDocs[0].doc, UUID_SELECTOR);
+                    summary = eventSummaryBaseDao.findByUuid(doc.get(FIELD_UUID));
+                    if (summary == null) {
+                        logger.info("Event archive index out of sync - expected event {} not found", uuid);
+                    }
+                }
+                else {
+                    summary = EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[0].doc));
+                }
             }
         } catch (IOException e) {
             throw new ZepException(e);
@@ -712,8 +767,16 @@ public class EventIndexDaoImpl implements EventIndexDao {
             int docId;
             final DocIdSetIterator it = docs.iterator();
             while ((docId = it.nextDoc()) != DocIdSetIterator.NO_MORE_DOCS) {
-                final Document doc = searcher.doc(docId, PROTO_SELECTOR);
-                final EventSummary summary = EventIndexMapper.toEventSummary(doc);
+                final EventSummary summary;
+                if (this.archive) {
+                    // TODO: This isn't very cheap - would be better to batch by UUID in separate calls
+                    // This doesn't get called on the event archive right now, so leave it until need to optimize.
+                    Document doc = searcher.doc(docId, UUID_SELECTOR);
+                    summary = this.eventSummaryBaseDao.findByUuid(doc.get(FIELD_UUID));
+                } else {
+                    Document doc = searcher.doc(docId, PROTO_SELECTOR);
+                    summary = EventIndexMapper.toEventSummary(doc);
+                }
                 final boolean isAcknowledged = (summary.getStatus() == EventStatus.STATUS_ACKNOWLEDGED);
                 final Event occurrence = summary.getOccurrence(0);
                 final EventActor actor = occurrence.getActor();
