@@ -5,6 +5,7 @@ package org.zenoss.zep.dao.impl;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
@@ -18,8 +19,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Implementation of EventIndexQueueDao.
@@ -54,14 +57,14 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
     
     @Override
     @TransactionalRollbackAllExceptions
-    public int indexEvents(final EventIndexHandler handler, final int limit) throws ZepException {
+    public List<Long> indexEvents(final EventIndexHandler handler, final int limit) throws ZepException {
         return indexEvents(handler, limit, -1L);
     }
 
     @Override
     @TransactionalRollbackAllExceptions
-    public int indexEvents(final EventIndexHandler handler, final int limit,
-                           final long maxUpdateTime) throws ZepException {
+    public List<Long> indexEvents(final EventIndexHandler handler, final int limit,
+                                  final long maxUpdateTime) throws ZepException {
         final Map<String,Object> selectFields = new HashMap<String,Object>();
         selectFields.put("_limit", limit);
         
@@ -85,28 +88,32 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
                 "ORDER BY iq_update_time LIMIT :_limit";
         }
 
-        final int[] numIndexed = new int[1];
-        final List<Integer> indexQueueIds = this.template.query(sql, new RowMapper<Integer>() {
+        final Set<String> eventUuids = new HashSet<String>();
+        final List<Long> indexQueueIds = this.template.query(sql, new RowMapper<Long>() {
             @Override
-            public Integer mapRow(ResultSet rs, int rowNum) throws SQLException {
-                final Object uuid = rs.getObject("uuid");
-                if (uuid != null) {
-                    EventSummary summary = rowMapper.mapRow(rs, rowNum);
-                    try {
-                        handler.handle(summary);
-                    } catch (Exception e) {
-                        throw new SQLException(e.getLocalizedMessage(), e);
+            public Long mapRow(ResultSet rs, int rowNum) throws SQLException {
+                final long iqId = rs.getLong("iq_id");
+                final String iqUuid = uuidConverter.fromDatabaseType(rs, "iq_uuid");
+                // Don't process the same event multiple times.
+                if (eventUuids.add(iqUuid)) {
+                    final Object uuid = rs.getObject("uuid");
+                    if (uuid != null) {
+                        EventSummary summary = rowMapper.mapRow(rs, rowNum);
+                        try {
+                            handler.handle(summary);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e.getLocalizedMessage(), e);
+                        }
+                    }
+                    else {
+                        try {
+                            handler.handleDeleted(iqUuid);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e.getLocalizedMessage(), e);
+                        }
                     }
                 }
-                else {
-                    try {
-                        handler.handleDeleted(uuidConverter.fromDatabaseType(rs, "iq_uuid"));
-                    } catch (Exception e) {
-                        throw new SQLException(e.getLocalizedMessage(), e);
-                    }
-                }
-                ++numIndexed[0];
-                return rs.getInt("iq_id");
+                return iqId;
             }
         }, selectFields);
         
@@ -116,17 +123,25 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
             } catch (Exception e) {
                 throw new ZepException(e.getLocalizedMessage(), e);
             }
-            
-            final String deleteSql = "DELETE FROM " + this.queueTableName + " WHERE id IN (:_iq_ids)";
-            final Map<String,List<Integer>> deleteFields = Collections.singletonMap("_iq_ids", indexQueueIds);
-            this.template.update(deleteSql, deleteFields);
         }
-        return numIndexed[0];
+        return indexQueueIds;
     }
 
     @Override
+    @Transactional(readOnly = true)
     public long getQueueLength() {
         String sql = String.format("SELECT COUNT(*) FROM %s", queueTableName);
         return template.queryForLong(sql);
+    }
+
+    @Override
+    @TransactionalRollbackAllExceptions
+    public int deleteIndexQueueIds(List<Long> queueIds) throws ZepException {
+        if (queueIds.isEmpty()) {
+            return 0;
+        }
+        final String deleteSql = "DELETE FROM " + this.queueTableName + " WHERE id IN (:_iq_ids)";
+        final Map<String,List<Long>> deleteFields = Collections.singletonMap("_iq_ids", queueIds);
+        return this.template.update(deleteSql, deleteFields);
     }
 }

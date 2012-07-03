@@ -17,6 +17,7 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventIndexQueueDao;
+import org.zenoss.zep.dao.impl.DaoUtils;
 import org.zenoss.zep.events.ZepConfigUpdatedEvent;
 import org.zenoss.zep.impl.ThreadRenamingRunnable;
 import org.zenoss.zep.index.EventIndexDao;
@@ -25,6 +26,7 @@ import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -196,7 +198,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     private int doIndex(long throughTime) throws ZepException {
         final EventPostIndexContext context = new EventPostIndexContext() {};
         final List<EventPostIndexPlugin> plugins = this.pluginService.getPluginsByType(EventPostIndexPlugin.class);
-        int numIndexed = queueDao.indexEvents(new EventIndexHandler() {
+        final List<Long> indexQueueIds = queueDao.indexEvents(new EventIndexHandler() {
             @Override
             public void handle(EventSummary event) throws Exception {
                 indexDao.stage(event);
@@ -223,10 +225,21 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
             }
         }, limit, throughTime);
         
-        if (numIndexed > 0) {
-            logger.debug("Completed indexing {} events on {}", numIndexed, indexDao.getName());            
+        if (!indexQueueIds.isEmpty()) {
+            logger.debug("Completed indexing {} events on {}", indexQueueIds.size(), indexDao.getName());
+            try {
+                DaoUtils.deadlockRetry(new Callable<Integer>() {
+                    @Override
+                    public Integer call() throws Exception {
+                        return queueDao.deleteIndexQueueIds(indexQueueIds);
+                    }
+                });
+            } catch (ZepException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new ZepException(e.getLocalizedMessage(), e);
+            }
         }
-
-        return numIndexed;
+        return indexQueueIds.size();
     }
 }

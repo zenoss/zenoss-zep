@@ -94,16 +94,18 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
                             boolean archive) throws ZepException {
         EventSummary eventSummary = create(eventSummaryBaseDao, archive);
         TestEventIndexHandler handler = new TestEventIndexHandler();
-        int numEvents = eventIndexQueueDao.indexEvents(handler, 1000);
-        assertEquals(1, numEvents);
+        List<Long> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
+        assertEquals(1, indexQueueIds.size());
         assertTrue(handler.completed.get());
         assertEquals(1, handler.indexed.size());
         assertEquals(eventSummary, handler.indexed.get(0));
         assertTrue(handler.deleted.isEmpty());
 
+        eventIndexQueueDao.deleteIndexQueueIds(indexQueueIds);
+
         /* Run it again and verify that the event has been deleted */
         handler = new TestEventIndexHandler();
-        assertEquals(0, eventIndexQueueDao.indexEvents(handler, 1000));
+        assertEquals(0, eventIndexQueueDao.indexEvents(handler, 1000).size());
         assertFalse(handler.completed.get());
         assertTrue(handler.indexed.isEmpty());
         assertTrue(handler.deleted.isEmpty());
@@ -127,16 +129,18 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         EventSummary summaryWithNote = eventSummaryBaseDao.findByUuid(summary.getUuid());
 
         TestEventIndexHandler handler = new TestEventIndexHandler();
-        int numEvents = eventIndexQueueDao.indexEvents(handler, 1000);
-        assertEquals(1, numEvents);
+        List<Long> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
+        assertEquals(1, indexQueueIds.size());
         assertTrue(handler.completed.get());
         assertEquals(1, handler.indexed.size());
         assertEquals(summaryWithNote, handler.indexed.get(0));
         assertTrue(handler.deleted.isEmpty());
 
+        eventIndexQueueDao.deleteIndexQueueIds(indexQueueIds);
+
         /* Run it again and verify that the event has been deleted */
         handler = new TestEventIndexHandler();
-        assertEquals(0, eventIndexQueueDao.indexEvents(handler, 1000));
+        assertEquals(0, eventIndexQueueDao.indexEvents(handler, 1000).size());
         assertFalse(handler.completed.get());
         assertTrue(handler.indexed.isEmpty());
         assertTrue(handler.deleted.isEmpty());
@@ -159,16 +163,18 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         assertEquals(1, numDeleted);
 
         TestEventIndexHandler handler = new TestEventIndexHandler();
-        int numEvents = eventIndexQueueDao.indexEvents(handler, 1000);
-        assertEquals(1, numEvents);
+        List<Long> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
+        assertEquals(1, indexQueueIds.size());
         assertTrue(handler.completed.get());
         assertTrue(handler.indexed.isEmpty());
         assertEquals(1, handler.deleted.size());
         assertEquals(summary.getUuid(), handler.deleted.get(0));
 
+        eventIndexQueueDao.deleteIndexQueueIds(indexQueueIds);
+
         /* Run it again and verify that the event has been deleted */
         handler = new TestEventIndexHandler();
-        assertEquals(0, eventIndexQueueDao.indexEvents(handler, 1000));
+        assertEquals(0, eventIndexQueueDao.indexEvents(handler, 1000).size());
         assertFalse(handler.completed.get());
         assertTrue(handler.indexed.isEmpty());
         assertTrue(handler.deleted.isEmpty());
@@ -189,6 +195,24 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
     public void testArchiveQueueLength() throws ZepException {
         long actual = eventSummaryIndexQueueDao.getQueueLength();
         assertEquals(0L, actual);
+    }
+
+    @Test
+    public void testIndexGrouping() throws ZepException {
+        // Verifies that during indexing, we will only process the same event once.
+
+        // Create one event 500 times
+        Event event = EventTestUtils.createSampleEvent();
+        for (int i = 0; i < 500; i++) {
+            eventSummaryDao.create(event, new EventPreCreateContextImpl());
+        }
+        TestEventIndexHandler handler = new TestEventIndexHandler();
+        List<Long> indexQueueIds = eventSummaryIndexQueueDao.indexEvents(handler, 1000);
+        // The number of queue ids should be 500
+        assertEquals(500, indexQueueIds.size());
+        assertEquals(1, handler.indexed.size());
+        assertEquals(0, handler.deleted.size());
+        assertTrue(handler.completed.get());
     }
 
 }

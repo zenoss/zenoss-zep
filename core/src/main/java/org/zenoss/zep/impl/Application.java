@@ -26,6 +26,7 @@ import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.EventTimeDao;
 import org.zenoss.zep.dao.Purgable;
+import org.zenoss.zep.dao.impl.DaoUtils;
 import org.zenoss.zep.events.PluginServiceStartedEvent;
 import org.zenoss.zep.events.ZepConfigUpdatedEvent;
 import org.zenoss.zep.events.ZepEvent;
@@ -37,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -254,8 +256,13 @@ public class Application implements ApplicationContextAware, ApplicationListener
                         @Override
                         public void run() {
                             try {
-                                final int numAged = eventStoreDao.ageEvents(duration, TimeUnit.MINUTES, severity,
-                                        agingLimit, inclusive);
+                                final int numAged = DaoUtils.deadlockRetry(new Callable<Integer>() {
+                                    @Override
+                                    public Integer call() throws Exception {
+                                        return eventStoreDao.ageEvents(duration, TimeUnit.MINUTES, severity,
+                                                agingLimit, inclusive);
+                                    }
+                                });
                                 if (numAged > 0) {
                                     logger.debug("Aged {} events", numAged);
                                 }
@@ -297,7 +304,12 @@ public class Application implements ApplicationContextAware, ApplicationListener
                         @Override
                         public void run() {
                             try {
-                                final int numArchived = eventStoreDao.archive(duration, TimeUnit.MINUTES, archiveLimit);
+                                final int numArchived = DaoUtils.deadlockRetry(new Callable<Integer>() {
+                                    @Override
+                                    public Integer call() throws Exception {
+                                        return eventStoreDao.archive(duration, TimeUnit.MINUTES, archiveLimit);
+                                    }
+                                });
                                 if (numArchived > 0) {
                                     logger.debug("Archived {} events", numArchived);
                                     eventArchiveIndexer.index();

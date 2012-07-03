@@ -27,7 +27,7 @@ public class StatisticsServiceImpl extends StandardMBean implements StatisticsSe
 
     private static final Logger logger = LoggerFactory.getLogger(StatisticsServiceImpl.class);
 
-    private static final Map<String, String> attributeDescriptions = new HashMap<String, String>();;
+    private static final Map<String, String> attributeDescriptions = new HashMap<String, String>();
     static {
         attributeDescriptions.put("ProcessedEventCount", "processed events");
         attributeDescriptions.put("DedupedEventCount", "deduped events");

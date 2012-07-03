@@ -123,9 +123,7 @@ public class ZepInstanceImpl implements ZepInstance {
             bos = new BufferedOutputStream(new FileOutputStream(f));
             properties.store(bos, "ZEP Instance ID. Do not modify");
         } finally {
-            if (bos != null) {
-                ZepUtils.close(bos);
-            }
+            ZepUtils.close(bos);
         }
     }
 

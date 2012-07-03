@@ -7,10 +7,12 @@ import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.TransientDataAccessException;
 import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.Channel;
 import org.zenoss.amqp.Consumer;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.EventSummaryBaseDao;
 
 /**
@@ -60,7 +62,7 @@ public class MigratedEventQueueListener extends AbstractQueueListener {
             handle(message.getBody());
             consumer.ackMessage(message);
         } catch (Exception e) {
-            if (isTransientException(e)) {
+            if (ZepUtils.isExceptionOfType(e, TransientDataAccessException.class)) {
                 /* Re-queue the message if we get a temporary database failure */
                 logger.debug("Transient database exception", e);
                 logger.debug("Re-queueing message due to transient failure: {}", message);

@@ -10,7 +10,10 @@ import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.Consumer;
 import org.zenoss.amqp.Message;
 import org.zenoss.amqp.QueueListener;
+import org.zenoss.zep.ZepUtils;
+import org.zenoss.zep.dao.impl.DaoUtils;
 
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 
 public abstract class AbstractQueueListener extends QueueListener {
@@ -23,19 +26,6 @@ public abstract class AbstractQueueListener extends QueueListener {
 
     public void setExecutorService(ExecutorService executorService) {
         this.executorService = executorService;
-    }
-
-    protected boolean isTransientException(Exception e) {
-        boolean isTransient = false;
-        Throwable t = e;
-        while (t != null) {
-            if (t instanceof TransientDataAccessException) {
-                isTransient = true;
-                break;
-            }
-            t = t.getCause();
-        }
-        return isTransient;
     }
 
     protected void rejectMessage(Consumer<?> consumer, Message<?> message, boolean requeue) {
@@ -53,10 +43,16 @@ public abstract class AbstractQueueListener extends QueueListener {
             @Override
             public void run() {
                 try {
-                    handle(message.getBody());
+                    DaoUtils.deadlockRetry(new Callable<Object>() {
+                        @Override
+                        public Object call() throws Exception {
+                            handle(message.getBody());
+                            return null;
+                        }
+                    });
                     consumer.ackMessage(message);
                 } catch (Exception e) {
-                    if (isTransientException(e)) {
+                    if (ZepUtils.isExceptionOfType(e, TransientDataAccessException.class)) {
                         /* Re-queue the message if we get a temporary database failure */
                         logger.debug("Transient database exception", e);
                         logger.debug("Re-queueing message due to transient failure: {}", message);

@@ -9,6 +9,7 @@ import org.apache.tomcat.jdbc.pool.PoolProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.springframework.jdbc.support.DatabaseMetaDataCallback;
@@ -16,6 +17,7 @@ import org.springframework.jdbc.support.JdbcUtils;
 import org.springframework.jdbc.support.MetaDataAccessException;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.zep.ZepInstance;
+import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibilityMySQL;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibilityPostgreSQL;
@@ -37,19 +39,25 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.Callable;
 
 public final class DaoUtils {
     private static final Logger logger = LoggerFactory.getLogger(DaoUtils.class.getName());
     
     private static final String MYSQL_PROTOCOL = "mysql";
     private static final String POSTGRESQL_PROTOCOL = "postgresql";
-
+    private static int NUM_DEADLOCK_RETRIES = 5;
     private DaoUtils() {
+    }
+
+    private static int getIntProperty(String value, int defaultValue) {
+        Integer val = getIntProperty(value);
+        return (val == null) ? defaultValue : val;
     }
 
     private static Integer getIntProperty(String value) {
         Integer intVal = null;
-        if (value!= null) {
+        if (value != null) {
             try {
                 intVal = Integer.parseInt(value.trim());
             } catch (NumberFormatException e) {
@@ -125,6 +133,9 @@ public final class DaoUtils {
         p.setRemoveAbandonedTimeout(getIntProperty(zepConfig.get(POOL_PREFIX + "remove_abandoned_timeout")));
         p.setLogAbandoned(getBoolProperty(zepConfig.get(POOL_PREFIX + "log_abandoned")));
         p.setSuspectTimeout(getIntProperty(zepConfig.get(POOL_PREFIX + "suspect_timeout")));
+
+        // Set the database deadlock retry count
+        DaoUtils.NUM_DEADLOCK_RETRIES = getIntProperty(zepConfig.get("zep.jdbc.deadlock_retries"), 5);
 
         return p;
     }
@@ -374,5 +385,34 @@ public final class DaoUtils {
             numRows = insertOrUpdate(transactionService, jdbcOperations, insertSql, updateSql, fields);
         }
         return numRows;
+    }
+
+    /**
+     * Attempts to execute the specified method, returning the result. If a deadlock exception is detected, then the
+     * method is retried up to {@link #NUM_DEADLOCK_RETRIES} times.
+     *
+     * @param callable The callable to invoke.
+     * @param <T> The return type of the callable.
+     * @return The result of calling the callable method.
+     * @throws Exception If an exception occurs (other than a deadlock exception) or if the maximum number of deadlock
+     *                   retries is exhausted.
+     */
+    public static <T> T deadlockRetry(Callable<T> callable) throws Exception {
+        Exception lastException;
+        int i = 0;
+        do {
+            ++i;
+            try {
+                return callable.call();
+            } catch (Exception e) {
+                if (!ZepUtils.isExceptionOfType(e, DeadlockLoserDataAccessException.class)) {
+                    throw e;
+                }
+                // Retry transaction.
+                lastException = e;
+            }
+        } while (i < NUM_DEADLOCK_RETRIES);
+
+        throw lastException;
     }
 }

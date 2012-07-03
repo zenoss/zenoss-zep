@@ -90,4 +90,23 @@ public final class ZepUtils {
         }
         return sb.toString();
     }
+
+    /**
+     * Returns true if the exception (or its cause) is of the specified type.
+     *
+     * @param t The exception to test..
+     * @param type The type to check.
+     * @return True if the exception (or its cause) is of the specified type, false otherwise.
+     */
+    public static boolean isExceptionOfType(Throwable t, Class<? extends Throwable> type) {
+        boolean isOfType = false;
+        while (t != null) {
+            if (type.isAssignableFrom(t.getClass())) {
+                isOfType = true;
+                break;
+            }
+            t = t.getCause();
+        }
+        return isOfType;
+    }
 }
