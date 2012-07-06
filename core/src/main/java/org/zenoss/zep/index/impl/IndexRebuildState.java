@@ -5,11 +5,10 @@ package org.zenoss.zep.index.impl;
 
 import org.zenoss.zep.ZepUtils;
 
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
+import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Properties;
 
@@ -91,20 +90,20 @@ class IndexRebuildState {
             properties.setProperty("zep.index.starting_uuid", startingUuid);
         }
 
-        BufferedWriter bw = null;
+        FileOutputStream fos = null;
         File tempFile = null;
         try {
             tempFile = File.createTempFile("tmp", ".properties", file.getParentFile());
-            bw = new BufferedWriter(new FileWriter(tempFile));
-            properties.store(bw, "ZEP Internal Indexing State - Do Not Modify");
-            bw.close();
-            bw = null;
+            fos = new FileOutputStream(tempFile);
+            properties.store(fos, "ZEP Internal Indexing State - Do Not Modify");
+            fos.close();
+            fos = null;
             if (!tempFile.renameTo(file)) {
                 throw new IOException("Failed to rename " + tempFile.getAbsolutePath() + " to " +
                         file.getAbsolutePath());
             }
         } finally {
-            ZepUtils.close(bw);
+            ZepUtils.close(fos);
             if (tempFile != null && tempFile.isFile()) {
                 if (!tempFile.delete()) {
                     tempFile.deleteOnExit();
@@ -123,11 +122,11 @@ class IndexRebuildState {
     public static IndexRebuildState loadState(File file) throws IOException {
         IndexRebuildState state = null;
         if (file.isFile()) {
-            BufferedReader br = null;
+            BufferedInputStream bis = null;
             try {
-                br = new BufferedReader(new FileReader(file));
+                bis = new BufferedInputStream(new FileInputStream(file));
                 Properties properties = new Properties();
-                properties.load(br);
+                properties.load(bis);
 
                 int indexVersion = Integer.valueOf(properties.getProperty("zep.index.version"));
                 byte[] indexVersionHash = null;
@@ -142,7 +141,7 @@ class IndexRebuildState {
             } catch (Exception e) {
                 throw new IOException(e.getLocalizedMessage(), e);
             } finally {
-                ZepUtils.close(br);
+                ZepUtils.close(bis);
             }
         }
         return state;

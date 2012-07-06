@@ -27,6 +27,7 @@ import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 
 import javax.sql.DataSource;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -250,7 +251,12 @@ public class ConfigDaoImpl implements ConfigDao {
             case BOOLEAN:
                 return Boolean.valueOf(strValue);
             case BYTE_STRING:
-                return ByteString.copyFrom(Base64.decodeBase64(strValue.getBytes()));
+                try {
+                    return ByteString.copyFrom(Base64.decodeBase64(strValue.getBytes("US-ASCII")));
+                } catch (UnsupportedEncodingException e) {
+                    // This exception should never happen - US-ASCII always exists in JVM
+                    throw new RuntimeException(e.getLocalizedMessage(), e);
+                }
             case DOUBLE:
                 return Double.valueOf(strValue);
             case ENUM:
