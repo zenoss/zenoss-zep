@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2011, Zenoss Inc.  All Rights Reserved.
+ * Copyright (C) 2010-2012, Zenoss Inc.  All Rights Reserved.
  */
 
 package org.zenoss.zep.index.impl;
@@ -32,6 +32,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepConfigUpdatedEvent> {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
@@ -41,27 +42,29 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     private Future<?> indexFuture = null;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
-    private EventIndexDao indexDao;
+    private final EventIndexDao indexDao;
+    private final boolean isSummary;
     private EventIndexQueueDao queueDao;
     private PluginService pluginService;
     private volatile int limit;
     private volatile long intervalMilliseconds;
 
-    public void setIndexDao(EventIndexDao indexDao) {
+    public EventIndexerImpl(EventIndexDao indexDao) {
         this.indexDao = indexDao;
+        this.isSummary = "event_summary".equals(indexDao.getName());
     }
     
     public void setQueueDao(EventIndexQueueDao queueDao) {
         this.queueDao = queueDao;
     }
-    
+
     public void setPluginService(PluginService pluginService) {
         this.pluginService = pluginService;
     }
 
     private void updateIndexConfig(ZepConfig zepConfig) {
         limit = zepConfig.getIndexLimit();
-        if (indexDao.getName().equals("event_summary")) {
+        if (isSummary) {
             intervalMilliseconds = zepConfig.getIndexSummaryIntervalMilliseconds();
         } else {
             intervalMilliseconds = zepConfig.getIndexArchiveIntervalMilliseconds();
@@ -196,15 +199,25 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     }
 
     private int doIndex(long throughTime) throws ZepException {
-        final EventPostIndexContext context = new EventPostIndexContext() {};
+        final EventPostIndexContext context = new EventPostIndexContext() {
+            @Override
+            public boolean isArchive() {
+                return !isSummary;
+            }
+        };
         final List<EventPostIndexPlugin> plugins = this.pluginService.getPluginsByType(EventPostIndexPlugin.class);
+        final AtomicBoolean calledStartBatch = new AtomicBoolean();
         final List<Long> indexQueueIds = queueDao.indexEvents(new EventIndexHandler() {
             @Override
             public void handle(EventSummary event) throws Exception {
                 indexDao.stage(event);
                 if (shouldRunPostprocessing(event)) {
+                    boolean shouldStartBatch = calledStartBatch.compareAndSet(false, true);
                     for (EventPostIndexPlugin plugin : plugins) {
                         try {
+                            if (shouldStartBatch) {
+                                plugin.startBatch(context);
+                            }
                             plugin.processEvent(event, context);
                         } catch (Exception e) {
                             // Post-processing plug-in failures are not fatal errors.
@@ -221,6 +234,11 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
             
             @Override
             public void handleComplete() throws Exception {
+                if (calledStartBatch.get()) {
+                    for (EventPostIndexPlugin plugin : plugins) {
+                        plugin.endBatch(context);
+                    }
+                }
                 indexDao.commit();
             }
         }, limit, throughTime);

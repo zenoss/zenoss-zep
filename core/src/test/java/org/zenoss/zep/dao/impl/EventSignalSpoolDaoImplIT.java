@@ -22,6 +22,8 @@ import org.zenoss.zep.dao.EventTriggerDao;
 import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
 
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -210,6 +212,28 @@ public class EventSignalSpoolDaoImplIT extends
 
         assertEquals(1, dao.deleteByEventSummaryUuid(eventSummary.getUuid()));
         assertEquals(0, dao.findAllByEventSummaryUuid(eventSummary.getUuid()).size());
+    }
+
+    @Test
+    public void testDeleteByEventSummaryUuids() throws ZepException {
+        // Ensure deleting an empty collection doesn't trigger an error
+        assertEquals(0, dao.deleteByEventSummaryUuids(Collections.<String>emptyList()));
+
+        EventTriggerSubscription subscription1 = createSubscription();
+        EventSummary eventSummary1 = createSampleSummary();
+        EventSignalSpool spool1 = EventSignalSpool.buildSpool(subscription1, eventSummary1, uuidGenerator);
+        dao.create(spool1);
+
+        EventTriggerSubscription subscription2 = createSubscription();
+        EventSummary eventSummary2 = createSampleSummary();
+        EventSignalSpool spool2 = EventSignalSpool.buildSpool(subscription2, eventSummary2, uuidGenerator);
+        dao.create(spool2);
+
+        List<String> uuids = Arrays.asList(eventSummary1.getUuid(), eventSummary2.getUuid());
+        assertEquals(2, dao.deleteByEventSummaryUuids(uuids));
+        for (String uuid : uuids) {
+            assertEquals(0, dao.findAllByEventSummaryUuid(uuid).size());
+        }
     }
 
     @Test

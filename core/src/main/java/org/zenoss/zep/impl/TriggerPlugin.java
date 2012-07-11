@@ -523,25 +523,63 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         return result.__nonzero__();
     }
 
+    private static class BatchIndexState {
+        private List<EventTrigger> triggers;
+        private Map<String, List<EventTriggerSubscription>> triggerSubscriptions =
+                new HashMap<String, List<EventTriggerSubscription>>();
+        private Map<String, EventSummary> eventsToDeleteFromSpool = new HashMap<String, EventSummary>();
+    }
+
+    private final ThreadLocal<BatchIndexState> batchState = new ThreadLocal<BatchIndexState>();
+
+    @Override
+    public void startBatch(EventPostIndexContext context) throws Exception {
+        // Ignore events in the archive.
+        if (context.isArchive()) {
+            return;
+        }
+        batchState.set(new BatchIndexState());
+    }
+
+    @Override
+    public void endBatch(EventPostIndexContext context) throws Exception {
+        // Ignore events in the archive.
+        if (context.isArchive()) {
+            return;
+        }
+        BatchIndexState state = batchState.get();
+        if (!state.eventsToDeleteFromSpool.isEmpty()) {
+            Set<String> eventUuids = state.eventsToDeleteFromSpool.keySet();
+            List<EventSignalSpool> spools = signalSpoolDao.findAllByEventSummaryUuids(eventUuids);
+            for (EventSignalSpool spool : spools) {
+                if (spool.isSentSignal()) {
+                    logger.debug("sending clear signal for event: {}", spool.getEventSummaryUuid());
+                    EventTriggerSubscription subscription =
+                            eventTriggerSubscriptionDao.findByUuid(spool.getSubscriptionUuid());
+                    EventSummary eventSummary = state.eventsToDeleteFromSpool.get(spool.getEventSummaryUuid());
+                    publishSignal(eventSummary, subscription);
+                } else {
+                    logger.debug("Skipping sending of clear signal for event {} and subscription {} - !sentSignal",
+                            spool.getEventSummaryUuid(), spool.getSubscriptionUuid());
+                }
+            }
+            signalSpoolDao.deleteByEventSummaryUuids(eventUuids);
+        }
+        batchState.remove();
+    }
+
     @Override
     public void processEvent(EventSummary eventSummary, EventPostIndexContext context) throws ZepException {
+        // Ignore events in the archive.
+        if (context.isArchive()) {
+            return;
+        }
         final EventStatus evtstatus = eventSummary.getStatus();
 
         if (OPEN_STATUSES.contains(evtstatus)) {
             processOpenEvent(eventSummary);
         } else {
-            List<EventSignalSpool> spools = signalSpoolDao.findAllByEventSummaryUuid(eventSummary.getUuid());
-            for (EventSignalSpool spool : spools) {
-                if (spool.isSentSignal()) {
-                    logger.debug("sending clear signal for event: {}", eventSummary.getUuid());
-                    EventTriggerSubscription subscription = eventTriggerSubscriptionDao.findByUuid(spool.getSubscriptionUuid());
-                    publishSignal(eventSummary, subscription);
-                } else {
-                    logger.debug("Skipping sending of clear signal for event {} and subscription {} - !sentSignal",
-                            eventSummary.getUuid(), spool.getSubscriptionUuid());
-                }
-            }
-            signalSpoolDao.deleteByEventSummaryUuid(eventSummary.getUuid());
+            batchState.get().eventsToDeleteFromSpool.put(eventSummary.getUuid(), eventSummary);
         }
     }
 
@@ -568,7 +606,12 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
     private void processOpenEvent(EventSummary eventSummary) throws ZepException {
         final long now = System.currentTimeMillis();
-        List<EventTrigger> triggers = this.triggerDao.findAllEnabled();
+        BatchIndexState state = batchState.get();
+        List<EventTrigger> triggers = state.triggers;
+        if (triggers == null) {
+            triggers = this.triggerDao.findAllEnabled();
+            state.triggers = triggers;
+        }
 
         // iterate over all enabled triggers to see if any rules will match
         // for this event summary
@@ -588,7 +631,11 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                 continue;
             }
             // confirm trigger has any subscriptions registered with it
-            List<EventTriggerSubscription> subscriptions = trigger.getSubscriptionsList();
+            List<EventTriggerSubscription> subscriptions = state.triggerSubscriptions.get(trigger.getUuid());
+            if (subscriptions == null) {
+                subscriptions = trigger.getSubscriptionsList();
+                state.triggerSubscriptions.put(trigger.getUuid(), subscriptions);
+            }
             if (subscriptions.isEmpty()) {
                 continue;
             }

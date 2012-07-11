@@ -21,6 +21,7 @@ import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -154,9 +155,17 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int deleteByEventSummaryUuid(String eventSummaryUuid) throws ZepException {
-        final Map<String, Object> fields = Collections.singletonMap(COLUMN_EVENT_SUMMARY_UUID,
-                uuidConverter.toDatabaseType(eventSummaryUuid));
-        final String sql = "DELETE FROM event_trigger_signal_spool WHERE event_summary_uuid=:event_summary_uuid";
+        return deleteByEventSummaryUuids(Collections.singletonList(eventSummaryUuid));
+    }
+
+    @Override
+    public int deleteByEventSummaryUuids(Collection<String> eventSummaryUuids) throws ZepException {
+        if (eventSummaryUuids.isEmpty()) {
+            return 0;
+        }
+        final Map<String,List<Object>> fields = Collections.singletonMap("_uuids",
+                TypeConverterUtils.batchToDatabaseType(uuidConverter, eventSummaryUuids));
+        final String sql = "DELETE FROM event_trigger_signal_spool WHERE event_summary_uuid IN (:_uuids)";
         return this.template.update(sql, fields);
     }
 
@@ -223,9 +232,17 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     @Override
     @TransactionalReadOnly
     public List<EventSignalSpool> findAllByEventSummaryUuid(String eventSummaryUuid) throws ZepException {
-        final String sql = "SELECT * FROM event_trigger_signal_spool WHERE event_summary_uuid=:event_summary_uuid";
-        final Map<String,Object> fields =
-                Collections.singletonMap(COLUMN_EVENT_SUMMARY_UUID, uuidConverter.toDatabaseType(eventSummaryUuid));
+        return findAllByEventSummaryUuids(Collections.singletonList(eventSummaryUuid));
+    }
+
+    @Override
+    public List<EventSignalSpool> findAllByEventSummaryUuids(Collection<String> eventSummaryUuids) throws ZepException {
+        if (eventSummaryUuids.isEmpty()) {
+            return Collections.emptyList();
+        }
+        final String sql = "SELECT * FROM event_trigger_signal_spool WHERE event_summary_uuid IN (:_uuids)";
+        final Map<String,List<Object>> fields = Collections.singletonMap("_uuids",
+                TypeConverterUtils.batchToDatabaseType(uuidConverter, eventSummaryUuids));
         return this.template.query(sql, new EventSignalSpoolMapper(), fields);
     }
 

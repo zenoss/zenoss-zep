@@ -5,6 +5,7 @@ package org.zenoss.zep.dao;
 
 import org.zenoss.zep.ZepException;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -64,6 +65,15 @@ public interface EventSignalSpoolDao {
      * @throws ZepException If an error occurs deleting the signal spool items.
      */
     public int deleteByEventSummaryUuid(String eventSummaryUuid) throws ZepException;
+
+    /**
+     * Deletes all spooled items with the specified event summary UUIDs.
+     *
+     * @param eventSummaryUuids Event summary UUIDs.
+     * @return The number of affected rows.
+     * @throws ZepException If an error occurs deleting the signal spool items.
+     */
+    public int deleteByEventSummaryUuids(Collection<String> eventSummaryUuids) throws ZepException;
 
     /**
      * Deletes all spooled items with the specified trigger UUID.
@@ -128,6 +138,15 @@ public interface EventSignalSpoolDao {
      * @throws ZepException If an error occurs.
      */
     public List<EventSignalSpool> findAllByEventSummaryUuid(String eventSummaryUuid) throws ZepException;
+
+    /**
+     * Returns all spools for the given event summary UUIDs.
+     *
+     * @param eventSummaryUuids Event summary UUIDs.
+     * @return A list of all spools for the event summary UUIDs.
+     * @throws ZepException If an error occurs.
+     */
+    public List<EventSignalSpool> findAllByEventSummaryUuids(Collection<String> eventSummaryUuids) throws ZepException;
 
     /**
      * Returns the next flush time in the spool.
