@@ -1,8 +1,14 @@
 #!/bin/bash
 
-#
-# Copyright (c) 2010-2011 Zenoss, Inc. All Rights Reserved.
-#
+##############################################################################
+# 
+# Copyright (C) Zenoss, Inc. 2010-2011, all rights reserved.
+# 
+# This content is made available according to terms specified in
+# License.zenoss under the directory where your Zenoss product is installed.
+# 
+##############################################################################
+
 
 JETTYSTART_JAR=`ls -1 ${JETTY_HOME}/lib/jetty-start*.jar`
 PS="ps"

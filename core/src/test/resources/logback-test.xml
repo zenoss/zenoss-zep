@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  ~ This program is part of Zenoss Core, an open source monitoring platform.
-  ~ Copyright (C) 2010, Zenoss Inc.
-  ~
-  ~ This program is free software; you can redistribute it and/or modify it
-  ~ under the terms of the GNU General Public License version 2 as published by
-  ~ the Free Software Foundation.
-  ~
-  ~ For complete information please visit: http://www.zenoss.com/oss/
-  -->
+##############################################################################
+# 
+# Copyright (C) Zenoss, Inc. 2010, all rights reserved.
+# 
+# This content is made available according to terms specified in
+# License.zenoss under the directory where your Zenoss product is installed.
+# 
+##############################################################################
+-->
+
+
 <!--
   This file can be used to change the logging settings for unit/integration
   tests. It is not shipped with the application, but can be used during
