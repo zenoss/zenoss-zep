@@ -144,6 +144,8 @@ public final class DaoUtils {
         // Set the database deadlock retry count
         DaoUtils.NUM_DEADLOCK_RETRIES = getIntProperty(zepConfig.get("zep.jdbc.deadlock_retries"), 5);
 
+        logger.debug("Connection pool properties: {}", p);
+
         return p;
     }
 
