@@ -165,9 +165,6 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
             // expose to Java a Python dict->DictAsObj conversion function
             this.toObject = (PyFunction)this.python.eval("lambda dd : DictAsObj(**dd)");
-
-            // import some helpful modules from the standard lib
-            this.python.exec("import string, re, datetime");
             logger.info("Completed Jython initialization");
         }
 
