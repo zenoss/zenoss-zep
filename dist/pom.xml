@@ -48,11 +48,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
-                <version>1.6</version>
                 <executions>
                     <execution>
                         <id>generate-example-conf</id>
-                        <phase>generate-resources</phase>
+                        <phase>package</phase>
                         <configuration>
                             <!-- Generates a default configuration file with all options commented out -->
                             <target>
