@@ -154,8 +154,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         final TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         final Map<String, Object> fields = eventDaoHelper.createOccurrenceFields(event);
         final long created = event.getCreatedTime();
+        final long firstSeen = event.hasFirstSeenTime() ? event.getFirstSeenTime() : created;
         final long updateTime = System.currentTimeMillis();
-        final int eventCount = 1;
 
         /*
          * Clear events are dropped if they don't clear any corresponding events.
@@ -180,10 +180,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         fields.put(COLUMN_STATUS_ID, event.getStatus().getNumber());
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(updateTime));
-        fields.put(COLUMN_FIRST_SEEN, timestampConverter.toDatabaseType(created));
+        fields.put(COLUMN_FIRST_SEEN, timestampConverter.toDatabaseType(firstSeen));
         fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(created));
         fields.put(COLUMN_LAST_SEEN, timestampConverter.toDatabaseType(created));
-        fields.put(COLUMN_EVENT_COUNT, eventCount);
+        fields.put(COLUMN_EVENT_COUNT, event.getCount());
 
         final String createdUuid = this.uuidGenerator.generate().toString();
         fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(createdUuid));
@@ -261,7 +261,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         Map<String,Object> updateFields = new HashMap<String, Object>();
 
         // Always increment count
-        updateFields.put(COLUMN_EVENT_COUNT, oldSummary.getCount() + 1);
+        updateFields.put(COLUMN_EVENT_COUNT, oldSummary.getCount() + occurrence.getCount());
 
         updateFields.put(COLUMN_UPDATE_TIME, insertFields.get(COLUMN_UPDATE_TIME));
 
@@ -312,8 +312,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             }
         }
 
-        if (occurrence.getCreatedTime() < oldSummary.getFirstSeenTime()) {
-            updateFields.put(COLUMN_FIRST_SEEN, timestampConverter.toDatabaseType(occurrence.getCreatedTime()));
+        long firstSeen = occurrence.hasFirstSeenTime() ? occurrence.getFirstSeenTime() : occurrence.getCreatedTime();
+        if (firstSeen < oldSummary.getFirstSeenTime()) {
+            updateFields.put(COLUMN_FIRST_SEEN, timestampConverter.toDatabaseType(firstSeen));
         }
         return updateFields;
     }

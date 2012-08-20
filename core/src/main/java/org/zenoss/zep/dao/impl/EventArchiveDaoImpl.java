@@ -90,15 +90,15 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         Map<String, Object> occurrenceFields = eventDaoHelper.createOccurrenceFields(event);
         Map<String, Object> fields = new HashMap<String,Object>(occurrenceFields);
         final long created = event.getCreatedTime();
+        final long firstSeen = (event.hasFirstSeenTime()) ? event.getFirstSeenTime() : created;
         long updateTime = System.currentTimeMillis();
         final String uuid = this.uuidGenerator.generate().toString();
-        final int eventCount = 1;
         fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
         fields.put(COLUMN_STATUS_ID, event.getStatus().getNumber());
-        fields.put(COLUMN_FIRST_SEEN, timestampConverter.toDatabaseType(created));
+        fields.put(COLUMN_FIRST_SEEN, timestampConverter.toDatabaseType(firstSeen));
         fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(created));
         fields.put(COLUMN_LAST_SEEN, timestampConverter.toDatabaseType(created));
-        fields.put(COLUMN_EVENT_COUNT, eventCount);
+        fields.put(COLUMN_EVENT_COUNT, event.getCount());
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(updateTime));
 
         this.template.update(DaoUtils.createNamedInsert(TABLE_EVENT_ARCHIVE, fields.keySet()), fields);

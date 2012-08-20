@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
 
@@ -170,5 +171,20 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         summaryBuilder.setStatus(EventStatus.STATUS_NEW);
         final EventSummary summary = summaryBuilder.build();
         this.eventArchiveDao.importEvent(summary);
+    }
+
+    @Test
+    public void testIncomingCount() throws ZepException {
+        Event event = Event.newBuilder(createEvent()).setCount(10).build();
+        final EventSummary summary = createArchive(event);
+        assertEquals(10, summary.getCount());
+    }
+
+    @Test
+    public void testIncomingFirstSeen() throws ZepException {
+        long yesterday = System.currentTimeMillis() - TimeUnit.DAYS.toMillis(1);
+        Event event = Event.newBuilder(createEvent()).setFirstSeenTime(yesterday).build();
+        EventSummary summary = createArchive(event);
+        assertEquals(yesterday, summary.getFirstSeenTime());
     }
 }

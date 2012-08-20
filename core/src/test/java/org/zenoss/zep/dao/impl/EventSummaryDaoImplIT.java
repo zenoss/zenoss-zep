@@ -1573,4 +1573,32 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         });
     }
 
+    @Test
+    public void testIncomingEventCount() throws ZepException {
+        Event event = Event.newBuilder(EventTestUtils.createSampleEvent()).setCount(500).build();
+        String uuid = eventSummaryDao.create(event, new EventPreCreateContextImpl());
+        String uuid2 = eventSummaryDao.create(Event.newBuilder(event).setCount(1000).build(),
+                new EventPreCreateContextImpl());
+        assertEquals(uuid, uuid2);
+
+        EventSummary eventSummary = eventSummaryDao.findByUuid(uuid);
+        assertEquals(1500, eventSummary.getCount());
+    }
+
+    @Test
+    public void testIncomingFirstTime() throws ZepException {
+        long oneHourAgo = System.currentTimeMillis() - TimeUnit.MINUTES.toMillis(60);
+        Event event = Event.newBuilder(EventTestUtils.createSampleEvent()).setFirstSeenTime(oneHourAgo).setCount(5)
+                .build();
+        String uuid = eventSummaryDao.create(event, new EventPreCreateContextImpl());
+        long twoHoursAgo = oneHourAgo - TimeUnit.MINUTES.toMillis(60);
+        Event event2 = Event.newBuilder(event).setFirstSeenTime(twoHoursAgo).setCount(5).build();
+        String uuid2 = eventSummaryDao.create(event2, new EventPreCreateContextImpl());
+
+        assertEquals(uuid, uuid2);
+        EventSummary eventSummary = eventSummaryDao.findByUuid(uuid);
+        assertEquals(10, eventSummary.getCount());
+        assertEquals(twoHoursAgo, eventSummary.getFirstSeenTime());
+    }
+
 }
