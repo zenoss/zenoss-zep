@@ -385,11 +385,10 @@ public class Application implements ApplicationContextAware, ApplicationListener
             logger.info("Database table optimization disabled.");
             return;
         }
-
-        // Start first task 10 minutes after ZEP has started
         logger.info("Starting database table optimization at interval: {} minutes(s)",
                 this.dbMaintenanceIntervalMinutes);
-        final Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(10));
+        final Date startTime = new Date(System.currentTimeMillis() +
+                TimeUnit.MINUTES.toMillis(this.dbMaintenanceIntervalMinutes));
         this.dbMaintenanceFuture = scheduler.scheduleWithFixedDelay(new ThreadRenamingRunnable(new Runnable() {
             @Override
             public void run() {
