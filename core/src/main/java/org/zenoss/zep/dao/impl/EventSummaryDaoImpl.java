@@ -1,6 +1,6 @@
 /*****************************************************************************
  * 
- * Copyright (C) Zenoss, Inc. 2010-2011, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2010-2012, all rights reserved.
  * 
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -19,6 +19,8 @@ import org.springframework.jdbc.core.RowMapperResultSetExtractor;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.jdbc.support.MetaDataAccessException;
+import org.springframework.transaction.support.TransactionSynchronizationAdapter;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.model.Model.ModelElementType;
@@ -225,7 +227,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private String dedupEvent(EventSummaryOrBuilder oldSummary, Event event, Map<String,Object> insertFields)
             throws ZepException {
-        statisticsService.addToDedupedEventCount(1);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+            @Override
+            public void afterCommit() {
+                statisticsService.addToDedupedEventCount(1);
+            }
+        });
         final Map<String,Object> updateFields = getUpdateFields(oldSummary, event, insertFields);
         final StringBuilder updateSql = new StringBuilder("UPDATE event_summary SET ");
         for (Iterator<String> it = updateFields.keySet().iterator(); it.hasNext(); ) {
@@ -339,13 +346,18 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put("_clear_created_time", timestampConverter.toDatabaseType(lastSeen));
         fields.put("_clear_hashes", clearHashes);
         fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
-        List<String> results = this.template.query(sql, new RowMapper<String>() {
+        final List<String> results = this.template.query(sql, new RowMapper<String>() {
             @Override
             public String mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return uuidConverter.fromDatabaseType(rs, COLUMN_UUID);
             }
         }, fields);
-        statisticsService.addToClearedEventCount(results.size());
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+            @Override
+            public void afterCommit() {
+                statisticsService.addToClearedEventCount(results.size());
+            }
+        });
         return results;
     }
 
@@ -573,14 +585,22 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             }
         }, fields);
 
-        int numRows = 0;
+        final int numRows;
         if (!uuids.isEmpty()) {
             String updateSql = "UPDATE event_summary SET status_id=:status_id, "
                     + "status_change=:status_change, update_time=:update_time "
                     + "WHERE uuid IN (:_uuids)";
             fields.put("_uuids", uuids);
             numRows = this.template.update(updateSql, fields);
-            statisticsService.addToAgedEventCount(numRows);
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+                @Override
+                public void afterCommit() {
+                    statisticsService.addToAgedEventCount(numRows);
+                }
+            });
+        }
+        else {
+            numRows = 0;
         }
         return numRows;
     }
@@ -909,7 +929,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         this.template.update(insertSql, fields);
         final int updated = this.template.update("DELETE FROM event_summary WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
                 fields);
-        statisticsService.addToArchivedEventCount(updated);
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+            @Override
+            public void afterCommit() {
+                statisticsService.addToArchivedEventCount(updated);
+            }
+        });
         return updated;
     }
 
