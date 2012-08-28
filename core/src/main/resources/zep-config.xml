@@ -57,17 +57,20 @@
 
     <bean id="eventQueueListener" class="org.zenoss.zep.impl.RawEventQueueListener"
           depends-on="application">
+        <property name="prefetchCount" value="${zep.queue.$ZepZenEvents.prefetch_count}"/>
         <property name="executorService" ref="queueExecutor" />
         <property name="eventProcessor" ref="eventProcessor"/>
     </bean>
 
     <bean id="modelChangeEventQueueListener" class="org.zenoss.zep.impl.ModelChangeEventQueueListener"
           depends-on="application">
+        <property name="prefetchCount" value="${zep.queue.$ZepModelChange.prefetch_count}"/>
         <property name="executorService" ref="queueExecutor" />
         <property name="eventSummaryDao" ref="eventSummaryDao"/>
     </bean>
 
     <bean id="heartbeatListener" class="org.zenoss.zep.impl.HeartbeatListener" depends-on="application">
+        <property name="prefetchCount" value="${zep.queue.$ZepHeartbeats.prefetch_count}"/>
         <property name="executorService" ref="queueExecutor" />
         <property name="heartbeatDao" ref="heartbeatDao" />
     </bean>
@@ -75,6 +78,7 @@
     <bean id="migratedEventQueueListenerSummary" class="org.zenoss.zep.impl.MigratedEventQueueListener"
           depends-on="application">
         <constructor-arg index="0" value="$ZepMigratedEventSummary" />
+        <property name="prefetchCount" value="${zep.queue.$ZepMigratedEventSummary.prefetch_count}"/>
         <property name="executorService" ref="queueExecutor" />
         <property name="eventSummaryBaseDao" ref="eventSummaryDao" />
     </bean>
@@ -82,6 +86,7 @@
     <bean id="migratedEventQueueListenerArchive" class="org.zenoss.zep.impl.MigratedEventQueueListener"
           depends-on="application">
         <constructor-arg index="0" value="$ZepMigratedEventArchive" />
+        <property name="prefetchCount" value="${zep.queue.$ZepMigratedEventArchive.prefetch_count}"/>
         <property name="executorService" ref="queueExecutor" />
         <property name="eventSummaryBaseDao" ref="eventArchiveDao" />
     </bean>

@@ -30,10 +30,15 @@ public class MigratedEventQueueListener extends AbstractQueueListener {
     private static final Logger logger = LoggerFactory.getLogger(MigratedEventQueueListener.class);
 
     private final String queueIdentifier;
+    private int prefetchCount = 100;
     private EventSummaryBaseDao eventSummaryBaseDao;
 
     public MigratedEventQueueListener(String queueIdentifier) {
         this.queueIdentifier = queueIdentifier;
+    }
+
+    public void setPrefetchCount(int prefetchCount) {
+        this.prefetchCount = prefetchCount;
     }
 
     public void setEventSummaryBaseDao(EventSummaryBaseDao eventSummaryBaseDao) {
@@ -42,8 +47,8 @@ public class MigratedEventQueueListener extends AbstractQueueListener {
 
     @Override
     protected void configureChannel(Channel channel) throws AmqpException {
-        // Allow more messages to accummulate to be processed since we are multi-threaded and events are typically small
-        channel.setQos(0, 100);
+        logger.debug("Using prefetch count: {} for queue: {}", this.prefetchCount, getQueueIdentifier());
+        channel.setQos(0, this.prefetchCount);
     }
 
     @Override

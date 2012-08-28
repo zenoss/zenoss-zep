@@ -21,12 +21,18 @@ public class RawEventQueueListener extends AbstractQueueListener {
 
     private static final Logger logger = LoggerFactory.getLogger(RawEventQueueListener.class);
 
+    private int prefetchCount = 100;
+
     private EventProcessor eventProcessor;
+
+    public void setPrefetchCount(int prefetchCount) {
+        this.prefetchCount = prefetchCount;
+    }
     
     @Override
     protected void configureChannel(Channel channel) throws AmqpException {
-        // Allow more messages to accummulate to be processed since we are multi-threaded and events are typically small
-        channel.setQos(0, 100);
+        logger.debug("Using prefetch count: {} for queue: {}", this.prefetchCount, getQueueIdentifier());
+        channel.setQos(0, this.prefetchCount);
     }
 
     @Override

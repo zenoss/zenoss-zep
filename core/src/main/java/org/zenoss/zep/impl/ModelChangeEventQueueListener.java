@@ -12,6 +12,8 @@ package org.zenoss.zep.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.zenoss.amqp.AmqpException;
+import org.zenoss.amqp.Channel;
 import org.zenoss.protobufs.model.Model.Component;
 import org.zenoss.protobufs.model.Model.Device;
 import org.zenoss.protobufs.model.Model.ModelElementType;
@@ -25,7 +27,19 @@ public class ModelChangeEventQueueListener extends AbstractQueueListener {
 
     private static final Logger logger = LoggerFactory.getLogger(ModelChangeEventQueueListener.class);
 
+    private int prefetchCount = 1;
+
     private EventSummaryDao eventSummaryDao;
+
+    public void setPrefetchCount(int prefetchCount) {
+        this.prefetchCount = prefetchCount;
+    }
+
+    @Override
+    protected void configureChannel(Channel channel) throws AmqpException {
+        logger.debug("Using prefetch count: {} for queue: {}", this.prefetchCount, getQueueIdentifier());
+        channel.setQos(0, this.prefetchCount);
+    }
 
     @Override
     protected String getQueueIdentifier() {
