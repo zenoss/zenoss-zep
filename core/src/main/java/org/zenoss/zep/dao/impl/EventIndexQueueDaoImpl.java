@@ -86,13 +86,13 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
                 "es.* FROM " + this.queueTableName + " AS iq " + 
                 "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " + queryJoinLastSeen +
                 "WHERE iq.update_time <= :_max_update_time " +
-                "ORDER BY iq_update_time LIMIT :_limit";
+                "ORDER BY iq_id LIMIT :_limit";
         }
         else {
             sql = "SELECT iq.id AS iq_id, iq.uuid AS iq_uuid, iq.update_time AS iq_update_time," + 
                 "es.* FROM " + this.queueTableName + " AS iq " + 
                 "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " + queryJoinLastSeen +
-                "ORDER BY iq_update_time LIMIT :_limit";
+                "ORDER BY iq_id LIMIT :_limit";
         }
 
         final Set<String> eventUuids = new HashSet<String>();

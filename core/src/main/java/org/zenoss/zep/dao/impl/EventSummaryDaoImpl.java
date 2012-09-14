@@ -575,32 +575,33 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
         fields.put("_limit", limit);
 
-        String selectSql = "SELECT uuid FROM event_summary WHERE last_seen < :last_seen" +
-                " AND severity_id IN (:_severity_ids) AND status_id NOT IN (:_closed_status_ids)" +
-                " LIMIT :_limit FOR UPDATE";
-        List<Object> uuids = this.template.query(selectSql, new RowMapper<Object>() {
-            @Override
-            public Object mapRow(ResultSet rs, int rowNum) throws SQLException {
-                return rs.getObject(COLUMN_UUID);
-            }
-        }, fields);
-
-        final int numRows;
-        if (!uuids.isEmpty()) {
-            String updateSql = "UPDATE event_summary SET status_id=:status_id, "
-                    + "status_change=:status_change, update_time=:update_time "
-                    + "WHERE uuid IN (:_uuids)";
-            fields.put("_uuids", uuids);
-            numRows = this.template.update(updateSql, fields);
+        final String updateSql;
+        if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
+            // Use UPDATE ... LIMIT
+            updateSql = "UPDATE event_summary SET" +
+                    " status_id=:status_id,status_change=:status_change,update_time=:update_time" +
+                    " WHERE last_seen < :last_seen AND severity_id IN (:_severity_ids)" +
+                    " AND status_id NOT IN (:_closed_status_ids) LIMIT :_limit";
+        }
+        else if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
+            // Use UPDATE ... WHERE pk IN (SELECT ... LIMIT)
+            updateSql = "UPDATE event_summary SET" +
+                    " status_id=:status_id,status_change=:status_change,update_time=:update_time" +
+                    " WHERE uuid IN (SELECT uuid FROM event_summary WHERE" +
+                    " last_seen < :last_seen AND severity_id IN (:_severity_ids)" +
+                    " AND status_id NOT IN (:_closed_status_ids) LIMIT :_limit)";
+        }
+        else {
+            throw new IllegalStateException("Unsupported database type: " + databaseCompatibility.getDatabaseType());
+        }
+        final int numRows = this.template.update(updateSql, fields);
+        if (numRows > 0) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
                 @Override
                 public void afterCommit() {
                     statisticsService.addToAgedEventCount(numRows);
                 }
             });
-        }
-        else {
-            numRows = 0;
         }
         return numRows;
     }

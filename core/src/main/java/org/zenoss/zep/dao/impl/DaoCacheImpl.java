@@ -29,10 +29,10 @@ import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 
 import javax.sql.DataSource;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class DaoCacheImpl implements DaoCache {
 
@@ -186,20 +186,20 @@ public class DaoCacheImpl implements DaoCache {
          *            than zero, then this BiMap will function as a LRU cache.
          */
         public BiMap(int maxCache) {
-            this.nameToIdMap = new HashMap<T, Integer>();
+            this.nameToIdMap = new ConcurrentHashMap<T, Integer>();
             if (maxCache <= 0) {
-                this.idToNameMap = new HashMap<Integer, T>();
+                this.idToNameMap = new ConcurrentHashMap<Integer, T>();
             } else {
-                this.idToNameMap = new LinkedHashMap<Integer, T>();
+                this.idToNameMap = Collections.synchronizedMap(new LinkedHashMap<Integer, T>());
             }
             this.maxCache = maxCache;
         }
 
-        public synchronized Integer getIdFromName(T name) {
+        public Integer getIdFromName(T name) {
             return this.nameToIdMap.get(name);
         }
 
-        public synchronized T getNameFromId(int id) {
+        public T getNameFromId(int id) {
             return this.idToNameMap.get(id);
         }
 
