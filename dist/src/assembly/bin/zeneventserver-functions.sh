@@ -82,7 +82,7 @@ stop() {
         echo stopping...
         local timeout=$((${ZENOSS_STARTUP_TIMEOUT}*4))
         local has_fp_sleep=
-        kill -HUP $pid
+        kill -TERM $pid
         while [ $timeout -gt 0 ]; do
             pid=`get_pid`
             if [ -z "$pid" ]; then
