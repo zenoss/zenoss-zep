@@ -4,13 +4,13 @@
     <groupId>org.zenoss.zep</groupId>
     <artifactId>zep-core</artifactId>
     <packaging>jar</packaging>
-    <version>1.2-SNAPSHOT</version>
     <name>Zenoss Event Processor Core</name>
     <url>http://www.zenoss.com</url>
     <parent>
         <groupId>org.zenoss.zep</groupId>
         <artifactId>zep-parent</artifactId>
-        <version>1.2-SNAPSHOT</version>
+        <version>1.3-SNAPSHOT</version>
+        <relativePath>../pom.xml</relativePath>
     </parent>
     <properties>
     </properties>
@@ -38,22 +38,22 @@
         </dependency>
         <dependency>
             <groupId>org.zenoss</groupId>
-            <artifactId>utils</artifactId>
-            <version>1.2-SNAPSHOT</version>
+            <artifactId>zenoss-utils</artifactId>
+            <version>${project.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.zenoss</groupId>
             <artifactId>amqp-api</artifactId>
-            <version>1.2-SNAPSHOT</version>
+            <version>${project.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.zenoss</groupId>
             <artifactId>protobufs</artifactId>
-            <version>1.2-SNAPSHOT</version>
+            <version>${project.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
