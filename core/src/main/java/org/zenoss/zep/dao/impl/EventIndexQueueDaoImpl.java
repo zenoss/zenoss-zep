@@ -10,6 +10,8 @@
 
 package org.zenoss.zep.dao.impl;
 
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventIndexQueueDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.events.EventIndexQueueSizeEvent;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
@@ -34,18 +37,25 @@ import java.util.Set;
 /**
  * Implementation of EventIndexQueueDao.
  */
-public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
+public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEventPublisherAware {
     
     private final SimpleJdbcTemplate template;
     private final String queueTableName;
     private final String tableName;
     private final EventSummaryRowMapper rowMapper;
+    private ApplicationEventPublisher applicationEventPublisher;
 
     private final TypeConverter<String> uuidConverter;
     private final TypeConverter<Long> timestampConverter;
 
     private final boolean isArchive;
-    
+
+    @Override
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
+    }
+
+
     public EventIndexQueueDaoImpl(DataSource ds, boolean isArchive, EventDaoHelper daoHelper,
                                   DatabaseCompatibility databaseCompatibility) {
         this.template = new SimpleJdbcTemplate(ds);
@@ -74,7 +84,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
                                   final long maxUpdateTime) throws ZepException {
         final Map<String,Object> selectFields = new HashMap<String,Object>();
         selectFields.put("_limit", limit);
-        
+
         final String sql;
 
         // Used for partition pruning
@@ -82,14 +92,14 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
 
         if (maxUpdateTime > 0L) {
             selectFields.put("_max_update_time", timestampConverter.toDatabaseType(maxUpdateTime));
-            sql = "SELECT iq.id AS iq_id, iq.uuid AS iq_uuid, iq.update_time AS iq_update_time," + 
-                "es.* FROM " + this.queueTableName + " AS iq " + 
+            sql = "SELECT iq.id AS iq_id, iq.uuid AS iq_uuid, iq.update_time AS iq_update_time," +
+                "es.* FROM " + this.queueTableName + " AS iq " +
                 "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " + queryJoinLastSeen +
                 "WHERE iq.update_time <= :_max_update_time " +
                 "ORDER BY iq_id LIMIT :_limit";
         }
         else {
-            sql = "SELECT iq.id AS iq_id, iq.uuid AS iq_uuid, iq.update_time AS iq_update_time," + 
+            sql = "SELECT iq.id AS iq_id, iq.uuid AS iq_uuid, iq.update_time AS iq_update_time," +
                 "es.* FROM " + this.queueTableName + " AS iq " + 
                 "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " + queryJoinLastSeen +
                 "ORDER BY iq_id LIMIT :_limit";
@@ -131,6 +141,13 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao {
                 throw new ZepException(e.getLocalizedMessage(), e);
             }
         }
+
+        // publish current size of event_*_index_queue table
+        int queueSize = this.template.queryForInt("SELECT COUNT(1) FROM " + this.queueTableName);
+        this.applicationEventPublisher.publishEvent(
+                new EventIndexQueueSizeEvent(this, tableName, queueSize, limit)
+        );
+
         return indexQueueIds;
     }
 
