@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) 2012, Zenoss Inc.  All Rights Reserved.
+ */
+
 package org.zenoss.zep.events;
 
 public class EventIndexQueueSizeEvent extends ZepEvent {

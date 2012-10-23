@@ -34,8 +34,8 @@ public class RawEventQueueListener extends AbstractQueueListener
         this.prefetchCount = prefetchCount;
     }
     
-    private Boolean throttleConsumer = true;
-    private Boolean indexQueueLag = false;
+    private boolean throttleConsumer = true;
+    private volatile boolean indexQueueLag = false;
     private int indexQueueThreshold = 100000;
     private int consumerSleepTime = 100;
 
@@ -57,7 +57,7 @@ public class RawEventQueueListener extends AbstractQueueListener
                 }
             } else {
                 if (this.indexQueueLag != false) {
-                    logger.info("Disabling zenevnets consumer throttling.");
+                    logger.info("Disabling zenevents consumer throttling.");
                     this.indexQueueLag = false;
                 }
             }
@@ -86,7 +86,7 @@ public class RawEventQueueListener extends AbstractQueueListener
 
     private ApplicationEventPublisher applicationEventPublisher;
 
-    public void setThrottleConsumer(Boolean throttleConsumer) {
+    public void setThrottleConsumer(boolean throttleConsumer) {
         this.throttleConsumer = throttleConsumer;
     }
 
