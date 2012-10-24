@@ -172,6 +172,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
          * dependency in the Spring config on this.
          */
         initializePartitions();
+        this.eventSummaryRebuilder.init();
+        this.eventArchiveRebuilder.init();
         startEventSummaryAging();
         startEventSummaryArchiving();
         startEventArchivePurging();

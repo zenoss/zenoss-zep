@@ -15,6 +15,11 @@ package org.zenoss.zep.index;
  */
 public interface EventIndexRebuilder {
     /**
+     * Initializes the EventIndexRebuilder.
+     */
+    public void init();
+
+    /**
      * Shuts down the index rebuilder.
      *
      * @throws InterruptedException If the rebuilder is interrupted while shutting down.

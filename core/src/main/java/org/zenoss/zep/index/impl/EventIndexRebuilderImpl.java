@@ -67,6 +67,7 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
         this.enableIndexing = enableIndexing;
     }
 
+    @Override
     public void init() {
         if (!enableIndexing) {
             return;

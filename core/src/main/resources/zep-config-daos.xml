@@ -213,7 +213,7 @@
         <property name="configDao" ref="configDao"/>
     </bean>
 
-    <bean id="eventSummaryIndexRebuilder" class="org.zenoss.zep.index.impl.EventIndexRebuilderImpl" init-method="init">
+    <bean id="eventSummaryIndexRebuilder" class="org.zenoss.zep.index.impl.EventIndexRebuilderImpl">
         <qualifier value="summary" />
         <constructor-arg index="0" value="${zep.index.enabled:true}"/>
         <property name="eventIndexer" ref="eventSummaryIndexer" />
@@ -225,7 +225,7 @@
         <property name="indexDir" value="${zep.index.dir}" />
     </bean>
 
-    <bean id="eventArchiveIndexRebuilder" class="org.zenoss.zep.index.impl.EventIndexRebuilderImpl" init-method="init">
+    <bean id="eventArchiveIndexRebuilder" class="org.zenoss.zep.index.impl.EventIndexRebuilderImpl">
         <qualifier value="archive" />
         <constructor-arg index="0" value="${zep.index.enabled:true}"/>
         <property name="eventIndexer" ref="eventArchiveIndexer" />
