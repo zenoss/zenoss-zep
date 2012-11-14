@@ -685,6 +685,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(now));
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(now));
         fields.put("_uuids", TypeConverterUtils.batchToDatabaseType(uuidConverter, uuids));
+        // If we aren't acknowledging events, we need to clear out the current user name / UUID values
+        if (status != EventStatus.STATUS_ACKNOWLEDGED) {
+            fields.put(COLUMN_CURRENT_USER_NAME, null);
+            fields.put(COLUMN_CURRENT_USER_UUID, null);
+        }
 
         StringBuilder sb = new StringBuilder("SELECT uuid,fingerprint,audit_json FROM event_summary")
                 .append(" WHERE uuid IN (:_uuids)");

@@ -373,8 +373,8 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         assertEquals(1, numUpdated);
         EventSummary origSummary = summary;
         summary = eventSummaryDao.findByUuid(summary.getUuid());
-        assertEquals(userUuid, summary.getCurrentUserUuid());
-        assertEquals(userName, summary.getCurrentUserName());
+        assertFalse(summary.hasCurrentUserUuid());
+        assertFalse(summary.hasCurrentUserName());
         assertEquals(EventStatus.STATUS_NEW, summary.getStatus());
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
@@ -491,6 +491,8 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         assertEquals(EventStatus.STATUS_CLOSED, summary.getStatus());
         assertTrue(summary.getStatusChangeTime() > origStatusChange);
         assertTrue(summary.getUpdateTime() > origUpdateTime);
+        assertFalse(summary.hasCurrentUserUuid());
+        assertFalse(summary.hasCurrentUserName());
 
         compareSummary(origSummary, summary);
     }
