@@ -158,7 +158,7 @@ public class QueryBuilder {
                 if (value.isEmpty() || !unquoted.equals(value)) {
                     query = new WildcardQuery(new Term(nonAnalyzedFieldName, unquoted.toLowerCase()));
                 } else if (value.length() < IdentifierAnalyzer.MIN_NGRAM_SIZE) {
-                    query = new PrefixQuery(new Term(analyzedFieldName, value));
+                    query = new PrefixQuery(new Term(analyzedFieldName, value.toLowerCase()));
                 } else {
                     // Use NGramPhraseQuery (new in Lucene 3.5 and optimized for searching NGram fields)
                     final NGramPhraseQuery pq = new NGramPhraseQuery(IdentifierAnalyzer.MIN_NGRAM_SIZE);

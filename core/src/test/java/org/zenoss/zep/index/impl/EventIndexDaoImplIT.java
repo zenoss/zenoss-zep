@@ -1318,4 +1318,22 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         assertEquals(0, tag3Severities.getSeveritiesCount());
     }
 
+    @Test
+    public void testIdentifierPrefixUppercase() throws ZepException {
+        EventSummary.Builder summaryBuilder = EventSummary.newBuilder(
+                createSummaryNew(EventTestUtils.createSampleEvent()));
+        summaryBuilder.getOccurrenceBuilder(0).getActorBuilder().setElementIdentifier("EC2Manager");
+        EventSummary summary = summaryBuilder.build();
+        eventIndexDao.index(summary);
+
+        List<String> queries = Arrays.asList("E", "EC", "EC2");
+        for (String query : queries) {
+            EventFilter.Builder filterBuilder = EventFilter.newBuilder().addElementIdentifier(query);
+            EventSummaryRequest req = EventSummaryRequest.newBuilder().setEventFilter(filterBuilder).build();
+            EventSummaryResult result = eventIndexDao.list(req);
+            assertEquals(1, result.getEventsCount());
+            assertEquals(summary, result.getEvents(0));
+        }
+    }
+
 }
