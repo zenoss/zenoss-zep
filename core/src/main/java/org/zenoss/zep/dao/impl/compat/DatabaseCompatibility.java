@@ -44,7 +44,6 @@ public interface DatabaseCompatibility {
      * Returns a range partitioner for the specified database.
      *
      * @param ds Datasource.
-     * @param databaseName Database name.
      * @param tableName Table name.
      * @param columnName Column name.
      * @param duration Duration.
@@ -52,6 +51,6 @@ public interface DatabaseCompatibility {
      * @return The RangePartitioner.
      */
     public RangePartitioner getRangePartitioner(DataSource ds,
-            String databaseName, String tableName, String columnName,
+            String tableName, String columnName,
             long duration, TimeUnit unit);
 }

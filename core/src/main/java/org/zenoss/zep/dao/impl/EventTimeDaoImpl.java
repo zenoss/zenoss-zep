@@ -51,14 +51,13 @@ public class EventTimeDaoImpl implements EventTimeDao {
     private final RangePartitioner partitioner;
     private final TypeConverter<String> uuidConverter;
 
-    public EventTimeDaoImpl(DataSource dataSource, String databaseName,
-            PartitionConfig partitionConfig,
-            DatabaseCompatibility databaseCompatibility) {
+    public EventTimeDaoImpl(DataSource dataSource, PartitionConfig partitionConfig,
+                            DatabaseCompatibility databaseCompatibility) {
         this.template = new SimpleJdbcTemplate(dataSource);
         this.partitionTableConfig = partitionConfig.getConfig(TABLE_EVENT_TIME);
         this.databaseCompatibility = databaseCompatibility;
         this.partitioner = databaseCompatibility.getRangePartitioner(dataSource,
-                databaseName, TABLE_EVENT_TIME, COLUMN_PROCESSED,
+                TABLE_EVENT_TIME, COLUMN_PROCESSED,
                 partitionTableConfig.getPartitionDuration(),
                 partitionTableConfig.getPartitionUnit());
         this.uuidConverter = databaseCompatibility.getUUIDConverter();

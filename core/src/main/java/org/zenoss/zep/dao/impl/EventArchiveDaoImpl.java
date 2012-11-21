@@ -57,16 +57,15 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     private final RangePartitioner partitioner;
 
-    public EventArchiveDaoImpl(DataSource dataSource, String databaseName,
-            PartitionConfig partitionConfig,
-            DatabaseCompatibility databaseCompatibility) {
+    public EventArchiveDaoImpl(DataSource dataSource, PartitionConfig partitionConfig,
+                               DatabaseCompatibility databaseCompatibility) {
         this.template = new SimpleJdbcTemplate(dataSource);
         this.partitionTableConfig = partitionConfig
                 .getConfig(TABLE_EVENT_ARCHIVE);
         this.databaseCompatibility = databaseCompatibility;
         this.uuidConverter = databaseCompatibility.getUUIDConverter();
         this.partitioner = databaseCompatibility.getRangePartitioner(dataSource,
-                databaseName, TABLE_EVENT_ARCHIVE, COLUMN_LAST_SEEN,
+                TABLE_EVENT_ARCHIVE, COLUMN_LAST_SEEN,
                 partitionTableConfig.getPartitionDuration(),
                 partitionTableConfig.getPartitionUnit());
     }

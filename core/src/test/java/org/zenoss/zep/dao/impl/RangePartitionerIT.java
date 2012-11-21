@@ -55,9 +55,8 @@ public class RangePartitionerIT extends AbstractTransactionalJUnit4SpringContext
 
     @Test
     public void testRangePartitioner() {
-        String dbname = "zenoss_zep_test";
         RangePartitioner partitioner = databaseCompatibility.getRangePartitioner(
-                this.dataSource, dbname, "range_partition", "col_ts",
+                this.dataSource, "range_partition", "col_ts",
                 1, TimeUnit.DAYS);
         assertEquals(0, partitioner.listPartitions().size());
         /*

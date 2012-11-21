@@ -64,9 +64,9 @@ public class DatabaseCompatibilityPostgreSQL implements DatabaseCompatibility {
 
     @Override
     public RangePartitioner getRangePartitioner(DataSource ds,
-            String databaseName, String tableName, String columnName,
+            String tableName, String columnName,
             long duration, TimeUnit unit) {
-        return new PostgreSqlRangePartitioner(ds, databaseName, tableName,
+        return new PostgreSqlRangePartitioner(ds, tableName,
                 columnName, duration, unit);
     }
 }
