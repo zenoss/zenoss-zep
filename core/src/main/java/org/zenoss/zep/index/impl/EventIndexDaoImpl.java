@@ -866,10 +866,6 @@ public class EventIndexDaoImpl implements EventIndexDao {
             return timeout;
         }
 
-        public synchronized ScheduledFuture<?> getTimeoutFuture() {
-            return this.timeoutFuture;
-        }
-
         public synchronized void setTimeoutFuture(ScheduledFuture<?> timeoutFuture) throws ZepException {
             if (this.timeoutFuture != null) {
                 this.timeoutFuture.cancel(false);
@@ -928,6 +924,11 @@ public class EventIndexDaoImpl implements EventIndexDao {
         return uuid;
     }
 
+    private void cancelSearchTimeout(final SavedSearch search) throws ZepException {
+        logger.debug("Canceling timeout for saved search: {}", search.getUuid());
+        search.setTimeoutFuture(null);
+    }
+
     private void scheduleSearchTimeout(final SavedSearch search) throws ZepException {
         logger.debug("Scheduling saved search {} for expiration in {} seconds", search.getUuid(), search.getTimeout());
         Date d = new Date(System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(search.getTimeout()));
@@ -962,11 +963,10 @@ public class EventIndexDaoImpl implements EventIndexDao {
             throw new ZepException(messages.getMessage("saved_search_not_found", uuid));
         }
 
-        /* Reset the timeout for the saved search to prevent it expiring while in use */
-        scheduleSearchTimeout(search);
-
         IndexSearcher searcher = null;
         try {
+            /* Cancel the timeout for the saved search to prevent it expiring while in use */
+            cancelSearchTimeout(search);
             IndexReader reader = search.getReader();
             reader.incRef();
             
@@ -978,7 +978,11 @@ public class EventIndexDaoImpl implements EventIndexDao {
             this.indexSearcherCache.close();
             throw oome;
         } finally {
-            returnSearcher(searcher);
+            try {
+                returnSearcher(searcher);
+            } finally {
+                scheduleSearchTimeout(search);
+            }
         }
     }
 
@@ -989,12 +993,12 @@ public class EventIndexDaoImpl implements EventIndexDao {
             return null;
         }
         logger.debug("Deleting saved search: {}", uuid);
+        cancelSearchTimeout(search);
         try {
             search.close();
         } catch (IOException e) {
             logger.warn("Failed closing reader", e);
         }
-        search.getTimeoutFuture().cancel(false);
         return search.getUuid();
     }
 

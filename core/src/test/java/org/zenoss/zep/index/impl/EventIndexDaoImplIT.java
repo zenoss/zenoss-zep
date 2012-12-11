@@ -35,7 +35,10 @@ import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventDetailFilter;
+import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventFilter;
+import org.zenoss.protobufs.zep.Zep.EventNote;
+import org.zenoss.protobufs.zep.Zep.EventQuery;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventSort;
 import org.zenoss.protobufs.zep.Zep.EventSort.Direction;
@@ -60,6 +63,7 @@ import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
 import org.zenoss.zep.index.EventIndexDao;
+import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -73,6 +77,8 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.*;
 
@@ -1333,6 +1339,107 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             EventSummaryResult result = eventIndexDao.list(req);
             assertEquals(1, result.getEventsCount());
             assertEquals(summary, result.getEvents(0));
+        }
+    }
+
+    @Test
+    public void testSavedSearchTimeout() throws ZepException {
+        /*
+         * Verifies the behavior of a saved search to ensure it is not expired
+         * during a long database operation. This test creates a saved search
+         * with a short timeout of 1 second. Then it performs three queries on
+         * the saved search in quick succession with the database DAO mocked
+         * out to make the query take longer than 1 second on the first call.
+         * Previously, this would cause the saved search to time out before
+         * the second call could be issued. Now the behavior will disable the
+         * timeout of the saved search until after the query returns.
+         */
+        EventSummary.Builder summaryBuilder = EventSummary.newBuilder(
+                createArchiveClosed(EventTestUtils.createSampleEvent()));
+        EventSummary summary = summaryBuilder.build();
+        eventArchiveIndexDao.index(summary);
+
+        final EventArchiveDao archiveDao = applicationContext.getBean(EventArchiveDao.class);
+
+        // Create a mock of the current archive dao (override findByUuids to take longer)
+        EventArchiveDao mockArchiveDao = new EventArchiveDao() {
+            private AtomicBoolean initialDelay = new AtomicBoolean();
+
+            @Override
+            public String create(Event event, EventPreCreateContext context) throws ZepException {
+                return archiveDao.create(event, context);
+            }
+
+            @Override
+            public EventSummary findByUuid(String uuid) throws ZepException {
+                return archiveDao.findByUuid(uuid);
+            }
+
+            @Override
+            public List<EventSummary> findByUuids(List<String> uuids) throws ZepException {
+                // Delay the first call to findByUuids
+                if (initialDelay.compareAndSet(false, true)) {
+                    try {
+                        Thread.sleep(1500L);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new ZepException(e.getLocalizedMessage(), e);
+                    }
+                }
+                return archiveDao.findByUuids(uuids);
+            }
+
+            @Override
+            public int addNote(String uuid, EventNote note) throws ZepException {
+                return archiveDao.addNote(uuid, note);
+            }
+
+            @Override
+            public int updateDetails(String uuid, EventDetailSet details) throws ZepException {
+                return archiveDao.updateDetails(uuid, details);
+            }
+
+            @Override
+            public List<EventSummary> listBatch(String startingUuid, long maxUpdateTime, int limit) throws ZepException {
+                return archiveDao.listBatch(startingUuid, maxUpdateTime, limit);
+            }
+
+            @Override
+            public void importEvent(EventSummary eventSummary) throws ZepException {
+                archiveDao.importEvent(eventSummary);
+            }
+
+            @Override
+            public void initializePartitions() throws ZepException {
+                archiveDao.initializePartitions();
+            }
+
+            @Override
+            public long getPartitionIntervalInMs() {
+                return archiveDao.getPartitionIntervalInMs();
+            }
+
+            @Override
+            public void purge(int duration, TimeUnit unit) throws ZepException {
+                archiveDao.purge(duration, unit);
+            }
+        };
+
+        EventQuery.Builder queryBuilder = EventQuery.newBuilder();
+        queryBuilder.setTimeout(1);
+        EventQuery query = queryBuilder.build();
+        String searchUuid = this.eventArchiveIndexDao.createSavedSearch(query);
+
+        try {
+            ReflectionTestUtils.setField(this.eventArchiveIndexDao, "eventSummaryBaseDao", mockArchiveDao);
+            for (int i = 0; i < 3; i++) {
+                EventSummaryResult result = this.eventArchiveIndexDao.savedSearch(searchUuid, 0, 1000);
+                assertEquals(1, result.getTotal());
+                assertEquals(summary.getUuid(), result.getEvents(0).getUuid());
+            }
+        } finally {
+            ReflectionTestUtils.setField(this.eventArchiveIndexDao, "eventSummaryBaseDao", archiveDao);
+            this.eventArchiveIndexDao.deleteSavedSearch(searchUuid);
         }
     }
 
