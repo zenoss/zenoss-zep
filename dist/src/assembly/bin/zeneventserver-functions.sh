@@ -38,7 +38,7 @@ wait_for_startup() {
     local elapsed=0
     echo -n "Waiting for zeneventserver to start"
     while [ "${elapsed}" -lt "${timeout}" ]; do
-        netstat -lant | awk '$6 ~ /LISTEN/ { print $4 }' | grep "[.:]${port}$" > /dev/null
+        LC_ALL=C netstat -lant | awk '$6 ~ /LISTEN/ { print $4 }' | grep "[.:]${port}$" > /dev/null
         if [ $? -eq 0 ]; then
             break
         fi
