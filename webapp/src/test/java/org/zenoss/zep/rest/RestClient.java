@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.ProtobufConstants;
 
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -36,6 +37,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -53,11 +55,13 @@ public class RestClient implements Closeable {
     private String port = System.getProperty("jetty.port", "8084");
 
     public static class RestResponse {
+        private final HttpResponse response;
         private final int responseCode;
         private final Message message;
         private final Map<String,List<String>> headers;
 
-        public RestResponse(HttpResponse response, Message message) {
+        public RestResponse(final HttpResponse response, final Message message) {
+            this.response = response;
             this.responseCode = response.getStatusLine().getStatusCode();
             this.message = message;
             Map<String,List<String>> headers = new TreeMap<String,List<String>>(String.CASE_INSENSITIVE_ORDER);
@@ -72,6 +76,10 @@ public class RestClient implements Closeable {
                 l.add(header.getValue());
             }
             this.headers = headers;
+        }
+
+        public HttpResponse getResponse() {
+            return this.response;
         }
 
         public int getResponseCode() {
@@ -208,10 +216,16 @@ public class RestClient implements Closeable {
         post.setEntity(entity);
         HttpResponse response = client.execute(post);
         Message msgRsp = null;
-        if (response.getEntity() != null) {
+        if (isNonNullProtoBuf(response)) {
             msgRsp = createProtobufFromResponse(response);
         }
         return new RestResponse(response, msgRsp);
+    }
+
+    private boolean isNonNullProtoBuf(final HttpResponse response) {
+        String contentType = response.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue();
+        List<String> protoBufTypes = Arrays.asList(MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF);
+        return protoBufTypes.contains(contentType) && response.getEntity() != null;
     }
 
     public RestResponse postJson(String path, Message msg) throws IOException {
