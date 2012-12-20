@@ -176,6 +176,7 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         reqBuilder.setLimit(50);
         reqBuilder.setUpdateFields(updateFields);
         EventSummaryUpdateRequest req = reqBuilder.build();
+        restResponse.getResponse().getEntity().consumeContent();
 
         restResponse = client.putProtobuf(location, req);
         EventSummaryUpdateResponse response = (EventSummaryUpdateResponse) restResponse.getMessage();
@@ -228,6 +229,7 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         RestResponse restResponse = client.postProtobuf(EVENTS_URI + "/search", query);
         assertEquals(HttpStatus.SC_CREATED, restResponse.getResponseCode());
         String location = restResponse.getHeaders().get("location").get(0);
+        restResponse.getResponse().getEntity().consumeContent();
 
         // Update first 10
         EventStatus status = EventStatus.STATUS_ACKNOWLEDGED;
