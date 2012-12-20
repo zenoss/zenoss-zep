@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -58,13 +58,13 @@ public class RestClient implements Closeable {
         private final HttpResponse response;
         private final int responseCode;
         private final Message message;
-        private final Map<String,List<String>> headers;
+        private final Map<String, List<String>> headers;
 
         public RestResponse(final HttpResponse response, final Message message) {
             this.response = response;
             this.responseCode = response.getStatusLine().getStatusCode();
             this.message = message;
-            Map<String,List<String>> headers = new TreeMap<String,List<String>>(String.CASE_INSENSITIVE_ORDER);
+            Map<String, List<String>> headers = new TreeMap<String, List<String>>(String.CASE_INSENSITIVE_ORDER);
             HeaderIterator it = response.headerIterator();
             while (it.hasNext()) {
                 Header header = it.nextHeader();
@@ -165,8 +165,7 @@ public class RestClient implements Closeable {
                 throw new IOException("Unsupported content type: "
                         + contentType);
             }
-        }
-        else if (responseCode != HttpStatus.SC_NO_CONTENT && responseCode != HttpStatus.SC_CREATED) {
+        } else if (responseCode != HttpStatus.SC_NO_CONTENT && responseCode != HttpStatus.SC_CREATED) {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             entity.writeTo(baos);
             throw new IOException(String.format("Status code: %d, Response: %s", responseCode,
@@ -223,9 +222,12 @@ public class RestClient implements Closeable {
     }
 
     private boolean isNonNullProtoBuf(final HttpResponse response) {
+        if (response.getEntity() == null || response.getFirstHeader(HttpHeaders.CONTENT_TYPE) == null) {
+            return false;
+        }
         String contentType = response.getFirstHeader(HttpHeaders.CONTENT_TYPE).getValue();
         List<String> protoBufTypes = Arrays.asList(MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF);
-        return protoBufTypes.contains(contentType) && response.getEntity() != null;
+        return protoBufTypes.contains(contentType);
     }
 
     public RestResponse postJson(String path, Message msg) throws IOException {
