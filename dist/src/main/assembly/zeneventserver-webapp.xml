@@ -42,23 +42,28 @@
         <fileSet>
             <directory>src/assembly/bin</directory>
             <outputDirectory>bin/</outputDirectory>
-            <fileMode>755</fileMode>
+            <directoryMode>0755</directoryMode>
+            <fileMode>0755</fileMode>
             <filtered>false</filtered>
         </fileSet>
         <fileSet>
             <directory>src/assembly/etc</directory>
             <outputDirectory>etc/</outputDirectory>
+            <directoryMode>0755</directoryMode>
+            <fileMode>0600</fileMode>
             <filtered>false</filtered>
         </fileSet>
         <fileSet>
             <directory>target/generated-sources/conf</directory>
             <outputDirectory>etc/</outputDirectory>
+            <directoryMode>0755</directoryMode>
+            <fileMode>0600</fileMode>
             <filtered>false</filtered>
         </fileSet>
         <!-- Only way I can figure out for creating empty directory -->
         <fileSet>
             <directory>src/assembly/bin</directory>
-            <directoryMode>755</directoryMode>
+            <directoryMode>0755</directoryMode>
             <outputDirectory>log/</outputDirectory>
             <excludes>
                 <exclude>*</exclude>
@@ -66,7 +71,7 @@
         </fileSet>
         <fileSet>
             <directory>src/assembly/bin</directory>
-            <directoryMode>755</directoryMode>
+            <directoryMode>0755</directoryMode>
             <outputDirectory>var/run/</outputDirectory>
             <excludes>
                 <exclude>*</exclude>
@@ -74,8 +79,8 @@
         </fileSet>
         <fileSet>
             <directory>../core/src/main/sql</directory>
-            <directoryMode>755</directoryMode>
-            <fileMode>644</fileMode>
+            <directoryMode>0755</directoryMode>
+            <fileMode>0644</fileMode>
             <outputDirectory>share/zeneventserver/sql/</outputDirectory>
             <includes>
                 <include>**/*.sql</include>
@@ -83,8 +88,8 @@
         </fileSet>
         <fileSet>
             <directory>../core/src/main/resources</directory>
-            <directoryMode>755</directoryMode>
-            <fileMode>644</fileMode>
+            <directoryMode>0755</directoryMode>
+            <fileMode>0600</fileMode>
             <outputDirectory>etc/zeneventserver/</outputDirectory>
             <includes>
                 <include>**/logback.xml</include>
