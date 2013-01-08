@@ -104,6 +104,16 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
         return this.template.update(sql, fields);
     }
 
+    @Override
+    @TransactionalRollbackAllExceptions
+    public int deleteByMonitorAndDaemon(String monitor, String daemon) throws ZepException {
+        final Map<String, String> fields = new HashMap<String, String>(2);
+        fields.put(COLUMN_MONITOR, monitor);
+        fields.put(COLUMN_DAEMON, daemon);
+        final String sql = "DELETE FROM daemon_heartbeat WHERE monitor=:monitor AND daemon=:daemon";
+        return this.template.update(sql, fields);
+    }
+
     private final RowMapper<DaemonHeartbeat> MAPPER = new RowMapper<DaemonHeartbeat>()
     {
         @Override

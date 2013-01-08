@@ -61,4 +61,14 @@ public interface HeartbeatDao {
      * @throws ZepException If an exception occurs.
      */
     public int deleteByMonitor(String monitor) throws ZepException;
+
+    /**
+     * Deletes the heartbeat record in the ZEP database for the specified monitor and daemon.
+     *
+     * @param monitor The monitor name.
+     * @param daemon The daemon name.
+     * @return The number of affected rows.
+     * @throws ZepException If an exception occurs.
+     */
+    public int deleteByMonitorAndDaemon(String monitor, String daemon) throws ZepException;
 }

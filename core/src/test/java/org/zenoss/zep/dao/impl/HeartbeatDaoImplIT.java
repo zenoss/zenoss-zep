@@ -55,6 +55,10 @@ public class HeartbeatDaoImplIT extends AbstractTransactionalJUnit4SpringContext
                 .build();
     }
 
+    private static DaemonHeartbeat clearLastTime(DaemonHeartbeat heartbeat) {
+        return DaemonHeartbeat.newBuilder(heartbeat).clearLastTime().build();
+    }
+
     @Test
     public void testCreate() throws ZepException {
         DaemonHeartbeat hb = createHeartbeat("localhost", "zenactiond", 90);
@@ -85,5 +89,21 @@ public class HeartbeatDaoImplIT extends AbstractTransactionalJUnit4SpringContext
 
         assertEquals(1, heartbeatDao.deleteByMonitor("devsvcs"));
         assertEquals(0, heartbeatDao.findByMonitor("devsvcs").size());
+    }
+
+    @Test
+    public void testDeleteByMonitorAndDaemon() throws ZepException {
+        DaemonHeartbeat zenmodeler = createHeartbeat("localhost", "zenmodeler", 1440);
+        heartbeatDao.createHeartbeat(zenmodeler);
+        DaemonHeartbeat zenactiond = createHeartbeat("localhost", "zenactiond", 90);
+        heartbeatDao.createHeartbeat(zenactiond);
+
+        assertEquals(2, heartbeatDao.findByMonitor(zenmodeler.getMonitor()).size());
+        heartbeatDao.deleteByMonitorAndDaemon(zenmodeler.getMonitor(), zenmodeler.getDaemon());
+
+        assertEquals(zenactiond, clearLastTime(heartbeatDao.findByMonitor(zenactiond.getMonitor()).get(0)));
+        heartbeatDao.deleteByMonitorAndDaemon(zenactiond.getMonitor(), zenactiond.getDaemon());
+
+        assertTrue(heartbeatDao.findByMonitor(zenactiond.getMonitor()).isEmpty());
     }
 }

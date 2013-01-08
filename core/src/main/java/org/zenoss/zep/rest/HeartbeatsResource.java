@@ -71,4 +71,13 @@ public class HeartbeatsResource {
         heartbeatDao.deleteByMonitor(monitor);
         return Response.noContent().build();
     }
+
+    @DELETE
+    @Path("/{monitor}/{daemon}")
+    @GZIP
+    public Response deleteByMonitorAndDaemon(@PathParam("monitor") String monitor,
+                                             @PathParam("daemon") String daemon) throws ZepException {
+        heartbeatDao.deleteByMonitorAndDaemon(monitor, daemon);
+        return Response.noContent().build();
+    }
 }
