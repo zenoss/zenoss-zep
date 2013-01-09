@@ -31,7 +31,7 @@
     <bean id="protobufProvider" class="org.zenoss.protobufs.rest.ProtobufProvider">
         <property name="messageRegistry" ref="protobufMessageRegistry" />
     </bean>
-    <bean id="protobufListProvider" class="org.zenoss.protobufs.rest.ProtobufProvider">
+    <bean id="protobufListProvider" class="org.zenoss.protobufs.rest.ProtobufListProvider">
         <property name="messageRegistry" ref="protobufMessageRegistry" />
     </bean>
     <bean id="protobufMessageRegistry" class="org.zenoss.zep.rest.ProtobufMessageRegistryImpl">
