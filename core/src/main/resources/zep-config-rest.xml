@@ -37,6 +37,8 @@
     <bean id="statisticsResource" class="org.zenoss.zep.rest.StatisticsResource">
         <property name="statisticsService" ref="statisticsService" />
     </bean>
+    <bean id="diagnosticsResource" class="org.zenoss.zep.rest.DiagnosticsResource">
+    </bean>
     
 
 </beans>

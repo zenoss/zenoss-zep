@@ -257,6 +257,11 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <dependency>
+            <groupId>com.yammer.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+            <version>${version.metrics}</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

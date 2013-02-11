@@ -138,6 +138,11 @@ audit() {
     esac
 }
 
+threads() {
+    URL="http://localhost:$ZEP_PORT/zeneventserver/api/1.0/diagnostics/threads"
+    exec python -c 'import urllib2; print urllib2.urlopen("'"$URL"'").read(),'
+}
+
 generic() {
     CMD=$1
     shift
@@ -240,6 +245,9 @@ generic() {
             ;;
         run)
             run "$@"
+            ;;
+        threads)
+            threads "$@"
             ;;
         *)
             cat - <<HELP
