@@ -251,11 +251,11 @@ generic() {
             ;;
         *)
             cat - <<HELP
-Usage: $0 {start|stop|restart|status} [options]
+Usage: $0 {start|stop|restart|status|run|threads} [options]
 
   where the commands are:
 
-    start   - start the program
+    start   - start the program in the background
 
     stop    - stop the program
 
@@ -263,6 +263,11 @@ Usage: $0 {start|stop|restart|status} [options]
 
     status  - Check the status of a daemon.  This will print the current
               process id if it is running.
+
+    run     - run the program in the foreground
+
+    threads - display thread status to stdout
+
 HELP
             exit 1
     esac
