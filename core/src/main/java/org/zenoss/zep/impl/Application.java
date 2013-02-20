@@ -89,6 +89,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private PluginService pluginService;
     private ApplicationContext applicationContext;
     private ExecutorService queueExecutor;
+    private ExecutorService migratedExecutor;
 
     private List<String> queueListeners = new ArrayList<String>();
 
@@ -156,6 +157,10 @@ public class Application implements ApplicationContextAware, ApplicationListener
         this.dbMaintenanceIntervalMinutes = dbMaintenanceIntervalMinutes;
     }
 
+    public void setMigratedExecutor(ExecutorService migratedExecutor) {
+        this.migratedExecutor = migratedExecutor;
+    }
+
     @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
@@ -184,6 +189,16 @@ public class Application implements ApplicationContextAware, ApplicationListener
         logger.info("Completed ZEP initialization");
     }
 
+    private static void stopExecutor(ExecutorService executorService) {
+        executorService.shutdown();
+        try {
+            executorService.awaitTermination(0L, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            executorService.shutdownNow();
+        }
+    }
+
     public void shutdown() throws ZepException, InterruptedException {
         this.scheduler.shutdown();
 
@@ -201,13 +216,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
 
         stopQueueListeners();
 
-        this.queueExecutor.shutdown();
-        try {
-            this.queueExecutor.awaitTermination(0L, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            this.queueExecutor.shutdownNow();
-        }
+        stopExecutor(this.queueExecutor);
+        stopExecutor(this.migratedExecutor);
 
         this.amqpConnectionManager.shutdown();
 

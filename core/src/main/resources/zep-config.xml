@@ -78,20 +78,28 @@
         <property name="heartbeatDao" ref="heartbeatDao" />
     </bean>
 
+    <!-- Create a single thread executor for processing migrated events -->
+    <bean id="migratedExecutor" class="java.util.concurrent.Executors" factory-method="newSingleThreadExecutor">
+    </bean>
+
     <bean id="migratedEventQueueListenerSummary" class="org.zenoss.zep.impl.MigratedEventQueueListener"
           depends-on="application">
-        <constructor-arg index="0" value="$ZepMigratedEventSummary" />
+        <qualifier value="summary" />
+        <property name="queueIdentifier" value="$ZepMigratedEventSummary" />
         <property name="prefetchCount" value="${zep.queue.$ZepMigratedEventSummary.prefetch_count}"/>
-        <property name="executorService" ref="queueExecutor" />
+        <property name="executorService" ref="migratedExecutor" />
         <property name="eventSummaryBaseDao" ref="eventSummaryDao" />
+        <property name="eventStoreDao" ref="eventStoreDao" />
     </bean>
 
     <bean id="migratedEventQueueListenerArchive" class="org.zenoss.zep.impl.MigratedEventQueueListener"
           depends-on="application">
-        <constructor-arg index="0" value="$ZepMigratedEventArchive" />
+        <qualifier value="archive" />
+        <property name="queueIdentifier" value="$ZepMigratedEventArchive" />
         <property name="prefetchCount" value="${zep.queue.$ZepMigratedEventArchive.prefetch_count}"/>
-        <property name="executorService" ref="queueExecutor" />
+        <property name="executorService" ref="migratedExecutor" />
         <property name="eventSummaryBaseDao" ref="eventArchiveDao" />
+        <property name="eventStoreDao" ref="eventStoreDao" />
     </bean>
     
     <bean id="heartbeatProcessor" class="org.zenoss.zep.impl.HeartbeatProcessorImpl">
@@ -130,6 +138,7 @@
         <property name="heartbeatIntervalSeconds" value="${zep.heartbeat.interval_seconds:60}" />
         <property name="pluginService" ref="pluginService" />
         <property name="queueExecutor" ref="queueExecutor" />
+        <property name="migratedExecutor" ref="migratedExecutor" />
         <property name="scheduler" ref="scheduler" />
         <property name="dbMaintenanceService" ref="dbMaintenanceService" />
         <property name="dbMaintenanceIntervalMinutes" value="${zep.database.optimize_minutes:60}" />
