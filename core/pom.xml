@@ -300,11 +300,11 @@
                         <configuration>
                             <exportAntProperties>true</exportAntProperties>
                             <target>
-                                <exec executable="svnversion" outputproperty="svn.revision"
+                                <exec executable="svnversion" outputproperty="svn.revision" logError="true"
                                       failonerror="false" failifexecutionfails="false">
                                     <arg value="-n" />
                                 </exec>
-                                <exec executable="svn" failonerror="false" failifexecutionfails="false">
+                                <exec executable="svn" failonerror="false" failifexecutionfails="false" logError="true">
                                     <arg value="info" />
                                     <redirector outputproperty="svn.url">
                                         <outputfilterchain>
