@@ -21,6 +21,8 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.DocIdSetIterator;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.FieldComparator;
+import org.apache.lucene.search.FieldComparatorSource;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Scorer;
@@ -501,21 +503,23 @@ public class EventIndexDaoImpl implements EventIndexDao {
     private List<SortField> createSortField(EventSort sort) throws ZepException {
         final List<SortField> sortFields = new ArrayList<SortField>(2);
         boolean reverse = (sort.getDirection() == Direction.DESCENDING);
+
+        FieldComparatorSource comparator = new NaturalFieldComparatorSource();
         switch (sort.getField()) {
             case COUNT:
                 sortFields.add(new SortField(FIELD_COUNT, SortField.INT, reverse));
                 break;
             case ELEMENT_IDENTIFIER:
-                sortFields.add(new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, comparator, reverse));
                 break;
             case ELEMENT_SUB_IDENTIFIER:
-                sortFields.add(new SortField(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, comparator, reverse));
                 break;
             case ELEMENT_TITLE:
-                sortFields.add(new SortField(FIELD_ELEMENT_TITLE_NOT_ANALYZED, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_ELEMENT_TITLE_NOT_ANALYZED, comparator, reverse));
                 break;
             case ELEMENT_SUB_TITLE:
-                sortFields.add(new SortField(FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED, comparator, reverse));
                 break;
             case EVENT_CLASS:
                 sortFields.add(new SortField(FIELD_EVENT_CLASS_NOT_ANALYZED, SortField.STRING, reverse));
@@ -1017,4 +1021,11 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
     }
 
+    private static final class NaturalFieldComparatorSource extends FieldComparatorSource
+    {
+        public FieldComparator<?> newComparator(String fieldname, int numHits, int sortPos, boolean reversed)
+        {
+            return new NaturalStringValueComparator(numHits, fieldname);
+        }
+    }
 }
