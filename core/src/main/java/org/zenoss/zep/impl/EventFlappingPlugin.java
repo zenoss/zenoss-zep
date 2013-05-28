@@ -12,13 +12,14 @@ package org.zenoss.zep.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
 import org.springframework.data.redis.RedisConnectionFailureException;
-import org.zenoss.protobufs.model.Model;
 import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.zep.*;
+import org.zenoss.zep.dao.FlapTrackerDao;
 import org.zenoss.zep.dao.impl.EventDaoUtils;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.events.ZepConfigUpdatedEvent;
@@ -142,21 +143,21 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
 
     private static final Logger logger = LoggerFactory.getLogger(EventFlappingPlugin.class);
     // spring stuff
-    private EventFlappingStorage storage;
+    @Autowired
+    private FlapTrackerDao flapTrackerDao;
     private Zep.ZepConfig config;
+    @Autowired
     private EventPublisher publisher;
+    @Autowired
     private UUIDGenerator uuidGenerator;
 
     // these are overwritten in the config, see the loadConfig method
-    private int flapThreshold = 4;
-    private EventSeverity severityThreshold = EventSeverity.SEVERITY_WARNING;
-    private int flapWindowSeconds = 3600;
     private boolean enabled = true;
     private String eventFlappingClass = "/Status/Flapping";
 
 
-    public void setStorage(EventFlappingStorage s) {
-        this.storage = s;
+    public void setFlapTrackerDao(FlapTrackerDao s) {
+        this.flapTrackerDao = s;
     }
 
     public void setPublisher(EventPublisher pub) {
@@ -184,9 +185,6 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     private void loadConfig() {
         logger.info("Event flapping detection plugin loading configuration");
         // update our variables from the config
-        flapThreshold = config.getFlappingThreshold();
-        severityThreshold = config.getFlappingSeverityThreshold();
-        flapWindowSeconds = config.getFlappingIntervalSeconds();
         enabled = config.getEnableEventFlappingDetection();
         eventFlappingClass = config.getFlappingEventClass();
     }
@@ -219,7 +217,7 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
         // check our amount of flaps
         Long[] timestamps = tracker.getTimestamps();
         int count = 0;
-        final long windowStart = System.currentTimeMillis() / 1000l - flapWindowSeconds;
+        final long windowStart = System.currentTimeMillis() / 1000l - event.getFlappingIntervalSeconds();
         // get all the timestamps that fall within the window
         for (Long t : timestamps) {
             if (t >= windowStart) {
@@ -258,7 +256,7 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
 
     /**
      * This builds the event flapping event that is emitted when a device
-     * is determinted to be flapping
+     * is determined to be flapping
      * @param event event that triggered the flapping event
      * @return Event The Flapping Event
      */
@@ -303,11 +301,15 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     protected void detectEventFlapping(Event event, String fingerprintHash) {
         // verify that the plugin is enabled
         EventSeverity sev = event.getSeverity();
+        EventSeverity severityThreshold = event.getFlappingSeverity();
+        final int flapThreshold = event.getFlappingThreshold();
+        final int flapWindowSeconds = event.getFlappingIntervalSeconds();
+
         FlapTracker tracker;
         try{
-            tracker = storage.getFlapTrackerByClearFingerprintHash(fingerprintHash);
-        }catch (RedisConnectionFailureException e) {
-            logger.warn("Unable to connect to redis ", e);
+            tracker = flapTrackerDao.getFlapTrackerByClearFingerprintHash(fingerprintHash);
+        }catch (ZepException e) {
+            logger.warn("Unable to detect event flapping", e);
             return;
         }
 
@@ -332,6 +334,10 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
         long windowStart = System.currentTimeMillis() / 1000l - flapWindowSeconds;
         tracker.discardTimestampsOlderThan(windowStart);
         tracker.setPreviousSeverity(sev);
-        storage.persistTracker(fingerprintHash, tracker, flapWindowSeconds);
+        try {
+            flapTrackerDao.persistTracker(fingerprintHash, tracker, flapWindowSeconds);
+        } catch (ZepException e) {
+            logger.warn("Unable to detect event flapping", e);
+        }
     }
 }

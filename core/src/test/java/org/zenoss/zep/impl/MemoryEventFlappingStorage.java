@@ -9,7 +9,8 @@
 
 package org.zenoss.zep.impl;
 
-import org.zenoss.zep.EventFlappingStorage;
+import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.FlapTrackerDao;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,15 +19,15 @@ import java.util.Map;
  * Uses a hashmap to persist flap tracking in memory. This should only be used during tests
  * as it doesn't really clean up old or stale entries from the hashmap.
  */
-public class MemoryEventFlappingStorage implements EventFlappingStorage{
+public class MemoryEventFlappingStorage implements FlapTrackerDao{
 
     // create a hashmap indexed by clear finger print hash
     Map<String, FlapTracker> trackers = new HashMap<String, FlapTracker>();
 
     @Override
-    public FlapTracker getFlapTrackerByClearFingerprintHash(String clearFingerPrintHash) {
+    public FlapTracker getFlapTrackerByClearFingerprintHash(String clearFingerPrintHash) throws ZepException {
         if (trackers.containsKey(clearFingerPrintHash)) {
-            return (FlapTracker) trackers.get(clearFingerPrintHash);
+            return trackers.get(clearFingerPrintHash);
         }
 
         FlapTracker tracker = new FlapTracker();
@@ -34,7 +35,7 @@ public class MemoryEventFlappingStorage implements EventFlappingStorage{
         return tracker;
     }
 
-    public void persistTracker(String clearFingerprintHash, FlapTracker tracker, long timeToKeep) {
+    public void persistTracker(String clearFingerprintHash, FlapTracker tracker, long timeToKeep) throws ZepException{
         trackers.put(clearFingerprintHash, tracker);
     }
 

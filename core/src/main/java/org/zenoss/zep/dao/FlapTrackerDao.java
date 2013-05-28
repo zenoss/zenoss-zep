@@ -1,20 +1,21 @@
-package org.zenoss.zep;
+package org.zenoss.zep.dao;
 
 
+import org.zenoss.zep.ZepException;
 import org.zenoss.zep.impl.FlapTracker;
 
 /**
  * Used by the event flapping plugin. This interfaces provides a mechanism
  * where we keep track of the number of "flaps" an event has in a given period.
  */
-public interface EventFlappingStorage {
+public interface FlapTrackerDao{
 
     /**
      * Returns the FlapTracker model object.
      * @param clearFingerprintHash
      * @return FlapTracker
      */
-    public FlapTracker getFlapTrackerByClearFingerprintHash(String clearFingerprintHash);
+    public FlapTracker getFlapTrackerByClearFingerprintHash(String clearFingerprintHash) throws ZepException;
 
     /**
      * After the flap tracker has been updated call this method to persist it. The next
@@ -24,5 +25,5 @@ public interface EventFlappingStorage {
      * @param tracker the flap tracker associated with the clearFingerprinthash
      * @param timeToKeep After this amount of time the entry is not guaranteed to be there.
      */
-    public void persistTracker(String clearFingerprintHash, FlapTracker tracker, long timeToKeep);
+    public void persistTracker(String clearFingerprintHash, FlapTracker tracker, long timeToKeep) throws ZepException;
 }

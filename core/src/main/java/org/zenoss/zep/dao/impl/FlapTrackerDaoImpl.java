@@ -7,33 +7,40 @@
  * 
  ****************************************************************************/
 
-package org.zenoss.zep.impl;
+package org.zenoss.zep.dao.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.zenoss.zep.EventFlappingStorage;
+import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.FlapTrackerDao;
+import org.zenoss.zep.impl.FlapTracker;
 
 import java.util.concurrent.TimeUnit;
 
-public class RedisEventFlappingStorage implements EventFlappingStorage{
+public class FlapTrackerDaoImpl implements FlapTrackerDao{
 
-    private static final Logger logger = LoggerFactory.getLogger(RedisEventFlappingStorage.class);
+    private static final Logger logger = LoggerFactory.getLogger(FlapTrackerDaoImpl.class);
 
     private final String REDIS_FLAP_KEY = "zenoss_event_flapping";
 
+    @Autowired
     private StringRedisTemplate template = null;
 
-    public void setRedisTemplate(StringRedisTemplate template) {
-        this.template = template;
-    }
 
     private String createKey(String clearFingerPrintHash) {
         return REDIS_FLAP_KEY + clearFingerPrintHash;
     }
     @Override
-    public FlapTracker getFlapTrackerByClearFingerprintHash(String clearFingerPrintHash) {
-        String result = template.opsForValue().get(createKey(clearFingerPrintHash));
+    public FlapTracker getFlapTrackerByClearFingerprintHash(String clearFingerPrintHash) throws ZepException {
+        String result;
+        try {
+            result = template.opsForValue().get(createKey(clearFingerPrintHash));
+        } catch (RedisConnectionFailureException e) {
+            throw new ZepException(e);
+        }
         if (result != null) {
             // return existing flap tracker
             logger.debug("String gotten back from redis " + result);
@@ -45,10 +52,12 @@ public class RedisEventFlappingStorage implements EventFlappingStorage{
     }
 
     @Override
-    public void persistTracker(String clearFingerprintHash, FlapTracker tracker, long timeToKeep) {
-        // convert the object into an array with the first index being the last severity
-        // and the rest being the flap timestamps
+    public void persistTracker(String clearFingerprintHash, FlapTracker tracker, long timeToKeep) throws ZepException {
         logger.debug("Setting string key {}  value {}", createKey(clearFingerprintHash), tracker.convertToString());
-        template.opsForValue().set(createKey(clearFingerprintHash), tracker.convertToString(), timeToKeep, TimeUnit.SECONDS);
+        try {
+            template.opsForValue().set(createKey(clearFingerprintHash), tracker.convertToString(), timeToKeep, TimeUnit.SECONDS);
+        }catch (RedisConnectionFailureException e) {
+            throw new ZepException(e);
+        }
     }
 }

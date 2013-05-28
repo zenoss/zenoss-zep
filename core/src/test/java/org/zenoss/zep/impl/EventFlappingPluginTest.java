@@ -21,6 +21,7 @@ import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
 import org.zenoss.zep.*;
+import org.zenoss.zep.dao.FlapTrackerDao;
 
 import java.io.IOException;
 import static org.easymock.EasyMock.*;
@@ -30,15 +31,15 @@ import static org.junit.Assert.*;
 public class EventFlappingPluginTest {
 
     public EventFlappingPlugin eventFlappingPlugin = null;
-    public EventFlappingStorage storage = null;
+    public FlapTrackerDao flapTrackerDao = null;
     public EventPublisher publisherMock = null;
 
     @Before
     public void testInit() throws IOException, ZepException {
         this.eventFlappingPlugin = new EventFlappingPlugin();
-        EventFlappingStorage storage = new MemoryEventFlappingStorage();
-        this.eventFlappingPlugin.setStorage(storage);
-        this.storage = storage;
+        FlapTrackerDao storage = new MemoryEventFlappingStorage();
+        this.eventFlappingPlugin.setFlapTrackerDao(storage);
+        this.flapTrackerDao = storage;
         this.publisherMock = createMock(EventPublisher.class);
         this.eventFlappingPlugin.setPublisher(publisherMock);
         UUIDGenerator uuidGenerator = new UUIDGeneratorImpl();
@@ -68,7 +69,7 @@ public class EventFlappingPluginTest {
         evtBuilder.setActor(actor);
         evtBuilder.setMessage("TEST - 1-2-check");
         evtBuilder.setEventClass("/Defcon/1");
-        evtBuilder.setSeverity(Zep.EventSeverity.SEVERITY_WARNING);
+        evtBuilder.setSeverity(Zep.EventSeverity.SEVERITY_ERROR);
         evtBuilder.setSyslogPriority(SyslogPriority.SYSLOG_PRIORITY_DEBUG);
 
         EventDetail.Builder groupBuilder = evtBuilder.addDetailsBuilder().setName(ZepConstants.DETAIL_DEVICE_GROUPS);
@@ -131,7 +132,7 @@ public class EventFlappingPluginTest {
         assertEquals(true, eventFlappingPlugin.shouldGenerateFlapEvent(tracker, eventBuilder.build(), threshold));
     }
     @Test
-    public void testAddTimestampToTracker() {
+    public void testAddTimestampToTracker() throws ZepException {
         Event.Builder eventBuilder = createEventOccurrence(createActor().build());
         String clearFingerprint = "fingerprint2";
         eventBuilder.setSeverity(EventSeverity.SEVERITY_CLEAR);
@@ -142,15 +143,15 @@ public class EventFlappingPluginTest {
         eventFlappingPlugin.detectEventFlapping(eventBuilder.build(), clearFingerprint);
 
         // verify flap
-        FlapTracker tracker = storage.getFlapTrackerByClearFingerprintHash(clearFingerprint);
+        FlapTracker tracker = flapTrackerDao.getFlapTrackerByClearFingerprintHash(clearFingerprint);
         assertEquals(1, tracker.getTimestamps().length);
     }
 
     @Test
-    public void testFlappingEventGenerated() {
+    public void testFlappingEventGenerated() throws ZepException {
         Event.Builder eventBuilder = createEventOccurrence(createActor().build());
         String clearFingerprint = "fingerprint2";
-        FlapTracker tracker = storage.getFlapTrackerByClearFingerprintHash(clearFingerprint);
+        FlapTracker tracker = flapTrackerDao.getFlapTrackerByClearFingerprintHash(clearFingerprint);
         for (int i=0;i<4;i++){
             tracker.addCurrentTimeStamp();
         }
@@ -163,12 +164,12 @@ public class EventFlappingPluginTest {
     }
 
     @Test
-    public void testNoFlapIfNotIdentified() {
+    public void testNoFlapIfNotIdentified() throws ZepException {
         EventActor.Builder actorBuilder = createActor();
         actorBuilder.clearElementUuid();
         Event event = createEventOccurrence(actorBuilder.build()).build();
-        assertFalse(eventFlappingPlugin.isEventFlap(event, storage.getFlapTrackerByClearFingerprintHash("test"),
-        EventSeverity.SEVERITY_WARNING));
+        assertFalse(eventFlappingPlugin.isEventFlap(event, flapTrackerDao.getFlapTrackerByClearFingerprintHash("test"),
+                EventSeverity.SEVERITY_WARNING));
    }
 
     @Test
