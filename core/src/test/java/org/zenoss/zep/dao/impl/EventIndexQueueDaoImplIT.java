@@ -168,6 +168,13 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         int numDeleted = this.simpleJdbcTemplate.update("DELETE FROM " + tableName + " WHERE uuid=?",
                 uuidConverter.toDatabaseType(summary.getUuid()));
         assertEquals(1, numDeleted);
+        // event_summary triggers were dropped after adding the percona external tool for optimize
+        // emulating the old event_summary triggers...
+        if(!archive) {
+            numDeleted = this.simpleJdbcTemplate.update("INSERT INTO " + tableName + "_index_queue (uuid, update_time) VALUES (?,0)",
+                    uuidConverter.toDatabaseType(summary.getUuid()));
+            assertEquals(1, numDeleted);
+        }
 
         TestEventIndexHandler handler = new TestEventIndexHandler();
         List<Long> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);

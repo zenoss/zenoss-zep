@@ -214,6 +214,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         else {
             insert.execute(fields);
             uuid = createdUuid;
+
+            // Add the uuid to the event_summary_index_queue
+            this.indexSignal(uuid, updateTime);
         }
 
         // Mark cleared events as cleared by this event
@@ -244,6 +247,13 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }
         updateSql.append(" WHERE fingerprint_hash=:fingerprint_hash");
         updateFields.put(COLUMN_FINGERPRINT_HASH, insertFields.get(COLUMN_FINGERPRINT_HASH));
+
+        long updateTime = System.currentTimeMillis();
+        String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " +
+                    "SELECT uuid, " + String.valueOf(updateTime) + " " +
+                    "FROM event_summary " + 
+                    "WHERE fingerprint_hash=:fingerprint_hash";
+        this.template.update(indexSql, updateFields);
 
         this.template.update(updateSql.toString(), updateFields);
         return oldSummary.getUuid();
@@ -335,17 +345,27 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             return Collections.emptyList();
         }
         final long lastSeen = event.getCreatedTime();
-
-        /* Find events that this clear event would clear. */
-        final String sql = "SELECT uuid FROM event_summary WHERE " +
-                "last_seen <= :_clear_created_time AND " +
-                "clear_fingerprint_hash IN (:_clear_hashes) AND " +
-                "status_id NOT IN (:_closed_status_ids) FOR UPDATE";
-
+        
         Map<String,Object> fields = new HashMap<String,Object>(2);
         fields.put("_clear_created_time", timestampConverter.toDatabaseType(lastSeen));
         fields.put("_clear_hashes", clearHashes);
         fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
+
+        long updateTime = System.currentTimeMillis();
+        String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " 
+                + "SELECT uuid, " + String.valueOf(updateTime) + " FROM event_summary " +
+                "WHERE last_seen <= :_clear_created_time " +
+                "AND clear_fingerprint_hash IN (:_clear_hashes) " +
+                "AND status_id NOT IN (:_closed_status_ids) ";
+        this.template.update(indexSql, fields); 
+
+        /* Find events that this clear event would clear. */
+        final String sql = "SELECT uuid FROM event_summary " + 
+                "WHERE last_seen <= :_clear_created_time " +
+                "AND clear_fingerprint_hash IN (:_clear_hashes) " +
+                "AND status_id NOT IN (:_closed_status_ids) " + 
+                "FOR UPDATE";
+
         final List<String> results = this.template.query(sql, new RowMapper<String>() {
             @Override
             public String mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -416,6 +436,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put("_title", DaoUtils.truncateStringToUtf8(title, EventConstants.MAX_ELEMENT_TITLE));
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(updateTime));
 
+        String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " 
+                + "SELECT uuid, " + String.valueOf(updateTime) + " FROM event_summary " 
+                + "WHERE element_uuid IS NULL AND element_type_id=:_type_id AND element_identifier=:_id"; 
+        this.template.update(indexSql, fields); 
+
         int numRows = 0;
         String updateSql = "UPDATE event_summary SET element_uuid=:_uuid, element_title=:_title," +
                 " update_time=:update_time WHERE element_uuid IS NULL AND element_type_id=:_type_id" +
@@ -424,6 +449,13 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         if (parentUuid != null) {
             fields.put("_parent_uuid", uuidConverter.toDatabaseType(parentUuid));
+            indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " +
+                    "SELECT es.uuid, " + String.valueOf(updateTime) + " " +
+                    "FROM event_summary es INNER JOIN event_class ON es.event_class_id = event_class.id " +
+                    "LEFT JOIN event_key ON es.event_key_id = event_key.id " +
+                    "WHERE es.element_uuid=:_parent_uuid AND es.element_sub_uuid IS NULL AND " +
+                    "es.element_sub_type_id=:_type_id AND es.element_sub_identifier=:_id";
+            this.template.update(indexSql, fields);
 
             String selectSql = "SELECT uuid,element_identifier,element_sub_identifier," +
                     "event_class.name AS event_class_name,event_key.name AS event_key_name FROM event_summary es" +
@@ -460,10 +492,20 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put("_uuid", uuidConverter.toDatabaseType(uuid));
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(updateTime));
 
+        String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " 
+                + "SELECT uuid, " + String.valueOf(updateTime) + " FROM event_summary " 
+                + "WHERE element_uuid=:_uuid"; 
+        this.template.update(indexSql, fields);
+
         int numRows = 0;
         String updateElementSql = "UPDATE event_summary SET element_uuid=NULL, update_time=:update_time" +
                 " WHERE element_uuid=:_uuid";
         numRows += this.template.update(updateElementSql, fields);
+
+        indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " 
+                + "SELECT uuid, " + String.valueOf(updateTime) + " FROM event_summary " 
+                + "WHERE element_sub_uuid=:_uuid"; 
+        this.template.update(indexSql, fields);
 
         String selectSql = "SELECT uuid,element_identifier,element_sub_identifier," +
                 "event_class.name AS event_class_name,event_key.name AS event_key_name FROM event_summary es" +
@@ -577,6 +619,14 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         final String updateSql;
         if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
+            String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " +
+                    "SELECT uuid, " + String.valueOf(now) + " " +
+                    "FROM event_summary " + 
+                    " WHERE last_seen < :last_seen AND" +
+                    " severity_id IN (:_severity_ids) AND" +
+                    " status_id NOT IN (:_closed_status_ids) LIMIT :_limit";
+            this.template.update(indexSql, fields);
+
             // Use UPDATE ... LIMIT
             updateSql = "UPDATE event_summary SET" +
                     " status_id=:status_id,status_change=:status_change,update_time=:update_time" +
@@ -584,6 +634,14 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                     " AND status_id NOT IN (:_closed_status_ids) LIMIT :_limit";
         }
         else if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
+            String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " +
+                    "SELECT uuid, " + String.valueOf(now) + " " +
+                    "FROM event_summary " + 
+                    " WHERE uuid IN (SELECT uuid FROM event_summary WHERE" +
+                    " last_seen < :last_seen AND severity_id IN (:_severity_ids)" +
+                    " AND status_id NOT IN (:_closed_status_ids) LIMIT :_limit)";
+            this.template.update(indexSql, fields);
+
             // Use UPDATE ... WHERE pk IN (SELECT ... LIMIT)
             updateSql = "UPDATE event_summary SET" +
                     " status_id=:status_id,status_change=:status_change,update_time=:update_time" +
@@ -609,6 +667,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int addNote(String uuid, EventNote note) throws ZepException {
+        // Add the uuid to the event_summary_index_queue
+        final long updateTime =  System.currentTimeMillis();
+        this.indexSignal(uuid, updateTime); 
+
         return this.eventDaoHelper.addNote(TABLE_EVENT_SUMMARY, uuid, note, template);
     }
 
@@ -616,6 +678,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @TransactionalRollbackAllExceptions
     public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException {
+        // Add the uuid to the event_summary_index_queue
+        final long updateTime =  System.currentTimeMillis();
+        this.indexSignal(uuid, updateTime); 
+
         return this.eventDaoHelper.updateDetails(TABLE_EVENT_SUMMARY, uuid, details.getDetailsList(), template);
     }
 
@@ -691,8 +757,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             fields.put(COLUMN_CURRENT_USER_UUID, null);
         }
 
-        StringBuilder sb = new StringBuilder("SELECT uuid,fingerprint,audit_json FROM event_summary")
-                .append(" WHERE uuid IN (:_uuids)");
+        StringBuilder sb = new StringBuilder("SELECT uuid,fingerprint,audit_json FROM event_summary");
+        StringBuilder sbw = new StringBuilder(" WHERE uuid IN (:_uuids)");
         /*
          * This is required to support well-defined transitions between states. We only allow
          * updates to move events between states that make sense.
@@ -703,7 +769,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 currentStatusIds.add(currentStatus.getNumber());
             }
             fields.put("_current_status_ids", currentStatusIds);
-            sb.append(" AND status_id IN (:_current_status_ids)");
+            sbw.append(" AND status_id IN (:_current_status_ids)");
         }
         /*
          * Disallow acknowledging an event again as the same user name / user uuid. If the event is not
@@ -713,24 +779,30 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
          */
         if (status == EventStatus.STATUS_ACKNOWLEDGED) {
             fields.put("_status_acknowledged", EventStatus.STATUS_ACKNOWLEDGED.getNumber());
-            sb.append(" AND (status_id != :_status_acknowledged OR ");
+            sbw.append(" AND (status_id != :_status_acknowledged OR ");
             if (updateFields.getCurrentUserName() == null) {
-                sb.append("current_user_name IS NOT NULL");
+                sbw.append("current_user_name IS NOT NULL");
             }
             else {
-                sb.append("(current_user_name IS NULL OR current_user_name != :current_user_name)");
+                sbw.append("(current_user_name IS NULL OR current_user_name != :current_user_name)");
             }
-            sb.append(" OR ");
+            sbw.append(" OR ");
             if (updateFields.getCurrentUserUuid() == null) {
-                sb.append("current_user_uuid IS NOT NULL");
+                sbw.append("current_user_uuid IS NOT NULL");
             }
             else {
-                sb.append("(current_user_uuid IS NULL OR current_user_uuid != :current_user_uuid)");
+                sbw.append("(current_user_uuid IS NULL OR current_user_uuid != :current_user_uuid)");
             }
-            sb.append(")");
+            sbw.append(")");
         }
-        sb.append(" FOR UPDATE");
-        String selectSql = sb.toString();
+        String selectSql = sb.toString() + sbw.toString() + " FOR UPDATE";
+
+        final long updateTime =  System.currentTimeMillis();
+        final String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) "
+                + "SELECT uuid, " + String.valueOf(updateTime) + " "
+                + "FROM event_summary "
+                + sbw.toString();
+        this.template.update(indexSql, fields);
 
         /*
          * If this is a significant status change, also add an audit note
@@ -928,6 +1000,14 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             }
         }
 
+        final long updateTime = System.currentTimeMillis();
+        /* signal event_summary table rows to get indexed */ 
+        this.template.update("INSERT INTO event_summary_index_queue (uuid, update_time) " 
+            + "SELECT uuid, " + String.valueOf(updateTime) + " " 
+            + "FROM event_summary" +
+            " WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)", 
+                fields); 
+
         String insertSql = String.format("INSERT INTO event_archive (%s) SELECT %s FROM event_summary" +
                 " WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
                 StringUtils.collectionToCommaDelimitedString(this.archiveColumnNames), selectColumns);
@@ -975,4 +1055,15 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         this.insert.execute(fields);
     }
 
+    @TransactionalRollbackAllExceptions
+    private void indexSignal(final String eventUuid, final long updateTime) throws ZepException {
+        final String insertSql = "INSERT INTO event_summary_index_queue (uuid, update_time) "
+                + "VALUES (:uuid, :update_time)";
+
+        Map<String, Object> fields = new HashMap<String,Object>();
+        fields.put(COLUMN_UPDATE_TIME, updateTime);
+        fields.put("uuid", this.uuidConverter.toDatabaseType(eventUuid));
+        
+        this.template.update(insertSql, fields);
+    }
 }

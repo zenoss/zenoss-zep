@@ -32,7 +32,13 @@ import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -147,6 +153,57 @@ public final class DaoUtils {
         logger.debug("Connection pool properties: {}", p);
 
         return p;
+    }
+
+    private static String convertStreamToStr(InputStream is) throws IOException {
+        if (is != null) {
+            Writer writer = new StringWriter();
+            char[] buffer = new char[1024];
+            try {
+                Reader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                int n;
+                while ((n = reader.read(buffer, 0, 1024)) != -1) {
+                    writer.write(buffer, 0, n);
+                }
+            }
+            finally {
+                is.close();
+            }
+            return writer.toString();
+        }
+        else {
+            return "";
+        }
+    }
+
+    public static int executeCommand(String command) {
+        String response = "";
+
+        ProcessBuilder pb = new ProcessBuilder("bash", "-c", command);
+        pb.redirectErrorStream(true);
+
+        int shellExitStatus = -1;
+        InputStream shellIn = null;
+
+        try {
+            Process shell = pb.start();
+            // To capture output from the shell
+            shellIn = shell.getInputStream();
+
+            // Wait for the shell to finish and get the return code
+            shellExitStatus = shell.waitFor();
+            if(shellExitStatus != 0) {
+                response = DaoUtils.convertStreamToStr(shellIn);
+                logger.error("Error (return code: " + shellExitStatus + ") from \"" + command + "\": \nOutput: " + response);
+            }
+            shellIn.close();
+        } catch (IOException e) {
+            logger.error("Error occured while executing Linux command. Error Description: " + e.getMessage());
+        } catch (InterruptedException e) {
+            logger.error("Error occured while executing Linux command. Error Description: " + e.getMessage());
+        }
+
+        return shellExitStatus;
     }
 
     public static DataSource createDataSource(Properties globalConf, ZepInstance zepInstance) {
