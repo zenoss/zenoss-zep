@@ -43,6 +43,8 @@ public class ConfigDaoImplIT extends AbstractTransactionalJUnit4SpringContextTes
         builder.setArchiveLimit(750);
         builder.setAgingIntervalMilliseconds(30000);
         builder.setArchiveIntervalMilliseconds(45000);
+        builder.setEnableEventFlappingDetection(false);
+        builder.setFlappingEventClass("/Status/Flapping");
         ZepConfig cnf = builder.build();
         configDao.setConfig(cnf);
 
