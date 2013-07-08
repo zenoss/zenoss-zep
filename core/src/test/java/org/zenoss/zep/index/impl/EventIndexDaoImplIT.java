@@ -63,6 +63,7 @@ import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
 import org.zenoss.zep.index.EventIndexDao;
+import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import java.io.IOException;
@@ -1221,7 +1222,8 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         EventSummary event = createSummaryNew(Event.newBuilder(EventTestUtils.createSampleEvent()).build());
         this.eventIndexDao.index(event);
         Set<String> fieldNames = getFieldNames(this.eventIndexDao, event.getUuid());
-        assertEquals(Sets.newHashSet(IndexConstants.FIELD_UUID, IndexConstants.FIELD_PROTOBUF), fieldNames);
+        assertEquals(Sets.newHashSet(IndexConstants.FIELD_UUID, IndexConstants.FIELD_STATUS, IndexConstants.FIELD_PROTOBUF,
+                IndexConstants.FIELD_COUNT, IndexConstants.FIELD_TAGS, IndexConstants.FIELD_SEVERITY), fieldNames);
     }
 
     @Test
@@ -1230,7 +1232,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         EventSummary event = createArchiveClosed(Event.newBuilder(EventTestUtils.createSampleEvent()).build());
         this.eventArchiveIndexDao.index(event);
         Set<String> fieldNames = getFieldNames(this.eventArchiveIndexDao, event.getUuid());
-        assertEquals(Collections.singleton(IndexConstants.FIELD_UUID), fieldNames);
+        assertEquals(Sets.newHashSet(IndexConstants.FIELD_UUID, IndexConstants.FIELD_STATUS, IndexConstants.FIELD_COUNT, IndexConstants.FIELD_TAGS, IndexConstants.FIELD_SEVERITY), fieldNames);
     }
 
     @Test

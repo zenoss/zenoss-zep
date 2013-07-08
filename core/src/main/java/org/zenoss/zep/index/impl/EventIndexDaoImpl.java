@@ -785,8 +785,17 @@ public class EventIndexDaoImpl implements EventIndexDao {
                     Document doc = searcher.doc(docId, UUID_SELECTOR);
                     summary = this.eventSummaryBaseDao.findByUuid(doc.get(FIELD_UUID));
                 } else {
-                    Document doc = searcher.doc(docId, PROTO_SELECTOR);
-                    summary = EventIndexMapper.toEventSummary(doc);
+                    Document doc = searcher.doc(docId);
+                    // this is an optimization for getting the non-archived tags from an organizer for ticket
+                    // see ZEN-7239. For this ticket we updated the index to store what we needed for generating the
+                    // tags severities. Since we do not want a migrate of completely deleting the index this
+                    // method is backwards compatible by uncompressing the protobuf
+                    if (doc.get(FIELD_SEVERITY) != null) {
+                        updateTagSeverityFromDocument(tagSeveritiesMap, hasTagsFilter, doc);
+                        continue;
+                    } else {
+                        summary = EventIndexMapper.toEventSummary(doc);
+                    }
                 }
                 final boolean isAcknowledged = (summary.getStatus() == EventStatus.STATUS_ACKNOWLEDGED);
                 final Event occurrence = summary.getOccurrence(0);
@@ -799,7 +808,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
                             tagSeverities = new TagSeverities(actor.getElementUuid());
                             tagSeveritiesMap.put(tagSeverities.tagUuid, tagSeverities);
                         }
-                        tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount(), isAcknowledged);
+                        tagSeverities.updateSeverityCount(occurrence.getSeverity(), occurrence.getCount(), isAcknowledged);
                     }
                 }
                 // Build tag severities from passed in filter
@@ -808,7 +817,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
                     for (String uuid : uuids) {
                         TagSeverities tagSeverities = tagSeveritiesMap.get(uuid);
                         if (tagSeverities != null) {
-                            tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount(),
+                            tagSeverities.updateSeverityCount(occurrence.getSeverity(), occurrence.getCount(),
                                     isAcknowledged);
                         }
                     }
@@ -816,7 +825,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
                         for (String tagUuid : tag.getUuidList()) {
                             TagSeverities tagSeverities = tagSeveritiesMap.get(tagUuid);
                             if (tagSeverities != null) {
-                                tagSeverities.updateSeverityCount(occurrence.getSeverity(), summary.getCount(),
+                                tagSeverities.updateSeverityCount(occurrence.getSeverity(), occurrence.getCount(),
                                         isAcknowledged);
                             }
                         }
@@ -831,6 +840,29 @@ public class EventIndexDaoImpl implements EventIndexDao {
             throw oome;
         } finally {
             returnSearcher(searcher);
+        }
+    }
+
+    /**
+     * This method updates the tag severities map from the document directly without
+     * uncompressing the protobuf
+     * @param tagSeveritiesMap The map to update
+     * @param hasTagsFilter If we have a tag filter or not
+     * @param doc the lucene document we are pulling information from
+     */
+    private void updateTagSeverityFromDocument(Map<String, TagSeverities> tagSeveritiesMap, boolean hasTagsFilter, Document doc) {
+        int count = Integer.parseInt(doc.get(FIELD_COUNT));
+        EventStatus status = EventStatus.valueOf(Integer.parseInt(doc.get(FIELD_STATUS)));
+        EventSeverity severity = EventSeverity.valueOf(Integer.parseInt(doc.get(FIELD_SEVERITY)));
+        boolean isAcknowledged = (status == EventStatus.STATUS_ACKNOWLEDGED);
+        if (hasTagsFilter) {
+            // get the map for each filter and update the count
+            for (String tag : doc.getValues(FIELD_TAGS)) {
+                TagSeverities tagSeverities = tagSeveritiesMap.get(tag);
+                if (tagSeverities != null) {
+                    tagSeverities.updateSeverityCount(severity, count, isAcknowledged);
+                }
+            }
         }
     }
 

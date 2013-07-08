@@ -127,8 +127,8 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_CURRENT_USER_NAME, summary.getCurrentUserName(), Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
 
-        doc.add(new NumericField(FIELD_STATUS, Store.NO, true).setIntValue(summary.getStatus().getNumber()));
-        doc.add(new NumericField(FIELD_COUNT, Store.NO, true).setIntValue(summary.getCount()));
+        doc.add(new NumericField(FIELD_STATUS, Store.YES, true).setIntValue(summary.getStatus().getNumber()));
+        doc.add(new NumericField(FIELD_COUNT, Store.YES, true).setIntValue(summary.getCount()));
         doc.add(new NumericField(FIELD_LAST_SEEN_TIME, Store.NO, true).setLongValue(summary.getLastSeenTime()));
         doc.add(new NumericField(FIELD_FIRST_SEEN_TIME, Store.NO, true).setLongValue(summary.getFirstSeenTime()));
         doc.add(new NumericField(FIELD_STATUS_CHANGE_TIME, Store.NO, true).setLongValue(summary.getStatusChangeTime()));
@@ -138,7 +138,7 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_FINGERPRINT, event.getFingerprint(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_SUMMARY, event.getSummary(), Store.NO, Index.ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_SUMMARY_NOT_ANALYZED, event.getSummary().toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-        doc.add(new NumericField(FIELD_SEVERITY, Store.NO, true).setIntValue(event.getSeverity().getNumber()));
+        doc.add(new NumericField(FIELD_SEVERITY, Store.YES, true).setIntValue(event.getSeverity().getNumber()));
 
         doc.add(new Field(FIELD_EVENT_CLASS, event.getEventClass(), Store.NO, Index.ANALYZED_NO_NORMS));
         // Store with a trailing slash to make lookups simpler
@@ -154,14 +154,14 @@ public class EventIndexMapper {
 
         for (EventTag tag : event.getTagsList()) {
             for (String tagUuid : tag.getUuidList()) {
-                doc.add(new Field(FIELD_TAGS, tagUuid, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+                doc.add(new Field(FIELD_TAGS, tagUuid, Store.YES, Index.NOT_ANALYZED_NO_NORMS));
             }
         }
 
         EventActor actor = event.getActor();
         String uuid = actor.getElementUuid();
         if (uuid != null && !uuid.isEmpty()) {
-            doc.add(new Field(FIELD_TAGS, uuid, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+            doc.add(new Field(FIELD_TAGS, uuid, Store.YES, Index.NOT_ANALYZED_NO_NORMS));
         }
 
         String id = actor.getElementIdentifier();
@@ -174,7 +174,7 @@ public class EventIndexMapper {
 
         String subUuid = actor.getElementSubUuid();
         if (subUuid != null && !subUuid.isEmpty()) {
-            doc.add(new Field(FIELD_TAGS, subUuid, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+            doc.add(new Field(FIELD_TAGS, subUuid, Store.YES, Index.NOT_ANALYZED_NO_NORMS));
         }
 
         String subId = actor.getElementSubIdentifier();
