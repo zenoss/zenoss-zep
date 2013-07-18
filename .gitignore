@@ -11,3 +11,6 @@ target
 var
 *.orig
 log
+
+.build
+.extracted
