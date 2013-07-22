@@ -85,6 +85,9 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
 
         // if we want to use percona's pt-online-schema-change to avoid locking the tables due to mysql optimize...
         if(this.useExternalTool && dbType == DatabaseType.MYSQL) {
+            logger.info("Validating state of event_summary");
+            this.validateEventSummaryState();
+
             String tableToOptimize = "event_summary";
             final String externalToolName = "pt-online-schema-change";
             logger.debug("Optimizing table: " + tableToOptimize + " via percona " + externalToolName);
@@ -146,4 +149,15 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
         });
         logger.debug("Completed Optimizing tables: {}", tablesToOptimize);
     }
+
+    @Override
+    public void validateEventSummaryState() throws ZepException {
+
+        // pt-online-schema-change failures can lead to triggers that point to a missing table: ZEN-7474
+        this.template.update("DROP TRIGGER IF EXISTS pt_osc_zenoss_zep_event_summary_upd");
+        this.template.update("DROP TRIGGER IF EXISTS pt_osc_zenoss_zep_event_summary_ins");
+        this.template.update("DROP TABLE IF EXISTS _event_summary_new");
+    }
+
+
 }

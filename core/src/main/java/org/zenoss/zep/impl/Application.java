@@ -312,6 +312,14 @@ public class Application implements ApplicationContextAware, ApplicationListener
             logger.info("Event archiving configuration not changed.");
             return;
         }
+        
+        logger.info("Validating that event_summary table is in a good state");
+        try {
+            dbMaintenanceService.validateEventSummaryState();
+        } catch (Exception e) {
+            logger.error("There was an error validating the event_summary table: {} ", e.toString());
+            System.exit(1);
+        }
 
         final Date startTime = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(1));
         cancelFuture(this.eventSummaryArchiver);
