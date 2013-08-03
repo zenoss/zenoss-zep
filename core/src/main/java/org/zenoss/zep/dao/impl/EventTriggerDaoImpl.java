@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.protobufs.zep.Zep.Rule;
@@ -26,7 +26,9 @@ import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.EventTriggerDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
+import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -48,13 +50,14 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     private static final Logger logger = LoggerFactory
             .getLogger(EventTriggerDaoImpl.class);
 
-    private final SimpleJdbcTemplate template;
+    private final SimpleJdbcOperations template;
 
     private EventSignalSpoolDao eventSignalSpoolDao;
     private TypeConverter<String> uuidConverter;
 
     public EventTriggerDaoImpl(DataSource dataSource) {
-        this.template = new SimpleJdbcTemplate(dataSource);
+    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
+    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
     }
 
     public void setEventSignalSpoolDao(EventSignalSpoolDao eventSignalSpoolDao) {

@@ -13,7 +13,7 @@ package org.zenoss.zep.dao.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
@@ -24,7 +24,9 @@ import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
+import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
+import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -65,14 +67,15 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     @SuppressWarnings("unused")
     private static Logger logger = LoggerFactory.getLogger(EventSignalSpoolDaoImpl.class);
 
-    private final SimpleJdbcTemplate template;
+    private final SimpleJdbcOperations template;
     private UUIDGenerator uuidGenerator;
     private DatabaseCompatibility databaseCompatibility;
     private TypeConverter<String> uuidConverter;
     private NestedTransactionService nestedTransactionService;
 
     public EventSignalSpoolDaoImpl(DataSource dataSource) {
-        this.template = new SimpleJdbcTemplate(dataSource);
+    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
+    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
     }
 
     public void setUuidGenerator(UUIDGenerator uuidGenerator) {
