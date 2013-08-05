@@ -12,7 +12,7 @@ package org.zenoss.zep.dao.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
@@ -28,7 +28,9 @@ import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
 import org.zenoss.zep.plugins.EventPreCreateContext;
+import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
+import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.util.Collections;
 import java.util.HashMap;
@@ -43,7 +45,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @SuppressWarnings("unused")
     private static Logger logger = LoggerFactory.getLogger(EventArchiveDaoImpl.class);
 
-    private final SimpleJdbcTemplate template;
+    private final SimpleJdbcOperations template;
 
     private EventDaoHelper eventDaoHelper;
 
@@ -59,7 +61,8 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     public EventArchiveDaoImpl(DataSource dataSource, PartitionConfig partitionConfig,
                                DatabaseCompatibility databaseCompatibility) {
-        this.template = new SimpleJdbcTemplate(dataSource);
+    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
+    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
         this.partitionTableConfig = partitionConfig
                 .getConfig(TABLE_EVENT_ARCHIVE);
         this.databaseCompatibility = databaseCompatibility;

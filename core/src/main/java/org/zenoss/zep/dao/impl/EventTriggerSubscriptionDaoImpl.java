@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
@@ -24,7 +24,9 @@ import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
+import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -63,14 +65,15 @@ public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscription
     @SuppressWarnings("unused")
     private static Logger logger = LoggerFactory.getLogger(EventTriggerSubscriptionDaoImpl.class);
 
-    private final SimpleJdbcTemplate template;
+    private final SimpleJdbcOperations template;
     private final SimpleJdbcInsert insert;
     private UUIDGenerator uuidGenerator;
     private TypeConverter<String> uuidConverter;
     private NestedTransactionService nestedTransactionService;
 
     public EventTriggerSubscriptionDaoImpl(DataSource dataSource) {
-        this.template = new SimpleJdbcTemplate(dataSource);
+    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
+    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
         this.insert = new SimpleJdbcInsert(dataSource).withTableName(TABLE_EVENT_TRIGGER_SUBSCRIPTION);
     }
 
