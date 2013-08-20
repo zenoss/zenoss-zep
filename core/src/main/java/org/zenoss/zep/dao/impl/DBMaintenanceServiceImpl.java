@@ -112,41 +112,46 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
             this.tablesToOptimize.add("event_summary");
         }
 
-        logger.debug("Optimizing tables: {}", this.tablesToOptimize);
-        this.template.execute(new ConnectionCallback<Object>() {
-            @Override
-            public Object doInConnection(Connection con) throws SQLException, DataAccessException {
-                Boolean currentAutoCommit = null;
-                Statement statement = null;
-                try {
-                    currentAutoCommit = con.getAutoCommit();
-                    con.setAutoCommit(true);
-                    statement = con.createStatement();
-                    for (String tableToOptimize : tablesToOptimize) {
-                        logger.debug("Optimizing table: {}", tableToOptimize);
-                        final String sql;
-                        switch (dbType) {
-                            case MYSQL:
-                                sql = "OPTIMIZE TABLE " + tableToOptimize;
-                                break;
-                            case POSTGRESQL:
-                                sql = "VACUUM ANALYZE " + tableToOptimize;
-                                break;
-                            default:
-                                throw new IllegalStateException("Unsupported database type: " + dbType);
+        try {
+            logger.debug("Optimizing tables: {}", this.tablesToOptimize);
+            this.template.execute(new ConnectionCallback<Object>() {
+                @Override
+                public Object doInConnection(Connection con) throws SQLException, DataAccessException {
+                    Boolean currentAutoCommit = null;
+                    Statement statement = null;
+                    try {
+                        currentAutoCommit = con.getAutoCommit();
+                        con.setAutoCommit(true);
+                        statement = con.createStatement();
+                        for (String tableToOptimize : tablesToOptimize) {
+                            logger.debug("Optimizing table: {}", tableToOptimize);
+                            final String sql;
+                            switch (dbType) {
+                                case MYSQL:
+                                    sql = "OPTIMIZE TABLE " + tableToOptimize;
+                                    break;
+                                case POSTGRESQL:
+                                    sql = "VACUUM ANALYZE " + tableToOptimize;
+                                    break;
+                                default:
+                                    throw new IllegalStateException("Unsupported database type: " + dbType);
+                            }
+                            statement.execute(sql);
+                            logger.debug("Completed optimizing table: {}", tableToOptimize);
                         }
-                        statement.execute(sql);
-                        logger.debug("Completed optimizing table: {}", tableToOptimize);
+                    } finally {
+                        JdbcUtils.closeStatement(statement);
+                        if (currentAutoCommit != null) {
+                            con.setAutoCommit(currentAutoCommit);
+                        }
                     }
-                } finally {
-                    JdbcUtils.closeStatement(statement);
-                    if (currentAutoCommit != null) {
-                        con.setAutoCommit(currentAutoCommit);
-                    }
+                    return null;
                 }
-                return null;
-            }
-        });
+            });
+        } finally {
+            logger.info("Validating state of event_summary");
+            this.validateEventSummaryState();
+        }
         logger.debug("Completed Optimizing tables: {}", tablesToOptimize);
     }
 
@@ -156,6 +161,7 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
         // pt-online-schema-change failures can lead to triggers that point to a missing table: ZEN-7474
         this.template.update("DROP TRIGGER IF EXISTS pt_osc_zenoss_zep_event_summary_upd");
         this.template.update("DROP TRIGGER IF EXISTS pt_osc_zenoss_zep_event_summary_ins");
+        this.template.update("DROP TRIGGER IF EXISTS pt_osc_zenoss_zep_event_summary_del");
         this.template.update("DROP TABLE IF EXISTS _event_summary_new");
     }
 
