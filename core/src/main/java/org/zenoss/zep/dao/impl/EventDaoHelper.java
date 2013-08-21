@@ -15,7 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
@@ -535,7 +535,7 @@ public class EventDaoHelper {
         return actorBuilder.build();
     }
 
-    public int addNote(String tableName, String uuid, EventNote note, SimpleJdbcTemplate template)
+    public int addNote(String tableName, String uuid, EventNote note, SimpleJdbcOperations template)
             throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         EventNote.Builder builder = EventNote.newBuilder(note);
@@ -573,7 +573,7 @@ public class EventDaoHelper {
         }
     }
 
-    public int updateDetails(String tableName, String uuid, List<EventDetail> details, SimpleJdbcTemplate template)
+    public int updateDetails(String tableName, String uuid, List<EventDetail> details, SimpleJdbcOperations template)
             throws ZepException {
         Map<String, Object> fields = new HashMap<String, Object>();
         fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
@@ -620,7 +620,7 @@ public class EventDaoHelper {
     }
 
     @TransactionalReadOnly
-    public List<EventSummary> listBatch(SimpleJdbcTemplate template, String tableName, String startingUuid,
+    public List<EventSummary> listBatch(SimpleJdbcOperations template, String tableName, String startingUuid,
                                         long maxUpdateTime, int limit)
             throws ZepException {
         final String sql;
