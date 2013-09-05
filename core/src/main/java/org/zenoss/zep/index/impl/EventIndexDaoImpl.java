@@ -855,13 +855,21 @@ public class EventIndexDaoImpl implements EventIndexDao {
         EventStatus status = EventStatus.valueOf(Integer.parseInt(doc.get(FIELD_STATUS)));
         EventSeverity severity = EventSeverity.valueOf(Integer.parseInt(doc.get(FIELD_SEVERITY)));
         boolean isAcknowledged = (status == EventStatus.STATUS_ACKNOWLEDGED);
-        if (hasTagsFilter) {
-            // get the map for each filter and update the count
-            for (String tag : doc.getValues(FIELD_TAGS)) {
-                TagSeverities tagSeverities = tagSeveritiesMap.get(tag);
+
+        // get the map for each filter and update the count
+        for (String tag : doc.getValues(FIELD_TAGS)) {
+            TagSeverities tagSeverities = tagSeveritiesMap.get(tag);
+            if (hasTagsFilter) {
                 if (tagSeverities != null) {
                     tagSeverities.updateSeverityCount(severity, count, isAcknowledged);
                 }
+            }
+            else {
+                if (tagSeverities == null) {
+                    tagSeveritiesMap.put(tag, new TagSeverities(tag));
+                    tagSeverities = tagSeveritiesMap.get(tag);
+                }
+                tagSeverities.updateSeverityCount(severity, count, isAcknowledged);
             }
         }
     }
