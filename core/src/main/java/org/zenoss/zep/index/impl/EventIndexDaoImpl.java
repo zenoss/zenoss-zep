@@ -65,6 +65,8 @@ import org.zenoss.zep.index.IndexedDetailsConfiguration;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -102,13 +104,14 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImpl.class);
 
-    public EventIndexDaoImpl(String name, IndexWriter writer, EventSummaryBaseDao eventSummaryBaseDao)
+    public EventIndexDaoImpl(String name, IndexWriter writer, EventSummaryBaseDao eventSummaryBaseDao, Integer maxClauseCount)
             throws IOException {
         this.name = name;
         this.writer = writer;
         this.indexSearcherCache = new IndexSearcherCache(writer);
         this.eventSummaryBaseDao = eventSummaryBaseDao;
         this.archive = "event_archive".equals(name);
+        BooleanQuery.setMaxClauseCount(maxClauseCount);
     }
 
     public synchronized void shutdown() throws IOException {
@@ -642,48 +645,66 @@ public class EventIndexDaoImpl implements EventIndexDao {
         
         QueryBuilder qb = new QueryBuilder(filter.getOperator());
 
-        qb.addRanges(FIELD_COUNT, filter.getCountRangeList());
-        qb.addWildcardFields(FIELD_CURRENT_USER_NAME, filter.getCurrentUserNameList(), false);
+        try {
+            qb.addRanges(FIELD_COUNT, filter.getCountRangeList());
+            qb.addWildcardFields(FIELD_CURRENT_USER_NAME, filter.getCurrentUserNameList(), false);
 
+            qb.addIdentifierFields(FIELD_ELEMENT_IDENTIFIER, FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED,
+                    filter.getElementIdentifierList(), this.writer.getAnalyzer());
+            qb.addIdentifierFields(FIELD_ELEMENT_TITLE, FIELD_ELEMENT_TITLE_NOT_ANALYZED,
+                    filter.getElementTitleList(), this.writer.getAnalyzer());
 
-        qb.addIdentifierFields(FIELD_ELEMENT_IDENTIFIER, FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED,
-                filter.getElementIdentifierList(), this.writer.getAnalyzer());
-        qb.addIdentifierFields(FIELD_ELEMENT_TITLE, FIELD_ELEMENT_TITLE_NOT_ANALYZED,
-                filter.getElementTitleList(), this.writer.getAnalyzer());
+            qb.addIdentifierFields(FIELD_ELEMENT_SUB_IDENTIFIER, FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED,
+                    filter.getElementSubIdentifierList(), this.writer.getAnalyzer());
+            qb.addIdentifierFields(FIELD_ELEMENT_SUB_TITLE, FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED,
+                    filter.getElementSubTitleList(), this.writer.getAnalyzer());
 
-        qb.addIdentifierFields(FIELD_ELEMENT_SUB_IDENTIFIER, FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED,
-                filter.getElementSubIdentifierList(), this.writer.getAnalyzer());
-        qb.addIdentifierFields(FIELD_ELEMENT_SUB_TITLE, FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED,
-                filter.getElementSubTitleList(), this.writer.getAnalyzer());
+            qb.addWildcardFields(FIELD_FINGERPRINT, filter.getFingerprintList(), false);
+            qb.addFullTextFields(FIELD_SUMMARY, filter.getEventSummaryList(), reader, this.writer.getAnalyzer());
+            qb.addFullTextFields(FIELD_MESSAGE, filter.getMessageList(), reader, this.writer.getAnalyzer());
+            qb.addTimestampRanges(FIELD_FIRST_SEEN_TIME, filter.getFirstSeenList());
+            qb.addTimestampRanges(FIELD_LAST_SEEN_TIME, filter.getLastSeenList());
+            qb.addTimestampRanges(FIELD_STATUS_CHANGE_TIME, filter.getStatusChangeList());
+            qb.addTimestampRanges(FIELD_UPDATE_TIME, filter.getUpdateTimeList());
+            qb.addFieldOfEnumNumbers(FIELD_STATUS, filter.getStatusList());
+            qb.addFieldOfEnumNumbers(FIELD_SEVERITY, filter.getSeverityList());
+            qb.addWildcardFields(FIELD_AGENT, filter.getAgentList(), false);
+            qb.addWildcardFields(FIELD_MONITOR, filter.getMonitorList(), false);
+            qb.addWildcardFields(FIELD_EVENT_KEY, filter.getEventKeyList(), false);
+            qb.addWildcardFields(FIELD_EVENT_CLASS_KEY, filter.getEventClassKeyList(), false);
+            qb.addWildcardFields(FIELD_EVENT_GROUP, filter.getEventGroupList(), false);
 
-        qb.addWildcardFields(FIELD_FINGERPRINT, filter.getFingerprintList(), false);
-        qb.addFullTextFields(FIELD_SUMMARY, filter.getEventSummaryList(), reader, this.writer.getAnalyzer());
-        qb.addFullTextFields(FIELD_MESSAGE, filter.getMessageList(), reader, this.writer.getAnalyzer());
-        qb.addTimestampRanges(FIELD_FIRST_SEEN_TIME, filter.getFirstSeenList());
-        qb.addTimestampRanges(FIELD_LAST_SEEN_TIME, filter.getLastSeenList());
-        qb.addTimestampRanges(FIELD_STATUS_CHANGE_TIME, filter.getStatusChangeList());
-        qb.addTimestampRanges(FIELD_UPDATE_TIME, filter.getUpdateTimeList());
-        qb.addFieldOfEnumNumbers(FIELD_STATUS, filter.getStatusList());
-        qb.addFieldOfEnumNumbers(FIELD_SEVERITY, filter.getSeverityList());
-        qb.addWildcardFields(FIELD_AGENT, filter.getAgentList(), false);
-        qb.addWildcardFields(FIELD_MONITOR, filter.getMonitorList(), false);
-        qb.addWildcardFields(FIELD_EVENT_KEY, filter.getEventKeyList(), false);
-        qb.addWildcardFields(FIELD_EVENT_CLASS_KEY, filter.getEventClassKeyList(), false);
-        qb.addWildcardFields(FIELD_EVENT_GROUP, filter.getEventGroupList(), false);
+            qb.addPathFields(FIELD_EVENT_CLASS, FIELD_EVENT_CLASS_NOT_ANALYZED, filter.getEventClassList(),
+                    reader);
 
-        qb.addPathFields(FIELD_EVENT_CLASS, FIELD_EVENT_CLASS_NOT_ANALYZED, filter.getEventClassList(),
-                reader);
+            for (EventTagFilter tagFilter : filter.getTagFilterList()) {
+                qb.addField(FIELD_TAGS, tagFilter.getTagUuidsList(), tagFilter.getOp());
+            }
 
-        for (EventTagFilter tagFilter : filter.getTagFilterList()) {
-            qb.addField(FIELD_TAGS, tagFilter.getTagUuidsList(), tagFilter.getOp());
-        }
+            qb.addWildcardFields(FIELD_UUID, filter.getUuidList(), true);
 
-        qb.addWildcardFields(FIELD_UUID, filter.getUuidList(), true);
+            qb.addDetails(filter.getDetailsList(), this.indexedDetailsConfiguration.getEventDetailItemsByName(), reader);
 
-        qb.addDetails(filter.getDetailsList(), this.indexedDetailsConfiguration.getEventDetailItemsByName(), reader);
-        
-        for (EventFilter subfilter : filter.getSubfilterList()) {
-            qb.addSubquery(buildQueryFromFilter(reader, subfilter));
+            for (EventFilter subfilter : filter.getSubfilterList()) {
+                qb.addSubquery(buildQueryFromFilter(reader, subfilter));
+            }
+        } catch (BooleanQuery.TooManyClauses tooManyClausesEx) {
+            String logErrorMessage = String.format("Too many search terms (%d) in filter " +
+                    "(currently limited to %d).  Limit is controlled by the " +
+                    "'zep.query.clause_limit' parameter in the zeneventserver configuration file, " +
+                    "defaulting to 1024.  Use caution when raising this number, as it will potentially " +
+                    "have a performance impact on zeneventserver.", filter.getEventClassCount(),
+                    BooleanQuery.getMaxClauseCount());
+            String userErrorMessage = "Unable to complete event search - please refer to zeneventserver log for " +
+                    "more detailed information.";
+            String eventClassList = Arrays.toString(filter.getEventClassList().toArray());
+            StringWriter tooManyClausesExStack = new StringWriter();
+            tooManyClausesEx.printStackTrace(new PrintWriter(tooManyClausesExStack));
+
+            // Leave a longer message for the log, and give the front end something short + sweet
+            logger.error(logErrorMessage + "\nEvent classes in filter:\n" + eventClassList + "\n" +
+                    tooManyClausesExStack.toString());
+            throw new ZepException(userErrorMessage);
         }
 
         return qb.build();
