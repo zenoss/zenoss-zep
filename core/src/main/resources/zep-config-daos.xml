@@ -157,6 +157,7 @@
         <constructor-arg value="event_summary"/>
         <constructor-arg ref="luceneSummaryIndexWriter"/>
         <constructor-arg ref="eventSummaryDao"/>
+        <constructor-arg value="${zep.query.clause_limit:1024}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
     </bean>
@@ -184,6 +185,7 @@
         <constructor-arg value="event_archive"/>
         <constructor-arg ref="luceneArchiveIndexWriter"/>
         <constructor-arg ref="eventArchiveDao"/>
+        <constructor-arg value="${zep.query.clause_limit:1024}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
     </bean>
