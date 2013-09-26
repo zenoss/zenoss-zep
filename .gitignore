@@ -17,3 +17,7 @@ log
 
 install
 zep.log
+
+.checkedenv
+.checkedtools
+.checkedtools_version_brand
