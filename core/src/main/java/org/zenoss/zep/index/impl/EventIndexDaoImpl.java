@@ -162,7 +162,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void stage(EventSummary event) throws ZepException {
-        Document doc = EventIndexMapper.fromEventSummary(event,
+        Document doc = EventIndexMapper.fromEventSummary(indexedDetailsConfiguration, event,
                 indexedDetailsConfiguration.getEventDetailItemsByName(), this.archive);
         try {
             this.writer.updateDocument(new Term(FIELD_UUID, event.getUuid()), doc);
