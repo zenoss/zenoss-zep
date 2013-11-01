@@ -14,56 +14,54 @@
 # Beware of trailing spaces.
 # Don't let your editor turn tabs into spaces or vice versa.
 #============================================================================
-COMPONENT             = zep
-COMPONENT_PREFIX      = install
-COMPONENT_SYSCONFDIR  = $(COMPONENT_PREFIX)/etc
-_COMPONENT            = $(strip $(COMPONENT))
-#SUPERVISOR_CONF       = $(_COMPONENT)_supervisor.conf
-#SUPERVISORD_DIR       = $(SYSCONFDIR)/supervisor
 REQUIRES_JDK          = 1
-#COMPONENT_MAVEN_OPTS = -DskipTests=true
-SRC_DIR               = core dist webapp
-POM                   = pom.xml
+srcdir                = core dist webapp
 
 # ZEP has several child projects, each of which contributes to this build
 COMPONENT_WEBAPP      = zep-webapp
 COMPONENT_DIST        = zep-dist
 #
-# For zapp components, keep BUILD_DIR aligned with src/main/assembly/zapp.xml
+# For zapp components, keep blddir aligned with src/main/assembly/zapp.xml
 #
-BUILD_DIR             = target
+blddir                = target
 
 #============================================================================
 # Hide common build macros, idioms, and default rules in a separate file.
 #============================================================================
-ifeq "$(wildcard zenmagic.mk)" ""
-    $(error "Makefile for $(_COMPONENT) is unable to include zenmagic.mk.  Please investigate")
-else
-    include zenmagic.mk
-endif
 
-# We need xpath to parse the pom
-XPATH = xpath
-CHECK_TOOLS += $(XPATH)
+#---------------------------------------------------------------------------#
+# Pull in zenmagic.mk
+#---------------------------------------------------------------------------#
+# Locate and include common build idioms tucked away in 'zenmagic.mk'
+# This holds convenience macros and default target implementations.
+#
+# Generate a list of directories starting here and going up the tree where we
+# should look for an instance of zenmagic.mk to include.
+#
+#     ./zenmagic.mk ../zenmagic.mk ../../zenmagic.mk ../../../zenmagic.mk
+#---------------------------------------------------------------------------#
+NEAREST_ZENMAGIC_MK := $(word 1,$(wildcard ./zenmagic.mk $(shell for slash in $$(echo $(abspath .) | sed -e "s|.*\(/obj/\)\(.*\)|\1\2|g" -e "s|.*\(/src/\)\(.*\)|\1\2|g" | sed -e "s|[^/]||g" -e "s|/|/ |g"); do string=$${string}../;echo $${string}zenmagic.mk; done | xargs echo)))
+
+ifeq "$(NEAREST_ZENMAGIC_MK)" ""
+    $(warning "Missing zenmagic.mk needed by the $(COMPONENT)-component makefile.")
+    $(warning "Unable to find our file of build idioms in the current or parent directories.")
+    $(error   "A fully populated src tree usually resolves that.")
+else
+    #ifneq "$(MAKECMDGOALS)" ""
+    #    $(warning "Including $(NEAREST_ZENMAGIC_MK) $(MAKECMDGOALS)")
+    #endif
+    include $(NEAREST_ZENMAGIC_MK)
+endif
 
 # List of source files needed to build this component.
 COMPONENT_SRC ?= $(DFLT_COMPONENT_SRC)
-
-# Version of ZEP to build
-VERSION_PATH="//project/version/text()"
-ifeq "$(DISTRO)" "Darwin"
-    XPATHCMD = $(XPATH) $(POM) $(VERSION_PATH)
-else
-    XPATHCMD = $(XPATH) -e $(VERSION_PATH) $(POM)
-endif
-COMPONENT_VERSION ?= $(shell $(XPATHCMD) 2>/dev/null)
+COMPONENT_VERSION ?= $(DFLT_COMPONENT_VERSION)
 
 # Name of jar we're building: my-component-x.y.z.jar
 COMPONENT_JAR ?= "$(COMPONENT_WEBAPP)-$(COMPONENT_VERSION).war"
 
 # Specify install-related directories to create as part of the install target.
-# NB: Intentional usage of _PREFIX and PREFIX here to avoid circular dependency.
-INSTALL_MKDIRS = $(_DESTDIR)$(_PREFIX) $(_DESTDIR)$(PREFIX)/log $(_DESTDIR)$(PREFIX)/bin $(_DESTDIR)$(PREFIX)/etc/zeneventserver $(_DESTDIR)$(PREFIX)/share $(_DESTDIR)$(PREFIX)/var/run $(_DESTDIR)$(PREFIX)/webapps
+INSTALL_MKDIRS = $(_DESTDIR)$(prefix) $(_DESTDIR)$(prefix)/log $(_DESTDIR)$(prefix)/bin $(_DESTDIR)$(prefix)/etc/zeneventserver $(_DESTDIR)$(prefix)/share $(_DESTDIR)$(prefix)/var/run $(_DESTDIR)$(prefix)/webapps
 
 ifeq "$(COMPONENT_JAR)" ""
     $(call echol,"Please investigate the COMPONENT_JAR macro assignment.")
@@ -72,8 +70,8 @@ else
     # Name of binary tar we're building: my-component-x.y.z.tar.gz
     COMPONENT_TAR = $(COMPONENT_DIST)-$(COMPONENT_VERSION).tar.gz
 endif
-TARGET_JAR := webapp/$(BUILD_DIR)/$(COMPONENT_JAR)
-TARGET_TAR := dist/$(BUILD_DIR)/$(COMPONENT_TAR)
+TARGET_JAR := webapp/$(blddir)/$(COMPONENT_JAR)
+TARGET_TAR := dist/$(blddir)/$(COMPONENT_TAR)
 
 #============================================================================
 # Subset of standard build targets our makefiles should implement.  
@@ -108,9 +106,9 @@ install: | $(INSTALL_MKDIRS)
 		$(call echol,"$(LINE)") ;\
 		exit 1 ;\
 	fi 
-	$(call cmd,UNTAR,$(abspath $(TARGET_TAR)),$(_DESTDIR)$(PREFIX))
+	$(call cmd,UNTAR,$(abspath $(TARGET_TAR)),$(_DESTDIR)$(prefix))
 	@$(call echol,$(LINE))
-	@$(call echol,"$(_COMPONENT) installed to $(_DESTDIR)$(PREFIX)")
+	@$(call echol,"$(_COMPONENT) installed to $(_DESTDIR)$(prefix)")
 
 devinstall: dev% : %
 	@$(call echol,"Add logic to the $@ rule if you want it to behave differently than the $< rule.")
