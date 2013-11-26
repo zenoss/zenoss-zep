@@ -15,7 +15,7 @@
 # Don't let your editor turn tabs into spaces or vice versa.
 #============================================================================
 REQUIRES_JDK          = 1
-srcdir                = core dist webapp
+pkgsrcdir             = core dist webapp
 
 # ZEP has several child projects, each of which contributes to this build
 COMPONENT_WEBAPP      = zep-webapp
@@ -40,28 +40,18 @@ blddir                = target
 #
 #     ./zenmagic.mk ../zenmagic.mk ../../zenmagic.mk ../../../zenmagic.mk
 #---------------------------------------------------------------------------#
-NEAREST_ZENMAGIC_MK := $(word 1,$(wildcard ./zenmagic.mk $(shell for slash in $$(echo $(abspath .) | sed -e "s|.*\(/obj/\)\(.*\)|\1\2|g" -e "s|.*\(/src/\)\(.*\)|\1\2|g" | sed -e "s|[^/]||g" -e "s|/|/ |g"); do string=$${string}../;echo $${string}zenmagic.mk; done | xargs echo)))
+NEAREST_ZENMAGIC_MK := $(word 1,$(wildcard ./zenmagic.mk $(shell for slash in $$(echo $(abspath .) | sed -e "s|.*\(/obj/\)\(.*\)|\1\2|g" | sed -e "s|[^/]||g" -e "s|/|/ |g"); do string=$${string}../;echo $${string}zenmagic.mk; done | xargs echo)))
 
 ifeq "$(NEAREST_ZENMAGIC_MK)" ""
     $(warning "Missing zenmagic.mk needed by the $(COMPONENT)-component makefile.")
     $(warning "Unable to find our file of build idioms in the current or parent directories.")
     $(error   "A fully populated src tree usually resolves that.")
 else
-    #ifneq "$(MAKECMDGOALS)" ""
-    #    $(warning "Including $(NEAREST_ZENMAGIC_MK) $(MAKECMDGOALS)")
-    #endif
     include $(NEAREST_ZENMAGIC_MK)
 endif
 
-# List of source files needed to build this component.
-COMPONENT_SRC ?= $(DFLT_COMPONENT_SRC)
-COMPONENT_VERSION ?= $(DFLT_COMPONENT_VERSION)
-
-# Name of jar we're building: my-component-x.y.z.jar
-COMPONENT_JAR ?= "$(COMPONENT_WEBAPP)-$(COMPONENT_VERSION).war"
-
 # Specify install-related directories to create as part of the install target.
-INSTALL_MKDIRS = $(_DESTDIR)$(prefix) $(_DESTDIR)$(prefix)/log $(_DESTDIR)$(prefix)/bin $(_DESTDIR)$(prefix)/etc/zeneventserver $(_DESTDIR)$(prefix)/share $(_DESTDIR)$(prefix)/var/run $(_DESTDIR)$(prefix)/webapps
+INSTALL_MKDIRS = $(_DESTDIR)$(prefix) $(_DESTDIR)$(prefix)/log $(_DESTDIR)$(bindir) $(_DESTDIR)$(pkgconfdir)/zeneventserver $(_DESTDIR)$(prefix)/share $(_DESTDIR)$(prefix)/var/run $(_DESTDIR)$(prefix)/webapps
 
 ifeq "$(COMPONENT_JAR)" ""
     $(call echol,"Please investigate the COMPONENT_JAR macro assignment.")
@@ -78,14 +68,14 @@ TARGET_TAR := dist/$(blddir)/$(COMPONENT_TAR)
 #
 # See: http://www.gnu.org/prep/standards/html_node/Standard-Targets.html#Standard-Targets
 #============================================================================
-.PHONY: all build clean devinstall distclean install help mrclean uninstall
+.PHONY: all build clean devinstall distclean install installhere help mrclean uninstall uninstallhere
 all build: $(TARGET_TAR)
 
 # Targets to build the binary *.tar.gz.
 ifeq "$(_TRUST_MVN_REBUILD)" "yes"
-$(TARGET_TAR): checkenv
+$(TARGET_TAR):
 else
-$(TARGET_TAR): $(CHECKED_ENV) $(COMPONENT_SRC)
+$(TARGET_TAR): $(COMPONENT_SRC)
 endif
 	$(call cmd,MVN,package,$@)
 	@$(call echol,$(LINE))
@@ -96,7 +86,7 @@ $(INSTALL_MKDIRS):
 
 # NB: Use the "|" to indicate an existence-only dep rather than a modtime dep.
 #     This rule should not trigger rebuilding of the component we're installing.
-install: | $(INSTALL_MKDIRS) 
+install installhere: | $(INSTALL_MKDIRS) 
 	@if [ ! -f "$(TARGET_TAR)" ];then \
         $(call echol) ;\
 		$(call echol,"Error: Missing $(TARGET_TAR)") ;\
@@ -116,7 +106,11 @@ devinstall: dev% : %
 uninstall:
 	@$(call echol,"Uninstall isn't supported for ZEP.")
 
-clean: dflt_component_clean
+uninstallhere:
+	$(call cmd,RMDIR,$(_DESTDIR))
+
+clean:
+	$(call cmd,MVN,clean)
 
 mrclean distclean: dflt_component_distclean
 
