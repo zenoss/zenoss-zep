@@ -1012,7 +1012,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 fields); 
 
         String insertSql = String.format("INSERT INTO event_archive (%s) SELECT %s FROM event_summary" +
-                " WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
+                " WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids) ON DUPLICATE KEY UPDATE summary=event_summary.summary",
                 StringUtils.collectionToCommaDelimitedString(this.archiveColumnNames), selectColumns);
 
         this.template.update(insertSql, fields);
