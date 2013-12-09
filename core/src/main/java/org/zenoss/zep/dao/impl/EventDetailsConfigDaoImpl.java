@@ -12,7 +12,7 @@ package org.zenoss.zep.dao.impl;
 
 
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem.EventDetailType;
 import org.zenoss.zep.ZepConstants;
@@ -21,7 +21,9 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
+import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
+import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -32,13 +34,14 @@ import java.util.Map;
 
 public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
 
-    private final SimpleJdbcTemplate template;
+    private final SimpleJdbcOperations template;
     private NestedTransactionService nestedTransactionService;
     private static final String COLUMN_DETAIL_ITEM_NAME = "detail_item_name";
     private static final String COLUMN_PROTO_JSON = "proto_json";
 
     public EventDetailsConfigDaoImpl(DataSource ds) {
-        this.template = new SimpleJdbcTemplate(ds);
+    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
+    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
     }
 
     public void setNestedTransactionService(NestedTransactionService nestedTransactionService) {

@@ -11,3 +11,13 @@ target
 var
 *.orig
 log
+
+.build
+.extracted
+
+install
+zep.log
+
+.checkedenv
+.checkedtools
+.checkedtools_version_brand

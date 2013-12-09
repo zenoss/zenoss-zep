@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.protobufs.zep.Zep.ZepConfig.Builder;
@@ -31,7 +31,9 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
+import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
+import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -50,7 +52,7 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 public class ConfigDaoImpl implements ConfigDao {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigDao.class);
-    private final SimpleJdbcTemplate template;
+    private final SimpleJdbcOperations template;
     private Messages messages;
     private static final int MAX_PARTITIONS = 1000;
     private final int maxEventArchivePurgeIntervalDays;
@@ -63,7 +65,8 @@ public class ConfigDaoImpl implements ConfigDao {
     private static final String COLUMN_CONFIG_VALUE = "config_value";
 
     public ConfigDaoImpl(DataSource ds, PartitionConfig partitionConfig) {
-        this.template = new SimpleJdbcTemplate(ds);
+    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(),
+    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
 
         this.maxEventArchivePurgeIntervalDays = calculateMaximumDays(partitionConfig.getConfig(TABLE_EVENT_ARCHIVE));
         logger.info("Maximum archive days: {}", maxEventArchivePurgeIntervalDays);

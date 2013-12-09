@@ -11,7 +11,7 @@
 package org.zenoss.zep.dao.impl;
 
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepInstance;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
@@ -21,7 +21,9 @@ import org.zenoss.zep.dao.IndexMetadataDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
+import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -35,7 +37,7 @@ import java.util.Map;
 public class IndexMetadataDaoImpl implements IndexMetadataDao {
 
     //private static final Logger logger = LoggerFactory.getLogger(IndexMetadataDaoImpl.class);
-    private final SimpleJdbcTemplate template;
+    private final SimpleJdbcOperations template;
     private final String zepInstanceId;
 
     private static final String COLUMN_ZEP_INSTANCE = "zep_instance";
@@ -47,7 +49,8 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
     private NestedTransactionService nestedTransactionService;
 
     public IndexMetadataDaoImpl(DataSource ds, ZepInstance instance) {
-        this.template = new SimpleJdbcTemplate(ds);
+    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
+    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
         this.zepInstanceId = instance.getId();
     }
 

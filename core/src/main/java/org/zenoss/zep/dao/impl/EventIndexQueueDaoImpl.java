@@ -13,7 +13,7 @@ package org.zenoss.zep.dao.impl;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
@@ -23,7 +23,9 @@ import org.zenoss.zep.dao.EventIndexQueueDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.events.EventIndexQueueSizeEvent;
+import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
+import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -39,7 +41,7 @@ import java.util.Set;
  */
 public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEventPublisherAware {
     
-    private final SimpleJdbcTemplate template;
+    private final SimpleJdbcOperations template;
     private final String queueTableName;
     private final String tableName;
     private final EventSummaryRowMapper rowMapper;
@@ -58,7 +60,8 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
 
     public EventIndexQueueDaoImpl(DataSource ds, boolean isArchive, EventDaoHelper daoHelper,
                                   DatabaseCompatibility databaseCompatibility) {
-        this.template = new SimpleJdbcTemplate(ds);
+    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
+    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
         this.isArchive = isArchive;
         if (isArchive) {
             this.tableName = EventConstants.TABLE_EVENT_ARCHIVE;

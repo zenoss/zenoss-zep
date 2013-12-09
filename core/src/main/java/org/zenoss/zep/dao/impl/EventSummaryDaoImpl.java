@@ -17,7 +17,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.RowMapperResultSetExtractor;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.springframework.jdbc.support.MetaDataAccessException;
 import org.springframework.transaction.support.TransactionSynchronizationAdapter;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -49,7 +49,9 @@ import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
 import org.zenoss.zep.plugins.EventPreCreateContext;
+import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
+import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -74,7 +76,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private final DataSource dataSource;
 
-    private final SimpleJdbcTemplate template;
+    private final SimpleJdbcOperations template;
 
     private final SimpleJdbcInsert insert;
 
@@ -96,7 +98,8 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     public EventSummaryDaoImpl(DataSource dataSource) throws MetaDataAccessException {
         this.dataSource = dataSource;
-        this.template = new SimpleJdbcTemplate(dataSource);
+        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
+        		new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
         this.insert = new SimpleJdbcInsert(dataSource).withTableName(TABLE_EVENT_SUMMARY);
     }
 
@@ -1009,7 +1012,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 fields); 
 
         String insertSql = String.format("INSERT INTO event_archive (%s) SELECT %s FROM event_summary" +
-                " WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
+                " WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids) ON DUPLICATE KEY UPDATE summary=event_summary.summary",
                 StringUtils.collectionToCommaDelimitedString(this.archiveColumnNames), selectColumns);
 
         this.template.update(insertSql, fields);
