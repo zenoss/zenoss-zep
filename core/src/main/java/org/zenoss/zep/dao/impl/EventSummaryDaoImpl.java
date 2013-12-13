@@ -953,9 +953,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @Override
     @TransactionalRollbackAllExceptions
     public int reopen(List<String> uuids, String userUuid, String userName) throws ZepException {
-        /* CLOSED | CLEARED | AGED | ACKNOWLEDGED -> NEW */
+        /* CLOSED | CLEARED | AGED | ACKNOWLEDGED | SUPPRESSED -> NEW */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_CLOSED, EventStatus.STATUS_CLEARED,
-                EventStatus.STATUS_AGED, EventStatus.STATUS_ACKNOWLEDGED);
+                EventStatus.STATUS_AGED, EventStatus.STATUS_ACKNOWLEDGED, EventStatus.STATUS_SUPPRESSED);
         EventSummaryUpdateFields userfields = new EventSummaryUpdateFields();
         userfields.setCurrentUserName(userName);
         userfields.setCurrentUserUuid(userUuid);
