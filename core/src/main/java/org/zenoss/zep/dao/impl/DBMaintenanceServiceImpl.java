@@ -108,8 +108,15 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
             } else {
                 logger.error("External tool not available. Table: " + tableToOptimize + " will not be optimized.");
             }
+
+            if (this.tablesToOptimize.contains(tableToOptimize)) {
+                this.tablesToOptimize.remove(tableToOptimize);
+            }
         } else {
-            this.tablesToOptimize.add("event_summary");
+            String tableToOptimize = "event_summary";
+            if (! this.tablesToOptimize.contains(tableToOptimize)) {
+               this.tablesToOptimize.add(tableToOptimize);
+            }
         }
 
         try {
