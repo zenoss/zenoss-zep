@@ -182,10 +182,9 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>${version.mysql}</version>
-            <type>jar</type>
+            <groupId>org.jumpmind.symmetric.jdbc</groupId>
+            <artifactId>mariadb-java-client</artifactId>
+            <version>1.1.1</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
