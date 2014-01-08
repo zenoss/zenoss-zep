@@ -123,6 +123,8 @@
         <property name="databaseCompatibility" ref="databaseCompatibility"/>
         <constructor-arg index="1" ref="globalConf" />
         <constructor-arg index="2" ref="zepInstance" />
+        <property name="eventPublisher" ref="eventPublisher" />
+        <property name="uuidGenerator" ref="uuidGenerator"/>
     </bean>
     <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
