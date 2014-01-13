@@ -46,7 +46,7 @@
         <dependency>
             <groupId>org.zenoss</groupId>
             <artifactId>amqp-api</artifactId>
-            <version>${zenoss-utils.version}</version>
+            <version>${zenoss-protocols.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
