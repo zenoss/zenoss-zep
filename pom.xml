@@ -31,6 +31,8 @@
         <version.slf4j>1.6.1</version.slf4j>
         <version.spring>3.0.5.RELEASE</version.spring>
         <version.tomcat-jdbc>7.0.27</version.tomcat-jdbc>
+        <zenoss-utils.version>2.0.0</zenoss-utils.version>
+        <zenoss-protocols.version>2.0.1</zenoss-protocols.version>
     </properties>
     <profiles>
         <!-- Disable the integration tests if we haven't specified a database type -->

@@ -39,21 +39,21 @@
         <dependency>
             <groupId>org.zenoss</groupId>
             <artifactId>zenoss-utils</artifactId>
-            <version>${project.version}</version>
+            <version>${zenoss-utils.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.zenoss</groupId>
             <artifactId>amqp-api</artifactId>
-            <version>${project.version}</version>
+            <version>${zenoss-protocols.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.zenoss</groupId>
             <artifactId>protobufs</artifactId>
-            <version>${project.version}</version>
+            <version>${zenoss-protocols.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
