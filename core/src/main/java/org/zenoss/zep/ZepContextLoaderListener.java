@@ -13,9 +13,7 @@ package org.zenoss.zep;
 import org.jboss.resteasy.plugins.spring.SpringContextLoaderListener;
 
 import javax.servlet.ServletContextEvent;
-import java.lang.System;
 import java.lang.Runtime;
-import java.lang.Thread;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +35,9 @@ public class ZepContextLoaderListener extends SpringContextLoaderListener {
             logger.debug("called supercontextInitialized");
         } catch (Throwable T) {
             logger.error("Could not initialize context, shutting down");
+            if (logger.isDebugEnabled()) {
+                T.printStackTrace();
+            }
             try {
                 // get our pid, send SIGKILL
                 Process p = Runtime.getRuntime().exec(new String[]{"bash", "-c", "zeneventserver status | awk -F= '{ print $2 }' | xargs kill -9"});
