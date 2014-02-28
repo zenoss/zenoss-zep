@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010-2011, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -15,7 +15,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.ApplicationEvent;
 import org.springframework.context.ApplicationListener;
+import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.dao.TransientDataAccessException;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.zenoss.amqp.AmqpConnectionManager;
@@ -34,9 +36,7 @@ import org.zenoss.zep.dao.EventStoreDao;
 import org.zenoss.zep.dao.EventTimeDao;
 import org.zenoss.zep.dao.Purgable;
 import org.zenoss.zep.dao.impl.DaoUtils;
-import org.zenoss.zep.events.PluginServiceStartedEvent;
 import org.zenoss.zep.events.ZepConfigUpdatedEvent;
-import org.zenoss.zep.events.ZepEvent;
 import org.zenoss.zep.index.EventIndexRebuilder;
 import org.zenoss.zep.index.EventIndexer;
 
@@ -52,12 +52,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Represents core application logic for ZEP, including the scheduled aging and
  * purging of events.
  */
-public class Application implements ApplicationContextAware, ApplicationListener<ZepEvent> {
+public class Application implements ApplicationContextAware, ApplicationListener<ApplicationEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
@@ -166,27 +167,56 @@ public class Application implements ApplicationContextAware, ApplicationListener
         this.applicationContext = applicationContext;
     }
 
-    private void init() throws ZepException {
+
+    private final AtomicBoolean appInit = new AtomicBoolean(false);
+
+    private void init() {
+        if (!appInit.compareAndSet(false, true)) {
+            logger.info("ZEP already initialized");
+            return;
+        }
+
         logger.info("Initializing ZEP");
-        this.config = configDao.getConfig();
-        
+        int tries = 0;
+        long sleep = 10;
+        boolean done = false;
+        try {
+            while (tries < 10 || !done) {
+                tries++;
+                try {
+                    this.config = configDao.getConfig();
+                    done = true;
+                } catch (Exception e) {
+                    logger.warn("Could not get config dao", e.getMessage());
+                    Thread.sleep(Math.max(sleep, 10));
+                    sleep = sleep * 2;
+                }
+            }
+            if (!done) {
+                logger.error("Could not start ZEP");
+            }
+        //TODO publish ZepConfigUpdatedEvent here
         /*
          * We must initialize partitions first to ensure events have a partition
          * where they can be created before we start processing the queue. This
          * init method is run before the event processor starts due to a hard
          * dependency in the Spring config on this.
          */
-        initializePartitions();
-        this.eventSummaryRebuilder.init();
-        this.eventArchiveRebuilder.init();
-        startEventSummaryAging();
-        startEventSummaryArchiving();
-        startEventArchivePurging();
-        startEventTimePurging();
-        startDbMaintenance();
-        startHeartbeatProcessing();
-        startQueueListeners();
-        logger.info("Completed ZEP initialization");
+            this.pluginService.initializePlugins();
+            initializePartitions();
+            this.eventSummaryRebuilder.init();
+            this.eventArchiveRebuilder.init();
+            startEventSummaryAging();
+            startEventSummaryArchiving();
+            startEventArchivePurging();
+            startEventTimePurging();
+            startDbMaintenance();
+            startHeartbeatProcessing();
+            startQueueListeners();
+            logger.info("Completed ZEP initialization");
+        } catch (Exception e) {
+            logger.error("Could not start ZEP", e);
+        }
     }
 
     private static void stopExecutor(ExecutorService executorService) {
@@ -312,7 +342,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
             logger.info("Event archiving configuration not changed.");
             return;
         }
-        
+
         logger.info("Validating that event_summary table is in a good state");
         try {
             dbMaintenanceService.validateEventSummaryState();
@@ -463,8 +493,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
         this.queueListeners.clear();
     }
 
-    @Override
-    public void onApplicationEvent(ZepEvent event) {
+    public void onApplicationEvent(ApplicationEvent event) {
+
         if (event instanceof ZepConfigUpdatedEvent) {
             ZepConfigUpdatedEvent configUpdatedEvent = (ZepConfigUpdatedEvent) event;
             this.config = configUpdatedEvent.getConfig();
@@ -474,14 +504,8 @@ public class Application implements ApplicationContextAware, ApplicationListener
             startEventArchivePurging();
             startEventTimePurging();
             this.oldConfig = config;
-        }
-        else if (event instanceof PluginServiceStartedEvent) {
-            try {
-                init();
-            } catch (ZepException e) {
-                logger.error("Failed to initialize ZEP", e);
-                throw new RuntimeException(e.getLocalizedMessage(), e);
-            }
+        } else if (event instanceof ContextRefreshedEvent) {
+            this.init();
         }
     }
 

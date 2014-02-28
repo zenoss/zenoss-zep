@@ -54,6 +54,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     private PluginService pluginService;
     private volatile int limit;
     private volatile long intervalMilliseconds;
+    private  ConfigDao configDao;
 
     public EventIndexerImpl(EventIndexDao indexDao) {
         this.indexDao = indexDao;
@@ -77,16 +78,17 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
         }
     }
 
-    public void setConfigDao(final ConfigDao configDao) throws ZepException {
-        ZepConfig zepConfig;
-        try {
-            zepConfig = configDao.getConfig();
-        } catch (ZepException e) {
-            logger.warn("Failed to load configuration", e);
-            zepConfig = ZepConfig.getDefaultInstance();
-        }
-        updateIndexConfig(zepConfig);
-    }
+//    public void setConfigDao(final ConfigDao configDao) throws ZepException {
+//        this.configDao = configDao;
+//        ZepConfig zepConfig;
+//        try {
+//            zepConfig = configDao.getConfig();
+//        } catch (ZepException e) {
+//            logger.warn("Failed to load configuration", e);
+//            zepConfig = ZepConfig.getDefaultInstance();
+//        }
+//        updateIndexConfig(zepConfig);
+//    }
 
     @Override
     public void onApplicationEvent(ZepConfigUpdatedEvent event) {
@@ -95,8 +97,9 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     }
 
     @Override
-    public synchronized void start() throws InterruptedException {
+    public synchronized void start(ZepConfig config) throws InterruptedException {
         stop();
+        this.updateIndexConfig(config);
         this.shutdown = false;
         this.indexFuture = this.executorService.submit(new ThreadRenamingRunnable(new Runnable() {
             @Override

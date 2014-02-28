@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010-2013, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -14,25 +14,27 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationListener;
-import org.springframework.data.redis.RedisConnectionFailureException;
 import org.zenoss.protobufs.zep.Zep;
-import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.Event;
-import org.zenoss.zep.*;
+import org.zenoss.protobufs.zep.Zep.EventSeverity;
+import org.zenoss.zep.EventPublisher;
+import org.zenoss.zep.UUIDGenerator;
+import org.zenoss.zep.ZepException;
+import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.FlapTrackerDao;
 import org.zenoss.zep.dao.impl.EventDaoUtils;
-import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.events.ZepConfigUpdatedEvent;
 import org.zenoss.zep.events.ZepEvent;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.plugins.EventPreCreatePlugin;
+
 import java.util.Map;
 
 /**
  * Summary:
  * This plugin runs before each event is processed and detects if the
  * device emitting the event is currently in a state of flapping.
- *
+ * <p/>
  * Glossary:
  * 1. Detection - a set of events, as identified by the clear id, is
  * opened and cleared several times in a given time interval.
@@ -42,15 +44,15 @@ import java.util.Map;
  * less than error severity to an error or greater severity.
  * 4. Clear Id - This is the clear fingerprint hash, it is how I tie a set of events
  * together.
- * 
+ * <p/>
  * Implementation:
  * Each time an event is indexed we will add it
  * to a FlapTracker that has the following properties:
- * 
+ * <p/>
  * key: event clear id
  * value: Object - last status for the clear id
  * - list of timestamps for state transitions (or flaps)
- * 
+ * <p/>
  * By the list of timestamps for state transitions we mean that every
  * time we get an event with a matching clearid and a severity greater
  * than SeverityThreshold and the previous severity was less than SeverityThreshold the
@@ -58,7 +60,7 @@ import java.util.Map;
  * severity of the event the event set will either be in a "good state"
  * (e.g. below warning) or a "bad state" (e.g. warning or above). We need to keep
  * track of each time the event set goes from "bad" to "good".
- * 
+ * <p/>
  * If the length of the list of timestamps exceeds a configurable length in
  * a given interval we can defined the events for that clear id to be
  * flapping. Any timestamps that fall outside of the given interval will
@@ -68,14 +70,14 @@ import java.util.Map;
  * of flapping.  There will not be a separate "unflapping" event. When an
  * flapping event is sent we will clear the list of transitions. This is
  * so we do not repeatedly send flapping events.
- * 
+ * <p/>
  * Example:
  * To illustrate how this works here is an example series of events
- * 
- * 
+ * <p/>
+ * <p/>
  * This is assuming we need 3 "bad" to "good" state transitions to qualify as flapping. Our time interval
  * is 8 seconds.
- * 
+ * <p/>
  * ClearId: "cl1", severity: 0, timestamp: 1
  * ClearId: "cl1", severity: 0, timestamp: 2
  * ClearId: "cl1", severity: 4, timestamp: 3  # flap 1
@@ -88,57 +90,57 @@ import java.util.Map;
  * ClearId: "cl1", severity: 4, timestamp: 10 # flap 3 (alert sent)
  * ClearId: "cl1", severity: 0, timestamp: 11
  * ClearId: "cl1", severity: 5, timestamp: 12 # flap 4
- * 
+ * <p/>
  * The hashmap where we keep track of the flapping would look like this after each event:
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 0, timestamp: 1
  * HashMap => {"cl1": {lastseverity:0,
  * transitions: []}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 0, timestamp: 2
  * HashMap => {"cl1": {lastseverity:0,
  * transitions: []}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 4, timestamp: 3  # flap 1
  * HashMap => {"cl1": {lastseverity:4,
  * transitions: [3]}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 4, timestamp: 4
  * HashMap => {"cl1": {lastseverity:4,
  * transitions: [3]}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 4, timestamp: 5
  * HashMap => {"cl1": {lastseverity:4,
  * transitions: [3]}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 0, timestamp: 6
  * HashMap => {"cl1": {lastseverity:0,
  * transitions: [3]}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 5, timestamp: 7  # flap 2
  * HashMap => {"cl1": {lastseverity:5,
  * transitions: [3, 7]}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 5, timestamp: 8
  * HashMap => {"cl1": {lastseverity:5,
  * transitions: [3, 7]}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 0, timestamp: 9
  * HashMap => {"cl1": {lastseverity:0,
  * transitions: [3, 7]}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 4, timestamp: 10 # flap 3 (alert sent)
  * HashMap => {"cl1": {lastseverity:5,
  * transitions: [3, 7, 10]}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 0, timestamp: 11
  * HashMap => {"cl1": {lastseverity:0,
  * transitions: []}}
- * 
+ * <p/>
  * Event =>  ClearId: "cl1", severity: 5, timestamp: 12
  * HashMap => {"cl1": {lastseverity:0,
  * transitions: [12]}}
- **/
+ */
 public class EventFlappingPlugin extends EventPreCreatePlugin implements ApplicationListener<ZepEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(EventFlappingPlugin.class);
@@ -154,6 +156,7 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     // these are overwritten in the config, see the loadConfig method
     private boolean enabled = true;
     private String eventFlappingClass = "/Status/Flapping";
+    private ConfigDao configDao;
 
 
     public void setFlapTrackerDao(FlapTrackerDao s) {
@@ -165,11 +168,7 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     }
 
     public void setConfig(ConfigDao config) {
-        try{
-            this.config = config.getConfig();
-        } catch(ZepException e) {
-            logger.warn("Unable to load event flapping configuration", e);
-        }
+        this.configDao = config;
     }
 
     public void setUuidGenerator(UUIDGenerator uuidGenerator) {
@@ -179,7 +178,18 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     @Override
     public void start(Map<String, String> properties) {
         super.start(properties);
+        readConfig();
         loadConfig();
+    }
+
+    private void readConfig() {
+        try {
+            this.config = configDao.getConfig();
+        } catch (Exception e) {
+            this.config = Zep.ZepConfig.getDefaultInstance();
+            logger.warn("Unable to load event flapping configuration, using defaults", e);
+        }
+
     }
 
     private void loadConfig() {
@@ -197,16 +207,17 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
             loadConfig();
         }
     }
+
     /**
-     *
      * This method looks at the previous flaps stored in the tracker
      * and if it exceeds the threshold then the event is flapping and we return true.
+     *
      * @param tracker
      * @param event
      * @param flappingThreshold
      * @return boolean if the event is considered in a state of flapping
      */
-    protected boolean shouldGenerateFlapEvent(FlapTracker tracker,Event event, int flappingThreshold) {
+    protected boolean shouldGenerateFlapEvent(FlapTracker tracker, Event event, int flappingThreshold) {
         EventSeverity sev = event.getSeverity();
         EventSeverity previousSeverity = tracker.getPreviousSeverity();
         // if the severity hasn't changed it can't be flapping
@@ -231,6 +242,7 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     /**
      * Determines if the given event is a flap by looking at the severity of the previous
      * event.
+     *
      * @param event
      * @param tracker
      * @param sevThreshold
@@ -248,7 +260,7 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
 
         // if the previous severity was less than the severity threshold
         if (previousSeverity.getNumber() < sevThreshold.getNumber() &&
-            sev.getNumber() >= sevThreshold.getNumber()) {
+                sev.getNumber() >= sevThreshold.getNumber()) {
             return true;
         }
         return false;
@@ -257,6 +269,7 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     /**
      * This builds the event flapping event that is emitted when a device
      * is determined to be flapping
+     *
      * @param event event that triggered the flapping event
      * @return Event The Flapping Event
      */
@@ -295,7 +308,8 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
      * flapped enough to warrant sending a flap event. This method will update the
      * timestamp in the tracker as well as cull the previous timestamps and publish the
      * flapping event.
-     * @param event Event we are detecting flapping on
+     *
+     * @param event           Event we are detecting flapping on
      * @param fingerprintHash clear finger print hash for this event
      */
     protected void detectEventFlapping(Event event, String fingerprintHash) {
@@ -306,9 +320,9 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
         final int flapWindowSeconds = event.getFlappingIntervalSeconds();
 
         FlapTracker tracker;
-        try{
+        try {
             tracker = flapTrackerDao.getFlapTrackerByClearFingerprintHash(fingerprintHash);
-        }catch (ZepException e) {
+        } catch (ZepException e) {
             logger.warn("Unable to detect event flapping", e);
             return;
         }

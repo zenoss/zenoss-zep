@@ -207,7 +207,7 @@
         <constructor-arg index="0" ref="eventSummaryIndexDao" />
         <property name="queueDao" ref="eventSummaryIndexQueueDao" />
         <property name="pluginService" ref="pluginService"/>
-        <property name="configDao" ref="configDao"/>
+        <!--<property name="configDao" ref="configDao"/>-->
     </bean>
 
     <bean id="eventArchiveIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl">
@@ -215,7 +215,7 @@
         <constructor-arg index="0" ref="eventArchiveIndexDao" />
         <property name="queueDao" ref="eventArchiveIndexQueueDao" />
         <property name="pluginService" ref="pluginService"/>
-        <property name="configDao" ref="configDao"/>
+        <!--<property name="configDao" ref="configDao"/>-->
     </bean>
 
     <bean id="eventSummaryIndexRebuilder" class="org.zenoss.zep.index.impl.EventIndexRebuilderImpl">

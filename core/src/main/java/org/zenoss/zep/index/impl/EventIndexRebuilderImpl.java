@@ -239,13 +239,13 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
             this.indexMetadataDao.updateIndexVersion(this.indexDao.getName(), 0, checksum);
 
             // We want to start the event indexer before we start the rebuild (we want both to run in parallel).
-            eventIndexer.start();
+            eventIndexer.start(this.configDao.getConfig());
 
             recreateIndexFromDatabase(indexRebuildState);
         }
         else {
             // Start the event indexer - we have done all the necessary initialization.
-            eventIndexer.start();
+            eventIndexer.start(this.configDao.getConfig());
         }
     }
 

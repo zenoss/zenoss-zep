@@ -12,18 +12,15 @@ package org.zenoss.zep.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.ApplicationEventPublisherAware;
-import org.springframework.context.ApplicationListener;
+import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
-import org.springframework.context.event.ContextRefreshedEvent;
 import org.zenoss.utils.ZenPack;
 import org.zenoss.utils.ZenPacks;
 import org.zenoss.utils.ZenossException;
 import org.zenoss.zep.PluginService;
-import org.zenoss.zep.events.PluginServiceStartedEvent;
 import org.zenoss.zep.plugins.EventPlugin;
 import org.zenoss.zep.plugins.EventPostCreatePlugin;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
@@ -55,16 +52,14 @@ import java.util.regex.Pattern;
  * {@link PluginService} implementation which supports loading plug-ins from a
  * Spring {@link ApplicationContext}.
  */
-public class PluginServiceImpl implements PluginService, ApplicationListener<ContextRefreshedEvent>,
-        ApplicationEventPublisherAware {
+public class PluginServiceImpl implements PluginService, ApplicationContextAware {
 
     private static final Logger logger = LoggerFactory.getLogger(PluginServiceImpl.class);
 
     private final PluginRepository pluginRepository;
 
     private URLClassLoader pluginClassLoader = null;
-
-    private ApplicationEventPublisher applicationEventPublisher;
+    private ApplicationContext applicationContext;
 
     public PluginServiceImpl(Properties pluginProperties) throws ZenossException {
         this(pluginProperties, false);
@@ -78,11 +73,6 @@ public class PluginServiceImpl implements PluginService, ApplicationListener<Con
         else {
             logger.info("Loading of external plug-ins disabled.");
         }
-    }
-
-    @Override
-    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     private URLClassLoader createPluginClassLoader() throws ZenossException {
@@ -127,6 +117,11 @@ public class PluginServiceImpl implements PluginService, ApplicationListener<Con
             logger.info("No external plug-ins found.");
         }
         return classLoader;
+    }
+
+    @Override
+    public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
+        this.applicationContext = applicationContext;
     }
 
 
@@ -385,8 +380,7 @@ public class PluginServiceImpl implements PluginService, ApplicationListener<Con
 
     private AtomicBoolean initializedPlugins = new AtomicBoolean();
 
-    @Override
-    public void onApplicationEvent(ContextRefreshedEvent event) {
+    public void initializePlugins() {
         if (!initializedPlugins.compareAndSet(false, true)) {
             return;
         }
@@ -398,7 +392,7 @@ public class PluginServiceImpl implements PluginService, ApplicationListener<Con
                 AnnotationConfigApplicationContext pluginApplicationContext = new AnnotationConfigApplicationContext();
                 pluginApplicationContext.setId("Plug-in Application Context");
                 pluginApplicationContext.setClassLoader(this.pluginClassLoader);
-                pluginApplicationContext.setParent(event.getApplicationContext());
+                pluginApplicationContext.setParent(this.applicationContext);
                 pluginApplicationContext.scan("org.zenoss", "com.zenoss", "zenpacks");
                 pluginApplicationContext.refresh();
                 loadPlugins(pluginApplicationContext);
@@ -411,9 +405,9 @@ public class PluginServiceImpl implements PluginService, ApplicationListener<Con
         }
         else {
             // Load plug-ins using the primary application context - no plug-ins were found on the classpath.
-            loadPlugins(event.getApplicationContext());
+            loadPlugins(this.applicationContext);
         }
-        this.applicationEventPublisher.publishEvent(new PluginServiceStartedEvent(this));
+//        this.applicationEventPublisher.publishEvent(new PluginServiceStartedEvent(this));
     }
 
     @Override
