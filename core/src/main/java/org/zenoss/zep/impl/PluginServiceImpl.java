@@ -407,7 +407,6 @@ public class PluginServiceImpl implements PluginService, ApplicationContextAware
             // Load plug-ins using the primary application context - no plug-ins were found on the classpath.
             loadPlugins(this.applicationContext);
         }
-//        this.applicationEventPublisher.publishEvent(new PluginServiceStartedEvent(this));
     }
 
     @Override
