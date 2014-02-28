@@ -201,7 +201,7 @@ public class Application implements ApplicationEventPublisherAware, ApplicationC
             if (!done) {
                 logger.error("Could not start ZEP");
             }
-            //TODO publish ZepConfigUpdatedEvent here
+            //publish ZepConfigUpdatedEvent so everyting has the freshly loaded config
             this.applicationEventPublisher.publishEvent(new ZepConfigUpdatedEvent(this, config));
 
         /*

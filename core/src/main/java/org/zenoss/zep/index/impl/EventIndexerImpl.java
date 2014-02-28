@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010-2012, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -54,13 +54,13 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     private PluginService pluginService;
     private volatile int limit;
     private volatile long intervalMilliseconds;
-    private  ConfigDao configDao;
+    private ConfigDao configDao;
 
     public EventIndexerImpl(EventIndexDao indexDao) {
         this.indexDao = indexDao;
         this.isSummary = "event_summary".equals(indexDao.getName());
     }
-    
+
     public void setQueueDao(EventIndexQueueDao queueDao) {
         this.queueDao = queueDao;
     }
@@ -77,18 +77,6 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
             intervalMilliseconds = zepConfig.getIndexArchiveIntervalMilliseconds();
         }
     }
-
-//    public void setConfigDao(final ConfigDao configDao) throws ZepException {
-//        this.configDao = configDao;
-//        ZepConfig zepConfig;
-//        try {
-//            zepConfig = configDao.getConfig();
-//        } catch (ZepException e) {
-//            logger.warn("Failed to load configuration", e);
-//            zepConfig = ZepConfig.getDefaultInstance();
-//        }
-//        updateIndexConfig(zepConfig);
-//    }
 
     @Override
     public void onApplicationEvent(ZepConfigUpdatedEvent event) {
@@ -174,7 +162,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
             numIndexed = doIndex(now);
             totalIndexed += numIndexed;
         } while (numIndexed > 0);
-        
+
         return totalIndexed;
     }
 
@@ -240,7 +228,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
             public void handleDeleted(String uuid) throws Exception {
                 indexDao.stageDelete(uuid);
             }
-            
+
             @Override
             public void handleComplete() throws Exception {
                 if (calledStartBatch.get()) {
@@ -251,7 +239,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
                 indexDao.commit();
             }
         }, limit, throughTime);
-        
+
         if (!indexQueueIds.isEmpty()) {
             logger.debug("Completed indexing {} events on {}", indexQueueIds.size(), indexDao.getName());
             try {
