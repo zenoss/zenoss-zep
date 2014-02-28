@@ -185,7 +185,7 @@ public class Application implements ApplicationEventPublisherAware, ApplicationC
         }
 
         logger.info("Initializing ZEP");
-        long sleep = 5;
+        long sleep = 1;
         boolean done = false;
         try {
             while (!done) {
@@ -194,7 +194,7 @@ public class Application implements ApplicationEventPublisherAware, ApplicationC
                     done = true;
                 } catch (Exception e) {
                     logger.warn("Could not get config dao; {}; {}", e.getMessage(), e.getCause() != null ? e.getMessage() : "");
-                    Thread.sleep(Math.max(sleep, 1));
+                    Thread.sleep(Math.min(sleep, 5000));
                     sleep = sleep * 2;
                 }
             }
