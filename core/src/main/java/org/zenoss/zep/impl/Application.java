@@ -16,6 +16,8 @@ import org.springframework.beans.BeansException;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.context.ApplicationEvent;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.context.ApplicationListener;
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.dao.TransientDataAccessException;
@@ -58,7 +60,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Represents core application logic for ZEP, including the scheduled aging and
  * purging of events.
  */
-public class Application implements ApplicationContextAware, ApplicationListener<ApplicationEvent> {
+public class Application implements ApplicationEventPublisherAware, ApplicationContextAware, ApplicationListener<ApplicationEvent> {
 
     private static final Logger logger = LoggerFactory.getLogger(Application.class);
 
@@ -93,6 +95,7 @@ public class Application implements ApplicationContextAware, ApplicationListener
     private ExecutorService migratedExecutor;
 
     private List<String> queueListeners = new ArrayList<String>();
+    private ApplicationEventPublisher applicationEventPublisher;
 
     public void setEventStoreDao(EventStoreDao eventStoreDao) {
         this.eventStoreDao = eventStoreDao;
@@ -163,6 +166,11 @@ public class Application implements ApplicationContextAware, ApplicationListener
     }
 
     @Override
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
+    }
+
+    @Override
     public void setApplicationContext(ApplicationContext applicationContext) throws BeansException {
         this.applicationContext = applicationContext;
     }
@@ -177,25 +185,25 @@ public class Application implements ApplicationContextAware, ApplicationListener
         }
 
         logger.info("Initializing ZEP");
-        int tries = 0;
-        long sleep = 10;
+        long sleep = 5;
         boolean done = false;
         try {
-            while (tries < 10 || !done) {
-                tries++;
+            while (!done) {
                 try {
                     this.config = configDao.getConfig();
                     done = true;
                 } catch (Exception e) {
-                    logger.warn("Could not get config dao", e.getMessage());
-                    Thread.sleep(Math.max(sleep, 10));
+                    logger.warn("Could not get config dao; {}; {}", e.getMessage(), e.getCause() != null ? e.getMessage() : "");
+                    Thread.sleep(Math.max(sleep, 1));
                     sleep = sleep * 2;
                 }
             }
             if (!done) {
                 logger.error("Could not start ZEP");
             }
-        //TODO publish ZepConfigUpdatedEvent here
+            //TODO publish ZepConfigUpdatedEvent here
+            this.applicationEventPublisher.publishEvent(new ZepConfigUpdatedEvent(this, config));
+
         /*
          * We must initialize partitions first to ensure events have a partition
          * where they can be created before we start processing the queue. This
