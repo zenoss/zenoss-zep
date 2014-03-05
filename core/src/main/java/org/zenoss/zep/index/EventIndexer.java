@@ -11,6 +11,7 @@
 package org.zenoss.zep.index;
 
 import org.zenoss.zep.ZepException;
+import org.zenoss.protobufs.zep.Zep.ZepConfig;
 
 /**
  * Interface to the background event indexing process.
@@ -38,7 +39,7 @@ public interface EventIndexer {
      *
      * @throws InterruptedException If the indexer is running and is interrupted while stopping.
      */
-    public void start() throws InterruptedException;
+    public void start(ZepConfig config) throws InterruptedException;
 
     /**
      * Stops the event indexer (stops the background indexing thread).

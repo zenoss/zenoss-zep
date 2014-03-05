@@ -21,7 +21,7 @@
     </listener>
 
     <listener>
-        <listener-class>org.jboss.resteasy.plugins.spring.SpringContextLoaderListener</listener-class>
+        <listener-class>org.zenoss.zep.ZepContextLoaderListener</listener-class>
     </listener>
 
     <servlet>

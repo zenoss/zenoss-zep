@@ -30,6 +30,8 @@ import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepInstance;
 import org.zenoss.zep.ZepUtils;
+import org.zenoss.zep.dao.EventDetailsConfigDao;
+import org.zenoss.zep.index.IndexedDetailsConfiguration;
 import org.zenoss.zep.utils.IpUtils;
 
 import java.io.ByteArrayInputStream;
@@ -39,6 +41,7 @@ import java.io.StringReader;
 import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
@@ -111,7 +114,7 @@ public class EventIndexMapper {
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexMapper.class);
 
-    public static Document fromEventSummary(EventSummary summary, Map<String,EventDetailItem> detailsConfig,
+    public static Document fromEventSummary(IndexedDetailsConfiguration eventDetailsConfigDao, EventSummary summary, Map<String,EventDetailItem> detailsConfig,
                                             boolean isArchive) throws ZepException {
         Document doc = new Document();
 
@@ -184,9 +187,31 @@ public class EventIndexMapper {
         String subTitle = actor.getElementSubTitle();
         doc.add(new Field(FIELD_ELEMENT_SUB_TITLE, subTitle, Store.NO,  Index.ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED, subTitle.toLowerCase(), Store.NO,  Index.NOT_ANALYZED_NO_NORMS));
-
-        // find details configured for indexing
+        // find details  for indexing
         List<EventDetail> evtDetails = event.getDetailsList();
+        
+        // default all the details to unprintable ascii character so we can
+        // search for None's. That character was chosen because it doesn't take much space
+        Map<String, EventDetailItem> allDetails = eventDetailsConfigDao.getEventDetailItemsByName();
+        Iterator it = allDetails.entrySet().iterator();
+        while (it.hasNext()) {
+            boolean found = false;
+            Map.Entry entry = (Map.Entry) it.next();
+            // make sure that entry doesn't exist in the regular document
+            for (EventDetail eDetail : evtDetails) {
+                String detailName = eDetail.getName();
+                if (entry.getKey().equals(detailName)) {
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                String detailKeyName = DETAIL_INDEX_PREFIX + entry.getKey();
+                doc.add(new Field(detailKeyName, Character.toString((char)07), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+            }
+        }
+        
         for (EventDetail eDetail : evtDetails) {
             String detailName = eDetail.getName();
             EventDetailItem detailDefn = detailsConfig.get(detailName);

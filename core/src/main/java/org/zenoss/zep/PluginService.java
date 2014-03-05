@@ -30,5 +30,7 @@ public interface PluginService {
      * Shuts down the PluginService.
      */
     public void shutdown();
-    
+
+    public void initializePlugins();
+
 }

@@ -107,7 +107,7 @@ public final class DaoUtils {
             p.setConnectionProperties(connectionProperties);
         }
         if (MYSQL_PROTOCOL.equals(protocol)) {
-            p.setDriverClassName("com.mysql.jdbc.Driver");
+            p.setDriverClassName("org.mariadb.jdbc.Driver");
             // MySQL has default connection properties if not overridden from configuration file
             if (connectionProperties == null) {
                 p.setConnectionProperties("characterEncoding=UTF-8;rewriteBatchedStatements=true;");

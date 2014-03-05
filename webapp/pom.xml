@@ -136,6 +136,7 @@
                     </connectors>
                     <webAppConfig>
                         <contextPath>/zeneventserver</contextPath>
+                        <throwUnavailableOnStartupException>true</throwUnavailableOnStartupException>
                     </webAppConfig>
                     <scanIntervalSeconds>0</scanIntervalSeconds>
                     <skip>${skipITs}</skip>

@@ -123,6 +123,8 @@
         <property name="databaseCompatibility" ref="databaseCompatibility"/>
         <constructor-arg index="1" ref="globalConf" />
         <constructor-arg index="2" ref="zepInstance" />
+        <property name="eventPublisher" ref="eventPublisher" />
+        <property name="uuidGenerator" ref="uuidGenerator"/>
     </bean>
     <bean id="eventDetailsConfigDao" class="org.zenoss.zep.dao.impl.EventDetailsConfigDaoImpl">
         <constructor-arg index="0" ref="dataSource" />
@@ -157,6 +159,7 @@
         <constructor-arg value="event_summary"/>
         <constructor-arg ref="luceneSummaryIndexWriter"/>
         <constructor-arg ref="eventSummaryDao"/>
+        <constructor-arg value="${zep.query.clause_limit:1024}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
     </bean>
@@ -184,6 +187,7 @@
         <constructor-arg value="event_archive"/>
         <constructor-arg ref="luceneArchiveIndexWriter"/>
         <constructor-arg ref="eventArchiveDao"/>
+        <constructor-arg value="${zep.query.clause_limit:1024}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
     </bean>
@@ -203,7 +207,6 @@
         <constructor-arg index="0" ref="eventSummaryIndexDao" />
         <property name="queueDao" ref="eventSummaryIndexQueueDao" />
         <property name="pluginService" ref="pluginService"/>
-        <property name="configDao" ref="configDao"/>
     </bean>
 
     <bean id="eventArchiveIndexer" class="org.zenoss.zep.index.impl.EventIndexerImpl">
@@ -211,7 +214,6 @@
         <constructor-arg index="0" ref="eventArchiveIndexDao" />
         <property name="queueDao" ref="eventArchiveIndexQueueDao" />
         <property name="pluginService" ref="pluginService"/>
-        <property name="configDao" ref="configDao"/>
     </bean>
 
     <bean id="eventSummaryIndexRebuilder" class="org.zenoss.zep.index.impl.EventIndexRebuilderImpl">

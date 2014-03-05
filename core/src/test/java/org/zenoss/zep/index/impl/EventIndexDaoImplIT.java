@@ -18,6 +18,7 @@ import org.apache.lucene.document.Fieldable;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
@@ -1443,6 +1444,30 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             ReflectionTestUtils.setField(this.eventArchiveIndexDao, "eventSummaryBaseDao", archiveDao);
             this.eventArchiveIndexDao.deleteSavedSearch(searchUuid);
         }
+    }
+
+    @Test (expected = ZepException.class)
+    public void testFailMaxCountClauseParam() throws ZepException {
+
+        eventIndexDao.getEventTagSeverities(getEventFilterInst(2000));
+    }
+
+    @Test
+    public void testPassMaxCountClauseParam() throws ZepException {
+
+        // I really just want to see that an exception doesn't get thrown, so no asserts here
+        BooleanQuery.setMaxClauseCount(4096);
+        eventIndexDao.getEventTagSeverities(getEventFilterInst(2000));
+    }
+
+    private EventFilter getEventFilterInst(int numOfEventClasses) {
+
+        EventFilter.Builder myEventFilterBuilder = EventFilter.newBuilder();
+        for(int i = 0; i < 2000; i++) {
+            myEventFilterBuilder.addEventClass(UUID.randomUUID().toString());
+        }
+        EventFilter eventFilter = myEventFilterBuilder.build();
+        return eventFilter;
     }
 
 }
