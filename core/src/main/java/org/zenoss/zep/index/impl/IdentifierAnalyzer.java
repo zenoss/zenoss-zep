@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -42,8 +42,7 @@ public final class IdentifierAnalyzer extends Analyzer {
             streams.result = new LowerCaseFilter(IndexConstants.LUCENE_VERSION, streams.source);
             streams.result = new NGramTokenFilter(streams.result, MIN_NGRAM_SIZE, MAX_NGRAM_SIZE);
             setPreviousTokenStream(streams);
-        }
-        else {
+        } else {
             streams.source.reset(reader);
         }
         return streams.result;
@@ -57,3 +56,4 @@ public final class IdentifierAnalyzer extends Analyzer {
         return tokenStream;
     }
 }
+

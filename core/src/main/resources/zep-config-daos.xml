@@ -132,7 +132,7 @@
     </bean>
 
     <!-- Indexing DAO -->
-    <bean id="luceneSummaryDir" class="org.apache.lucene.store.FSDirectory"
+    <bean id="luceneSummaryDir" class="org.apache.lucene.store.NIOFSDirectory"
             factory-method="open" destroy-method="close">
         <qualifier value="summary" />
         <constructor-arg value="${zep.index.dir}/summary" />
@@ -154,17 +154,19 @@
         </constructor-arg>
     </bean>
 
-    <bean id="eventSummaryIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl" destroy-method="shutdown">
+    <bean id="eventSummaryIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl" destroy-method="shutdown" init-method="init">
         <qualifier value="summary"/>
         <constructor-arg value="event_summary"/>
         <constructor-arg ref="luceneSummaryIndexWriter"/>
         <constructor-arg ref="eventSummaryDao"/>
         <constructor-arg value="${zep.query.clause_limit:1024}"/>
+        <constructor-arg ref="summaryFilterCacheManager"/>
+        <constructor-arg value="${zep.query.cache_refresh_interval:10}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
     </bean>
 
-    <bean id="luceneArchiveDir" class="org.apache.lucene.store.FSDirectory"
+    <bean id="luceneArchiveDir" class="org.apache.lucene.store.NIOFSDirectory"
             factory-method="open" destroy-method="close">
         <qualifier value="archive" />
         <constructor-arg value="${zep.index.dir}/archive" />
@@ -182,12 +184,17 @@
         </constructor-arg>
     </bean>
 
-    <bean id="eventArchiveIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl" destroy-method="shutdown">
+    <bean id="summaryFilterCacheManager" class="org.zenoss.zep.index.impl.FilterCacheManager"></bean>
+    <bean id="archiveFilterCacheManager" class="org.zenoss.zep.index.impl.FilterCacheManager"></bean>
+
+    <bean id="eventArchiveIndexDao" class="org.zenoss.zep.index.impl.EventIndexDaoImpl" destroy-method="shutdown" init-method="init">
         <qualifier value="archive"/>
         <constructor-arg value="event_archive"/>
         <constructor-arg ref="luceneArchiveIndexWriter"/>
         <constructor-arg ref="eventArchiveDao"/>
         <constructor-arg value="${zep.query.clause_limit:1024}"/>
+        <constructor-arg ref="archiveFilterCacheManager"/>
+        <constructor-arg value="${zep.query.archive_cache_refresh_interval:60}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
     </bean>

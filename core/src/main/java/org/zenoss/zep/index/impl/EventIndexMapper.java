@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010-2011, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -13,6 +13,7 @@ package org.zenoss.zep.index.impl;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.analysis.PerFieldAnalyzerWrapper;
+import org.apache.lucene.analysis.path.PathHierarchyTokenizer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
@@ -30,7 +31,6 @@ import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepInstance;
 import org.zenoss.zep.ZepUtils;
-import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.index.IndexedDetailsConfiguration;
 import org.zenoss.zep.utils.IpUtils;
 
@@ -47,12 +47,46 @@ import java.util.Map;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-import static org.zenoss.zep.index.impl.IndexConstants.*;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_AGENT;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_COUNT;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_CURRENT_USER_NAME;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_IDENTIFIER;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_SUB_IDENTIFIER;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_SUB_TITLE;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_TITLE;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_TITLE_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_CLASS;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_CLASS_KEY;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_CLASS_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_GROUP;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_KEY;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_FINGERPRINT;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_FIRST_SEEN_TIME;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_LAST_SEEN_TIME;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_MESSAGE;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_MONITOR;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_PROTOBUF;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_SEVERITY;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_STATUS;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_STATUS_CHANGE_TIME;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_SUMMARY;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_SUMMARY_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_TAGS;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_UPDATE_TIME;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_UUID;
+import static org.zenoss.zep.index.impl.IndexConstants.IP_ADDRESS_TYPE_4;
+import static org.zenoss.zep.index.impl.IndexConstants.IP_ADDRESS_TYPE_6;
+import static org.zenoss.zep.index.impl.IndexConstants.IP_ADDRESS_TYPE_SUFFIX;
+import static org.zenoss.zep.index.impl.IndexConstants.LUCENE_VERSION;
+import static org.zenoss.zep.index.impl.IndexConstants.SORT_SUFFIX;
 
 public class EventIndexMapper {
 
     public static Analyzer createAnalyzer() {
-        Map<String,Analyzer> fieldAnalyzers = new HashMap<String,Analyzer>();
+        Map<String, Analyzer> fieldAnalyzers = new HashMap<String, Analyzer>();
         fieldAnalyzers.put(FIELD_ELEMENT_IDENTIFIER, new IdentifierAnalyzer());
         fieldAnalyzers.put(FIELD_ELEMENT_SUB_IDENTIFIER, new IdentifierAnalyzer());
         fieldAnalyzers.put(FIELD_ELEMENT_TITLE, new IdentifierAnalyzer());
@@ -62,10 +96,10 @@ public class EventIndexMapper {
         fieldAnalyzers.put(FIELD_MESSAGE, new SummaryAnalyzer());
         return new PerFieldAnalyzerWrapper(new KeywordAnalyzer(), fieldAnalyzers);
     }
-    
+
     public static IndexWriterConfig createIndexWriterConfig(Analyzer analyzer, ZepInstance zepInstance) {
         IndexWriterConfig indexWriterConfig = new IndexWriterConfig(LUCENE_VERSION, analyzer);
-        Map<String,String> cfg = zepInstance.getConfig();
+        Map<String, String> cfg = zepInstance.getConfig();
         String ramBufferSizeMb = cfg.get("zep.index.ram_buffer_size_mb");
         if (ramBufferSizeMb != null) {
             try {
@@ -114,7 +148,7 @@ public class EventIndexMapper {
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexMapper.class);
 
-    public static Document fromEventSummary(IndexedDetailsConfiguration eventDetailsConfigDao, EventSummary summary, Map<String,EventDetailItem> detailsConfig,
+    public static Document fromEventSummary(IndexedDetailsConfiguration eventDetailsConfigDao, EventSummary summary, Map<String, EventDetailItem> detailsConfig,
                                             boolean isArchive) throws ZepException {
         Document doc = new Document();
 
@@ -152,7 +186,6 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_EVENT_KEY, event.getEventKey(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_EVENT_CLASS_KEY, event.getEventClassKey(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_EVENT_GROUP, event.getEventGroup(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-
         doc.add(new Field(FIELD_MESSAGE, event.getMessage(), Store.NO, Index.ANALYZED_NO_NORMS));
 
         for (EventTag tag : event.getTagsList()) {
@@ -172,8 +205,8 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, id.toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         String title = actor.getElementTitle();
-        doc.add(new Field(FIELD_ELEMENT_TITLE, title, Store.NO,  Index.ANALYZED_NO_NORMS));
-        doc.add(new Field(FIELD_ELEMENT_TITLE_NOT_ANALYZED, title.toLowerCase(), Store.NO,  Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ELEMENT_TITLE, title, Store.NO, Index.ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ELEMENT_TITLE_NOT_ANALYZED, title.toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         String subUuid = actor.getElementSubUuid();
         if (subUuid != null && !subUuid.isEmpty()) {
@@ -185,8 +218,8 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, subId.toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
 
         String subTitle = actor.getElementSubTitle();
-        doc.add(new Field(FIELD_ELEMENT_SUB_TITLE, subTitle, Store.NO,  Index.ANALYZED_NO_NORMS));
-        doc.add(new Field(FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED, subTitle.toLowerCase(), Store.NO,  Index.NOT_ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ELEMENT_SUB_TITLE, subTitle, Store.NO, Index.ANALYZED_NO_NORMS));
+        doc.add(new Field(FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED, subTitle.toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         // find details  for indexing
         List<EventDetail> evtDetails = event.getDetailsList();
         
@@ -211,7 +244,7 @@ public class EventIndexMapper {
                 doc.add(new Field(detailKeyName, Character.toString((char)07), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
             }
         }
-        
+
         for (EventDetail eDetail : evtDetails) {
             String detailName = eDetail.getName();
             EventDetailItem detailDefn = detailsConfig.get(detailName);
@@ -290,7 +323,7 @@ public class EventIndexMapper {
         doc.add(new Field(detailKeyName + SORT_SUFFIX, lowerCaseDetailValue + "/", Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
     }
-    
+
     private static void createIpAddressFields(Document doc, String detailKeyName, InetAddress value) {
         final String typeVal = (value instanceof Inet6Address) ? IP_ADDRESS_TYPE_6 : IP_ADDRESS_TYPE_4;
         doc.add(new Field(detailKeyName + IP_ADDRESS_TYPE_SUFFIX, typeVal, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
