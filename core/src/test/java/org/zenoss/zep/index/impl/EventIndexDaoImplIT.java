@@ -14,9 +14,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Fieldable;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
@@ -1211,7 +1211,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             int docId = docs.scoreDocs[0].doc;
             Document document = reader.document(docId);
             Set<String> fieldNames = Sets.newHashSet();
-            for (Fieldable field : document.getFields()) {
+            for (IndexableField field : document.getFields()) {
                 fieldNames.add(field.name());
             }
             return fieldNames;

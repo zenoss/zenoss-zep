@@ -15,22 +15,25 @@ import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.SlowCompositeReaderWrapper;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.index.TermEnum;
+import org.apache.lucene.index.Terms;
+import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanClause.Occur;
-import org.apache.lucene.search.BooleanFilter;
+import org.apache.lucene.queries.BooleanFilter;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Filter;
 import org.apache.lucene.search.FilteredQuery;
 import org.apache.lucene.search.MatchAllDocsQuery;
 import org.apache.lucene.search.MultiPhraseQuery;
-import org.apache.lucene.search.NGramPhraseQuery;
 import org.apache.lucene.search.NumericRangeFilter;
 import org.apache.lucene.search.QueryWrapperFilter;
 import org.apache.lucene.search.TermRangeFilter;
 import org.apache.lucene.search.WildcardQuery;
-import org.apache.lucene.search.WildcardTermEnum;
+import org.apache.lucene.util.BytesRef;
+import org.apache.lucene.util.automaton.Automaton;
+import org.apache.lucene.util.automaton.CompiledAutomaton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.util.Util.TimestampRange;
@@ -39,7 +42,6 @@ import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.FilterOperator;
 import org.zenoss.protobufs.zep.Zep.NumberRange;
 import org.zenoss.zep.ZepException;
-import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.utils.IpRange;
 import org.zenoss.zep.utils.IpUtils;
 
@@ -195,20 +197,20 @@ public class QueryBuilder {
 
         logger.debug("getMatchingTerms: field={}, value={}", fieldName, value);
         List<Term> matches = new ArrayList<Term>();
-        TermEnum wildcardTermEnum = null;
+        Automaton automaton = WildcardQuery.toAutomaton(new Term(fieldName, value));
+        CompiledAutomaton compiled = new CompiledAutomaton(automaton);
         try {
-            wildcardTermEnum = new WildcardTermEnum(reader, new Term(fieldName, value));
-            Term match;
-            while ((match = wildcardTermEnum.term()) != null) {
-                logger.debug("Match: {}", match.text());
-                matches.add(match);
-                wildcardTermEnum.next();
+            Terms terms = SlowCompositeReaderWrapper.wrap(reader).terms(fieldName);
+            TermsEnum wildcardTermEnum = compiled.getTermsEnum(terms);
+            BytesRef match;
+            while (wildcardTermEnum.next() != null) {
+                match = wildcardTermEnum.term();
+                logger.debug("Match: {}", match);
+                matches.add(new Term(fieldName, match.utf8ToString()));
             }
             return matches;
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
-        } finally {
-            ZepUtils.close(wildcardTermEnum);
         }
     }
 
@@ -229,7 +231,7 @@ public class QueryBuilder {
     public QueryBuilder addPathFields(String analyzedFieldName, String nonAnalyzedFieldName,
                                       Collection<String> values, IndexReader reader) throws ZepException {
         if (!values.isEmpty()) {
-            final PathAnalyzer analyzer = new PathAnalyzer();
+            final Analyzer analyzer = new PathAnalyzer();
             final BooleanClause.Occur occur = BooleanClause.Occur.SHOULD;
             final BooleanFilter booleanFilter = new BooleanFilter();
 
@@ -254,6 +256,7 @@ public class QueryBuilder {
                     final MultiPhraseQuery pq = new MultiPhraseQuery();
                     filter = new QueryWrapperFilter(pq);
 
+                    //THIS GETOKENS CALL IS STRIPPING THE WILDCARD
                     List<String> tokens = getTokens(analyzedFieldName, analyzer, value);
                     for (String token : tokens) {
                         List<Term> terms = getMatchingTerms(analyzedFieldName, reader, token);
@@ -613,7 +616,7 @@ public class QueryBuilder {
                                     final String fromCanon = IpUtils.canonicalIpAddress(range.getFrom());
                                     final String toCanon = IpUtils.canonicalIpAddress(range.getTo());
                                     eventDetailQuery.filters.add(new TermRangeFilter(
-                                            field, fromCanon, toCanon, true, true));
+                                            field, new BytesRef(fromCanon), new BytesRef(toCanon), true, true));
                                 }
                             } catch (IllegalArgumentException e) {
                                 // Didn't match IP range - try performing a substring match

@@ -10,7 +10,7 @@
 
 package org.zenoss.zep.index.impl;
 
-import org.apache.lucene.analysis.CharTokenizer;
+import org.apache.lucene.analysis.util.CharTokenizer;
 import org.apache.lucene.util.AttributeSource;
 
 import java.io.Reader;
@@ -30,13 +30,13 @@ public class IpTokenizer extends CharTokenizer {
      * {@inheritDoc}
      */
     public IpTokenizer(AttributeSource source, Reader input) {
-        super(IndexConstants.LUCENE_VERSION, source, input);
+        super(IndexConstants.LUCENE_VERSION, source.getAttributeFactory(), input);
     }
 
     /**
      * {@inheritDoc}
      */
-    public IpTokenizer(AttributeFactory factory, Reader input) {
+    public IpTokenizer(AttributeSource.AttributeFactory factory, Reader input) {
         super(IndexConstants.LUCENE_VERSION, factory, input);
     }
 
