@@ -11,14 +11,17 @@
 package org.zenoss.zep.index.impl;
 
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.KeywordAnalyzer;
-import org.apache.lucene.analysis.PerFieldAnalyzerWrapper;
-import org.apache.lucene.analysis.path.PathHierarchyTokenizer;
+import org.apache.lucene.analysis.core.KeywordAnalyzer;
+import org.apache.lucene.analysis.miscellaneous.PerFieldAnalyzerWrapper;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
-import org.apache.lucene.document.NumericField;
+import org.apache.lucene.document.FloatField;
+import org.apache.lucene.document.IntField;
+import org.apache.lucene.document.LongField;
+import org.apache.lucene.document.DoubleField;
+import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriterConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -164,18 +167,18 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_CURRENT_USER_NAME, summary.getCurrentUserName(), Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
 
-        doc.add(new NumericField(FIELD_STATUS, Store.YES, true).setIntValue(summary.getStatus().getNumber()));
-        doc.add(new NumericField(FIELD_COUNT, Store.YES, true).setIntValue(summary.getCount()));
-        doc.add(new NumericField(FIELD_LAST_SEEN_TIME, Store.NO, true).setLongValue(summary.getLastSeenTime()));
-        doc.add(new NumericField(FIELD_FIRST_SEEN_TIME, Store.NO, true).setLongValue(summary.getFirstSeenTime()));
-        doc.add(new NumericField(FIELD_STATUS_CHANGE_TIME, Store.NO, true).setLongValue(summary.getStatusChangeTime()));
-        doc.add(new NumericField(FIELD_UPDATE_TIME, Store.NO, true).setLongValue(summary.getUpdateTime()));
+        doc.add(new IntField(FIELD_STATUS, summary.getStatus().getNumber(), Store.YES));
+        doc.add(new IntField(FIELD_COUNT, summary.getCount(), Store.YES));
+        doc.add(new LongField(FIELD_LAST_SEEN_TIME, summary.getLastSeenTime(), Store.NO));
+        doc.add(new LongField(FIELD_FIRST_SEEN_TIME, summary.getFirstSeenTime(), Store.NO));
+        doc.add(new LongField(FIELD_STATUS_CHANGE_TIME, summary.getStatusChangeTime(), Store.NO));
+        doc.add(new LongField(FIELD_UPDATE_TIME, summary.getUpdateTime(), Store.NO));
 
         Event event = summary.getOccurrence(0);
         doc.add(new Field(FIELD_FINGERPRINT, event.getFingerprint(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_SUMMARY, event.getSummary(), Store.NO, Index.ANALYZED_NO_NORMS));
         doc.add(new Field(FIELD_SUMMARY_NOT_ANALYZED, event.getSummary().toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
-        doc.add(new NumericField(FIELD_SEVERITY, Store.YES, true).setIntValue(event.getSeverity().getNumber()));
+        doc.add(new IntField(FIELD_SEVERITY, event.getSeverity().getNumber(), Store.YES));
 
         doc.add(new Field(FIELD_EVENT_CLASS, event.getEventClass(), Store.NO, Index.ANALYZED_NO_NORMS));
         // Store with a trailing slash to make lookups simpler
@@ -259,7 +262,7 @@ public class EventIndexMapper {
                         case INTEGER:
                             try {
                                 int intValue = Integer.parseInt(detailValue);
-                                doc.add(new NumericField(detailKeyName, Store.NO, true).setIntValue(intValue));
+                                doc.add(new IntField(detailKeyName, intValue, Store.NO));
                             } catch (Exception e) {
                                 logger.warn("Invalid numeric(int) data reported for detail {}: {}", detailName,
                                         detailValue);
@@ -268,7 +271,7 @@ public class EventIndexMapper {
                         case FLOAT:
                             try {
                                 float floatValue = Float.parseFloat(detailValue);
-                                doc.add(new NumericField(detailKeyName, Store.NO, true).setFloatValue(floatValue));
+                                doc.add(new FloatField(detailKeyName, floatValue, Store.NO));
                             } catch (Exception e) {
                                 logger.warn("Invalid numeric(float) data reported for detail {}: {}", detailName,
                                         detailValue);
@@ -277,7 +280,7 @@ public class EventIndexMapper {
                         case LONG:
                             try {
                                 long longValue = Long.parseLong(detailValue);
-                                doc.add(new NumericField(detailKeyName, Store.NO, true).setLongValue(longValue));
+                                doc.add(new LongField(detailKeyName, longValue, Store.NO));
                             } catch (Exception e) {
                                 logger.warn("Invalid numeric(long) data reported for detail {}: {}", detailName,
                                         detailValue);
@@ -286,7 +289,7 @@ public class EventIndexMapper {
                         case DOUBLE:
                             try {
                                 double doubleValue = Double.parseDouble(detailValue);
-                                doc.add(new NumericField(detailKeyName, Store.NO, true).setDoubleValue(doubleValue));
+                                doc.add(new DoubleField(detailKeyName, doubleValue, Store.NO));
                             } catch (Exception e) {
                                 logger.warn("Invalid numeric(double) data reported for detail {}: {}", detailName,
                                         detailValue);
@@ -318,7 +321,7 @@ public class EventIndexMapper {
 
     private static void createPathFields(Document doc, String detailKeyName, String detailValue) {
         String lowerCaseDetailValue = detailValue.toLowerCase();
-        doc.add(new Field(detailKeyName, new PathTokenizer(new StringReader(lowerCaseDetailValue))));
+        doc.add(new TextField(detailKeyName, new PathTokenizer(new StringReader(lowerCaseDetailValue))));
         // Store with a trailing slash
         doc.add(new Field(detailKeyName + SORT_SUFFIX, lowerCaseDetailValue + "/", Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
@@ -334,7 +337,7 @@ public class EventIndexMapper {
 
     public static EventSummary toEventSummary(Document item) throws ZepException {
         final EventSummary summary;
-        final byte[] protobuf = item.getBinaryValue(FIELD_PROTOBUF);
+        final byte[] protobuf = item.getBinaryValue(FIELD_PROTOBUF).bytes;
         if (protobuf != null) {
             summary = uncompressProtobuf(protobuf);
         }

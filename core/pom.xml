@@ -31,7 +31,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-analyzers</artifactId>
+            <artifactId>lucene-analyzers-common</artifactId>
             <version>${version.lucene}</version>
             <type>jar</type>
             <scope>compile</scope>

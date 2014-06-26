@@ -10,7 +10,7 @@
 
 package org.zenoss.zep.index.impl;
 
-import org.apache.lucene.analysis.CharTokenizer;
+import org.apache.lucene.analysis.util.CharTokenizer;
 
 import java.io.Reader;
 

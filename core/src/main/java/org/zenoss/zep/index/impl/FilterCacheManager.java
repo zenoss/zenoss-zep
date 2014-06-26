@@ -5,13 +5,14 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.CachingWrapperFilter;
 import org.apache.lucene.search.Filter;
 import org.apache.lucene.search.NGramPhraseQuery;
 import org.apache.lucene.search.PrefixFilter;
 import org.apache.lucene.search.QueryWrapperFilter;
-import org.apache.lucene.search.TermsFilter;
+import org.apache.lucene.queries.TermsFilter;
 import org.apache.lucene.search.WildcardQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,10 +66,7 @@ public class FilterCacheManager {
                             @Override
                             public CachingWrapperFilter load(Set<Term> t) throws Exception {
                                 logger.debug("Encountered a new TermsFilter term: {}", t);
-                                TermsFilter termsFilter = new TermsFilter();
-                                for (Term term : t) {
-                                    termsFilter.addTerm(term);
-                                }
+                                TermsFilter termsFilter = new TermsFilter(Lists.newArrayList(t));
                                 return new CachingWrapperFilter(termsFilter);
                             }
                         }
