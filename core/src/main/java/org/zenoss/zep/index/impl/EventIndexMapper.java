@@ -23,6 +23,7 @@ import org.apache.lucene.document.LongField;
 import org.apache.lucene.document.DoubleField;
 import org.apache.lucene.document.TextField;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.util.BytesRef;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.zep.Zep.Event;
@@ -337,9 +338,9 @@ public class EventIndexMapper {
 
     public static EventSummary toEventSummary(Document item) throws ZepException {
         final EventSummary summary;
-        final byte[] protobuf = item.getBinaryValue(FIELD_PROTOBUF).bytes;
-        if (protobuf != null) {
-            summary = uncompressProtobuf(protobuf);
+        BytesRef protobufBytesRef = item.getBinaryValue(FIELD_PROTOBUF);
+        if (protobufBytesRef != null) {
+            summary = uncompressProtobuf(protobufBytesRef.bytes);
         }
         else {
             // Only other possible fields stored on index.
