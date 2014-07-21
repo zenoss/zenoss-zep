@@ -308,9 +308,9 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         private RuleContext() {
         }
 
-        private static void putIdAndUuidInDict(PyDictionary dict, String id, String uuid) {
-            if (id != null) {
-                dict.put("name", id);
+        private static void putTitleAndUuidInDict(PyDictionary dict, String title, String uuid) {
+            if (title != null) {
+                dict.put("name", title);
             }
             if (uuid != null) {
                 dict.put("uuid", uuid);
@@ -387,8 +387,8 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             }
             // Initialize to empty attributes on elem and subelem in case a rule references
             // it and they do not exist
-            putIdAndUuidInDict(subelemdict, "", "");
-            putIdAndUuidInDict(elemdict, "", "");
+            putTitleAndUuidInDict(subelemdict, "", "");
+            putTitleAndUuidInDict(elemdict, "", "");
 
             EventActor actor = event.getActor();
 
@@ -399,9 +399,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
                 elemdict.put("type", actor.getElementTypeId().name());
                 final String id = (actor.hasElementIdentifier()) ? actor.getElementIdentifier() : null;
+                final String title = (actor.hasElementTitle()) ? actor.getElementTitle() : id;
                 final String uuid = actor.hasElementUuid() ? actor.getElementUuid() : null;
 
-                putIdAndUuidInDict(elemdict, id, uuid);
+                putTitleAndUuidInDict(elemdict, title, uuid);
             }
 
             if (actor.hasElementSubTypeId()) {
@@ -411,9 +412,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
                 subelemdict.put("type", actor.getElementSubTypeId().name());
                 final String id = (actor.hasElementSubIdentifier()) ? actor.getElementSubIdentifier() : null;
+                final String title = (actor.hasElementSubTitle()) ? actor.getElementSubTitle() : id;
                 final String uuid = actor.hasElementSubUuid() ? actor.getElementSubUuid() : null;
 
-                putIdAndUuidInDict(subelemdict, id, uuid);
+                putTitleAndUuidInDict(subelemdict, title, uuid);
             }
 
             for (EventDetail detail : event.getDetailsList()) {
