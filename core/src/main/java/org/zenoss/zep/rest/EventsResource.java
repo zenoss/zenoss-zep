@@ -68,6 +68,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
 
+import java.util.concurrent.Semaphore;
+
 @Path("1.0/events")
 public class EventsResource {
     private static final Logger logger = LoggerFactory.getLogger(EventsResource.class);
@@ -79,6 +81,16 @@ public class EventsResource {
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
     private PluginService pluginService;
+    private Semaphore archiveSemaphore = null;
+    private int maxArchiveRequests = -1;
+
+    public void setMaxArchiveRequests(int archiveRequestLimit) {
+        if(archiveRequestLimit > 0) {
+            this.maxArchiveRequests = archiveRequestLimit;
+            this.archiveSemaphore = new Semaphore(this.maxArchiveRequests);
+            logger.info("Limit of concurrent archive API requests set to {}", this.maxArchiveRequests);
+        }
+    }
 
     public void setQueryLimit(int limit) {
         if (limit > 0) {
@@ -351,13 +363,40 @@ public class EventsResource {
         return this.eventSummaryIndexDao.list(request);
     }
 
+    private EventSummaryResult getEventArchiveResults(EventSummaryRequest request) throws ZepException {
+
+        EventSummaryResult result = null;
+
+        if (this.archiveSemaphore == null || this.archiveSemaphore.tryAcquire()) {
+            try {
+                result = this.eventArchiveIndexDao.list(request);
+            }
+            catch (ZepException ze) {
+                throw ze;
+            }
+            catch (Exception e) {
+                throw new ZepException(e.getLocalizedMessage(), e);
+            }
+            finally {
+                if (this.archiveSemaphore != null)
+                    this.archiveSemaphore.release();
+            }
+        }
+        else {
+            String msg = "Too many API archive requests. Limit = " + this.maxArchiveRequests;
+            logger.warn(msg);
+            throw new ZepException(msg);
+        }
+        return result;
+    }
+
     @POST
     @Path("archive")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
     public EventSummaryResult listEventIndexArchive(EventSummaryRequest request)
             throws ZepException {
-        return this.eventArchiveIndexDao.list(request);
+        return this.getEventArchiveResults(request);
     }
 
     @GET
@@ -375,7 +414,7 @@ public class EventsResource {
     @GZIP
     public EventSummaryResult listEventIndexArchiveGet(@Context UriInfo ui)
             throws ParseException, ZepException {
-        return this.eventArchiveIndexDao.list(eventSummaryRequestFromUriInfo(ui));
+        return this.getEventArchiveResults(eventSummaryRequestFromUriInfo(ui));
     }
 
     @POST
