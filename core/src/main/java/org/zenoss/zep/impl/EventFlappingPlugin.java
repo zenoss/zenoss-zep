@@ -30,6 +30,8 @@ import org.zenoss.zep.plugins.EventPreCreatePlugin;
 
 import java.util.Map;
 
+import static java.util.Arrays.asList;
+
 /**
  * Summary:
  * This plugin runs before each event is processed and detects if the
@@ -209,20 +211,18 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     }
 
     /**
-     * This method looks at the previous flaps stored in the tracker
-     * and if it exceeds the threshold then the event is flapping and we return true.
+     * This method counts the previous flaps stored in the tracker.
      *
      * @param tracker
      * @param event
-     * @param flappingThreshold
-     * @return boolean if the event is considered in a state of flapping
+     * @return count of flap instances in the configured time window
      */
-    protected boolean shouldGenerateFlapEvent(FlapTracker tracker, Event event, int flappingThreshold) {
+    protected int countFlapsForEvent(FlapTracker tracker, Event event) {
         EventSeverity sev = event.getSeverity();
         EventSeverity previousSeverity = tracker.getPreviousSeverity();
         // if the severity hasn't changed it can't be flapping
         if (sev.equals(previousSeverity)) {
-            return false;
+            return 0;
         }
 
         // check our amount of flaps
@@ -236,7 +236,7 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
             }
         }
 
-        return count >= flappingThreshold;
+        return count;
     }
 
     /**
@@ -269,20 +269,47 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     /**
      * This builds the event flapping event that is emitted when a device
      * is determined to be flapping
-     *
      * @param event event that triggered the flapping event
      * @return Event The Flapping Event
      */
-    protected Event buildFlappingEvent(Event event) {
+    protected Event buildFlappingEvent(Event event, int flapCount) {
         // create an event based off of the passed in event
         // but with the event class from the config
         final Event.Builder flapEvent = Event.newBuilder();
         flapEvent.setUuid(this.uuidGenerator.generate().toString());
         flapEvent.setCreatedTime(System.currentTimeMillis());
-        flapEvent.setActor(event.getActor());
-        flapEvent.setSummary("Event flapping detected for " + event.getActor().getElementIdentifier());
+        Zep.EventActor actor = event.getActor();
+        flapEvent.setActor(actor);
+        StringBuilder summary = new StringBuilder()
+                .append("Event flapping detected for ")
+                .append(actor.getElementIdentifier());
+        if (actor.hasElementSubIdentifier()) {
+            summary.append(":");
+            summary.append(actor.getElementSubIdentifier());
+        }
+        flapEvent.setSummary(summary.toString());
         flapEvent.setSeverity(EventSeverity.SEVERITY_WARNING);
         flapEvent.setEventClass(eventFlappingClass);
+
+        //add information from the source event
+        flapEvent.addAllDetails(
+                asList(
+                        Zep.EventDetail.newBuilder().setName("flapcount")
+                                .addValue(Integer.toString(flapCount)).build(),
+                        Zep.EventDetail.newBuilder().setName("cause_uuid")
+                                .addValue(event.getUuid()).build(),
+                        Zep.EventDetail.newBuilder().setName("cause_severity")
+                                .addValue(event.getSeverity().name()).build(),
+                        Zep.EventDetail.newBuilder().setName("cause_summary")
+                                .addValue(event.getSummary()).build(),
+                        Zep.EventDetail.newBuilder().setName("cause_event_class")
+                                .addValue(event.getEventClass()).build(),
+                        Zep.EventDetail.newBuilder().setName("cause_event_key")
+                                .addValue(event.getEventKey()).build()
+
+                )
+        );
+        flapEvent.addAllDetails(event.getDetailsList());
         return flapEvent.build();
 
     }
@@ -332,10 +359,11 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
             tracker.addCurrentTimeStamp();
 
             // see if we have gone above the threshold
-            if (shouldGenerateFlapEvent(tracker, event, flapThreshold)) {
+            int flapCount = countFlapsForEvent(tracker, event);
+            if (flapCount >= flapThreshold) {
                 tracker.clearTimestamps();
                 logger.info("Publishing flap event for clear {}", fingerprintHash);
-                Event flapEvent = buildFlappingEvent(event);
+                Event flapEvent = buildFlappingEvent(event, flapCount);
                 try {
                     logger.debug("Publishing this event {}", flapEvent);
                     publisher.publishEvent(flapEvent);

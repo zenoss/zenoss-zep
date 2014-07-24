@@ -102,8 +102,8 @@ public class EventFlappingPluginTest {
     }
 
     @Test
-    public void testShouldGenerateFlapEvent() {
-        // generate a flap event when the tracker has > flap threshold timestamps
+    public void testCountFlapsForEvent() {
+        // generate a flap event when the tracker has >= flap threshold timestamps
 
         Event.Builder eventBuilder = createEventOccurrence(createActor().build());
         FlapTracker tracker = new FlapTracker();
@@ -111,10 +111,16 @@ public class EventFlappingPluginTest {
         tracker.addCurrentTimeStamp();
         tracker.addCurrentTimeStamp();
 
-        assertEquals(true, eventFlappingPlugin.shouldGenerateFlapEvent(tracker, eventBuilder.build(), threshold));
+        int count = eventFlappingPlugin.countFlapsForEvent(tracker, eventBuilder.build());
+        assertEquals(count, 2);
+        assertTrue(count >= threshold);
+
         tracker.clearTimestamps();
         tracker.addCurrentTimeStamp();
-        assertEquals(false, eventFlappingPlugin.shouldGenerateFlapEvent(tracker, eventBuilder.build(), threshold));
+
+        count = eventFlappingPlugin.countFlapsForEvent(tracker, eventBuilder.build());
+        assertEquals(count, 1);
+        assertFalse(count >= threshold);
     }
 
     @Test
@@ -126,10 +132,10 @@ public class EventFlappingPluginTest {
         tracker.addTimeStamp(System.currentTimeMillis()/1000l - 999999);
         tracker.addCurrentTimeStamp();
 
-        assertEquals(false, eventFlappingPlugin.shouldGenerateFlapEvent(tracker, eventBuilder.build(), threshold));
+        assertFalse(eventFlappingPlugin.countFlapsForEvent(tracker, eventBuilder.build()) >= threshold);
         // now we have enough timestamps to warrant a flapping event
         tracker.addCurrentTimeStamp();
-        assertEquals(true, eventFlappingPlugin.shouldGenerateFlapEvent(tracker, eventBuilder.build(), threshold));
+        assertTrue(eventFlappingPlugin.countFlapsForEvent(tracker, eventBuilder.build()) >= threshold);
     }
     @Test
     public void testAddTimestampToTracker() throws ZepException {
