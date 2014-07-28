@@ -132,7 +132,7 @@
     </bean>
 
     <!-- Indexing DAO -->
-    <bean id="luceneSummaryDir" class="org.apache.lucene.store.NIOFSDirectory"
+    <bean id="luceneSummaryDir" class="org.apache.lucene.store.MMapDirectory"
             factory-method="open" destroy-method="close">
         <qualifier value="summary" />
         <constructor-arg value="${zep.index.dir}/summary" />
@@ -166,7 +166,7 @@
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
     </bean>
 
-    <bean id="luceneArchiveDir" class="org.apache.lucene.store.NIOFSDirectory"
+    <bean id="luceneArchiveDir" class="org.apache.lucene.store.MMapDirectory"
             factory-method="open" destroy-method="close">
         <qualifier value="archive" />
         <constructor-arg value="${zep.index.dir}/archive" />
