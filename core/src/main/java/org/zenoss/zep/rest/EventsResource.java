@@ -343,8 +343,6 @@ public class EventsResource {
             return Response.status(Status.INTERNAL_SERVER_ERROR).build();
         }
 
-        eventSummaryIndexer.index();
-        eventArchiveIndexer.index();
         EventUpdateContext context = new EventUpdateContext() {
         };
         for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
