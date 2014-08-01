@@ -353,6 +353,35 @@ public class EventsResource {
     }
 
     @POST
+    @Path("notes_async")
+    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
+    public Response addNoteBulkAsync(@QueryParam("uuid") Set<String> uuids, EventNote note) throws ZepException {
+        if (uuids == null)
+            return Response.noContent().build();
+        final Set<EventSummary> summaries = new HashSet<EventSummary>(uuids.size());
+        for (String uuid : uuids) {
+            EventSummary summary = eventStoreDao.findByUuid(uuid);
+            if (summary == null) {
+                return Response.status(Status.NOT_FOUND).build();
+            }
+            summaries.add(summary);
+        }
+        final EventUpdateContext context = new EventUpdateContext() {};
+        for (EventSummary summary : summaries) {
+            final String uuid = summary.getUuid();
+            int numRows = eventStoreDao.addNote(uuid, note);
+            if (numRows == 0) {
+                return Response.status(Status.INTERNAL_SERVER_ERROR).build();
+            }
+            for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
+                plugin.onNoteAdd(uuid, note, context);
+            }
+        }
+        return Response.noContent().build();
+    }
+
+    @POST
     @Path("/")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
