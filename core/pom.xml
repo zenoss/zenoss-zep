@@ -13,6 +13,7 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <properties>
+        <version.metrics>3.0.1</version.metrics>
     </properties>
     <dependencies>
         <dependency>
@@ -232,15 +233,11 @@
         	<groupId>ch.qos.logback</groupId>
         	<artifactId>logback-core</artifactId>
         	<version>${version.logback}</version>
-        	<type>jar</type>
-        	<scope>runtime</scope>
         </dependency>
         <dependency>
         	<groupId>ch.qos.logback</groupId>
         	<artifactId>logback-classic</artifactId>
         	<version>${version.logback}</version>
-        	<type>jar</type>
-        	<scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.codehaus.janino</groupId>
@@ -270,15 +267,32 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.yammer.metrics</groupId>
-            <artifactId>metrics-core</artifactId>
-            <version>${version.metrics}</version>
-        </dependency>
-        <dependency>
             <groupId>org.springframework.data</groupId>
             <artifactId>spring-data-redis</artifactId>
             <version>1.0.3.RELEASE</version>
         </dependency>
+        <!-- coda hale stuff -->
+        <dependency>
+            <groupId>com.codahale.metrics</groupId>
+            <artifactId>metrics-core</artifactId>
+            <version>${version.metrics}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.codahale.metrics</groupId>
+            <artifactId>metrics-jersey</artifactId>
+            <version>${version.metrics}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.codahale.metrics</groupId>
+            <artifactId>metrics-servlets</artifactId>
+            <version>${version.metrics}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.ryantenney.metrics</groupId>
+            <artifactId>metrics-spring</artifactId>
+            <version>${version.metrics}</version>
+        </dependency>
+        <!-- end of coda hale stuff -->
     </dependencies>
     <build>
         <plugins>
