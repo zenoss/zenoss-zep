@@ -36,6 +36,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Gauge;
+
+import javax.annotation.Resource;
+
 /**
  * Implementation of EventIndexQueueDao.
  */
@@ -52,11 +57,13 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
 
     private final boolean isArchive;
 
+    private MetricRegistry metrics;
+    private int lastQueueSize = -1;
+
     @Override
     public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
         this.applicationEventPublisher = applicationEventPublisher;
     }
-
 
     public EventIndexQueueDaoImpl(DataSource ds, boolean isArchive, EventDaoHelper daoHelper,
                                   DatabaseCompatibility databaseCompatibility) {
@@ -80,6 +87,24 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
     public List<Long> indexEvents(final EventIndexHandler handler, final int limit) throws ZepException {
         return indexEvents(handler, limit, -1L);
     }
+
+    @Resource(name="metrics")
+    public void setBean( MetricRegistry metrics ) {
+        this.metrics = metrics;
+        String metricName = "";
+        if(this.isArchive) {
+            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "archiveIndexQueueSize");
+            }
+        else {
+            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "summaryIndexQueueSize");
+            }
+        this.metrics.register(metricName, new Gauge<Integer>() {
+            @Override
+            public Integer getValue() {
+                return lastQueueSize;
+                }
+            });
+        }
 
     @Override
     @TransactionalRollbackAllExceptions
@@ -146,9 +171,9 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
         }
 
         // publish current size of event_*_index_queue table
-        int queueSize = this.template.queryForInt("SELECT COUNT(1) FROM " + this.queueTableName);
+        this.lastQueueSize = this.template.queryForInt("SELECT COUNT(1) FROM " + this.queueTableName);
         this.applicationEventPublisher.publishEvent(
-                new EventIndexQueueSizeEvent(this, tableName, queueSize, limit)
+                new EventIndexQueueSizeEvent(this, tableName, this.lastQueueSize, limit)
         );
 
         return indexQueueIds;

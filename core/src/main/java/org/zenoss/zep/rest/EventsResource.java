@@ -70,6 +70,8 @@ import java.util.TimeZone;
 
 import java.util.concurrent.Semaphore;
 
+import com.codahale.metrics.annotation.Timed;
+
 @Path("1.0/events")
 public class EventsResource {
     private static final Logger logger = LoggerFactory.getLogger(EventsResource.class);
@@ -163,6 +165,7 @@ public class EventsResource {
     @Path("search")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response createSavedSearch(EventQuery query, @Context UriInfo ui) throws URISyntaxException, ZepException {
         return createSavedSearchInternal(this.eventSummaryIndexDao, query, ui);
     }
@@ -171,6 +174,7 @@ public class EventsResource {
     @Path("archive/search")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response createArchiveSavedSearch(EventQuery query, @Context UriInfo ui) throws URISyntaxException, ZepException {
         return createSavedSearchInternal(this.eventArchiveIndexDao, query, ui);
     }
@@ -187,6 +191,7 @@ public class EventsResource {
     @Path("search/{searchUuid}")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response listSavedSearch(@PathParam("searchUuid") String searchUuid,
                                     @QueryParam("offset") String offsetStr,
                                     @QueryParam("limit") String limitStr) throws ZepException {
@@ -197,6 +202,7 @@ public class EventsResource {
     @Path("archive/search/{searchUuid}")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response listArchiveSavedSearch(@PathParam("searchUuid") String searchUuid,
                                     @QueryParam("offset") String offsetStr,
                                     @QueryParam("limit") String limitStr) throws ZepException {
@@ -236,6 +242,7 @@ public class EventsResource {
     @DELETE
     @Path("search/{searchUuid}")
     @GZIP
+    @Timed
     public Response deleteSavedSearch(@PathParam("searchUuid") String searchUuid) throws ZepException {
         return deleteSavedSearchInternal(this.eventSummaryIndexDao, searchUuid);
     }
@@ -243,6 +250,7 @@ public class EventsResource {
     @DELETE
     @Path("archive/search/{searchUuid}")
     @GZIP
+    @Timed
     public Response deleteArchiveSavedSearch(@PathParam("searchUuid") String searchUuid) throws ZepException {
         return deleteSavedSearchInternal(this.eventArchiveIndexDao, searchUuid);
     }
@@ -259,6 +267,7 @@ public class EventsResource {
     @Path("search/{searchUuid}")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventSummaryUpdateResponse updateEvents(@PathParam("searchUuid") String searchUuid,
                                                    EventSummaryUpdateRequest request) throws ZepException {
         if (request.hasEventQueryUuid() && !searchUuid.equals(request.getEventQueryUuid())) {
@@ -298,6 +307,7 @@ public class EventsResource {
     @Path("{eventUuid}")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response getEventSummaryByUuid(@PathParam("eventUuid") String eventUuid) throws ZepException {
         EventSummary summary = eventStoreDao.findByUuid(eventUuid);
         if (summary == null) {
@@ -311,6 +321,7 @@ public class EventsResource {
     @Path("{eventUuid}")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response updateEventSummaryByUuid(@PathParam("eventUuid") String uuid, EventSummaryUpdate update)
             throws ZepException {
 
@@ -331,6 +342,7 @@ public class EventsResource {
     @Path("{eventUuid}/notes")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response addNote(@PathParam("eventUuid") String eventUuid, EventNote note) throws ZepException {
 
         EventSummary summary = eventStoreDao.findByUuid(eventUuid);
@@ -356,6 +368,7 @@ public class EventsResource {
     @Path("/")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventSummaryResult listEventIndex(EventSummaryRequest request)
             throws ZepException {
         return this.eventSummaryIndexDao.list(request);
@@ -392,6 +405,7 @@ public class EventsResource {
     @Path("archive")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventSummaryResult listEventIndexArchive(EventSummaryRequest request)
             throws ZepException {
         return this.getEventArchiveResults(request);
@@ -401,6 +415,7 @@ public class EventsResource {
     @Path("/")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventSummaryResult listEventIndexGet(@Context UriInfo ui)
             throws ParseException, ZepException {
         return this.eventSummaryIndexDao.list(eventSummaryRequestFromUriInfo(ui));
@@ -410,6 +425,7 @@ public class EventsResource {
     @Path("archive")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventSummaryResult listEventIndexArchiveGet(@Context UriInfo ui)
             throws ParseException, ZepException {
         return this.getEventArchiveResults(eventSummaryRequestFromUriInfo(ui));
@@ -419,6 +435,7 @@ public class EventsResource {
     @Path("tag_severities")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventTagSeveritiesSet getEventTagSeverities(EventFilter filter) throws ZepException {
         return this.eventSummaryIndexDao.getEventTagSeverities(filter);
     }
@@ -427,6 +444,7 @@ public class EventsResource {
     @Path("{eventUuid}/details")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response updateEventDetails(@PathParam("eventUuid") String eventUuid, EventDetailSet details) throws ZepException {
         int numRows = eventStoreDao.updateDetails(eventUuid, details);
         if (numRows == 0) {
