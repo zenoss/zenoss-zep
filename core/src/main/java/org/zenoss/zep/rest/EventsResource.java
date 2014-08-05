@@ -368,6 +368,7 @@ public class EventsResource {
     @Path("notes_async")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response addNoteBulkAsync(@QueryParam("uuid") Set<String> uuids, EventNote note) throws ZepException {
         if (uuids == null)
             return Response.noContent().build();
