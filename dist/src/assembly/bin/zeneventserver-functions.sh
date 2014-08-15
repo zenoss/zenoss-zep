@@ -30,6 +30,14 @@ run() {
     exec java ${JVM_ARGS} -jar ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
 }
 
+run_quiet() {
+    JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
+    PID=$$
+    rm -f $PIDFILE
+    echo $PID > $PIDFILE
+    exec java ${JVM_ARGS} -jar ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
+}
+
 # Waits for the process to be started (assumes when the ZEP port is listening the
 # application has started up completely).
 wait_for_startup() {
@@ -246,27 +254,33 @@ generic() {
         run)
             run "$@"
             ;;
+        run_quiet)
+            run_quiet "$@"
+            ;;
         threads)
             threads "$@"
             ;;
         *)
             cat - <<HELP
-Usage: $0 {start|stop|restart|status|run|threads} [options]
+Usage: $0 {start|stop|restart|status|run|run_quiet|threads} [options]
 
   where the commands are:
 
-    start   - start the program in the background
+    start     - start the program in the background
 
-    stop    - stop the program
+    stop      - stop the program
 
-    restart - stop and then start the program
+    restart   - stop and then start the program
 
-    status  - Check the status of a daemon.  This will print the current
-              process id if it is running.
+    status    - Check the status of a daemon.  This will print the current
+                process id if it is running.
 
-    run     - run the program in the foreground
+    run       - run the program in the foreground
+    
+    run_quiet - run the program quietly in the foreground (most console
+              logging will be suppressed)
 
-    threads - display thread status to stdout
+    threads   - display thread status to stdout
 
 HELP
             exit 1
