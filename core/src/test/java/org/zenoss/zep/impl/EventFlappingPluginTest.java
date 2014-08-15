@@ -154,22 +154,6 @@ public class EventFlappingPluginTest {
     }
 
     @Test
-    public void testFlappingEventGenerated() throws ZepException {
-        Event.Builder eventBuilder = createEventOccurrence(createActor().build());
-        String clearFingerprint = "fingerprint2";
-        FlapTracker tracker = flapTrackerDao.getFlapTrackerByClearFingerprintHash(clearFingerprint);
-        for (int i=0;i<4;i++){
-            tracker.addCurrentTimeStamp();
-        }
-
-        // should generate an event now
-        eventFlappingPlugin.detectEventFlapping(eventBuilder.build(), clearFingerprint);
-
-        // make sure all of the timestamps have been cleared
-        assertEquals(0, tracker.getTimestamps().length);
-    }
-
-    @Test
     public void testNoFlapIfNotIdentified() throws ZepException {
         EventActor.Builder actorBuilder = createActor();
         actorBuilder.clearElementUuid();
