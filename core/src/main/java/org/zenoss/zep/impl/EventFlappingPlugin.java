@@ -360,8 +360,7 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
 
             // see if we have gone above the threshold
             int flapCount = countFlapsForEvent(tracker, event);
-            if (flapCount >= flapThreshold) {
-                tracker.clearTimestamps();
+            if (flapCount >= flapThreshold && flapCount % flapThreshold == 0) {
                 logger.info("Publishing flap event for clear {}", fingerprintHash);
                 Event flapEvent = buildFlappingEvent(event, flapCount);
                 try {
