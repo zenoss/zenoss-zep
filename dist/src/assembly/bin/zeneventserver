@@ -41,6 +41,22 @@ mkdir -p ${VAR}/run
 PIDFILE=${VAR}/zeneventserver-localhost.pid
 CMD=$1
 
+# Check maximum amount of virtual memory available to the shell 
+MAXVMEM=$(ulimit -v) 
+if [[ $MAXVMEM != "unlimited" ]] ; then 
+	echo "Maximum amount of virtual memory should not be limited" 
+	echo "Please check ulimit -v" 
+	exit 1 
+fi 
+
+# Check maximum resident set size 
+MAXRSS=$(ulimit -m) 
+if [[ $MAXRSS != "unlimited" ]] ; then 
+	echo "maximum amount of resident set size should not be limited" 
+	echo "Please check ulimit -m" 
+	exit 1 
+fi 
+
 JAVAEXE="java"
 
 . ${JETTY_BIN}/zeneventserver-functions.sh
