@@ -120,6 +120,10 @@ import static org.zenoss.zep.index.impl.IndexConstants.FIELD_UUID;
 import static org.zenoss.zep.index.impl.IndexConstants.IP_ADDRESS_TYPE_SUFFIX;
 import static org.zenoss.zep.index.impl.IndexConstants.SORT_SUFFIX;
 
+import com.codahale.metrics.MetricRegistry;
+import javax.annotation.Resource;
+import com.codahale.metrics.Gauge;
+
 public class EventIndexDaoImpl implements LuceneEventIndexDao {
     private final IndexWriter writer;
     private final SearcherManager searcherManager;
@@ -147,6 +151,9 @@ public class EventIndexDaoImpl implements LuceneEventIndexDao {
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImpl.class);
 
+    private MetricRegistry metrics;
+    private int indexResultsCount = -1;
+
     public EventIndexDaoImpl(String name, IndexWriter writer, EventSummaryBaseDao eventSummaryBaseDao, Integer maxClauseCount, FilterCacheManager filterCacheManager,
                              int readerRefreshInterval)
             throws IOException {
@@ -166,7 +173,27 @@ public class EventIndexDaoImpl implements LuceneEventIndexDao {
         } else {
             this.nrtManagerReopenThread = null;
         }
+    }
 
+    private String getMetricName(String metricName) {
+        if(this.archive) {
+            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "archive" + metricName);
+        } else {
+            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "summary" + metricName);
+        }
+        return metricName;
+    }
+
+    @Resource(name="metrics")
+    public void setBean(MetricRegistry metrics) {
+        this.metrics = metrics;
+        String metricName = this.getMetricName("IndexResultsCount");
+        this.metrics.register(metricName, new Gauge<Integer>() {
+            @Override
+            public Integer getValue() {
+                return indexResultsCount;
+            }
+        });
     }
 
     public void init() {
