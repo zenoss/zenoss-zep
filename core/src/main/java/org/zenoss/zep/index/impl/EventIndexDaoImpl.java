@@ -13,6 +13,9 @@ package org.zenoss.zep.index.impl;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.TimeLimiter;
+import com.google.common.util.concurrent.SimpleTimeLimiter;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.AtomicReaderContext;
 import org.apache.lucene.index.DirectoryReader;
@@ -86,6 +89,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Callable;
 
 import static org.zenoss.zep.index.impl.IndexConstants.FIELD_AGENT;
 import static org.zenoss.zep.index.impl.IndexConstants.FIELD_COUNT;
@@ -153,6 +157,8 @@ public class EventIndexDaoImpl implements LuceneEventIndexDao {
 
     private MetricRegistry metrics;
     private int indexResultsCount = -1;
+
+    private int luceneSearchTimeout = 0;
 
     public EventIndexDaoImpl(String name, IndexWriter writer, EventSummaryBaseDao eventSummaryBaseDao, Integer maxClauseCount, FilterCacheManager filterCacheManager,
                              int readerRefreshInterval)
@@ -301,6 +307,13 @@ public class EventIndexDaoImpl implements LuceneEventIndexDao {
         }
     }
 
+    public void setLuceneSearchTimeout(int luceneSearchTimeout) {
+        if (luceneSearchTimeout > 0) {
+            this.luceneSearchTimeout = luceneSearchTimeout;
+            logger.info("Lucene search timeout set to " + this.luceneSearchTimeout + " seconds.");
+        }
+    }
+
     @Override
     public String getName() {
         return this.name;
@@ -417,6 +430,50 @@ public class EventIndexDaoImpl implements LuceneEventIndexDao {
         }
     }
 
+    private TopDocs timeLimitedSearch(final IndexSearcher searcher, final Query query,
+                                      final Sort sort, final int offset, final int limit, final int numDocs)
+            throws ZepException {
+
+        TopDocs docs;
+
+        Callable search_call = new Callable<TopDocs>() {
+            public TopDocs call() throws IOException, Exception {
+                TopDocs tdocs;
+                if (sort != null) {
+                    logger.debug("Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[]{query, sort, offset, limit});
+                    tdocs = searcher.search(query, null, numDocs, sort);
+                } else {
+                    logger.debug("Query: {}, Offset: {}, Limit: {}", new Object[]{query, offset, limit});
+                    tdocs = searcher.search(query, null, numDocs);
+                }
+                return tdocs;
+            }
+        };
+
+        try {
+            if (this.luceneSearchTimeout > 0) {
+                TimeLimiter limiter = new SimpleTimeLimiter();
+                docs = (TopDocs)limiter.callWithTimeout(search_call, this.luceneSearchTimeout, TimeUnit.SECONDS, true);
+            }
+            else
+                docs = (TopDocs)search_call.call();
+        }
+        catch (UncheckedTimeoutException e) {
+            String msg = "Lucene search exceeded time limit ( " + this.luceneSearchTimeout + " seconds.)";
+            if (sort != null)
+                logger.warn(msg + "Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[]{query, sort, offset, limit});
+            else
+                logger.warn(msg + "Query: {}, Offset: {}, Limit: {}", new Object[]{query, offset, limit});
+            throw new ZepException(msg + e.getLocalizedMessage(), e);
+        }
+        catch (Exception e) {
+            logger.error("Exception performing timed search: ", e);
+            throw new ZepException(e.getLocalizedMessage(), e);
+        }
+
+        return docs;
+    }
+
     private EventSummaryResult searchToEventSummaryResult(IndexSearcher searcher, Query query, Sort sort,
                                                           Set<String> fieldsToLoad, int offset, int limit)
             throws IOException, ZepException {
@@ -429,17 +486,12 @@ public class EventIndexDaoImpl implements LuceneEventIndexDao {
         if (offset < 0) {
             offset = 0;
         }
-        final TopDocs docs;
 
         // Lucene doesn't like querying for 0 documents - search for at least one here
         final int numDocs = Math.max(limit + offset, 1);
-        if (sort != null) {
-            logger.debug("Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[]{query, sort, offset, limit});
-            docs = searcher.search(query, null, numDocs, sort);
-        } else {
-            logger.debug("Query: {}, Offset: {}, Limit: {}", new Object[]{query, offset, limit});
-            docs = searcher.search(query, null, numDocs);
-        }
+
+        final TopDocs docs = this.timeLimitedSearch(searcher, query, sort, offset, limit, numDocs);
+
         logger.debug("Found {} results", docs.totalHits);
         EventSummaryResult.Builder result = EventSummaryResult.newBuilder();
         result.setTotal(docs.totalHits);

@@ -164,6 +164,7 @@
         <constructor-arg value="${zep.query.cache_refresh_interval:10}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
+        <property name="luceneSearchTimeout" value="${zep.query.lucene_search_timeout:0}" />
     </bean>
 
     <bean id="luceneArchiveDir" class="org.apache.lucene.store.MMapDirectory"
@@ -197,6 +198,7 @@
         <constructor-arg value="${zep.query.archive_cache_refresh_interval:60}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
+        <property name="luceneSearchTimeout" value="${zep.query.lucene_search_timeout:0}" />
     </bean>
 
     <bean id="eventStoreDao" class="org.zenoss.zep.dao.impl.EventStoreDaoImpl">
