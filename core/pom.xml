@@ -93,6 +93,11 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
+            <groupId>org.zenoss</groupId>
+            <artifactId>metric-spring-reporter</artifactId>
+            <version>${metric-consumer.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.codehaus.jackson</groupId>
             <artifactId>jackson-jaxrs</artifactId>
             <version>${version.jackson}</version>

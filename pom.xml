@@ -33,6 +33,7 @@
         <version.tomcat-jdbc>7.0.27</version.tomcat-jdbc>
         <zenoss-utils.version>2.0.0</zenoss-utils.version>
         <zenoss-protocols.version>2.0.1</zenoss-protocols.version>
+        <metric-consumer.version>0.0.10-SNAPSHOT</metric-consumer.version>
     </properties>
     <profiles>
         <!-- Disable the integration tests if we haven't specified a database type -->
