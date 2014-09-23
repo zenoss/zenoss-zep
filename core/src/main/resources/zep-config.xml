@@ -208,7 +208,7 @@
     <metrics:reporter type="slf4j" metric-registry="metrics" period="1m" />
 
     <metrics:reporter type="zenoss" metric-registry="metrics" period="${zep.metrics.post.period:30s}" id="zenossReporter"
-                      username="${zauth-username}" password="${zauth-password}" tags="daemon:zep"/>
+                      username="${zauth-username:#{null}}" password="${zauth-password:#{null}}" tags="daemon:zep"/>
 
     <metrics:register metric-registry="metrics">
         <bean metrics:name="jvm.gc" class="com.codahale.metrics.jvm.GarbageCollectorMetricSet" />
