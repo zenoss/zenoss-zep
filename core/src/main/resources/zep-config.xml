@@ -206,6 +206,13 @@
     <metrics:health-check-registry id="metrics-health"/>
     <metrics:annotation-driven metric-registry="metrics" health-check-registry="metrics-health" />
     <metrics:reporter type="slf4j" metric-registry="metrics" period="1m" />
+
+    <metrics:reporter type="zenoss" metric-registry="metrics" period="${zep.metrics.post.period:30s}" id="zenossReporter"
+                      username="${zauth-username:#{null}}" password="${zauth-password:#{null}}" tags="daemon:zep" prefix="zep"/>
+
+    <metrics:reporter type="zenoss" metric-registry="metrics" period="${zep.metrics.post.period:30s}" id="ControlCenterReporter"
+                      post-url="${CONTROLPLANE_CONSUMER_URL}" tags="daemon:zep" prefix="zep"/>
+
     <metrics:register metric-registry="metrics">
         <bean metrics:name="jvm.gc" class="com.codahale.metrics.jvm.GarbageCollectorMetricSet" />
         <bean metrics:name="jvm.memory" class="com.codahale.metrics.jvm.MemoryUsageGaugeSet" />

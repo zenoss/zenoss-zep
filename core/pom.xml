@@ -93,6 +93,11 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
+            <groupId>org.zenoss</groupId>
+            <artifactId>metric-spring-reporter</artifactId>
+            <version>${metric-consumer.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.codehaus.jackson</groupId>
             <artifactId>jackson-jaxrs</artifactId>
             <version>${version.jackson}</version>
@@ -120,7 +125,11 @@
             <type>jar</type>
             <scope>compile</scope>
             <exclusions>
-                <exclusion>
+                <exclusion> 
+                    <groupId>org.apache.httpcomponents</groupId>
+                    <artifactId>httpclient</artifactId>
+                </exclusion>
+	        <exclusion>
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-simple</artifactId>
                 </exclusion>
