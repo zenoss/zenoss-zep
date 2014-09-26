@@ -211,7 +211,7 @@
                       username="${zauth-username:#{null}}" password="${zauth-password:#{null}}" tags="daemon:zep" prefix="zep"/>
 
     <metrics:reporter type="zenoss" metric-registry="metrics" period="${zep.metrics.post.period:30s}" id="ControlCenterReporter"
-                      post-url="${CONTROLPLANE_CONSUMER_URL}" tags="daemon:zep" prefix="zep"/>
+        post-url="${CONTROLPLANE_CONSUMER_URL:http://localhost:22350/api/metrics/store}" tags="daemon:zep" prefix="zep"/>
 
     <metrics:register metric-registry="metrics">
         <bean metrics:name="jvm.gc" class="com.codahale.metrics.jvm.GarbageCollectorMetricSet" />
