@@ -476,9 +476,17 @@ public class EventsResource {
     @GZIP
     @Timed
     public Response updateEventDetails(@PathParam("eventUuid") String eventUuid, EventDetailSet details) throws ZepException {
+        logger.debug("updateEventDetails Enter");
         int numRows = eventStoreDao.updateDetails(eventUuid, details);
         if (numRows == 0) {
             return Response.status(Status.NOT_FOUND).build();
+        }
+        else {
+            EventUpdateContext context = new EventUpdateContext() {
+            };
+            for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
+                    plugin.onEventDetailUpdate(eventUuid, details, context);
+            }
         }
 
         return Response.noContent().build();
