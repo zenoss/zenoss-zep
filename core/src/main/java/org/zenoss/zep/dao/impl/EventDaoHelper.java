@@ -576,9 +576,9 @@ public class EventDaoHelper {
     public int updateDetails(String tableName, String uuid, List<EventDetail> details, SimpleJdbcOperations template)
             throws ZepException {
         Map<String, Object> fields = new HashMap<String, Object>();
+
         fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
         final String selectSql = "SELECT details_json FROM " + tableName + " WHERE uuid = :uuid FOR UPDATE";
-
         final List<EventDetail> existingDetailList;
         try {
             String currentDetailsJson = template.queryForObject(selectSql, String.class, fields);

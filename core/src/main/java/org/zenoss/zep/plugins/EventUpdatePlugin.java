@@ -10,9 +10,11 @@
 
 package org.zenoss.zep.plugins;
 
+import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
 import org.zenoss.zep.ZepException;
+import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 
 import java.util.List;
 
@@ -39,4 +41,17 @@ public abstract class EventUpdatePlugin extends EventPlugin  {
      * @param context Context passed to plugins.
      */
     public abstract void onNoteAdd(String uuid, EventNote note, EventUpdateContext context) throws ZepException;
+
+    /**
+     * Called when an event detail is added or updated to an event.
+     *
+     * @param uuid The UUID of the event.
+     * @param detSet The EventDetailSet.
+     * @param context Context passed to plugins.
+     */
+    public void onEventDetailUpdate(String uuid, EventDetailSet detSet, EventUpdateContext context) throws ZepException{
+
+    }
+
+
 }
