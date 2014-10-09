@@ -4,7 +4,7 @@
     <groupId>org.zenoss.zep</groupId>
     <artifactId>zep-parent</artifactId>
     <packaging>pom</packaging>
-    <version>1.3-SNAPSHOT</version>
+    <version>1.4.Z2-SNAPSHOT</version>
     <name>Zenoss Event Processor Parent</name>
     <url>http://www.zenoss.com</url>
     <modules>
@@ -168,16 +168,4 @@
             </plugin>
         </plugins>
     </build>
-    <distributionManagement>
-        <repository>
-            <id>releases</id>
-            <name>Internal Release Repository</name>
-            <url>http://cmrepo.zenoss.loc/nexus/content/repositories/releases</url>
-        </repository>
-        <snapshotRepository>
-            <id>snapshots</id>
-            <name>Internal Snapshot Repository</name>
-            <url>http://cmrepo.zenoss.loc/nexus/content/repositories/snapshots</url>
-        </snapshotRepository>
-    </distributionManagement>
 </project>
