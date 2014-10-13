@@ -1,29 +1,43 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 ##############################################################################
-# 
+#
 # Copyright (C) Zenoss, Inc. 2010, all rights reserved.
 # 
 # This content is made available according to terms specified in
 # License.zenoss under the directory where your Zenoss product is installed.
-# 
+#
 ##############################################################################
 -->
 
 
 <configuration scan="true">
     <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener" />
-    
-    <if condition='isNull("ZENOSS_DAEMON")'>
-        <then>
-            <appender name="APPENDER" class="ch.qos.logback.core.ConsoleAppender">
+
+            <!-- Console appenders -->
+            <appender name="CONSOLE-APPENDER" class="ch.qos.logback.core.ConsoleAppender">
+                <filter class="org.zenoss.zep.logging.filter.LoggerNameFilter">
+                    <loggerName>metrics</loggerName>
+                    <onMatch>DENY</onMatch>
+                    <onMismatch>NEUTRAL</onMismatch>
+                </filter>
                 <encoder>
                     <pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
                 </encoder>
             </appender>
-        </then>
-        <else>
-            <appender name="APPENDER" class="ch.qos.logback.core.rolling.RollingFileAppender">
+            <appender name="METRICS-CONSOLE-APPENDER" class="ch.qos.logback.core.ConsoleAppender">
+                <encoder>
+                    <pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
+                </encoder>
+            </appender>
+
+            <!-- Logfile appenders -->
+            <appender name="LOGFILE-APPENDER" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <filter class="org.zenoss.zep.logging.filter.LoggerNameFilter">
+                    <loggerName>metrics</loggerName>
+                    <onMatch>DENY</onMatch>
+                    <onMismatch>NEUTRAL</onMismatch>
+                </filter>
                 <file>${ZENHOME:-.}/log/zeneventserver.log</file>
                 <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
                     <!-- daily rollover -->
@@ -39,8 +53,22 @@
                     <pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
                 </encoder>
             </appender>
-        </else>
-    </if>
+            <appender name="METRICS-LOGFILE-APPENDER" class="ch.qos.logback.core.rolling.RollingFileAppender">
+                <file>${ZENHOME:-.}/log/zeneventserver-metrics.log</file>
+                <rollingPolicy class="ch.qos.logback.core.rolling.FixedWindowRollingPolicy">
+                    <!-- daily rollover -->
+                    <fileNamePattern>${ZENHOME:-.}/log/zeneventserver-metrics.log.%i</fileNamePattern>
+                    <!-- keep up to 3 logs by default -->
+                    <minIndex>1</minIndex>
+                    <maxIndex>3</maxIndex>
+                </rollingPolicy>
+                <triggeringPolicy class="ch.qos.logback.core.rolling.SizeBasedTriggeringPolicy">
+                    <maxFileSize>10MB</maxFileSize>
+                </triggeringPolicy>
+                <encoder>
+                    <pattern>%date{yyyy-MM-dd'T'HH:mm:ss.SSS} [%thread] %-5level %logger - %msg%n</pattern>
+                </encoder>
+            </appender>
 
     <contextName>zeneventserver</contextName>
     <jmxConfigurator />
@@ -49,7 +77,27 @@
     <logger name="com.zenoss" level="${ZENOSS_LOG_LEVEL:-INFO}" />
     <logger name="org.zenoss" level="${ZENOSS_LOG_LEVEL:-INFO}" />
 
-    <root level="INFO">
-        <appender-ref ref="APPENDER"/>
-    </root>
+    <if condition='isNull("ZENOSS_DAEMON")'>
+    <!-- If running in the foreground, log to stdout AND the log  -->
+        <then>
+            <logger name="metrics" level="${ZENOSS_LOG_LEVEL:-INFO}" >
+                <appender-ref ref="METRICS-LOGFILE-APPENDER" />
+                <appender-ref ref="METRICS-CONSOLE-APPENDER" />
+            </logger>
+            <root level="INFO">
+                <appender-ref ref="LOGFILE-APPENDER"/>
+                <appender-ref ref="CONSOLE-APPENDER"/>
+            </root>
+        </then>
+        <else>
+            <logger name="metrics" level="${ZENOSS_LOG_LEVEL:-INFO}" >
+                <appender-ref ref="METRICS-LOGFILE-APPENDER" />
+            </logger>
+            <root level="INFO">
+                <appender-ref ref="LOGFILE-APPENDER"/>
+            </root>
+        </else>
+    </if>
+    
+
 </configuration>

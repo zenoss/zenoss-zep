@@ -8,7 +8,10 @@
  ****************************************************************************/
 package org.zenoss.zep.rest;
 
-import com.yammer.metrics.core.VirtualMachineMetrics;
+import com.codahale.metrics.jvm.ThreadDump;
+
+import java.lang.management.ThreadMXBean;
+import java.lang.management.ManagementFactory;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -42,7 +45,8 @@ public class DiagnosticsResource {
         ResponseBuilder response = Response.ok(new StreamingOutput() {
             @Override
             public void write(OutputStream output) throws IOException, WebApplicationException {
-                VirtualMachineMetrics.getInstance().threadDump(output);
+                ThreadMXBean threadMXBean = ManagementFactory.getThreadMXBean();
+                new ThreadDump(threadMXBean).dump(output);
             }
         });
         response.cacheControl(NO_CACHE);

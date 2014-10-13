@@ -2,11 +2,14 @@
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:metrics="http://www.ryantenney.com/schema/metrics"
 
        xsi:schemaLocation="http://www.springframework.org/schema/beans
                         http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
                         http://www.springframework.org/schema/context
-                        http://www.springframework.org/schema/context/spring-context-3.0.xsd">
+                        http://www.springframework.org/schema/context/spring-context-3.0.xsd
+                        http://www.ryantenney.com/schema/metrics
+                        http://www.ryantenney.com/schema/metrics/metrics-3.0.xsd">
 
     <context:annotation-config/>
     <context:component-scan base-package="org.zenoss.zep"/>
@@ -102,7 +105,7 @@
         <property name="eventSummaryBaseDao" ref="eventArchiveDao" />
         <property name="eventStoreDao" ref="eventStoreDao" />
     </bean>
-    
+
     <bean id="heartbeatProcessor" class="org.zenoss.zep.impl.HeartbeatProcessorImpl">
         <property name="eventPublisher" ref="eventPublisher" />
         <property name="heartbeatDao" ref="heartbeatDao" />
@@ -198,5 +201,23 @@
         <property name="eventSummaryIndexQueueDao" ref="eventSummaryIndexQueueDao"/>
         <property name="eventArchiveIndexQueueDao" ref="eventArchiveIndexQueueDao"/>
     </bean>
+
+    <metrics:metric-registry id="metrics" />
+    <metrics:health-check-registry id="metrics-health"/>
+    <metrics:annotation-driven metric-registry="metrics" health-check-registry="metrics-health" />
+    <metrics:reporter type="slf4j" metric-registry="metrics" period="1m" />
+
+    <metrics:reporter type="zenoss" metric-registry="metrics" period="${zep.metrics.post.period:30s}" id="zenossReporter"
+                      username="${zauth-username:#{null}}" password="${zauth-password:#{null}}" tags="daemon:zep" prefix="zep"/>
+
+    <metrics:reporter type="zenoss" metric-registry="metrics" period="${zep.metrics.post.period:30s}" id="ControlCenterReporter"
+        post-url="${CONTROLPLANE_CONSUMER_URL:http://localhost:22350/api/metrics/store}" tags="daemon:zep" prefix="zep"/>
+
+    <metrics:register metric-registry="metrics">
+        <bean metrics:name="jvm.gc" class="com.codahale.metrics.jvm.GarbageCollectorMetricSet" />
+        <bean metrics:name="jvm.memory" class="com.codahale.metrics.jvm.MemoryUsageGaugeSet" />
+        <bean metrics:name="jvm.thread-states" class="com.codahale.metrics.jvm.ThreadStatesGaugeSet" />
+        <bean metrics:name="jvm.fd.usage" class="com.codahale.metrics.jvm.FileDescriptorRatioGauge" />
+    </metrics:register>
 
 </beans>

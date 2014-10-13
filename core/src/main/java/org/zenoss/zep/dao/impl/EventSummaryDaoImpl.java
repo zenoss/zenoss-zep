@@ -868,9 +868,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }, fields);
 
         final String updateSql = "UPDATE event_summary SET status_id=:status_id,status_change=:status_change," +
-                "update_time=:update_time,current_user_uuid=:current_user_uuid,current_user_name=:current_user_name," +
-                "cleared_by_event_uuid=:cleared_by_event_uuid,fingerprint_hash=:fingerprint_hash," +
+              "update_time=:update_time,"+
+              (status != EventStatus.STATUS_CLOSED && status != EventStatus.STATUS_CLEARED ? "current_user_uuid=:current_user_uuid,current_user_name=:current_user_name,":"" ) +
+               "cleared_by_event_uuid=:cleared_by_event_uuid,fingerprint_hash=:fingerprint_hash," +
                 "audit_json=:audit_json WHERE uuid=:uuid";
+
+
         int numRows = 0;
         for (final Map<String,Object> update : result) {
             try {

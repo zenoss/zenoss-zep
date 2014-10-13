@@ -1,21 +1,28 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
 package org.zenoss.zep.index.impl;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
+import com.google.common.util.concurrent.TimeLimiter;
+import com.google.common.util.concurrent.SimpleTimeLimiter;
+import com.google.common.util.concurrent.UncheckedTimeoutException;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.FieldSelector;
+import org.apache.lucene.index.AtomicReaderContext;
+import org.apache.lucene.index.DirectoryReader;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.index.TrackingIndexWriter;
 import org.apache.lucene.search.BooleanClause.Occur;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Collector;
@@ -24,7 +31,10 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.FieldComparator;
 import org.apache.lucene.search.FieldComparatorSource;
 import org.apache.lucene.search.MatchAllDocsQuery;
+import org.apache.lucene.search.SearcherManager;
+import org.apache.lucene.search.ControlledRealTimeReopenThread;
 import org.apache.lucene.search.Query;
+import org.apache.lucene.search.QueryWrapperFilter;
 import org.apache.lucene.search.Scorer;
 import org.apache.lucene.search.Sort;
 import org.apache.lucene.search.SortField;
@@ -57,11 +67,10 @@ import org.zenoss.zep.Messages;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
-import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.EventSummaryBaseDao;
 import org.zenoss.zep.impl.ThreadRenamingRunnable;
-import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.IndexedDetailsConfiguration;
+import org.zenoss.zep.index.LuceneEventIndexDao;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -76,19 +85,61 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Callable;
 
-import static org.zenoss.zep.index.impl.IndexConstants.*;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_AGENT;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_COUNT;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_CURRENT_USER_NAME;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_IDENTIFIER;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_SUB_IDENTIFIER;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_SUB_TITLE;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_TITLE;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_ELEMENT_TITLE_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_CLASS;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_CLASS_KEY;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_CLASS_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_GROUP;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_KEY;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_FINGERPRINT;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_FIRST_SEEN_TIME;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_LAST_SEEN_TIME;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_MESSAGE;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_MONITOR;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_PROTOBUF;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_SEVERITY;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_STATUS;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_STATUS_CHANGE_TIME;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_SUMMARY;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_SUMMARY_NOT_ANALYZED;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_TAGS;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_UPDATE_TIME;
+import static org.zenoss.zep.index.impl.IndexConstants.FIELD_UUID;
+import static org.zenoss.zep.index.impl.IndexConstants.IP_ADDRESS_TYPE_SUFFIX;
+import static org.zenoss.zep.index.impl.IndexConstants.SORT_SUFFIX;
 
-public class EventIndexDaoImpl implements EventIndexDao {
+import com.codahale.metrics.MetricRegistry;
+import javax.annotation.Resource;
+import com.codahale.metrics.Gauge;
+
+public class EventIndexDaoImpl implements LuceneEventIndexDao {
     private final IndexWriter writer;
-    private final IndexSearcherCache indexSearcherCache;
+    private final SearcherManager searcherManager;
     private final String name;
     private final boolean archive;
     private final EventSummaryBaseDao eventSummaryBaseDao;
-    
+    private final FilterCacheManager filterCacheManager;
+    private final TrackingIndexWriter trackingIndexWriter;
+    private ControlledRealTimeReopenThread nrtManagerReopenThread;
+    private int readerReopenInterval;
+
+
     @Autowired
     private UUIDGenerator uuidGenerator;
 
@@ -96,30 +147,147 @@ public class EventIndexDaoImpl implements EventIndexDao {
     private Messages messages;
 
     private int queryLimit = ZepConstants.DEFAULT_QUERY_LIMIT;
-    
+
     @Autowired
     private TaskScheduler scheduler;
-    private final Map<String,SavedSearch> savedSearches = new ConcurrentHashMap<String,SavedSearch>();
+    private final Map<String, SavedSearch> savedSearches = new ConcurrentHashMap<String, SavedSearch>();
     private IndexedDetailsConfiguration indexedDetailsConfiguration;
 
     private static final Logger logger = LoggerFactory.getLogger(EventIndexDaoImpl.class);
 
-    public EventIndexDaoImpl(String name, IndexWriter writer, EventSummaryBaseDao eventSummaryBaseDao, Integer maxClauseCount)
+    private MetricRegistry metrics;
+    private int indexResultsCount = -1;
+
+    private int luceneSearchTimeout = 0;
+
+    public EventIndexDaoImpl(String name, IndexWriter writer, EventSummaryBaseDao eventSummaryBaseDao, Integer maxClauseCount, FilterCacheManager filterCacheManager,
+                             int readerRefreshInterval)
             throws IOException {
         this.name = name;
         this.writer = writer;
-        this.indexSearcherCache = new IndexSearcherCache(writer);
+        this.trackingIndexWriter = new TrackingIndexWriter(this.writer);
+        this.searcherManager = new SearcherManager(this.writer, true, null);
         this.eventSummaryBaseDao = eventSummaryBaseDao;
         this.archive = "event_archive".equals(name);
+        this.filterCacheManager = filterCacheManager;
+        this.readerReopenInterval = readerRefreshInterval;
         BooleanQuery.setMaxClauseCount(maxClauseCount);
+
+        // Deal with the reader reopen thread
+        if (this.readerReopenInterval != 0) {
+            startReopenThread();
+        } else {
+            this.nrtManagerReopenThread = null;
+        }
+    }
+
+    private String getMetricName(String metricName) {
+        if(this.archive) {
+            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "archive" + metricName);
+        } else {
+            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "summary" + metricName);
+        }
+        return metricName;
+    }
+
+    @Resource(name="metrics")
+    public void setBean(MetricRegistry metrics) {
+        this.metrics = metrics;
+        String metricName = this.getMetricName("IndexResultsCount");
+        this.metrics.register(metricName, new Gauge<Integer>() {
+            @Override
+            public Integer getValue() {
+                return indexResultsCount;
+            }
+        });
+    }
+
+    public void init() {
+        //Do Zenoss' default query to warm the cache on a thread, as not to delay startup
+        class CacheWarmer implements Runnable {
+            @Override
+            public void run() {
+                logger.info("Warming cache for {}", name);
+                IndexSearcher searcher = null;
+                try {
+                    searcher = getSearcher();
+                    EventFilter filter = EventFilter.newBuilder()
+                            .addAllStatus(Lists.newArrayList(EventStatus.values()))
+                            .addAllSeverity(Lists.newArrayList(EventSeverity.values()))
+                            .build();
+                    Query query = buildQuery(searcher.getIndexReader(), filter, null);
+                    List<EventSort> sortList = new ArrayList<EventSort>(2);
+                    sortList.add(EventSort.newBuilder().setField(EventSort.Field.SEVERITY).setDirection(Direction.DESCENDING).build());
+                    sortList.add(EventSort.newBuilder().setField(EventSort.Field.LAST_SEEN).setDirection(Direction.DESCENDING).build());
+                    Sort sort = buildSort(sortList);
+                    logger.info("Warming cache for {}", name);
+                    searchToEventSummaryResult(searcher, query, sort, Sets.newHashSet(FIELD_PROTOBUF), 0, 1000);
+                    logger.info("Done warming cache for {}!", name);
+                } catch (Exception e) {
+                    logger.error("Failed to warm cache for {}", name);
+                    e.printStackTrace();
+                } finally {
+                    try {
+                        returnSearcher(searcher);
+                    } catch (ZepException e) {
+                        logger.error("Failed to return searcher");
+                        e.printStackTrace();
+                    }
+                }
+            }
+        }
+        Thread warmer = new Thread(new CacheWarmer());
+        warmer.setName(name + " Cache Warmer Thread");
+        warmer.start();
+    }
+
+    private void startReopenThread() {
+        stopReopenThread();
+        logger.debug("Starting NRT Reopen Thread");
+        // Max = min on this because min only matters when you call
+        // waitForGeneration() on the NRTManager, which we never do
+        this.nrtManagerReopenThread = new ControlledRealTimeReopenThread<IndexSearcher>(this.trackingIndexWriter, this.searcherManager,
+                this.readerReopenInterval, this.readerReopenInterval);
+        this.nrtManagerReopenThread.setName(name + "NRT Reopen Thread");
+        this.nrtManagerReopenThread.setPriority(Math.min(Thread.currentThread().getPriority() + 2, Thread.MAX_PRIORITY));
+        this.nrtManagerReopenThread.setDaemon(true);
+        this.nrtManagerReopenThread.start();
+    }
+
+    private void stopReopenThread() {
+        if (this.nrtManagerReopenThread != null) {
+            if (this.nrtManagerReopenThread.isAlive()) {
+                logger.debug("Stopping NRT Reopen Thread");
+                this.nrtManagerReopenThread.close();
+            } else {
+                this.nrtManagerReopenThread = null;
+            }
+        }
+    }
+
+    public synchronized void setReaderReopenInterval(int interval) {
+        if (this.readerReopenInterval == interval) {
+            return;
+        } else if (this.readerReopenInterval != 0 && interval == 0) {
+            this.readerReopenInterval = interval;
+            stopReopenThread();
+        } else {
+            this.readerReopenInterval = interval;
+            startReopenThread();
+        }
     }
 
     public synchronized void shutdown() throws IOException {
-        for (Iterator<Map.Entry<String,SavedSearch>> it = savedSearches.entrySet().iterator(); it.hasNext(); ) {
+        for (Iterator<Map.Entry<String, SavedSearch>> it = savedSearches.entrySet().iterator(); it.hasNext(); ) {
             it.next().getValue().close();
             it.remove();
         }
-        this.indexSearcherCache.close();
+        closeSearcherManager();
+    }
+
+    private synchronized void closeSearcherManager() throws IOException {
+        stopReopenThread();
+        this.searcherManager.close();
     }
 
     public void setIndexDetailsConfiguration(IndexedDetailsConfiguration indexedDetailsConfiguration) {
@@ -134,9 +302,15 @@ public class EventIndexDaoImpl implements EventIndexDao {
     public void setQueryLimit(int limit) {
         if (limit > 0) {
             this.queryLimit = limit;
-        }
-        else {
+        } else {
             logger.warn("Invalid query limit: {}, using default: {}", limit, this.queryLimit);
+        }
+    }
+
+    public void setLuceneSearchTimeout(int luceneSearchTimeout) {
+        if (luceneSearchTimeout > 0) {
+            this.luceneSearchTimeout = luceneSearchTimeout;
+            logger.info("Lucene search timeout set to " + this.luceneSearchTimeout + " seconds.");
         }
     }
 
@@ -147,11 +321,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public int getNumDocs() throws ZepException {
-        try {
-            return this.writer.numDocs();
-        } catch (IOException e) {
-            throw new ZepException(e.getLocalizedMessage(), e);
-        }
+        return this.writer.numDocs();
     }
 
     @Override
@@ -165,16 +335,17 @@ public class EventIndexDaoImpl implements EventIndexDao {
         Document doc = EventIndexMapper.fromEventSummary(indexedDetailsConfiguration, event,
                 indexedDetailsConfiguration.getEventDetailItemsByName(), this.archive);
         try {
-            this.writer.updateDocument(new Term(FIELD_UUID, event.getUuid()), doc);
+            this.trackingIndexWriter.updateDocument(new Term(FIELD_UUID, event.getUuid()), doc);
         } catch (IOException e) {
             throw new ZepException(e);
         }
     }
 
+
     @Override
     public void stageDelete(String eventUuid) throws ZepException {
         try {
-            writer.deleteDocuments(new Term(FIELD_UUID, eventUuid));
+            this.trackingIndexWriter.deleteDocuments(new Term(FIELD_UUID, eventUuid));
         } catch (IOException e) {
             throw new ZepException(e);
         }
@@ -189,71 +360,16 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
     }
 
-    private static class IndexSearcherCache {
-        private final IndexWriter indexWriter;
-        private IndexReader indexReader = null;
-
-        /**
-         * Creates a NRT IndexSearcher from the given IndexWriter.
-         * 
-         * @param indexWriter Index writer used to create reader.
-         */
-        public IndexSearcherCache(IndexWriter indexWriter) {
-            this.indexWriter = indexWriter;
-        }
-
-        /**
-         * Returns an IndexSearcher (using a cached/reopened one where possible).
-         *
-         * @return An IndexSearcher which can be used to search the index.
-         * @throws IOException If an exception occurs opening the searcher.
-         */
-        public synchronized IndexSearcher getIndexSearcher() throws IOException {
-            if (this.indexReader == null) {
-                this.indexReader = IndexReader.open(this.indexWriter, true);
-            }
-            else {
-                IndexReader oldReader = this.indexReader;
-                IndexReader newReader = IndexReader.openIfChanged(oldReader);
-                if (newReader != null) {
-                    this.indexReader = newReader;
-                    oldReader.close();
-                }
-            }
-            this.indexReader.incRef();
-            return new IndexSearcher(indexReader);
-        }
-
-        /**
-         * Returns the IndexSearcher after it has been used.
-         *
-         * @param indexSearcher IndexSearcher to return.
-         * @throws IOException If an exception occurs closing the IndexReader.
-         */
-        public synchronized void returnIndexSearcher(IndexSearcher indexSearcher) throws IOException {
-            IndexReader indexReader = indexSearcher.getIndexReader();
-            indexReader.decRef();
-        }
-
-        /**
-         * Closes the cached IndexReader (used when responding to an OutOfMemoryError to allow memory to be
-         * returned to the program. This will cause the next call to retrieve an IndexReader to open a new one.
-         */
-        public synchronized void close() {
-            if (this.indexReader != null) {
-                ZepUtils.close(this.indexReader);
-                this.indexReader = null;
-            }
-        }
-    }
-
     private IndexSearcher getSearcher() throws IOException {
-        return this.indexSearcherCache.getIndexSearcher();
+        if (this.readerReopenInterval == 0) {
+            this.searcherManager.maybeRefresh();
+        }
+        return this.searcherManager.acquire();
     }
 
     private void returnSearcher(IndexSearcher searcher) throws ZepException {
         try {
-            this.indexSearcherCache.returnIndexSearcher(searcher);
+            if (searcher != null) this.searcherManager.release(searcher);
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
         }
@@ -266,47 +382,100 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public void indexMany(List<EventSummary> events) throws ZepException {
-        for ( EventSummary event : events ) {            
+        for (EventSummary event : events) {
             stage(event);
         }
         commit();
     }
 
     // Load the serialized protobuf (entire event)
-    private static final FieldSelector PROTO_SELECTOR = new SingleFieldSelector(FIELD_PROTOBUF);
+    private static final ImmutableSet<String> PROTO_FIELDS = ImmutableSet.of(FIELD_PROTOBUF);
 
     // Load just the event UUID
-    private static final FieldSelector UUID_SELECTOR = new SingleFieldSelector(FIELD_UUID);
-    
+    private static final ImmutableSet<String> UUID_FIELDS = ImmutableSet.of(FIELD_UUID);
+
     @Override
     public EventSummaryResult list(EventSummaryRequest request) throws ZepException {
-        return listInternal(request, PROTO_SELECTOR);
+        return listInternal(request, PROTO_FIELDS);
     }
 
     @Override
     public EventSummaryResult listUuids(EventSummaryRequest request) throws ZepException {
-        return listInternal(request, UUID_SELECTOR);
+        return listInternal(request, UUID_FIELDS);
     }
 
-    private EventSummaryResult listInternal(EventSummaryRequest request, FieldSelector selector) throws ZepException {
+    private EventSummaryResult listInternal(EventSummaryRequest request, Set<String> fieldsToLoad) throws ZepException {
         IndexSearcher searcher = null;
+        long now = System.currentTimeMillis();
+        Query query = null;
         try {
             searcher = getSearcher();
-            Query query = buildQuery(searcher.getIndexReader(), request.getEventFilter(), request.getExclusionFilter());
+            query = buildQuery(searcher.getIndexReader(), request.getEventFilter(), request.getExclusionFilter());
             Sort sort = buildSort(request.getSortList());
-            return searchToEventSummaryResult(searcher, query, sort, selector, request.getOffset(), request.getLimit());
+            return searchToEventSummaryResult(searcher, query, sort, fieldsToLoad, request.getOffset(), request.getLimit());
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
         } catch (OutOfMemoryError oome) {
-            this.indexSearcherCache.close();
+            try {
+                closeSearcherManager();
+            } catch (IOException e) {
+                logger.error("Unable to close SearcherManager: {}", e);
+            }
             throw oome;
         } finally {
             returnSearcher(searcher);
+            if (query != null) {
+                logger.debug("Query {} finished in {} milliseconds", query.toString(), System.currentTimeMillis() - now);
+            }
         }
     }
 
+    private TopDocs timeLimitedSearch(final IndexSearcher searcher, final Query query,
+                                      final Sort sort, final int offset, final int limit, final int numDocs)
+            throws ZepException {
+
+        TopDocs docs;
+
+        Callable search_call = new Callable<TopDocs>() {
+            public TopDocs call() throws IOException, Exception {
+                TopDocs tdocs;
+                if (sort != null) {
+                    logger.debug("Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[]{query, sort, offset, limit});
+                    tdocs = searcher.search(query, null, numDocs, sort);
+                } else {
+                    logger.debug("Query: {}, Offset: {}, Limit: {}", new Object[]{query, offset, limit});
+                    tdocs = searcher.search(query, null, numDocs);
+                }
+                return tdocs;
+            }
+        };
+
+        try {
+            if (this.luceneSearchTimeout > 0) {
+                TimeLimiter limiter = new SimpleTimeLimiter();
+                docs = (TopDocs)limiter.callWithTimeout(search_call, this.luceneSearchTimeout, TimeUnit.SECONDS, true);
+            }
+            else
+                docs = (TopDocs)search_call.call();
+        }
+        catch (UncheckedTimeoutException e) {
+            String msg = "Lucene search exceeded time limit ( " + this.luceneSearchTimeout + " seconds.)";
+            if (sort != null)
+                logger.warn(msg + "Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[]{query, sort, offset, limit});
+            else
+                logger.warn(msg + "Query: {}, Offset: {}, Limit: {}", new Object[]{query, offset, limit});
+            throw new ZepException(msg + e.getLocalizedMessage(), e);
+        }
+        catch (Exception e) {
+            logger.error("Exception performing timed search: ", e);
+            throw new ZepException(e.getLocalizedMessage(), e);
+        }
+
+        return docs;
+    }
+
     private EventSummaryResult searchToEventSummaryResult(IndexSearcher searcher, Query query, Sort sort,
-                                                          FieldSelector selector, int offset, int limit)
+                                                          Set<String> fieldsToLoad, int offset, int limit)
             throws IOException, ZepException {
         if (limit < 0) {
             throw new ZepException(messages.getMessage("invalid_query_limit", limit));
@@ -317,18 +486,12 @@ public class EventIndexDaoImpl implements EventIndexDao {
         if (offset < 0) {
             offset = 0;
         }
-        final TopDocs docs;
 
         // Lucene doesn't like querying for 0 documents - search for at least one here
         final int numDocs = Math.max(limit + offset, 1);
-        if (sort != null) {
-            logger.debug("Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[] { query, sort, offset, limit });
-            docs = searcher.search(query, null, numDocs, sort);
-        }
-        else {
-            logger.debug("Query: {}, Offset: {}, Limit: {}", new Object[] { query, offset, limit });
-            docs = searcher.search(query, null, numDocs);
-        }
+
+        final TopDocs docs = this.timeLimitedSearch(searcher, query, sort, offset, limit, numDocs);
+
         logger.debug("Found {} results", docs.totalHits);
         EventSummaryResult.Builder result = EventSummaryResult.newBuilder();
         result.setTotal(docs.totalHits);
@@ -340,19 +503,18 @@ public class EventIndexDaoImpl implements EventIndexDao {
         // Return the number of results they asked for (the query has to return at least one match
         // but the request may specified a limit of zero).
         final int lastDocument = Math.min(limit + offset, docs.scoreDocs.length);
-        Map<String,EventSummary> archiveResultsFromDb = null;
+        Map<String, EventSummary> archiveResultsFromDb = null;
 
         for (int i = offset; i < lastDocument; i++) {
             // Event archive only stores UUIDs - have to query results from database
-            if (this.archive && selector != UUID_SELECTOR) {
+            if (this.archive && !UUID_FIELDS.equals(fieldsToLoad)) {
                 if (archiveResultsFromDb == null) {
                     archiveResultsFromDb = new LinkedHashMap<String, EventSummary>();
                 }
-                Document doc = searcher.doc(docs.scoreDocs[i].doc, UUID_SELECTOR);
+                Document doc = searcher.doc(docs.scoreDocs[i].doc, Sets.newHashSet(FIELD_UUID));
                 archiveResultsFromDb.put(doc.get(FIELD_UUID), null);
-            }
-            else {
-                result.addEvents(EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, selector)));
+            } else {
+                result.addEvents(EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[i].doc, fieldsToLoad)));
             }
         }
 
@@ -386,7 +548,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     @Override
     public void delete(String uuid) throws ZepException {
         try {
-            writer.deleteDocuments(new Term(FIELD_UUID, uuid));
+            this.trackingIndexWriter.deleteDocuments(new Term(FIELD_UUID, uuid));
             commit();
         } catch (IOException e) {
             throw new ZepException(e);
@@ -403,7 +565,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             for (String uuid : uuids) {
                 terms.add(new Term(FIELD_UUID, uuid));
             }
-            writer.deleteDocuments(terms.toArray(new Term[terms.size()]));
+            this.trackingIndexWriter.deleteDocuments(terms.toArray(new Term[terms.size()]));
             commit();
         } catch (IOException e) {
             throw new ZepException(e);
@@ -422,20 +584,23 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 // Not the most efficient way to search the archive, however this should give consistent results
                 // with other queries of the index (only returning indexed documents).
                 if (this.archive) {
-                    Document doc = searcher.doc(docs.scoreDocs[0].doc, UUID_SELECTOR);
+                    Document doc = searcher.doc(docs.scoreDocs[0].doc, UUID_FIELDS);
                     summary = eventSummaryBaseDao.findByUuid(doc.get(FIELD_UUID));
                     if (summary == null) {
                         logger.info("Event archive index out of sync - expected event {} not found", uuid);
                     }
-                }
-                else {
+                } else {
                     summary = EventIndexMapper.toEventSummary(searcher.doc(docs.scoreDocs[0].doc));
                 }
             }
         } catch (IOException e) {
             throw new ZepException(e);
         } catch (OutOfMemoryError oome) {
-            this.indexSearcherCache.close();
+            try {
+                closeSearcherManager();
+            } catch (IOException e) {
+                logger.error("Unable to close SearcherManager: {}", e);
+            }
             throw oome;
         } finally {
             returnSearcher(searcher);
@@ -447,7 +612,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     public void clear() throws ZepException {
         logger.debug("Deleting all events for: {}", this.name);
         try {
-            this.writer.deleteAll();
+            this.trackingIndexWriter.deleteAll();
             commit();
         } catch (IOException e) {
             throw new ZepException(e);
@@ -461,12 +626,16 @@ public class EventIndexDaoImpl implements EventIndexDao {
             searcher = getSearcher();
             Query query = buildQuery(searcher.getIndexReader(), request.getEventFilter(), request.getExclusionFilter());
             logger.debug("Deleting events matching: {}", query);
-            this.writer.deleteDocuments(query);
+            this.trackingIndexWriter.deleteDocuments(query);
             commit();
         } catch (IOException e) {
             throw new ZepException(e);
         } catch (OutOfMemoryError oome) {
-            this.indexSearcherCache.close();
+            try {
+                closeSearcherManager();
+            } catch (IOException e) {
+                logger.error("Unable to close SearcherManager: {}", e);
+            }
             throw oome;
         } finally {
             returnSearcher(searcher);
@@ -480,12 +649,12 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
         final long pruneTimestamp = System.currentTimeMillis() - unit.toMillis(duration);
 
-        QueryBuilder query = new QueryBuilder();
+        QueryBuilder query = new QueryBuilder(filterCacheManager);
         query.addRange(FIELD_LAST_SEEN_TIME, null, pruneTimestamp);
 
         logger.info("Purging events older than {}", new Date(pruneTimestamp));
         try {
-            this.writer.deleteDocuments(query.build());
+            this.trackingIndexWriter.deleteDocuments(query.build());
             commit();
         } catch (IOException e) {
             throw new ZepException(e);
@@ -507,64 +676,70 @@ public class EventIndexDaoImpl implements EventIndexDao {
         final List<SortField> sortFields = new ArrayList<SortField>(2);
         boolean reverse = (sort.getDirection() == Direction.DESCENDING);
 
-        FieldComparatorSource comparator = new NaturalFieldComparatorSource();
+        FieldComparatorSource termOrdValcomparator = new FieldComparatorSource() {
+            @Override
+            public FieldComparator<?> newComparator(String fieldname, int numHits, int sortPos, boolean reversed) throws IOException {
+                return new FieldComparator.TermOrdValComparator(numHits, fieldname);
+            }
+        };
+
         switch (sort.getField()) {
             case COUNT:
-                sortFields.add(new SortField(FIELD_COUNT, SortField.INT, reverse));
+                sortFields.add(new SortField(FIELD_COUNT, SortField.Type.INT, reverse));
                 break;
             case ELEMENT_IDENTIFIER:
-                sortFields.add(new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, comparator, reverse));
+                sortFields.add(new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, termOrdValcomparator, reverse));
                 break;
             case ELEMENT_SUB_IDENTIFIER:
-                sortFields.add(new SortField(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, comparator, reverse));
+                sortFields.add(new SortField(FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED, termOrdValcomparator, reverse));
                 break;
             case ELEMENT_TITLE:
-                sortFields.add(new SortField(FIELD_ELEMENT_TITLE_NOT_ANALYZED, comparator, reverse));
+                sortFields.add(new SortField(FIELD_ELEMENT_TITLE_NOT_ANALYZED, termOrdValcomparator, reverse));
                 break;
             case ELEMENT_SUB_TITLE:
-                sortFields.add(new SortField(FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED, comparator, reverse));
+                sortFields.add(new SortField(FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED, termOrdValcomparator, reverse));
                 break;
             case EVENT_CLASS:
-                sortFields.add(new SortField(FIELD_EVENT_CLASS_NOT_ANALYZED, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_EVENT_CLASS_NOT_ANALYZED, SortField.Type.STRING, reverse));
                 break;
             case EVENT_SUMMARY:
-                sortFields.add(new SortField(FIELD_SUMMARY_NOT_ANALYZED, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_SUMMARY_NOT_ANALYZED, SortField.Type.STRING, reverse));
                 break;
             case FIRST_SEEN:
-                sortFields.add(new SortField(FIELD_FIRST_SEEN_TIME, SortField.LONG, reverse));
+                sortFields.add(new SortField(FIELD_FIRST_SEEN_TIME, SortField.Type.LONG, reverse));
                 break;
             case LAST_SEEN:
-                sortFields.add(new SortField(FIELD_LAST_SEEN_TIME, SortField.LONG, reverse));
+                sortFields.add(new SortField(FIELD_LAST_SEEN_TIME, SortField.Type.LONG, reverse));
                 break;
             case SEVERITY:
-                sortFields.add(new SortField(FIELD_SEVERITY, SortField.INT, reverse));
+                sortFields.add(new SortField(FIELD_SEVERITY, SortField.Type.INT, reverse));
                 break;
             case STATUS:
-                sortFields.add(new SortField(FIELD_STATUS, SortField.INT, reverse));
+                sortFields.add(new SortField(FIELD_STATUS, SortField.Type.INT, reverse));
                 break;
             case STATUS_CHANGE:
-                sortFields.add(new SortField(FIELD_STATUS_CHANGE_TIME, SortField.LONG, reverse));
+                sortFields.add(new SortField(FIELD_STATUS_CHANGE_TIME, SortField.Type.LONG, reverse));
                 break;
             case UPDATE_TIME:
-                sortFields.add(new SortField(FIELD_UPDATE_TIME, SortField.LONG, reverse));
+                sortFields.add(new SortField(FIELD_UPDATE_TIME, SortField.Type.LONG, reverse));
                 break;
             case CURRENT_USER_NAME:
-                sortFields.add(new SortField(FIELD_CURRENT_USER_NAME, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_CURRENT_USER_NAME, SortField.Type.STRING, reverse));
                 break;
             case AGENT:
-                sortFields.add(new SortField(FIELD_AGENT, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_AGENT, SortField.Type.STRING, reverse));
                 break;
             case MONITOR:
-                sortFields.add(new SortField(FIELD_MONITOR, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_MONITOR, SortField.Type.STRING, reverse));
                 break;
             case EVENT_KEY:
-                sortFields.add(new SortField(FIELD_EVENT_KEY, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_EVENT_KEY, SortField.Type.STRING, reverse));
                 break;
             case UUID:
-                sortFields.add(new SortField(FIELD_UUID, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_UUID, SortField.Type.STRING, reverse));
                 break;
             case FINGERPRINT:
-                sortFields.add(new SortField(FIELD_FINGERPRINT, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_FINGERPRINT, SortField.Type.STRING, reverse));
                 break;
             case DETAIL:
                 EventDetailItem item = indexedDetailsConfiguration.getEventDetailItemsByName().get(sort.getDetailKey());
@@ -574,37 +749,37 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 final String fieldName = EventIndexMapper.DETAIL_INDEX_PREFIX + sort.getDetailKey();
                 switch (item.getType()) {
                     case DOUBLE:
-                        sortFields.add(new SortField(fieldName, SortField.DOUBLE, reverse));
+                        sortFields.add(new SortField(fieldName, SortField.Type.DOUBLE, reverse));
                         break;
                     case INTEGER:
-                        sortFields.add(new SortField(fieldName, SortField.INT, reverse));
+                        sortFields.add(new SortField(fieldName, SortField.Type.INT, reverse));
                         break;
                     case STRING:
-                        sortFields.add(new SortField(fieldName, SortField.STRING, reverse));
+                        sortFields.add(new SortField(fieldName, SortField.Type.STRING, reverse));
                         break;
                     case FLOAT:
-                        sortFields.add(new SortField(fieldName, SortField.FLOAT, reverse));
+                        sortFields.add(new SortField(fieldName, SortField.Type.FLOAT, reverse));
                         break;
                     case LONG:
-                        sortFields.add(new SortField(fieldName, SortField.LONG, reverse));
+                        sortFields.add(new SortField(fieldName, SortField.Type.LONG, reverse));
                         break;
                     case IP_ADDRESS:
                         // Sort IPv4 before IPv6
-                        sortFields.add(new SortField(fieldName + IP_ADDRESS_TYPE_SUFFIX, SortField.STRING, reverse));
-                        sortFields.add(new SortField(fieldName + SORT_SUFFIX, SortField.STRING, reverse));
+                        sortFields.add(new SortField(fieldName + IP_ADDRESS_TYPE_SUFFIX, SortField.Type.STRING, reverse));
+                        sortFields.add(new SortField(fieldName + SORT_SUFFIX, SortField.Type.STRING, reverse));
                         break;
                     case PATH:
-                        sortFields.add(new SortField(fieldName + SORT_SUFFIX, SortField.STRING, reverse));
+                        sortFields.add(new SortField(fieldName + SORT_SUFFIX, SortField.Type.STRING, reverse));
                         break;
                     default:
                         throw new IllegalArgumentException("Unsupported detail type: " + item.getType());
                 }
                 break;
             case EVENT_CLASS_KEY:
-                sortFields.add(new SortField(FIELD_EVENT_CLASS_KEY, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_EVENT_CLASS_KEY, SortField.Type.STRING, reverse));
                 break;
             case EVENT_GROUP:
-                sortFields.add(new SortField(FIELD_EVENT_GROUP, SortField.STRING, reverse));
+                sortFields.add(new SortField(FIELD_EVENT_GROUP, SortField.Type.STRING, reverse));
                 break;
         }
         if (sortFields.isEmpty()) {
@@ -620,21 +795,19 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
         if (filterQuery == null && exclusionQuery == null) {
             query = new MatchAllDocsQuery();
-        }
-        else if (filterQuery != null) {
+        } else if (filterQuery != null) {
             if (exclusionQuery != null) {
                 filterQuery.add(exclusionQuery, Occur.MUST_NOT);
             }
             query = filterQuery;
-        }
-        else {
+        } else {
             BooleanQuery bq = new BooleanQuery();
             bq.add(exclusionQuery, Occur.MUST_NOT);
             bq.add(new MatchAllDocsQuery(), Occur.MUST);
             query = bq;
         }
-        logger.debug("Filter: {}, Exclusion filter: {}, Query: {}", new Object[] { filter, exclusionFilter, query });
-        
+        logger.debug("Filter: {}, Exclusion filter: {}, Query: {}", new Object[]{filter, exclusionFilter, query});
+
         return query;
     }
 
@@ -642,15 +815,15 @@ public class EventIndexDaoImpl implements EventIndexDao {
         if (filter == null) {
             return null;
         }
-        
-        QueryBuilder qb = new QueryBuilder(filter.getOperator());
+
+        QueryBuilder qb = new QueryBuilder(filter.getOperator(), filterCacheManager);
 
         try {
             qb.addRanges(FIELD_COUNT, filter.getCountRangeList());
             qb.addWildcardFields(FIELD_CURRENT_USER_NAME, filter.getCurrentUserNameList(), false);
 
             qb.addIdentifierFields(FIELD_ELEMENT_IDENTIFIER, FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED,
-                    filter.getElementIdentifierList(), this.writer.getAnalyzer());
+                    filter.getElementIdentifierList(), new IdentifierAnalyzer());
             qb.addIdentifierFields(FIELD_ELEMENT_TITLE, FIELD_ELEMENT_TITLE_NOT_ANALYZED,
                     filter.getElementTitleList(), this.writer.getAnalyzer());
 
@@ -686,7 +859,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             qb.addDetails(filter.getDetailsList(), this.indexedDetailsConfiguration.getEventDetailItemsByName(), reader);
 
             for (EventFilter subfilter : filter.getSubfilterList()) {
-                qb.addSubquery(buildQueryFromFilter(reader, subfilter));
+                qb.addSubfilter(new QueryWrapperFilter(buildQueryFromFilter(reader, subfilter)));
             }
         } catch (BooleanQuery.TooManyClauses tooManyClausesEx) {
             String logErrorMessage = String.format("Too many search terms (%d) in filter " +
@@ -718,7 +891,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
     private static class TagSeverities {
         final String tagUuid;
         private final Map<EventSeverity, TagSeveritiesCount> severityCount =
-                new EnumMap<EventSeverity,TagSeveritiesCount>(EventSeverity.class);
+                new EnumMap<EventSeverity, TagSeveritiesCount>(EventSeverity.class);
         private int total = 0;
 
         public TagSeverities(String tagUuid) {
@@ -764,7 +937,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
             throws ZepException {
         final Map<String, TagSeverities> tagSeveritiesMap = new HashMap<String, TagSeverities>();
         final boolean hasTagsFilter = filter.getTagFilterCount() > 0;
-        for (EventTagFilter eventTagFilter: filter.getTagFilterList()) {
+        for (EventTagFilter eventTagFilter : filter.getTagFilterList()) {
             for (String eventTagUuid : eventTagFilter.getTagUuidsList()) {
                 tagSeveritiesMap.put(eventTagUuid, new TagSeverities(eventTagUuid));
             }
@@ -773,7 +946,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
         try {
             searcher = getSearcher();
             final Query query = buildQueryFromFilter(searcher.getIndexReader(), filter);
-            final OpenBitSet docs = new OpenBitSet(searcher.maxDoc());
+            final OpenBitSet docs = new OpenBitSet(searcher.getIndexReader().maxDoc());
             searcher.search(query, new Collector() {
                 private int docBase;
 
@@ -787,8 +960,8 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 }
 
                 @Override
-                public void setNextReader(IndexReader reader, int docBase) throws IOException {
-                    this.docBase = docBase;
+                public void setNextReader(AtomicReaderContext atomicReaderContext) throws IOException {
+                    this.docBase = atomicReaderContext.docBase;
                 }
 
                 @Override
@@ -803,7 +976,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 if (this.archive) {
                     // TODO: This isn't very cheap - would be better to batch by UUID in separate calls
                     // This doesn't get called on the event archive right now, so leave it until need to optimize.
-                    Document doc = searcher.doc(docId, UUID_SELECTOR);
+                    Document doc = searcher.doc(docId, UUID_FIELDS);
                     summary = this.eventSummaryBaseDao.findByUuid(doc.get(FIELD_UUID));
                 } else {
                     Document doc = searcher.doc(docId);
@@ -857,7 +1030,11 @@ public class EventIndexDaoImpl implements EventIndexDao {
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
         } catch (OutOfMemoryError oome) {
-            this.indexSearcherCache.close();
+            try {
+                closeSearcherManager();
+            } catch (IOException e) {
+                logger.error("Unable to close SearcherManager: {}", e);
+            }
             throw oome;
         } finally {
             returnSearcher(searcher);
@@ -867,9 +1044,10 @@ public class EventIndexDaoImpl implements EventIndexDao {
     /**
      * This method updates the tag severities map from the document directly without
      * uncompressing the protobuf
+     *
      * @param tagSeveritiesMap The map to update
-     * @param hasTagsFilter If we have a tag filter or not
-     * @param doc the lucene document we are pulling information from
+     * @param hasTagsFilter    If we have a tag filter or not
+     * @param doc              the lucene document we are pulling information from
      */
     private void updateTagSeverityFromDocument(Map<String, TagSeverities> tagSeveritiesMap, boolean hasTagsFilter, Document doc) {
         int count = Integer.parseInt(doc.get(FIELD_COUNT));
@@ -884,8 +1062,7 @@ public class EventIndexDaoImpl implements EventIndexDao {
                 if (tagSeverities != null) {
                     tagSeverities.updateSeverityCount(severity, count, isAcknowledged);
                 }
-            }
-            else {
+            } else {
                 if (tagSeverities == null) {
                     tagSeveritiesMap.put(tag, new TagSeverities(tag));
                     tagSeverities = tagSeveritiesMap.get(tag);
@@ -965,16 +1142,25 @@ public class EventIndexDaoImpl implements EventIndexDao {
         }
         final String uuid = this.uuidGenerator.generate().toString();
         IndexReader reader = null;
+        SavedSearch search = null;
         try {
-            reader = getSearcher().getIndexReader();
+            reader = DirectoryReader.open(writer, false);
             final Query query = buildQuery(reader, eventQuery.getEventFilter(), eventQuery.getExclusionFilter());
             final Sort sort = buildSort(eventQuery.getSortList());
-            final SavedSearch search = new SavedSearch(uuid, reader, query, sort, eventQuery.getTimeout());
+            search = new SavedSearch(uuid, reader, query, sort, eventQuery.getTimeout());
             savedSearches.put(uuid, search);
             scheduleSearchTimeout(search);
         } catch (Exception e) {
             logger.warn("Exception creating saved search", e);
-            if (reader != null) {
+            if (savedSearches.containsKey(uuid)) {
+                deleteSavedSearch(uuid);
+            } else if (search != null && search.getReader() != null) {
+                try {
+                    search.close();
+                } catch (IOException ex) {
+                    logger.warn("Exception decrementing reference count", ex);
+                }
+            } else if (reader != null) {
                 try {
                     reader.decRef();
                 } catch (IOException ex) {
@@ -1013,38 +1199,36 @@ public class EventIndexDaoImpl implements EventIndexDao {
 
     @Override
     public EventSummaryResult savedSearch(String uuid, int offset, int limit) throws ZepException {
-        return savedSearchInternal(uuid, offset, limit, PROTO_SELECTOR);
+        return savedSearchInternal(uuid, offset, limit, PROTO_FIELDS);
     }
 
     @Override
     public EventSummaryResult savedSearchUuids(String uuid, int offset, int limit) throws ZepException {
-        return savedSearchInternal(uuid, offset, limit, UUID_SELECTOR);
+        return savedSearchInternal(uuid, offset, limit, UUID_FIELDS);
     }
 
-    private EventSummaryResult savedSearchInternal(String uuid, int offset, int limit, FieldSelector selector)
-            throws ZepException {
+    private EventSummaryResult savedSearchInternal(String uuid, int offset, int limit, Set<String> fieldsToLoad) throws ZepException {
         final SavedSearch search = savedSearches.get(uuid);
         if (search == null) {
             throw new ZepException(messages.getMessage("saved_search_not_found", uuid));
         }
-
-        IndexSearcher searcher = null;
+        IndexReader reader = null;
         try {
             /* Cancel the timeout for the saved search to prevent it expiring while in use */
             cancelSearchTimeout(search);
-            IndexReader reader = search.getReader();
+            reader = search.getReader();
             reader.incRef();
-            
-            searcher = new IndexSearcher(reader);
-            return searchToEventSummaryResult(searcher, search.getQuery(), search.getSort(), selector, offset, limit);
+            IndexSearcher searcher = new IndexSearcher(reader);
+            return searchToEventSummaryResult(searcher, search.getQuery(), search.getSort(), fieldsToLoad, offset, limit);
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
-        } catch (OutOfMemoryError oome) {
-            this.indexSearcherCache.close();
-            throw oome;
         } finally {
             try {
-                returnSearcher(searcher);
+                if (reader != null) {
+                    reader.decRef();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
             } finally {
                 scheduleSearchTimeout(search);
             }
@@ -1072,21 +1256,13 @@ public class EventIndexDaoImpl implements EventIndexDao {
         try {
             Directory directory = writer.getDirectory();
             long size = 0L;
-            for(String name: directory.listAll()) {
+            for (String name : directory.listAll()) {
                 size += directory.fileLength(name);
             }
             return size;
         } catch (IOException e) {
             logger.warn("Cannot get index size.");
             return -1L;
-        }
-    }
-
-    private static final class NaturalFieldComparatorSource extends FieldComparatorSource
-    {
-        public FieldComparator<?> newComparator(String fieldname, int numHits, int sortPos, boolean reversed)
-        {
-            return new NaturalStringValueComparator(numHits, fieldname);
         }
     }
 }

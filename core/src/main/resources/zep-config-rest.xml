@@ -10,6 +10,7 @@
         <property name="eventDetailsConfigDao" ref="eventDetailsConfigDao" />
     </bean>
     <bean id="eventsResource" class="org.zenoss.zep.rest.EventsResource">
+        <property name="maxArchiveRequests" value="${zep.archive.max_requests}" />
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="eventStoreDao" ref="eventStoreDao" />
         <property name="eventSummaryIndexer" ref="eventSummaryIndexer" />

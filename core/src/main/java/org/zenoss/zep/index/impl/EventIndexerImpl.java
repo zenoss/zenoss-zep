@@ -40,6 +40,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.codahale.metrics.annotation.Timed;
+
 public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepConfigUpdatedEvent> {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
 
@@ -149,11 +151,13 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     }
 
     @Override
+    @Timed
     public synchronized int index() throws ZepException {
         return doIndex(-1L);
     }
 
     @Override
+    @Timed
     public synchronized int indexFully() throws ZepException {
         int totalIndexed = 0;
         final long now = System.currentTimeMillis();

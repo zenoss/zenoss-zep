@@ -1,16 +1,16 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2011, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
 package org.zenoss.zep.index.impl;
 
-import org.apache.lucene.analysis.CharTokenizer;
+import org.apache.lucene.analysis.util.CharTokenizer;
 import org.apache.lucene.util.AttributeSource;
 
 import java.io.Reader;
@@ -30,13 +30,13 @@ public class IpTokenizer extends CharTokenizer {
      * {@inheritDoc}
      */
     public IpTokenizer(AttributeSource source, Reader input) {
-        super(IndexConstants.LUCENE_VERSION, source, input);
+        super(IndexConstants.LUCENE_VERSION, source.getAttributeFactory(), input);
     }
 
     /**
      * {@inheritDoc}
      */
-    public IpTokenizer(AttributeFactory factory, Reader input) {
+    public IpTokenizer(AttributeSource.AttributeFactory factory, Reader input) {
         super(IndexConstants.LUCENE_VERSION, factory, input);
     }
 

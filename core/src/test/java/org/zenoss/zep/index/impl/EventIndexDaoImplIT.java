@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -14,9 +14,9 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Fieldable;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
@@ -64,7 +64,7 @@ import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
 import org.zenoss.zep.index.EventIndexDao;
-import org.zenoss.zep.plugins.EventPostIndexContext;
+import org.zenoss.zep.index.LuceneEventIndexDao;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import java.io.IOException;
@@ -82,7 +82,10 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 @ContextConfiguration({"classpath:zep-config.xml"})
 public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
@@ -91,14 +94,14 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     @Autowired
     @Qualifier("summary")
-    public EventIndexDao eventIndexDao;
+    public LuceneEventIndexDao eventIndexDao;
 
     @Autowired
     public EventArchiveDao eventArchiveDao;
 
     @Autowired
     @Qualifier("archive")
-    public EventIndexDao eventArchiveIndexDao;
+    public LuceneEventIndexDao eventArchiveIndexDao;
 
     @Autowired
     public DatabaseCompatibility databaseCompatibility;
@@ -107,6 +110,8 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     public void setUp() throws ZepException {
         eventIndexDao.clear();
         eventArchiveIndexDao.clear();
+        eventIndexDao.setReaderReopenInterval(0);
+        eventArchiveIndexDao.setReaderReopenInterval(0);
     }
 
     @After
@@ -232,7 +237,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         String tag1 = UUID.randomUUID().toString();
         String tag2 = UUID.randomUUID().toString();
         String tag3 = UUID.randomUUID().toString();
-        EventTagFilter.Builder tagFilterBuilder =  EventTagFilter.newBuilder();
+        EventTagFilter.Builder tagFilterBuilder = EventTagFilter.newBuilder();
         tagFilterBuilder.addAllTagUuids(Arrays.asList(tag1, tag2, tag3));
         EventFilter.Builder eventFilterBuilder = EventFilter.newBuilder();
         eventFilterBuilder.addTagFilter(tagFilterBuilder.build());
@@ -401,7 +406,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         summaryZ = createSampleSummary(summaryZ, "Z_device.zenoss.loc");
         eventIndexDao.index(summaryZ);
 
-        
+
         EventSort.Builder sortBuilder = EventSort.newBuilder();
         sortBuilder.setField(Field.ELEMENT_IDENTIFIER);
         sortBuilder.setDirection(Direction.DESCENDING);
@@ -412,7 +417,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         EventSummaryResult result = eventIndexDao.list(reqBuilder.build());
 
         assertEquals(4, result.getEventsCount());
-        
+
         assertEquals(summaryZ, result.getEvents(0));
         assertEquals(summaryx, result.getEvents(1));
         assertEquals(summaryB, result.getEvents(2));
@@ -839,7 +844,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             request = EventSummaryRequest.newBuilder().setEventFilter(filter).build();
             result = this.eventIndexDao.list(request);
             assertEquals(2, result.getEventsCount());
-            Map<String,EventSummary> expected = new HashMap<String,EventSummary>();
+            Map<String, EventSummary> expected = new HashMap<String, EventSummary>();
             expected.put(event1.getUuid(), event1);
             expected.put(event2.getUuid(), event2);
             for (EventSummary resultSummary : result.getEventsList()) {
@@ -958,7 +963,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     }
 
     private void assertContainsEvents(EventSummaryResult result, EventSummary... summaries) {
-        final Map<String,EventSummary> summaryMap = Maps.newHashMap();
+        final Map<String, EventSummary> summaryMap = Maps.newHashMap();
         for (EventSummary summary : summaries) {
             summaryMap.put(summary.getUuid(), summary);
         }
@@ -997,7 +1002,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("192.168.1.7-10")).build();
         assertContainsEvents(this.eventIndexDao.list(request), ev7, ev9);
     }
-    
+
     @Test
     public void testIpv6RangeQuery() throws ZepException {
         EventSummary ev1 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffa0");
@@ -1022,14 +1027,14 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("::ffb0-ffc0")).build();
         assertContainsEvents(this.eventIndexDao.list(request), ev3, ev4);
     }
-    
+
     @Test
     public void testIpv4SubstringQuery() throws ZepException {
         EventSummary ev1 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.2");
         EventSummary ev2 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.200");
         EventSummary ev3 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.168.1.3");
         EventSummary ev4 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "192.1.2.3");
-        
+
         EventSummaryRequest request = EventSummaryRequest.newBuilder()
                 .setEventFilter(createFilterForIpAddress("1.2")).build();
         assertContainsEvents(this.eventIndexDao.list(request), ev1, ev4);
@@ -1044,13 +1049,13 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("1.*")).build();
         assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2, ev3, ev4);
     }
-    
+
     @Test
     public void testIpv6SubstringQuery() throws ZepException {
         EventSummary ev1 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffa0:123");
         EventSummary ev2 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffa1:123");
         EventSummary ev3 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::ffa0:0");
-        
+
         EventSummaryRequest request = EventSummaryRequest.newBuilder()
                 .setEventFilter(createFilterForIpAddress("ffa?")).build();
         assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2, ev3);
@@ -1064,30 +1069,30 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
         request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("ffa0:0*")).build();
         assertContainsEvents(this.eventIndexDao.list(request), ev3);
-        
+
         request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("ffa?:1*")).build();
         assertContainsEvents(this.eventIndexDao.list(request), ev1, ev2);
     }
-    
+
     @Test
     public void testIpv6ExactMatch() throws ZepException {
         EventSummary ev1 = createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::1");
         EventSummaryRequest request = EventSummaryRequest.newBuilder()
                 .setEventFilter(createFilterForIpAddress("0:0:0:0:0:0:0:1")).build();
         assertContainsEvents(this.eventIndexDao.list(request), ev1);
-        
+
         request = EventSummaryRequest.newBuilder().setEventFilter(createFilterForIpAddress("::1")).build();
         assertContainsEvents(this.eventIndexDao.list(request), ev1);
-        
+
         request = EventSummaryRequest.newBuilder()
                 .setEventFilter(createFilterForIpAddress("0000:0000:0000:0000:0000:0000:0000:0001")).build();
         assertContainsEvents(this.eventIndexDao.list(request), ev1);
     }
-    
+
     @Test
     public void testInvalidIpAddress() throws ZepException {
         createEventWithDetail(ZepConstants.DETAIL_DEVICE_IP_ADDRESS, "::1");
-        
+
         List<String> invalid = Arrays.asList(":::", ":", "....", "not an ip");
         for (String query : invalid) {
             EventSummaryRequest request = EventSummaryRequest.newBuilder()
@@ -1141,7 +1146,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     @Test
     public void testArchive() throws ZepException {
         List<EventSummary> created = Lists.newArrayList();
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 55; i++) {
             String summary = String.format("Event Archive %03d", i);
             EventSummary event = createArchiveClosed(
                     Event.newBuilder(EventTestUtils.createSampleEvent()).setSummary(summary).build());
@@ -1197,22 +1202,20 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     private Set<String> getFieldNames(EventIndexDao indexDao, String eventUuid) throws IOException {
         IndexWriter indexWriter = (IndexWriter) ReflectionTestUtils.getField(indexDao, "writer");
         IndexReader reader = null;
-        IndexSearcher searcher = null;
         try {
             reader = IndexReader.open(indexWriter, true);
-            searcher = new IndexSearcher(reader);
+            IndexSearcher searcher = new IndexSearcher(reader);
             TopDocs docs = searcher.search(new TermQuery(new Term(IndexConstants.FIELD_UUID,
                     eventUuid)), null, 1);
             assertEquals(1, docs.totalHits);
             int docId = docs.scoreDocs[0].doc;
             Document document = reader.document(docId);
             Set<String> fieldNames = Sets.newHashSet();
-            for (Fieldable field : document.getFields()) {
+            for (IndexableField field : document.getFields()) {
                 fieldNames.add(field.name());
             }
             return fieldNames;
         } finally {
-            ZepUtils.close(searcher);
             ZepUtils.close(reader);
         }
     }
@@ -1258,7 +1261,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         String tag1 = UUID.randomUUID().toString();
         String tag2 = UUID.randomUUID().toString();
         String tag3 = UUID.randomUUID().toString();
-        EventTagFilter.Builder tagFilterBuilder =  EventTagFilter.newBuilder();
+        EventTagFilter.Builder tagFilterBuilder = EventTagFilter.newBuilder();
         tagFilterBuilder.addAllTagUuids(Arrays.asList(tag1, tag2, tag3));
         EventFilter.Builder eventFilterBuilder = EventFilter.newBuilder();
         eventFilterBuilder.addTagFilter(tagFilterBuilder.build());
@@ -1446,7 +1449,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         }
     }
 
-    @Test (expected = ZepException.class)
+    @Test
     public void testFailMaxCountClauseParam() throws ZepException {
 
         eventIndexDao.getEventTagSeverities(getEventFilterInst(2000));
@@ -1463,7 +1466,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
     private EventFilter getEventFilterInst(int numOfEventClasses) {
 
         EventFilter.Builder myEventFilterBuilder = EventFilter.newBuilder();
-        for(int i = 0; i < 2000; i++) {
+        for (int i = 0; i < 2000; i++) {
             myEventFilterBuilder.addEventClass(UUID.randomUUID().toString());
         }
         EventFilter eventFilter = myEventFilterBuilder.build();

@@ -68,6 +68,10 @@ import java.util.List;
 import java.util.Set;
 import java.util.TimeZone;
 
+import java.util.concurrent.Semaphore;
+
+import com.codahale.metrics.annotation.Timed;
+
 @Path("1.0/events")
 public class EventsResource {
     private static final Logger logger = LoggerFactory.getLogger(EventsResource.class);
@@ -79,6 +83,16 @@ public class EventsResource {
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
     private PluginService pluginService;
+    private Semaphore archiveSemaphore = null;
+    private int maxArchiveRequests = -1;
+
+    public void setMaxArchiveRequests(int archiveRequestLimit) {
+        if(archiveRequestLimit > 0) {
+            this.maxArchiveRequests = archiveRequestLimit;
+            this.archiveSemaphore = new Semaphore(this.maxArchiveRequests);
+            logger.info("Limit of concurrent archive API requests set to {}", this.maxArchiveRequests);
+        }
+    }
 
     public void setQueryLimit(int limit) {
         if (limit > 0) {
@@ -151,6 +165,7 @@ public class EventsResource {
     @Path("search")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response createSavedSearch(EventQuery query, @Context UriInfo ui) throws URISyntaxException, ZepException {
         return createSavedSearchInternal(this.eventSummaryIndexDao, query, ui);
     }
@@ -159,6 +174,7 @@ public class EventsResource {
     @Path("archive/search")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response createArchiveSavedSearch(EventQuery query, @Context UriInfo ui) throws URISyntaxException, ZepException {
         return createSavedSearchInternal(this.eventArchiveIndexDao, query, ui);
     }
@@ -175,6 +191,7 @@ public class EventsResource {
     @Path("search/{searchUuid}")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response listSavedSearch(@PathParam("searchUuid") String searchUuid,
                                     @QueryParam("offset") String offsetStr,
                                     @QueryParam("limit") String limitStr) throws ZepException {
@@ -185,6 +202,7 @@ public class EventsResource {
     @Path("archive/search/{searchUuid}")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response listArchiveSavedSearch(@PathParam("searchUuid") String searchUuid,
                                     @QueryParam("offset") String offsetStr,
                                     @QueryParam("limit") String limitStr) throws ZepException {
@@ -224,6 +242,7 @@ public class EventsResource {
     @DELETE
     @Path("search/{searchUuid}")
     @GZIP
+    @Timed
     public Response deleteSavedSearch(@PathParam("searchUuid") String searchUuid) throws ZepException {
         return deleteSavedSearchInternal(this.eventSummaryIndexDao, searchUuid);
     }
@@ -231,6 +250,7 @@ public class EventsResource {
     @DELETE
     @Path("archive/search/{searchUuid}")
     @GZIP
+    @Timed
     public Response deleteArchiveSavedSearch(@PathParam("searchUuid") String searchUuid) throws ZepException {
         return deleteSavedSearchInternal(this.eventArchiveIndexDao, searchUuid);
     }
@@ -247,6 +267,7 @@ public class EventsResource {
     @Path("search/{searchUuid}")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventSummaryUpdateResponse updateEvents(@PathParam("searchUuid") String searchUuid,
                                                    EventSummaryUpdateRequest request) throws ZepException {
         if (request.hasEventQueryUuid() && !searchUuid.equals(request.getEventQueryUuid())) {
@@ -286,6 +307,7 @@ public class EventsResource {
     @Path("{eventUuid}")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response getEventSummaryByUuid(@PathParam("eventUuid") String eventUuid) throws ZepException {
         EventSummary summary = eventStoreDao.findByUuid(eventUuid);
         if (summary == null) {
@@ -299,6 +321,7 @@ public class EventsResource {
     @Path("{eventUuid}")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response updateEventSummaryByUuid(@PathParam("eventUuid") String uuid, EventSummaryUpdate update)
             throws ZepException {
 
@@ -319,6 +342,7 @@ public class EventsResource {
     @Path("{eventUuid}/notes")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response addNote(@PathParam("eventUuid") String eventUuid, EventNote note) throws ZepException {
 
         EventSummary summary = eventStoreDao.findByUuid(eventUuid);
@@ -331,8 +355,6 @@ public class EventsResource {
             return Response.status(Status.INTERNAL_SERVER_ERROR).build();
         }
 
-        eventSummaryIndexer.index();
-        eventArchiveIndexer.index();
         EventUpdateContext context = new EventUpdateContext() {
         };
         for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
@@ -343,27 +365,87 @@ public class EventsResource {
     }
 
     @POST
+    @Path("notes_async")
+    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @GZIP
+    @Timed
+    public Response addNoteBulkAsync(@QueryParam("uuid") Set<String> uuids, EventNote note) throws ZepException {
+        if (uuids == null)
+            return Response.noContent().build();
+        final Set<EventSummary> summaries = new HashSet<EventSummary>(uuids.size());
+        for (String uuid : uuids) {
+            EventSummary summary = eventStoreDao.findByUuid(uuid);
+            if (summary == null) {
+                return Response.status(Status.NOT_FOUND).build();
+            }
+            summaries.add(summary);
+        }
+        final EventUpdateContext context = new EventUpdateContext() {};
+        for (EventSummary summary : summaries) {
+            final String uuid = summary.getUuid();
+            int numRows = eventStoreDao.addNote(uuid, note);
+            if (numRows == 0) {
+                return Response.status(Status.INTERNAL_SERVER_ERROR).build();
+            }
+            for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
+                plugin.onNoteAdd(uuid, note, context);
+            }
+        }
+        return Response.noContent().build();
+    }
+
+    @POST
     @Path("/")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventSummaryResult listEventIndex(EventSummaryRequest request)
             throws ZepException {
         return this.eventSummaryIndexDao.list(request);
+    }
+
+    private EventSummaryResult getEventArchiveResults(EventSummaryRequest request) throws ZepException {
+
+        EventSummaryResult result = null;
+
+        if (this.archiveSemaphore == null || this.archiveSemaphore.tryAcquire()) {
+            try {
+                result = this.eventArchiveIndexDao.list(request);
+            }
+            catch (ZepException ze) {
+                throw ze;
+            }
+            catch (Exception e) {
+                throw new ZepException(e.getLocalizedMessage(), e);
+            }
+            finally {
+                if (this.archiveSemaphore != null)
+                    this.archiveSemaphore.release();
+            }
+        }
+        else {
+            String msg = "Too many API archive requests. Limit = " + this.maxArchiveRequests;
+            logger.warn(msg);
+            throw new ZepException(msg);
+        }
+        return result;
     }
 
     @POST
     @Path("archive")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventSummaryResult listEventIndexArchive(EventSummaryRequest request)
             throws ZepException {
-        return this.eventArchiveIndexDao.list(request);
+        return this.getEventArchiveResults(request);
     }
 
     @GET
     @Path("/")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventSummaryResult listEventIndexGet(@Context UriInfo ui)
             throws ParseException, ZepException {
         return this.eventSummaryIndexDao.list(eventSummaryRequestFromUriInfo(ui));
@@ -373,15 +455,17 @@ public class EventsResource {
     @Path("archive")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventSummaryResult listEventIndexArchiveGet(@Context UriInfo ui)
             throws ParseException, ZepException {
-        return this.eventArchiveIndexDao.list(eventSummaryRequestFromUriInfo(ui));
+        return this.getEventArchiveResults(eventSummaryRequestFromUriInfo(ui));
     }
 
     @POST
     @Path("tag_severities")
     @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public EventTagSeveritiesSet getEventTagSeverities(EventFilter filter) throws ZepException {
         return this.eventSummaryIndexDao.getEventTagSeverities(filter);
     }
@@ -390,10 +474,19 @@ public class EventsResource {
     @Path("{eventUuid}/details")
     @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
+    @Timed
     public Response updateEventDetails(@PathParam("eventUuid") String eventUuid, EventDetailSet details) throws ZepException {
+        logger.debug("updateEventDetails Enter");
         int numRows = eventStoreDao.updateDetails(eventUuid, details);
         if (numRows == 0) {
             return Response.status(Status.NOT_FOUND).build();
+        }
+        else {
+            EventUpdateContext context = new EventUpdateContext() {
+            };
+            for (EventUpdatePlugin plugin : pluginService.getPluginsByType(EventUpdatePlugin.class)) {
+                    plugin.onEventDetailUpdate(eventUuid, details, context);
+            }
         }
 
         return Response.noContent().build();

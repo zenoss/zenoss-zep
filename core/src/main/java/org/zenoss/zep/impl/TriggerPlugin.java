@@ -206,16 +206,8 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
     @Override
     public void start(Map<String, String> properties) {
-        int triggerRuleCacheSize = DEFAULT_TRIGGER_RULE_CACHE_SIZE;
-        String cacheSize = properties.get("triggerRuleCacheSize");
-        if (cacheSize != null) {
-            try {
-                triggerRuleCacheSize = Integer.parseInt(cacheSize.trim());
-                logger.info("TriggerPlugin trigger rule cache size: {}", cacheSize);
-            } catch (NumberFormatException e) {
-                logger.warn("Invalid trigger rule cache size: {}", cacheSize);
-            }
-        }
+        int triggerRuleCacheSize = this.getTriggerRuleCacheSize();
+        logger.info("TriggerPlugin trigger rule cache size: {}", triggerRuleCacheSize);
         Map<String,TriggerRuleCache> boundedMap = ZepUtils.createBoundedMap(triggerRuleCacheSize);
         this.triggerRuleCache = Collections.synchronizedMap(boundedMap);
         super.start(properties);
@@ -228,6 +220,23 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         if (spoolFuture != null) {
             spoolFuture.cancel(true);
         }
+    }
+
+    private int getTriggerRuleCacheSize() {
+        int triggerRuleCacheSize = DEFAULT_TRIGGER_RULE_CACHE_SIZE;
+        String cacheSize = properties.get("triggerRuleCacheSize");
+        if (cacheSize != null) {
+            try {
+                triggerRuleCacheSize = Integer.parseInt(cacheSize.trim());
+            } catch (NumberFormatException e) {
+                logger.warn("Invalid trigger rule cache size: {}", cacheSize);
+            }
+        }
+        return triggerRuleCacheSize;
+    }
+
+    private boolean cacheIsFull(Map<String, TriggerRuleCache> cache) {
+        return cache.size() >= this.getTriggerRuleCacheSize();
     }
 
     private void scheduleSpool() {
@@ -299,9 +308,9 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         private RuleContext() {
         }
 
-        private static void putIdAndUuidInDict(PyDictionary dict, String id, String uuid) {
-            if (id != null) {
-                dict.put("name", id);
+        private static void putTitleAndUuidInDict(PyDictionary dict, String title, String uuid) {
+            if (title != null) {
+                dict.put("name", title);
             }
             if (uuid != null) {
                 dict.put("uuid", uuid);
@@ -378,8 +387,8 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             }
             // Initialize to empty attributes on elem and subelem in case a rule references
             // it and they do not exist
-            putIdAndUuidInDict(subelemdict, "", "");
-            putIdAndUuidInDict(elemdict, "", "");
+            putTitleAndUuidInDict(subelemdict, "", "");
+            putTitleAndUuidInDict(elemdict, "", "");
 
             EventActor actor = event.getActor();
 
@@ -390,9 +399,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
                 elemdict.put("type", actor.getElementTypeId().name());
                 final String id = (actor.hasElementIdentifier()) ? actor.getElementIdentifier() : null;
+                final String title = (actor.hasElementTitle()) ? actor.getElementTitle() : id;
                 final String uuid = actor.hasElementUuid() ? actor.getElementUuid() : null;
 
-                putIdAndUuidInDict(elemdict, id, uuid);
+                putTitleAndUuidInDict(elemdict, title, uuid);
             }
 
             if (actor.hasElementSubTypeId()) {
@@ -402,9 +412,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
                 subelemdict.put("type", actor.getElementSubTypeId().name());
                 final String id = (actor.hasElementSubIdentifier()) ? actor.getElementSubIdentifier() : null;
+                final String title = (actor.hasElementSubTitle()) ? actor.getElementSubTitle() : id;
                 final String uuid = actor.hasElementSubUuid() ? actor.getElementSubUuid() : null;
 
-                putIdAndUuidInDict(subelemdict, id, uuid);
+                putTitleAndUuidInDict(subelemdict, title, uuid);
             }
 
             for (EventDetail detail : event.getDetailsList()) {
@@ -474,9 +485,20 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         }
     }
 
+    int cacheSizeWarningCounter = 0;
+
     protected boolean eventSatisfiesRule(RuleContext ruleContext, String triggerUuid, String ruleSource) {
         PyObject result;
         try {
+            // check to see if the cache is full and log an error if so
+            if (this.cacheIsFull(this.triggerRuleCache)) {
+                ++cacheSizeWarningCounter;
+                if (cacheSizeWarningCounter % 100 == 0) {
+                    logger.error("Trigger rule cache is full ({}); consider reconfiguring zeneventserver, making it larger",
+                            this.getTriggerRuleCacheSize());
+                    cacheSizeWarningCounter = 0;
+                }
+            }
             // use rule to build and evaluate a Python lambda expression
             TriggerRuleCache cacheItem = triggerRuleCache.get(triggerUuid);
             PyFunction fn = null;

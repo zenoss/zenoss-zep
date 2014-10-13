@@ -24,6 +24,10 @@
         <listener-class>org.zenoss.zep.ZepContextLoaderListener</listener-class>
     </listener>
 
+    <listener>
+        <listener-class>com.ryantenney.metrics.spring.servlets.MetricsServletsContextListener</listener-class>
+    </listener>
+
     <servlet>
         <servlet-name>Resteasy</servlet-name>
         <servlet-class>org.jboss.resteasy.plugins.server.servlet.HttpServletDispatcher</servlet-class>
@@ -32,6 +36,17 @@
     <servlet-mapping>
         <servlet-name>Resteasy</servlet-name>
         <url-pattern>/api/*</url-pattern>
+    </servlet-mapping>
+
+    <!-- Metrics servlet-->
+    <servlet>
+        <servlet-name>Metrics</servlet-name>
+        <servlet-class>com.codahale.metrics.servlets.AdminServlet</servlet-class>
+    </servlet>
+
+    <servlet-mapping>
+        <servlet-name>Metrics</servlet-name>
+        <url-pattern>/metrics/*</url-pattern>
     </servlet-mapping>
 
 </web-app>
