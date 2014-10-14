@@ -161,7 +161,7 @@
         <constructor-arg ref="eventSummaryDao"/>
         <constructor-arg value="${zep.query.clause_limit:1024}"/>
         <constructor-arg ref="summaryFilterCacheManager"/>
-        <constructor-arg value="${zep.query.cache_refresh_interval:10}"/>
+        <constructor-arg value="${zep.query.cache_refresh_interval:0}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
         <property name="luceneSearchTimeout" value="${zep.query.lucene_search_timeout:0}" />
