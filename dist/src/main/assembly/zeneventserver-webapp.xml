@@ -18,7 +18,20 @@
             <includes>
                 <include>org.eclipse.jetty:jetty-deploy</include>
                 <include>org.eclipse.jetty:jetty-start</include>
+                <include>org.eclipse.jetty:jetty-server</include>
                 <include>javax.servlet:servlet-api</include>
+            </includes>
+        </dependencySet>
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <scope>provided</scope>
+           <unpack>false</unpack>
+            <outputDirectory>lib/ext</outputDirectory>
+            <useTransitiveFiltering>true</useTransitiveFiltering>
+            <useStrictFiltering>true</useStrictFiltering>
+            <includes>
+                <include>com.codahale.metrics:metrics-core</include>
+                <include>com.codahale.metrics:metrics-jetty8</include>
             </includes>
         </dependencySet>
     </dependencySets>

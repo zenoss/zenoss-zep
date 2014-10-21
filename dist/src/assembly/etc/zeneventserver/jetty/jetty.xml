@@ -17,12 +17,18 @@
 
 <Configure id="Server" class="org.eclipse.jetty.server.Server">
 
+    <Call class="com.codahale.metrics.SharedMetricRegistries" name="getOrCreate" id="metrics">
+        <!-- Uses this name in spring context -->
+        <Arg>zep</Arg>
+    </Call>
+
     <!-- =========================================================== -->
     <!-- Server Thread Pool                                          -->
     <!-- =========================================================== -->
     <Set name="ThreadPool">
       <!-- Default queued blocking threadpool -->
-      <New class="org.eclipse.jetty.util.thread.QueuedThreadPool">
+      <New class="com.codahale.metrics.jetty8.InstrumentedQueuedThreadPool">
+        <Arg><Ref id="metrics"/></Arg>
         <Set name="minThreads">10</Set>
         <Set name="maxThreads">200</Set>
       </New>
@@ -49,7 +55,7 @@
     </Call>
 
     <!-- =========================================================== -->
-    <!-- Set handler Collection Structure                            --> 
+    <!-- Set handler Collection Structure                            -->
     <!-- =========================================================== -->
     <Set name="handler">
       <New id="Handlers" class="org.eclipse.jetty.server.handler.HandlerCollection">
@@ -59,7 +65,12 @@
              <New id="Contexts" class="org.eclipse.jetty.server.handler.ContextHandlerCollection"/>
            </Item>
            <Item>
-             <New id="DefaultHandler" class="org.eclipse.jetty.server.handler.DefaultHandler"/>
+            <New id="instrumentedHandler" class="com.codahale.metrics.jetty8.InstrumentedHandler">
+              <Arg><Ref id="metrics"/></Arg>
+              <Arg>
+                <New id="DefaultHandler" class="org.eclipse.jetty.server.handler.DefaultHandler"/>
+              </Arg>
+            </New>
            </Item>
          </Array>
         </Set>
