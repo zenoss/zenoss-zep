@@ -24,7 +24,7 @@
         <version.jetty>7.5.3.v20111011</version.jetty>
         <version.logback>0.9.26</version.logback>
         <version.lucene>4.7.2</version.lucene>
-        <version.metrics>2.2.0</version.metrics>
+        <version.metrics>3.0.1</version.metrics>
         <version.mysql>5.1.15</version.mysql>
         <version.postgresql>9.0-801.jdbc4</version.postgresql>
         <version.resteasy>2.0.1.GA</version.resteasy>
