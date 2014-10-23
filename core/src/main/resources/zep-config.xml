@@ -202,8 +202,8 @@
         <property name="eventArchiveIndexQueueDao" ref="eventArchiveIndexQueueDao"/>
     </bean>
 
-    <metrics:metric-registry id="metrics" />
-    <metrics:health-check-registry id="metrics-health"/>
+    <metrics:metric-registry id="metrics" name="zep" />
+    <metrics:health-check-registry id="metrics-health" />
     <metrics:annotation-driven metric-registry="metrics" health-check-registry="metrics-health" />
     <metrics:reporter type="slf4j" metric-registry="metrics" period="1m" />
 

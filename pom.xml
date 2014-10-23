@@ -24,16 +24,16 @@
         <version.jetty>7.5.3.v20111011</version.jetty>
         <version.logback>0.9.26</version.logback>
         <version.lucene>4.7.2</version.lucene>
-        <version.metrics>2.2.0</version.metrics>
+        <version.metrics>3.0.1</version.metrics>
         <version.mysql>5.1.15</version.mysql>
         <version.postgresql>9.0-801.jdbc4</version.postgresql>
         <version.resteasy>2.0.1.GA</version.resteasy>
-        <version.slf4j>1.6.1</version.slf4j>
+        <version.slf4j>1.7.5</version.slf4j>
         <version.spring>3.0.5.RELEASE</version.spring>
         <version.tomcat-jdbc>7.0.27</version.tomcat-jdbc>
         <zenoss-utils.version>2.0.0</zenoss-utils.version>
         <zenoss-protocols.version>2.0.3</zenoss-protocols.version>
-        <metric-consumer.version>0.0.11</metric-consumer.version>
+        <metric-consumer.version>0.0.12</metric-consumer.version>
     </properties>
     <profiles>
         <!-- Disable the integration tests if we haven't specified a database type -->
