@@ -12,9 +12,6 @@
         <version>2.0.1-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <properties>
-        <version.metrics>3.0.1</version.metrics>
-    </properties>
     <dependencies>
         <dependency>
             <groupId>javax.servlet</groupId>
@@ -83,7 +80,7 @@
             <artifactId>slf4j-api</artifactId>
             <version>${version.slf4j}</version>
             <type>jar</type>
-            <scope>compile</scope>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.codehaus.jackson</groupId>
@@ -285,6 +282,7 @@
             <groupId>com.codahale.metrics</groupId>
             <artifactId>metrics-core</artifactId>
             <version>${version.metrics}</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.codahale.metrics</groupId>
