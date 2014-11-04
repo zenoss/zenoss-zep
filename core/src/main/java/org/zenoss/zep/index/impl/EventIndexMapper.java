@@ -227,8 +227,11 @@ public class EventIndexMapper {
         // find details  for indexing
         List<EventDetail> evtDetails = event.getDetailsList();
         
-        // default all the details to unprintable ascii character so we can
-        // search for None's. That character was chosen because it doesn't take much space
+        // Details with no value are indexed using a default value so we can search for None's.
+        // The value used to index the null details depends on the type of the detail:
+        //     - Null numeric details are indexed using the Java min Integer
+        //     - Null text details are indexed using the bell character
+        // The values defined in the zep facade for null details must match the above values
         Map<String, EventDetailItem> allDetails = eventDetailsConfigDao.getEventDetailItemsByName();
         Iterator it = allDetails.entrySet().iterator();
         while (it.hasNext()) {
@@ -245,7 +248,24 @@ public class EventIndexMapper {
 
             if (!found) {
                 String detailKeyName = DETAIL_INDEX_PREFIX + entry.getKey();
-                doc.add(new Field(detailKeyName, Character.toString((char)07), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+                EventDetailItem detailDefn = detailsConfig.get(entry.getKey());
+                switch (detailDefn.getType()) {
+                    case INTEGER:
+                        doc.add(new IntField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    case FLOAT:
+                        doc.add(new FloatField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    case LONG:
+                        doc.add(new LongField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    case DOUBLE:
+                        doc.add(new DoubleField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    default:
+                        doc.add(new Field(detailKeyName, Character.toString((char)07), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+                        break;
+                }
             }
         }
 
