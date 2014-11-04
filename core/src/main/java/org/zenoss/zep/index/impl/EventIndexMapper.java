@@ -245,7 +245,24 @@ public class EventIndexMapper {
 
             if (!found) {
                 String detailKeyName = DETAIL_INDEX_PREFIX + entry.getKey();
-                doc.add(new Field(detailKeyName, Character.toString((char)07), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+		EventDetailItem detailDefn = detailsConfig.get(entry.getKey());
+                switch (detailDefn.getType()) {
+                    case INTEGER:
+                        doc.add(new IntField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    case FLOAT:
+                        doc.add(new FloatField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    case LONG:
+                        doc.add(new LongField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    case DOUBLE:
+                        doc.add(new DoubleField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    default:
+	  		doc.add(new Field(detailKeyName, Character.toString((char)07), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+                        break;
+                }
             }
         }
 
