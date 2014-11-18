@@ -282,7 +282,16 @@ public class QueryBuilder {
             final BooleanFilter booleanFilter = new BooleanFilter();
 
             for (String value : values) {
-                if (lowerCase) {
+                // Check for empty string
+                String tmp_value = value;
+                if (value.endsWith("*")) {
+                    tmp_value = value.substring(0, value.length() - 1);
+                }
+                String unquoted = unquote(tmp_value);
+                if (tmp_value.isEmpty() || unquoted.isEmpty()) {
+                    value = unquoted;
+                }
+                else if (lowerCase) {
                     value = value.toLowerCase();
                 }
                 Term term = new Term(key, value);
