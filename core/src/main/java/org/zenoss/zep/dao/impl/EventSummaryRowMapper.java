@@ -12,6 +12,7 @@ package org.zenoss.zep.dao.impl;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.zenoss.protobufs.JsonFormat;
+import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventAuditLog;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -40,7 +41,7 @@ public class EventSummaryRowMapper implements RowMapper<EventSummary> {
     @Override
     public EventSummary mapRow(ResultSet rs, int rowNum) throws SQLException {
         final EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
-        summaryBuilder.addOccurrence(helper.eventMapper(rs));
+        summaryBuilder.addOccurrence(mapEvent(rs));
         summaryBuilder.setUuid(uuidConverter.fromDatabaseType(rs, COLUMN_UUID));
         summaryBuilder.setStatus(EventStatus.valueOf(rs.getInt(COLUMN_STATUS_ID)));
         summaryBuilder.setFirstSeenTime(timestampConverter.fromDatabaseType(rs, COLUMN_FIRST_SEEN));
@@ -83,4 +84,15 @@ public class EventSummaryRowMapper implements RowMapper<EventSummary> {
 
         return summaryBuilder.build();
     }
+
+    /**
+     * Maps portion of a result set to an Event
+     * @param rs
+     * @return Event
+     * @throws SQLException
+     */
+    protected Event mapEvent(ResultSet rs) throws SQLException {
+        return helper.eventMapper(rs, false);
+    }
+
 }

@@ -1,6 +1,6 @@
 /*****************************************************************************
  * 
- * Copyright (C) Zenoss, Inc. 2010-2011, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2010-2011, 2014 all rights reserved.
  * 
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -1115,6 +1115,7 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         // First, verify migrate_update_time == update_time in imported event
         final long updateTime = imported.getUpdateTime();
         int migratedDetailIndex = -1;
+        int isArchiveDetailIndex = -1;
         for (int detailIndex = 0; detailIndex < imported.getOccurrence(0).getDetailsCount(); detailIndex++) {
             EventDetail detail = imported.getOccurrence(0).getDetails(detailIndex);
             if (ZepConstants.DETAIL_MIGRATE_UPDATE_TIME.equals(detail.getName())) {
@@ -1122,6 +1123,10 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
                 assertEquals(-1, migratedDetailIndex);
                 migratedDetailIndex = detailIndex;
                 assertEquals(Arrays.asList(Long.toString(updateTime)), detail.getValueList());
+            }
+            else if ("is_archive".equals(detail.getName())) {
+                assertEquals(-1, isArchiveDetailIndex);
+                isArchiveDetailIndex = detailIndex;
             }
         }
         assertTrue(migratedDetailIndex >= 0);
@@ -1131,7 +1136,14 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         EventSummary.Builder importedBuilder = EventSummary.newBuilder(imported);
         Event.Builder occurrenceBuilder = importedBuilder.getOccurrenceBuilder(0);
         importedBuilder.clearUpdateTime();
-        occurrenceBuilder.removeDetails(migratedDetailIndex);
+        if (isArchiveDetailIndex >= 0) {
+            int a = Math.min(migratedDetailIndex, isArchiveDetailIndex);
+            int b = Math.max(migratedDetailIndex, isArchiveDetailIndex) - 1;
+            occurrenceBuilder.removeDetails(a);
+            occurrenceBuilder.removeDetails(b);
+        } else {
+            occurrenceBuilder.removeDetails(migratedDetailIndex);
+        }
 
         // Original event has a generated UUID on the occurrence but we don't store an occurrence for migrated events -
         // clear it and the created_time to enable comparison.

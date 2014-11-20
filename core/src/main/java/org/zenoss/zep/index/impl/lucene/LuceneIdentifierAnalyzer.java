@@ -1,6 +1,6 @@
 /*****************************************************************************
  *
- * Copyright (C) Zenoss, Inc. 2010, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2010, 2014, all rights reserved.
  *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -8,7 +8,7 @@
  ****************************************************************************/
 
 
-package org.zenoss.zep.index.impl;
+package org.zenoss.zep.index.impl.lucene;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.LowerCaseFilter;
@@ -17,16 +17,15 @@ import org.apache.lucene.analysis.Tokenizer;
 import org.apache.lucene.analysis.core.WhitespaceTokenizer;
 import org.apache.lucene.analysis.ngram.NGramTokenFilter;
 import org.apache.lucene.util.Version;
+import org.zenoss.zep.index.impl.IndexConstants;
 
 import java.io.Reader;
 
-/**
- * Analyzer used for element and sub element identifiers.
- */
-public final class IdentifierAnalyzer extends Analyzer {
+/** Analyzer used for element and sub element identifiers. */
+public final class LuceneIdentifierAnalyzer extends Analyzer {
 
-    public static final int MIN_NGRAM_SIZE = 3;
-    public static final int MAX_NGRAM_SIZE = MIN_NGRAM_SIZE;
+    public static final int MIN_NGRAM_SIZE = IndexConstants.MIN_NGRAM_SIZE;
+    public static final int MAX_NGRAM_SIZE = IndexConstants.MAX_NGRAM_SIZE;
 
     @Override
     protected TokenStreamComponents createComponents(String s, Reader reader) {
@@ -36,6 +35,4 @@ public final class IdentifierAnalyzer extends Analyzer {
         filter = new NGramTokenFilter(Version.LUCENE_43, filter, MIN_NGRAM_SIZE, MAX_NGRAM_SIZE);
         return new TokenStreamComponents(source, filter);
     }
-
 }
-

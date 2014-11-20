@@ -29,9 +29,10 @@
         <version.postgresql>9.0-801.jdbc4</version.postgresql>
         <version.resteasy>2.0.1.GA</version.resteasy>
         <version.slf4j>1.7.5</version.slf4j>
+        <version.solrj>4.7.2</version.solrj> <!-- Last version compiled for Java 6. Client *is* compatible with later servers. -->
         <version.spring>3.0.5.RELEASE</version.spring>
         <version.tomcat-jdbc>7.0.27</version.tomcat-jdbc>
-        <zenoss-utils.version>2.0.0</zenoss-utils.version>
+        <zenoss-utils.version>2.0.2-SNAPSHOT</zenoss-utils.version>
         <zenoss-protocols.version>2.0.3</zenoss-protocols.version>
         <metric-consumer.version>0.0.12</metric-consumer.version>
     </properties>

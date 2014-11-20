@@ -1,6 +1,6 @@
 /*****************************************************************************
  * 
- * Copyright (C) Zenoss, Inc. 2010, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2010, 2014, all rights reserved.
  * 
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -10,7 +10,10 @@
 
 package org.zenoss.zep.index.impl;
 
+import com.google.common.collect.Maps;
 import org.apache.lucene.util.Version;
+import java.util.Collections;
+import java.util.Map;
 
 /**
  * Constants for the event index (field names stored with the Lucene documents).
@@ -20,7 +23,7 @@ public class IndexConstants {
      * The version of the event index. This should be updated each time a new field
      * is added to the index or the way a field gets indexed changes.
      */
-    public static final int INDEX_VERSION = 8;
+    public static final int INDEX_VERSION = 9;
 
     public static final String FIELD_UUID = "uuid";
     public static final String FIELD_STATUS = "status";
@@ -53,6 +56,18 @@ public class IndexConstants {
     public static final String FIELD_PROTOBUF = "protobuf";
     public static final String FIELD_MESSAGE = "message";
 
+    public static final Map<String,String> NON_ANALYZED;
+    static {
+        final Map<String,String> m = Maps.newHashMap();
+        m.put(FIELD_ELEMENT_IDENTIFIER, FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED);
+        m.put(FIELD_ELEMENT_TITLE, FIELD_ELEMENT_TITLE_NOT_ANALYZED);
+        m.put(FIELD_ELEMENT_SUB_TITLE, FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED);
+        m.put(FIELD_ELEMENT_SUB_IDENTIFIER, FIELD_ELEMENT_SUB_IDENTIFIER_NOT_ANALYZED);
+        m.put(FIELD_SUMMARY, FIELD_SUMMARY_NOT_ANALYZED);
+        m.put(FIELD_EVENT_CLASS, FIELD_EVENT_CLASS_NOT_ANALYZED);
+        NON_ANALYZED = Collections.unmodifiableMap(m);
+    }
+
     // For PATH and IP_ADDRESS details
     public static final String SORT_SUFFIX = "_sort";
     
@@ -65,4 +80,7 @@ public class IndexConstants {
      * The version of Lucene we wish to use.
      */
     public static final Version LUCENE_VERSION = Version.LUCENE_47;
+
+    public static final int MIN_NGRAM_SIZE = 3;
+    public static final int MAX_NGRAM_SIZE = MIN_NGRAM_SIZE;
 }

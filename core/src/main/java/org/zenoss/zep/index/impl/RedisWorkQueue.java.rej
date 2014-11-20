@@ -1,0 +1,58 @@
+***************
+*** 49,55 ****
+      private final String queueListKey;
+      private final String queueSetKey;
+      private final String holdZsetKey;
+-     private JedisUser<Long> requeueJedisUser;
+      private final JedisUser<Long> sizeJedisUser;
+      private final List<String> queueKeys;
+      private final List<String> allKeys;
+--- 49,55 ----
+      private final String queueListKey;
+      private final String queueSetKey;
+      private final String holdZsetKey;
++     private volatile JedisUser<Long> requeueJedisUser;
+      private final JedisUser<Long> sizeJedisUser;
+      private final List<String> queueKeys;
+      private final List<String> allKeys;
+***************
+*** 124,141 ****
+      }
+  
+      private JedisUser<Long> getRequeueJedisUser() {
+-         if (this.requeueJedisUser == null) {
+              synchronized(this) {
+-                 if (this.requeueJedisUser == null) {
+                      if (pool.supportsEval()) {
+-                         this.requeueJedisUser = new RequeueEvalJedisUser();
+                      } else {
+-                         this.requeueJedisUser = new RequeueTxJedisUser();
+                      }
+                  }
+              }
+          }
+-         return(this.requeueJedisUser);
+      }
+  
+      @Override
+--- 124,143 ----
+      }
+  
+      private JedisUser<Long> getRequeueJedisUser() {
++         JedisUser<Long> result = this.requeueJedisUser;
++         if (result == null) {
+              synchronized(this) {
++                 result = this.requeueJedisUser;
++                 if (result == null) {
+                      if (pool.supportsEval()) {
++                         this.requeueJedisUser = result = new RequeueEvalJedisUser();
+                      } else {
++                         this.requeueJedisUser = result = new RequeueTxJedisUser();
+                      }
+                  }
+              }
+          }
++         return result;
+      }
+  
+      @Override

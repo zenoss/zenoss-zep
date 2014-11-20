@@ -1,6 +1,6 @@
 /*****************************************************************************
  * 
- * Copyright (C) Zenoss, Inc. 2011, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2011, 2014 all rights reserved.
  * 
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -29,6 +30,9 @@ import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
+import org.zenoss.zep.index.EventIndexDao;
+import org.zenoss.zep.index.impl.MultiBackendEventIndexDao;
+import org.zenoss.zep.index.impl.lucene.LuceneEventIndexBackend;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -50,6 +54,22 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
 
     @Autowired
     @Qualifier("summary")
+    public EventIndexDao eventSummaryIndexDao;
+
+    @Autowired
+    @Qualifier("summary")
+    public LuceneEventIndexBackend eventSummaryLuceneIndexBackend;
+
+    @Autowired
+    @Qualifier("archive")
+    public EventIndexDao eventArchiveIndexDao;
+
+    @Autowired
+    @Qualifier("archive")
+    public LuceneEventIndexBackend eventArchiveLuceneIndexBackend;
+
+    @Autowired
+    @Qualifier("summary")
     public EventIndexQueueDao eventSummaryIndexQueueDao;
 
     @Autowired
@@ -60,7 +80,15 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
     public DatabaseCompatibility databaseCompatibility;
 
     @Before
-    public void setup() {
+    public void setup() throws ZepException {
+        ((MultiBackendEventIndexDao)eventSummaryIndexDao).disableRebuilders();
+        ((MultiBackendEventIndexDao)eventArchiveIndexDao).disableRebuilders();
+        ((MultiBackendEventIndexDao)eventSummaryIndexDao).disableAsyncProcessing();
+        ((MultiBackendEventIndexDao)eventArchiveIndexDao).disableAsyncProcessing();
+        eventSummaryIndexDao.clear();
+        eventArchiveIndexDao.clear();
+        eventSummaryLuceneIndexBackend.setReaderReopenInterval(0);
+        eventArchiveLuceneIndexBackend.setReaderReopenInterval(0);
         this.simpleJdbcTemplate.update("TRUNCATE TABLE event_summary_index_queue");
         this.simpleJdbcTemplate.update("TRUNCATE TABLE event_archive_index_queue");
     }
@@ -105,7 +133,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         assertEquals(1, indexQueueIds.size());
         assertTrue(handler.completed.get());
         assertEquals(1, handler.indexed.size());
-        assertEquals(eventSummary, handler.indexed.get(0));
+        assertEquals(removeIsArchiveDetail(eventSummary), removeIsArchiveDetail(handler.indexed.get(0)));
         assertTrue(handler.deleted.isEmpty());
 
         eventIndexQueueDao.deleteIndexQueueIds(indexQueueIds);
@@ -117,6 +145,18 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         assertTrue(handler.indexed.isEmpty());
         assertTrue(handler.deleted.isEmpty());
         return eventSummary;
+    }
+
+    public static EventSummary removeIsArchiveDetail(EventSummary input) {
+        for (int i=0; i < input.getOccurrence(0).getDetailsCount(); i++) {
+            if ("is_archive".equals(input.getOccurrence(0).getDetails(i).getName())) {
+                EventSummary.Builder builder = EventSummary.newBuilder(input);
+                Event.Builder eventBuilder = builder.getOccurrenceBuilder(0);
+                eventBuilder.removeDetails(i);
+                return builder.build();
+            }
+        }
+        return input;
     }
 
     @Test
@@ -140,7 +180,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         assertEquals(1, indexQueueIds.size());
         assertTrue(handler.completed.get());
         assertEquals(1, handler.indexed.size());
-        assertEquals(summaryWithNote, handler.indexed.get(0));
+        assertEquals(removeIsArchiveDetail(summaryWithNote), removeIsArchiveDetail(handler.indexed.get(0)));
         assertTrue(handler.deleted.isEmpty());
 
         eventIndexQueueDao.deleteIndexQueueIds(indexQueueIds);

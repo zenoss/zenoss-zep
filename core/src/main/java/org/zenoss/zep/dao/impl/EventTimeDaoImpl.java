@@ -56,7 +56,7 @@ public class EventTimeDaoImpl implements EventTimeDao {
     public EventTimeDaoImpl(DataSource dataSource, PartitionConfig partitionConfig,
                             DatabaseCompatibility databaseCompatibility) {
     	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
+    			new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
         this.partitionTableConfig = partitionConfig.getConfig(TABLE_EVENT_TIME);
         this.databaseCompatibility = databaseCompatibility;
         this.partitioner = databaseCompatibility.getRangePartitioner(dataSource,

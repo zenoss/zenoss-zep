@@ -50,7 +50,7 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
 
     public IndexMetadataDaoImpl(DataSource ds, ZepInstance instance) {
     	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
+    			new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
         this.zepInstanceId = instance.getId();
     }
 

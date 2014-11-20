@@ -100,6 +100,15 @@
             </includes>
         </fileSet>
         <fileSet>
+            <directory>../solr</directory>
+            <directoryMode>0755</directoryMode>
+            <fileMode>0644</fileMode>
+            <outputDirectory>share/zeneventserver/solr/</outputDirectory>
+            <includes>
+                <include>**/*.xml</include>
+            </includes>
+        </fileSet>
+        <fileSet>
             <directory>../core/src/main/resources</directory>
             <directoryMode>0755</directoryMode>
             <fileMode>0600</fileMode>

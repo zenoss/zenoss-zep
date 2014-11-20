@@ -40,8 +40,8 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
     private static final String COLUMN_PROTO_JSON = "proto_json";
 
     public EventDetailsConfigDaoImpl(DataSource ds) {
-    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
+        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
+                new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
     }
 
     public void setNestedTransactionService(NestedTransactionService nestedTransactionService) {
