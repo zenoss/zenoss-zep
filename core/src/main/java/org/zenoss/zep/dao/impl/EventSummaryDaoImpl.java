@@ -1,6 +1,6 @@
 /*****************************************************************************
  * 
- * Copyright (C) Zenoss, Inc. 2010-2012, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2010-2012, 2014 all rights reserved.
  * 
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -10,6 +10,8 @@
 
 package org.zenoss.zep.dao.impl;
 
+import com.google.api.client.util.Lists;
+import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
@@ -40,6 +42,8 @@ import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
+import org.zenoss.zep.dao.EventBatch;
+import org.zenoss.zep.dao.EventBatchParams;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.DatabaseType;
@@ -49,7 +53,6 @@ import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
 import org.zenoss.zep.plugins.EventPreCreateContext;
-import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
@@ -99,7 +102,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     public EventSummaryDaoImpl(DataSource dataSource) throws MetaDataAccessException {
         this.dataSource = dataSource;
         this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-        		new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
+        		new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
         this.insert = new SimpleJdbcInsert(dataSource).withTableName(TABLE_EVENT_SUMMARY);
     }
 
@@ -541,8 +544,14 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
+    @Deprecated
+    /** @deprecated use {@link #findByKey(Collection) instead}. */
+    public List<EventSummary> findByUuids(final List<String> uuids) throws ZepException {
+        return findByUuids((Collection)uuids);
+    }
+
     @TransactionalReadOnly
-    public List<EventSummary> findByUuids(final List<String> uuids)
+    private List<EventSummary> findByUuids(final Collection<String> uuids)
             throws ZepException {
         if (uuids.isEmpty()) {
             return Collections.emptyList();
@@ -555,8 +564,22 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalReadOnly
-    public List<EventSummary> listBatch(String startingUuid, long maxUpdateTime, int limit) throws ZepException {
-        return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_SUMMARY, startingUuid, maxUpdateTime, limit);
+    /**
+     * This implementation only makes use of the UUID field to lookup the events.
+     */
+    public List<EventSummary> findByKey(final Collection<EventSummary> toLookup) throws ZepException {
+        if (toLookup == null || toLookup.isEmpty())
+            return Collections.emptyList();
+        Set<String> uuids = Sets.newHashSetWithExpectedSize(toLookup.size());
+        for (EventSummary event : toLookup) uuids.add(event.getUuid());
+        return findByUuids(uuids);
+    }
+
+    @Override
+    @TransactionalReadOnly
+    public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException {
+        return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_SUMMARY, null, batchParams, maxUpdateTime, limit,
+                new EventSummaryRowMapper(eventDaoHelper, databaseCompatibility));
     }
 
     private static final EnumSet<EventStatus> AUDIT_LOG_STATUSES = EnumSet.of(

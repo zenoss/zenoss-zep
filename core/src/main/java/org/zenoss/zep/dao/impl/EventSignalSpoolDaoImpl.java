@@ -74,8 +74,8 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     private NestedTransactionService nestedTransactionService;
 
     public EventSignalSpoolDaoImpl(DataSource dataSource) {
-    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
+        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(),
+                new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
     }
 
     public void setUuidGenerator(UUIDGenerator uuidGenerator) {

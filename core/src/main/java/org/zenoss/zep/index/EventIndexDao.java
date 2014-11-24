@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -40,7 +40,7 @@ public interface EventIndexDao extends Purgable {
 
     /**
      * Add an event to the index, replaces existing event with the same UUID.
-     * 
+     *
      * @param event Event to index.
      * @throws org.zenoss.zep.ZepException
      *             If the event could not be indexed.
@@ -78,11 +78,12 @@ public interface EventIndexDao extends Purgable {
      * @deprecated Optimizing the index is discouraged - the forceOptimize option is ignored. Use
      *             {@link #commit()} instead.
      */
+    @Deprecated
     public void commit(boolean forceOptimize) throws ZepException;
 
     /**
      * Add many events to the index, replaces existing events with the same UUID.
-     * 
+     *
      * @param events EventSummary to index
      * @throws org.zenoss.zep.ZepException
      *             If an event could not be indexed.
@@ -91,7 +92,7 @@ public interface EventIndexDao extends Purgable {
 
     /**
      * Retrieves event summary entries matching the specified query.
-     * 
+     *
      * @param request
      *            Event summary query.
      * @return The matching event summary entries.
@@ -116,7 +117,7 @@ public interface EventIndexDao extends Purgable {
 
     /**
      * Deletes the event with the specified uuid from the index
-     * 
+     *
      * @param uuid
      *            UUID of the event to delete.
      * @throws ZepException
@@ -126,7 +127,7 @@ public interface EventIndexDao extends Purgable {
 
     /**
      * Deletes the event with the specified UUIDs from the index.
-     * 
+     *
      * @param uuids
      *            UUIDs of the event to delete.
      * @throws ZepException
@@ -136,7 +137,7 @@ public interface EventIndexDao extends Purgable {
 
     /**
      * Returns the event with the matching UUID, or null if not found.
-     * 
+     *
      * @param uuid
      *            UUID of event to find.
      * @return The matching event, or null if not found.
@@ -147,21 +148,11 @@ public interface EventIndexDao extends Purgable {
 
     /**
      * Removes all documents from the index.
-     * 
+     *
      * @throws ZepException
      *             If the event database cannot be queried.
      */
     public void clear() throws ZepException;
-
-    /**
-     * Delete all events matching request
-     * 
-     * @param request
-     *            Filter of events to delete
-     * @throws ZepException
-     *             If the event database cannot be queried.
-     */
-    public void delete(EventSummaryRequest request) throws ZepException;
 
     /**
      * Returns event tag severities for the specified filter. If the filter specifies

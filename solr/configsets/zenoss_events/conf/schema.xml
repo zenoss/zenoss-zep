@@ -1,0 +1,165 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+ *****************************************************************************
+ *
+ * Copyright (C) Zenoss, Inc. 2014, all rights reserved.
+ *
+ * This content is made available according to terms specified in
+ * License.zenoss under the directory where your Zenoss product is installed.
+ *
+ *****************************************************************************
+-->
+<schema name="zenoss_events" version="1.5">
+
+  <!--
+  ****************************************************************************
+  * Field Types                                                              *
+  ****************************************************************************
+  -->
+
+  <fieldtype name="ignored" class="solr.StrField" required="false" indexed="false" stored="false" multiValued="true" omitNorms="true"/>
+  <fieldType name="boolean" class="solr.BoolField" required="false" indexed="true" stored="false" multiValued="false" omitNorms="true"/>
+  <fieldType name="int" class="solr.TrieIntField" precisionStep="8" positionIncrementGap="0" required="false" indexed="true" stored="false" multiValued="false" omitNorms="true"/>
+  <fieldType name="float" class="solr.TrieFloatField" precisionStep="8" positionIncrementGap="0" required="false" indexed="true" stored="false" multiValued="false" omitNorms="true"/>
+  <fieldType name="long" class="solr.TrieLongField" precisionStep="8" positionIncrementGap="0" required="false" indexed="true" stored="false" multiValued="false" omitNorms="true"/>
+  <fieldType name="double" class="solr.TrieDoubleField" precisionStep="8" positionIncrementGap="0" required="false" indexed="true" stored="false" multiValued="false" omitNorms="true"/>
+  <fieldType name="string" class="solr.StrField" required="false" indexed="true" stored="false" multiValued="false" omitNorms="true"/>
+  <fieldType name="binary" class="solr.BinaryField" required="false" indexed="false" stored="true" multiValued="false" omitNorms="true"/>
+
+  <fieldType name="summaryText" class="solr.TextField" positionIncrementGap="100" required="false" indexed="true" stored="false" multiValued="true" omitNorms="true">
+    <analyzer type="index">
+      <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+      <filter class="solr.ReversedWildcardFilterFactory" withOriginal="true" maxPosAsterisk="1" maxPosQuestion="1"/>
+    </analyzer>
+    <analyzer type="query">
+      <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+  </fieldType>
+
+  <fieldType name="path" class="solr.TextField" positionIncrementGap="100" required="false" indexed="true" stored="false" multiValued="true" omitNorms="true">
+    <analyzer type="index">
+      <tokenizer class="solr.PatternTokenizerFactory" pattern="\/+"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+      <filter class="solr.ReversedWildcardFilterFactory" withOriginal="true" maxPosAsterisk="1" maxPosQuestion="1"/>
+    </analyzer>
+    <analyzer>
+      <tokenizer class="solr.PatternTokenizerFactory" pattern="\/+"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+  </fieldType>
+
+  <fieldType name="ipaddr" class="solr.TextField" positionIncrementGap="100" required="false" indexed="true" stored="false" multiValued="true" omitNorms="true">
+    <analyzer>
+      <tokenizer class="solr.PatternTokenizerFactory" pattern="[\.\:]+"/>
+    </analyzer>
+  </fieldType>
+
+  <fieldType name="identifier" class="solr.TextField" positionIncrementGap="100" required="false" indexed="true" stored="false" multiValued="true" omitNorms="true">
+    <analyzer type="index">
+      <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+      <filter class="solr.NGramTokenizerFactory" minGramSize="3" maxGramSize="20"/>
+    </analyzer>
+    <analyzer type="query">
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.TruncateTokenFilterFactory" prefixLength="20"/>
+    </analyzer>
+  </fieldType>
+
+  <fieldType name="lowercase" class="solr.TextField" positionIncrementGap="100" required="false" indexed="true" stored="false" multiValued="false" omitNorms="true">
+    <analyzer>
+      <tokenizer class="solr.KeywordTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+    </analyzer>
+  </fieldType>
+
+  <fieldType name="lowercase_with_final_slash" class="solr.TextField" positionIncrementGap="100" indexed="true" stored="false" multiValued="false" omitNorms="true">
+    <analyzer>
+      <tokenizer class="solr.KeywordTokenizerFactory"/>
+      <filter class="solr.LowerCaseFilterFactory"/>
+      <filter class="solr.PatternReplaceFilterFactory" pattern="\A(.*[^/]|\z)\z" replacement="$1/"/>
+    </analyzer>
+  </fieldType>
+
+  <fieldType name="ip_type" class="solr.TextField" positionIncrementGap="100" indexed="true" stored="false" multiValued="false" omitNorms="true">
+    <analyzer>
+      <tokenizer class="solr.KeywordTokenizerFactory"/>
+      <!--
+        If it's the string "6" or has a ":" in it, it becomes the token "6".
+        Everything else becomes the token "4".
+      -->
+      <filter class="solr.PatternReplaceFilterFactory" pattern=".*:.*" replacement="6"/>
+      <filter class="solr.PatternReplaceFilterFactory" pattern="([^6]|\A\z)" replacement="4"/>
+      <filter class="solr.PatternReplaceFilterFactory" pattern=".*4.*" replacement="4"/>
+      <filter class="solr.PatternReplaceFilterFactory" pattern="66+" replacement="6"/>
+    </analyzer>
+  </fieldType>
+
+
+
+  <!--
+  ****************************************************************************
+  * Fields                                                                   *
+  ****************************************************************************
+  -->
+
+  <!-- Required by SolrCloud and by update log. -->
+  <field name="_version_" type="long" indexed="true" stored="true"/>
+
+  <field name="uuid" type="lowercase" required="true" stored="true"/>
+  <field name="protobuf" type="binary"/>
+  <field name="current_user_name" type="string"/>
+  <field name="status" type="int" required="true" stored="true" docValues="true"/>
+  <field name="count" type="long" required="true" stored="true" docValues="true"/>
+  <field name="last_seen_time" type="long" required="true" stored="true"/>
+  <field name="first_seen_time" type="long" required="true"/>
+  <field name="status_change_time" type="long"/>
+  <field name="update_time" type="long"/>
+  <field name="fingerprint" type="string"/>
+  <field name="summary" type="summaryText"/>
+  <field name="severity" type="int" required="true" stored="true" docValues="true"/>
+  <field name="event_class" type="path" required="true"/>
+  <field name="agent" type="string"/>
+  <field name="monitor" type="string"/>
+  <field name="event_key" type="string"/>
+  <field name="event_class_key" type="string"/>
+  <field name="event_group" type="string"/>
+  <field name="message" type="summaryText"/>
+  <field name="tag" type="string" stored="true" multiValued="true"/>
+  <field name="element_identifier" type="identifier"/>
+  <field name="element_title" type="identifier"/>
+  <field name="element_sub_identifier" type="identifier"/>
+  <field name="element_sub_title" type="identifier"/>
+
+  <field name="element_identifier_not_analyzed" type="lowercase"/>
+  <field name="element_title_not_analyzed" type="string"/>
+  <field name="element_sub_identifier_not_analyzed" type="string"/>
+  <field name="element_sub_title_not_analyzed" type="string"/>
+  <field name="event_class_not_analyzed" type="lowercase_with_final_slash"/>
+  <field name="summary_not_analyzed" type="lowercase"/>
+
+  <dynamicField name="*_path_sort" type="lowercase_with_final_slash"/>
+  <dynamicField name="*_sort" type="lowercase"/>
+  <dynamicField name="*_path" type="path"/>
+  <dynamicField name="*_type" type="ip_type"/>
+  <dynamicField name="*_ip"   type="ipaddr"/>
+  <dynamicField name="*_s"    type="string"/>
+  <dynamicField name="*_i"    type="int"/>
+  <dynamicField name="*_l"    type="long"/>
+  <dynamicField name="*_f"    type="float"/>
+  <dynamicField name="*_d"    type="double"/>
+
+  <copyField source="element_identifier" dest="element_identifier_not_analyzed"/>
+  <copyField source="element_title" dest="element_title_not_analyzed"/>
+  <copyField source="element_sub_identifier" dest="element_sub_identifier_not_analyzed"/>
+  <copyField source="element_sub_title" dest="element_sub_title_not_analyzed"/>
+  <copyField source="event_class" dest="event_class_not_analyzed"/>
+  <copyField source="summary" dest="summary_not_analyzed"/>
+
+  <copyField source="*_s" dest="*_s_sort"/>
+
+  <uniqueKey>uuid</uniqueKey>
+</schema>

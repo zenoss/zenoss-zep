@@ -67,8 +67,8 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
 
     public EventIndexQueueDaoImpl(DataSource ds, boolean isArchive, EventDaoHelper daoHelper,
                                   DatabaseCompatibility databaseCompatibility) {
-    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
+        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(),
+                new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
         this.isArchive = isArchive;
         if (isArchive) {
             this.tableName = EventConstants.TABLE_EVENT_ARCHIVE;

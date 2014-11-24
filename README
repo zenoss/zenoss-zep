@@ -65,6 +65,11 @@ database type:
     * zep.jdbc.username: zenoss
     * zep.jdbc.password: zenoss
 
+You may also need to specify redis connection information, if your redis is running on a different host/port.
+If you see errors about "JedisConnectionException: Could not get a resource from the pool", this is probably related.
+    * zep.redis.host: localhost
+    * zep.redis.port: 16379
+
 To specify a system property from the Maven command-line, run:
 
 $ mvn -D<propname>=<propval> [...]

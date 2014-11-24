@@ -46,7 +46,7 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
 
     public HeartbeatDaoImpl(DataSource ds) {
     	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
+    			new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
     }
 
     public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {

@@ -17,10 +17,7 @@ import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.zep.ZepException;
-import org.zenoss.zep.dao.ConfigDao;
-import org.zenoss.zep.dao.EventSummaryBaseDao;
-import org.zenoss.zep.dao.IndexMetadata;
-import org.zenoss.zep.dao.IndexMetadataDao;
+import org.zenoss.zep.dao.*;
 import org.zenoss.zep.dao.impl.DaoUtils;
 import org.zenoss.zep.events.IndexRebuildRequiredEvent;
 import org.zenoss.zep.impl.ThreadRenamingRunnable;
@@ -211,21 +208,23 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
             recreateIndex = true;
         }
         // Recreate index if the version number or indexed details changed
-        else if (indexVersionChanged(indexMetadata)) {
-            recreateIndex = true;
+        else {
+            recreateIndex = false;
             try {
                 indexRebuildState = IndexRebuildState.loadState(this.indexStateFile);
-                if (indexRebuildState != null) {
+            } catch (Exception e) {
+                logger.warn("Failed to restore index rebuild state from: " + this.indexStateFile.getAbsolutePath(), e);
+            }
+            if (indexRebuildState != null) {
+                recreateIndex = true;
+                if (indexVersionChanged(indexMetadata)) {
                     if (indexRebuildState.getIndexVersion() != IndexConstants.INDEX_VERSION ||
-                        !Arrays.equals(indexRebuildState.getIndexVersionHash(), this.indexVersionHash)) {
+                            !Arrays.equals(indexRebuildState.getIndexVersionHash(), this.indexVersionHash)) {
                         // We have state from an previous version / hash - ignore it
                         indexRebuildState = null;
                         deleteStateFile();
                     }
                 }
-            } catch (Exception e) {
-                logger.warn("Failed to restore index rebuild state from: " + this.indexStateFile.getAbsolutePath(),
-                        e);
             }
         }
 
@@ -265,18 +264,22 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
 
     private void recreateIndexFromDatabase(IndexRebuildState indexRebuildState) throws ZepException {
         logger.info("Recreating index for table {}", indexDao.getName());
-        String startingUuid = null;
+        EventBatchParams nextBatch = null;
         final long throughTime;
 
         if (indexRebuildState == null) {
             throughTime = System.currentTimeMillis();
             indexRebuildState = new IndexRebuildState(IndexConstants.INDEX_VERSION, this.indexVersionHash,
-                    throughTime, null);
+                    throughTime, null, null);
         }
         else {
-            startingUuid = indexRebuildState.getStartingUuid();
+            Long startingLastSeen = indexRebuildState.getStartingLastSeen();
+            String startingUuid = indexRebuildState.getStartingUuid();
+            if (startingLastSeen != null || startingUuid != null) {
+                nextBatch = new EventBatchParams(startingLastSeen, startingUuid);
+            }
             throughTime = indexRebuildState.getThroughTime();
-            logger.info("Resuming event indexing from UUID: {} and time: {}", startingUuid, throughTime);
+            logger.info("Resuming event indexing from: {}", nextBatch);
         }
 
         int i = 0;
@@ -284,18 +287,21 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
         List<EventSummary> events;
         do {
             ZepConfig config = configDao.getConfig();
-            events = summaryBaseDao.listBatch(startingUuid, throughTime, config.getIndexLimit());
+            logger.debug("About to configDao.listBatch");
+            EventBatch batch = summaryBaseDao.listBatch(nextBatch, throughTime, config.getIndexLimit());
+            events = batch.events;
+            nextBatch = batch.nextParams;
             i++;
-            for (EventSummary event : events) {
-                indexDao.stage(event);
-                startingUuid = event.getUuid();
-                ++numIndexed;
-                if (this.configurationChanged || this.shutdown) {
-                    break;
-                }
+            logger.debug("About to indexDao.indexMany");
+            indexDao.indexMany(events);
+            logger.debug("Finished indexDao.indexMany");
+            numIndexed += events.size();
+            if (this.configurationChanged || this.shutdown) {
+                break;
             }
-            indexDao.commit();
-            indexRebuildState.setStartingUuid(startingUuid);
+            indexDao.commit(); //TODO: perhaps remove this
+            indexRebuildState.setStartingUuid(nextBatch.nextUuid);
+            indexRebuildState.setStartingLastSeen(nextBatch.nextLastSeen);
             if (i % 25 == 0) {
                 logger.info("Indexed {} events on table {}", numIndexed, indexDao.getName());
             }
@@ -305,7 +311,7 @@ public class EventIndexRebuilderImpl implements EventIndexRebuilder, Application
                 logger.warn("Failed to save state of index rebuild to file: " +
                         this.indexStateFile.getAbsolutePath(), e);
             }
-        } while (!events.isEmpty() && !this.configurationChanged && !this.shutdown);
+        } while (nextBatch.nextUuid!=null && !this.configurationChanged && !this.shutdown);
 
         if (this.configurationChanged || this.shutdown) {
             logger.info("Index rebuild aborted");

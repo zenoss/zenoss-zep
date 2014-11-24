@@ -1,6 +1,6 @@
 /*****************************************************************************
  * 
- * Copyright (C) Zenoss, Inc. 2010-2011, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2010-2011, 2014 all rights reserved.
  * 
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -28,12 +28,7 @@ import org.zenoss.zep.dao.EventArchiveDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Random;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.Assert.*;
@@ -47,11 +42,21 @@ public class EventArchiveDaoImplIT extends AbstractTransactionalJUnit4SpringCont
     @Autowired
     public EventSummaryDao eventSummaryDao;
 
+    private static Event.Builder removeIsArchiveDetail(Event.Builder builder) {
+        for (int i=0; i < builder.getDetailsCount(); i++) {
+            if ("is_archive".equals(builder.getDetails(i).getName())) {
+                builder.removeDetails(i);
+                break;
+            }
+        }
+        return builder;
+    }
+
     private static void compareEvents(Event event, Event eventFromDb) {
-        Event event1 = Event.newBuilder().mergeFrom(event).clearUuid().clearStatus()
-                .clearCreatedTime().clearTags().addAllTags(EventDaoHelper.buildTags(event)).build();
-        Event event2 = Event.newBuilder().mergeFrom(eventFromDb).clearUuid().clearStatus()
-                .clearCreatedTime().build();
+        Event event1 = removeIsArchiveDetail(Event.newBuilder().mergeFrom(event).clearUuid().clearStatus()
+                .clearCreatedTime().clearTags().addAllTags(EventDaoHelper.buildTags(event))).build();
+        Event event2 = removeIsArchiveDetail(Event.newBuilder().mergeFrom(eventFromDb).clearUuid().clearStatus()
+                .clearCreatedTime()).build();
         assertEquals(event1, event2);
     }
 

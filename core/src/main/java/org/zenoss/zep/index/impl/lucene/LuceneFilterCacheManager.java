@@ -1,4 +1,13 @@
-package org.zenoss.zep.index.impl;
+/*****************************************************************************
+ *
+ * Copyright (C) Zenoss, Inc. 2010, 2014, all rights reserved.
+ *
+ * This content is made available according to terms specified in
+ * License.zenoss under the directory where your Zenoss product is installed.
+ *
+ ****************************************************************************/
+
+package org.zenoss.zep.index.impl.lucene;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -7,12 +16,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import org.apache.lucene.index.Term;
+import org.apache.lucene.queries.TermsFilter;
 import org.apache.lucene.search.CachingWrapperFilter;
 import org.apache.lucene.search.Filter;
 import org.apache.lucene.search.NGramPhraseQuery;
 import org.apache.lucene.search.PrefixFilter;
 import org.apache.lucene.search.QueryWrapperFilter;
-import org.apache.lucene.queries.TermsFilter;
 import org.apache.lucene.search.WildcardQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +29,9 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Set;
 
-public class FilterCacheManager {
+public class LuceneFilterCacheManager {
 
-    private static final Logger logger = LoggerFactory.getLogger(FilterCacheManager.class);
+    private static final Logger logger = LoggerFactory.getLogger(LuceneFilterCacheManager.class);
 
     public static enum FilterType {
         PREFIX, TERMS, WILDCARD, NGRAM
@@ -33,7 +42,7 @@ public class FilterCacheManager {
     private final LoadingCache<Term, CachingWrapperFilter> wildcardCache;
     private final LoadingCache<List<Term>, CachingWrapperFilter> nGramCache;
 
-    public FilterCacheManager() {
+    public LuceneFilterCacheManager() {
 
         prefixCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -79,7 +88,7 @@ public class FilterCacheManager {
                             @Override
                             public CachingWrapperFilter load(List<Term> t) throws Exception {
                                 logger.debug("Encountered a new NGramPhaseQuery term: {}", t);
-                                NGramPhraseQuery pq = new NGramPhraseQuery(IdentifierAnalyzer.MIN_NGRAM_SIZE);
+                                NGramPhraseQuery pq = new NGramPhraseQuery(LuceneIdentifierAnalyzer.MIN_NGRAM_SIZE);
                                 for (Term term : t) {
                                     pq.add(term);
                                 }
