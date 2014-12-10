@@ -255,15 +255,15 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
     public void testIndexGrouping() throws ZepException {
         // Verifies that during indexing, we will only process the same event once.
 
-        // Create one event 500 times
+        // Create one event 5 times
         Event event = EventTestUtils.createSampleEvent();
-        for (int i = 0; i < 500; i++) {
+        for (int i = 0; i < 5; i++) {
             eventSummaryDao.create(event, new EventPreCreateContextImpl());
         }
         TestEventIndexHandler handler = new TestEventIndexHandler();
         List<Long> indexQueueIds = eventSummaryIndexQueueDao.indexEvents(handler, 1000);
-        // The number of queue ids should be 500
-        assertEquals(500, indexQueueIds.size());
+        // The number of queue ids should be 5
+        assertEquals(5, indexQueueIds.size());
         assertEquals(1, handler.indexed.size());
         assertEquals(0, handler.deleted.size());
         assertTrue(handler.completed.get());

@@ -39,7 +39,6 @@ import org.zenoss.zep.dao.EventTimeDao;
 import org.zenoss.zep.dao.Purgable;
 import org.zenoss.zep.dao.impl.DaoUtils;
 import org.zenoss.zep.events.ZepConfigUpdatedEvent;
-import org.zenoss.zep.index.EventIndexRebuilder;
 import org.zenoss.zep.index.EventIndexer;
 
 import java.io.IOException;
@@ -84,9 +83,7 @@ public class Application implements ApplicationEventPublisherAware, ApplicationC
     private EventArchiveDao eventArchiveDao;
     private EventTimeDao eventTimeDao;
     private EventIndexer eventSummaryIndexer;
-    private EventIndexRebuilder eventSummaryRebuilder;
     private EventIndexer eventArchiveIndexer;
-    private EventIndexRebuilder eventArchiveRebuilder;
     private DBMaintenanceService dbMaintenanceService;
     private HeartbeatProcessor heartbeatProcessor;
     private PluginService pluginService;
@@ -121,16 +118,8 @@ public class Application implements ApplicationEventPublisherAware, ApplicationC
         this.eventSummaryIndexer = eventSummaryIndexer;
     }
 
-    public void setEventSummaryRebuilder(EventIndexRebuilder eventSummaryRebuilder) {
-        this.eventSummaryRebuilder = eventSummaryRebuilder;
-    }
-
     public void setEventArchiveIndexer(EventIndexer eventArchiveIndexer) {
         this.eventArchiveIndexer = eventArchiveIndexer;
-    }
-
-    public void setEventArchiveRebuilder(EventIndexRebuilder eventArchiveRebuilder) {
-        this.eventArchiveRebuilder = eventArchiveRebuilder;
     }
 
     public void setHeartbeatProcessor(HeartbeatProcessor heartbeatProcessor) {
@@ -212,8 +201,6 @@ public class Application implements ApplicationEventPublisherAware, ApplicationC
          */
             this.pluginService.initializePlugins();
             initializePartitions();
-            this.eventSummaryRebuilder.init();
-            this.eventArchiveRebuilder.init();
             startEventSummaryAging();
             startEventSummaryArchiving();
             startEventArchivePurging();
@@ -248,9 +235,7 @@ public class Application implements ApplicationEventPublisherAware, ApplicationC
         }
 
         this.eventSummaryIndexer.shutdown();
-        this.eventSummaryRebuilder.shutdown();
         this.eventArchiveIndexer.shutdown();
-        this.eventArchiveRebuilder.shutdown();
 
         stopQueueListeners();
 

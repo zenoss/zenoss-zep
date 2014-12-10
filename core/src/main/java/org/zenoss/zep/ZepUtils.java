@@ -16,11 +16,9 @@ import org.zenoss.protobufs.zep.Zep.EventSeverity;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 /**
  * General utility functions used by ZEP.
@@ -98,6 +96,25 @@ public final class ZepUtils {
         return sb.toString();
     }
 
+    /** Returns a byte array of the hex string.
+     *
+     * @param hexString hex characters to convert to bytes
+     * @return A byte array of the hex string.
+     *
+     * @throws NumberFormatException if string is not parsable.
+     */
+    public static byte[] fromHex(String hexString) {
+        if (hexString.length() % 2 != 0) {
+            throw new IllegalArgumentException("Hex string should be an even number of characters");
+        }
+        byte[] bytes = new byte[hexString.length()/2];
+        for (int i = 0; i < bytes.length; i++) {
+            int strIndex = i * 2;
+            bytes[i] = (byte) Integer.parseInt(hexString.substring(strIndex, strIndex+2), 16);
+        }
+        return bytes;
+    }
+
     /**
      * Returns true if the exception (or its cause) is of the specified type.
      *
@@ -116,4 +133,30 @@ public final class ZepUtils {
         }
         return isOfType;
     }
+
+    private static final SimpleDateFormat UTC;
+    static {
+        UTC = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.S 'UTC'");
+        UTC.setTimeZone(TimeZone.getTimeZone("UTC"));
+    }
+
+    /**
+     * Returns a string in "yyyy-MM-dd HH:mm:ss.S 'UTC'" format.
+     *
+     * @param time milliseconds since the epoch
+     * @return a string in "yyyy-MM-dd HH:mm:ss.S 'UTC'" format.
+     */
+    public static String formatUTC(long time) {
+        synchronized (UTC) {
+            return UTC.format(new Date(time));
+        }
+    }
+
+    public static Date parseUTC(String s) throws ParseException {
+        synchronized (UTC) {
+            return UTC.parse(s);
+        }
+    }
+
+
 }

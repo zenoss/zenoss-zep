@@ -12,6 +12,7 @@ package org.zenoss.zep.dao.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
@@ -147,10 +148,23 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     }
 
     @Override
-    @TransactionalReadOnly
+    @Deprecated
     public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException {
-        return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_ARCHIVE, this.partitioner, batchParams, maxUpdateTime, limit,
-                new EventArchiveRowMapper(eventDaoHelper, databaseCompatibility));
+        return listBatch(batchParams, maxUpdateTime, limit, false);
+    }
+
+    @Override
+    @TransactionalReadOnly
+    public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit, boolean keysOnly) throws ZepException {
+        RowMapper<EventSummary> mapper = keysOnly ? new EventKeyRowMapper(databaseCompatibility)
+                : new EventArchiveRowMapper(eventDaoHelper, databaseCompatibility);
+        return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_ARCHIVE, this.partitioner, batchParams, maxUpdateTime, limit, keysOnly, mapper);
+    }
+
+    @Override
+    @TransactionalReadOnly
+    public long estimateSize() throws ZepException {
+        return this.eventDaoHelper.estimateSize(this.template, TABLE_EVENT_ARCHIVE);
     }
 
     @Override

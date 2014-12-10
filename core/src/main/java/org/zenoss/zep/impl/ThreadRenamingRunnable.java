@@ -31,8 +31,16 @@ public class ThreadRenamingRunnable implements Runnable {
         this.name = name;
     }
 
+    protected ThreadRenamingRunnable(String name) {
+        if (name == null) {
+            throw new NullPointerException();
+        }
+        this.runnable = null;
+        this.name = name;
+    }
+
     @Override
-    public void run() {
+    public final void run() {
         final String previousName = Thread.currentThread().getName();
         try {
             Thread.currentThread().setName(this.name);
@@ -40,7 +48,10 @@ public class ThreadRenamingRunnable implements Runnable {
             logger.debug("Exception changing name", e);
         }
         try {
-            this.runnable.run();
+            if (this.runnable == null)
+                this._run();
+            else
+                this.runnable.run();
         } finally {
             try {
                 Thread.currentThread().setName(previousName);
@@ -48,5 +59,11 @@ public class ThreadRenamingRunnable implements Runnable {
                 logger.debug("Exception changing name", e);
             }
         }
+    }
+
+    protected void _run() {
+        String msg = "you must override the _run() method";
+        logger.error(msg);
+        throw new IllegalStateException(msg);
     }
 }

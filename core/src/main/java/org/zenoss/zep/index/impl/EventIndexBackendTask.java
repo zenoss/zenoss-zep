@@ -19,6 +19,7 @@ public final class EventIndexBackendTask {
     }
 
     public static EventIndexBackendTask Index(String uuid, Long lastSeen) {
+        if (uuid == null) throw new NullPointerException();
         return new EventIndexBackendTask(Op.INDEX_EVENT, uuid, lastSeen);
     }
 

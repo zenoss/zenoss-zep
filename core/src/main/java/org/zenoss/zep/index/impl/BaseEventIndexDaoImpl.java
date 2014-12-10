@@ -9,6 +9,7 @@
 
 package org.zenoss.zep.index.impl;
 
+import org.python.google.common.base.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
@@ -25,17 +26,29 @@ import java.util.Date;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 public abstract class BaseEventIndexDaoImpl<SS extends SavedSearch> implements EventIndexDao {
     private final String name;
     private final Messages messages;
-    private final TaskScheduler scheduler;
+    protected final TaskScheduler scheduler;
     private final UUIDGenerator uuidGenerator;
     private final Map<String, SS> savedSearches = new ConcurrentHashMap<String, SS>();
 
     protected static final Logger logger = LoggerFactory.getLogger(EventIndexDao.class);
+    private static final Pattern VALID_NAME = Pattern.compile("\\A[\\w\\.\\-]+\\z"); // alphanum, underscore, dash, & dot
 
     public BaseEventIndexDaoImpl(String name, Messages messages, TaskScheduler scheduler, UUIDGenerator uuidGenerator) {
+        if (Strings.isNullOrEmpty(name))
+            throw new IllegalArgumentException("name must be specified");
+        if (!VALID_NAME.matcher(name).matches())
+            throw new IllegalArgumentException("name can only contain alpha-numerics, underscores, dashes, and dots");
+        if (messages == null)
+            throw new NullPointerException();
+        if (scheduler == null)
+            throw new NullPointerException();
+        if (uuidGenerator == null)
+            throw new NullPointerException();
         this.name = name;
         this.messages = messages;
         this.scheduler = scheduler;

@@ -149,7 +149,7 @@ public class SolrEventIndexBackendFactory implements FactoryBean<SolrEventIndexB
     @Override
     public void destroy() throws Exception {
         if (backend != null) {
-            backend.shutdown();
+            backend.close();
         }
     }
 }

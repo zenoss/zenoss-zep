@@ -100,6 +100,7 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
     private final int concurrentUploadQueueSize;
     private final int concurrentThreads;
     private SolrServer updateServer;
+    private volatile boolean shuttingDown = false;
 
     public SolrEventIndexBackend(String name, String server, IndexedDetailsConfiguration indexedDetailsConfiguration,
                                  EventArchiveDao archiveDao, int shards, int replicationFactor, int maxShardsPerNode,
@@ -162,6 +163,13 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
         } catch (IOException e) {
             logger.error("Failed to initialize Solr: " + e.getMessage(), e);
             return false;
+        } catch (RuntimeException e) {
+            if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                logger.error("Failed to initialize Solr: " + e.getMessage(), e);
+                return false;
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -179,7 +187,7 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
                 while (!shutdown) {
                     try {
                         final int threshold = optimizeThreshold;
-                        if (threshold <= 0 || !ready)
+                        if (threshold <= 0 || !isReady())
                             Thread.sleep(100);
                         else if (eventsSinceOptimize.awaitAndReset(threshold, 100, TimeUnit.MILLISECONDS))
                             queryServer.optimize();
@@ -189,6 +197,8 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
                         logger.warn("exception while optimizing: " + e.getMessage(), e);
                     } catch (SolrServerException e) {
                         logger.warn("exception while optimizing: " + e.getMessage(), e);
+                    } catch (RuntimeException e) {
+                        logger.error("exception while optimizing: " + e.getMessage(), e);
                     }
                 }
             } finally {
@@ -238,19 +248,27 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
     }
 
     private class SolrInitializationThread extends Thread {
+
+        public SolrInitializationThread() {
+            setName("ZEP_SOLR_INITIALIZER");
+            setDaemon(true);
+        }
+
         @Override
         public void run() {
             try {
-                while (!initializeSolr()) {
+                while (!shuttingDown && !initializeSolr()) {
                     logger.info("Could not initialize solr backend.");
                     //TODO implement exponential backoff or something more sophisticated
                     sleep(1000);
                 }
+                if (shuttingDown) return;
                 logger.info("Solr Indexing enabled");
                 startOptimizeThread();
-            }
-            catch (InterruptedException e) {
-                // ignore it
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (RuntimeException e) {
+                logger.error("Gave up trying to initialize solr: " + e.getMessage(), e);
             }
         }
     }
@@ -258,14 +276,17 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
     public synchronized boolean start() {
         SolrInitializationThread initThread = new SolrInitializationThread();
         initThread.start();
-        return this.ready;
+        return isReady();
     }
 
-    public synchronized void shutdown() {
+    public synchronized void close() {
+        this.shuttingDown = true;
+        super.close();
         stopOptimizeThread();
         this.queryServer.shutdown();
         if (this.updateServer != null)
             this.updateServer.shutdown();
+        logger.debug("SolrEventIndexBackend shutdown complete");
     }
 
     @Override
@@ -276,7 +297,7 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
     @Override
     public boolean ping() {
         boolean pingable = false;
-        if (ready) {
+        if (isReady()) {
             try {
                 this.queryServer.ping();
                 pingable = true;
@@ -295,13 +316,13 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
     }
 
     private void assertReady() {
-        if (!ready) throw new IllegalStateException("Solr failed to initialize");
+        if (!isReady()) throw new IllegalStateException("Solr failed to initialize");
     }
 
-    private boolean checkReady() {
-        if (!ready && logger.isDebugEnabled())
+    private synchronized boolean checkReady() {
+        if (!isReady() && logger.isDebugEnabled())
             logger.debug("Request ignored. Solr failed to initialize.");
-        return ready;
+        return isReady();
     }
 
     @Override
@@ -312,6 +333,12 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
             return queryServer.query(query).getResults().getNumFound();
         } catch (SolrServerException e) {
             throw new ZepException(e);
+        } catch (RuntimeException e) {
+            if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                throw new ZepException(e);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -335,6 +362,12 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
             throw new ZepException(e);
         } catch (SolrException e) {
             throw new ZepException(e);
+        } catch (RuntimeException e) {
+            if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                throw new ZepException(e);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -354,6 +387,12 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
             throw new ZepException(e);
         } catch (IOException e) {
             throw new ZepException(e);
+        } catch (RuntimeException e) {
+            if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                throw new ZepException(e);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -367,6 +406,12 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
             throw new ZepException(e);
         } catch (IOException e) {
             throw new ZepException(e);
+        } catch (RuntimeException e) {
+            if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                throw new ZepException(e);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -384,6 +429,12 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
             throw new ZepException(e);
         } catch (IOException e) {
             throw new ZepException(e);
+        } catch (RuntimeException e) {
+            if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                throw new ZepException(e);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -396,6 +447,12 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
             throw new ZepException(e);
         } catch (IOException e) {
             throw new ZepException(e);
+        } catch (RuntimeException e) {
+            if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                throw new ZepException(e);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -413,6 +470,12 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
             throw new ZepException(e);
         } catch (IOException e) {
             throw new ZepException(e);
+        } catch (RuntimeException e) {
+            if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                throw new ZepException(e);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -427,6 +490,12 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
             throw new ZepException(e);
         } catch (IOException e) {
             throw new ZepException(e);
+        } catch (RuntimeException e) {
+            if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                throw new ZepException(e);
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -514,6 +583,12 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
             }
         } catch (SolrServerException e) {
             throw new ZepException(e);
+        } catch (RuntimeException e) {
+            if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                throw new ZepException(e);
+            } else {
+                throw e;
+            }
         } finally {
             if (logger.isDebugEnabled())
                 logger.debug("Query {} finished in {} milliseconds", query, System.currentTimeMillis() - now);
@@ -731,6 +806,12 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
                 throw new ZepException(e);
             } catch (IOException e) {
                 throw new ZepException(e);
+            } catch (RuntimeException e) {
+                if (e.getCause() != null && e.getCause() instanceof InterruptedException) {
+                    throw new ZepException(e);
+                } else {
+                    throw e;
+                }
             }
         }
     }

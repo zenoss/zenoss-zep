@@ -1,10 +1,10 @@
 package org.zenoss.zep.dao;
 
 public class EventBatchParams {
-    public final long nextLastSeen;
+    public final Long nextLastSeen;
     public final String nextUuid;
 
-    public EventBatchParams(long nextLastSeen, String nextUuid) {
+    public EventBatchParams(Long nextLastSeen, String nextUuid) {
         this.nextLastSeen = nextLastSeen;
         this.nextUuid = nextUuid;
     }

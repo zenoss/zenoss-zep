@@ -207,6 +207,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
     public synchronized void close() {
         super.close();
         closeSearcherManager();
+        logger.debug("LuceneEventIndexBackend close complete");
     }
 
     public void setLuceneSearchTimeout(int luceneSearchTimeout) {
