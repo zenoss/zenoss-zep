@@ -99,6 +99,7 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
     private static final String ELAPSED_WARN = "zep.database.optimize_elapsed_warn_threshold_seconds";
 
     private final JdbcTemplate template;
+    private final String useExternalToolPath;
     private EventPublisher eventPublisher;
     private UUIDGenerator uuidGenerator;
 
@@ -108,7 +109,7 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
     private String username = "";
     private String password = "";
 
-    private Boolean useExternalTool = false;
+    private Boolean useExternalTool = true;
     private String externalToolOptions = "";
     private Integer elapsedWarnThresholdSeconds = 120;  // 0: disabled, <: send INFO, >=: send WARNING
     private final ElapsedTime eventSummaryOptimizationTime = new ElapsedTime();
@@ -125,12 +126,13 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
 
         final Map<String,String> zepConfig = zepInstance.getConfig();
         this.hostname = globalConf.getProperty("zep-host", zepConfig.get("zep.jdbc.hostname"));
-	this.port = globalConf.getProperty("zep-port", zepConfig.get("zep.jdbc.port"));
+        this.port = globalConf.getProperty("zep-port", zepConfig.get("zep.jdbc.port"));
         this.dbname = globalConf.getProperty("zep-db", zepConfig.get("zep.jdbc.dbname"));
         this.username = globalConf.getProperty("zep-user", zepConfig.get("zep.jdbc.username"));
         this.password = globalConf.getProperty("zep-password", zepConfig.get("zep.jdbc.password"));
 
         this.useExternalTool = Boolean.valueOf(globalConf.getProperty("zep-optimize-use-external-tool", zepConfig.get("zep.database.optimize_use_external_tool")).trim());
+        this.useExternalToolPath = globalConf.getProperty("zep-optimize-external-tool-path", zepConfig.get("zep.database.optimize_external_tool_path"));
         this.externalToolOptions = globalConf.getProperty("zep-optimize-external-tool-options", zepConfig.get("zep.database.optimize_external_tool_options"));
         this.elapsedWarnThresholdSeconds = Integer.valueOf(
                 DefaultValue.defaultValue(
@@ -237,44 +239,41 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
     public void optimizeTables() throws ZepException {
         final DatabaseType dbType = databaseCompatibility.getDatabaseType();
 
+        final String externalToolName = this.useExternalToolPath + "/pt-online-schema-change";
+        final String tableToOptimize = "event_summary";
         // if we want to use percona's pt-online-schema-change to avoid locking the tables due to mysql optimize...
-        if(this.useExternalTool && dbType == DatabaseType.MYSQL) {
+        //checks if external tool is available
+        if (this.useExternalTool && dbType == DatabaseType.MYSQL && DaoUtils.executeCommand("ls " + externalToolName) == 0) {
             logger.info("Validating state of event_summary");
             this.validateEventSummaryState();
-
-            String tableToOptimize = "event_summary";
-            final String externalToolName = "pt-online-schema-change";
             logger.debug("Optimizing table: " + tableToOptimize + " via percona " + externalToolName);
-            int return_code = DaoUtils.executeCommand("which " + externalToolName);
-            if(return_code == 0) {
-                eventSummaryOptimizationTime.setStartTime();
+            eventSummaryOptimizationTime.setStartTime();
 
-                String externalToolCommandPrefix = externalToolName + " --alter \"ENGINE=Innodb\" D=" + this.dbname + ",t=";
-                String externalToolCommandSuffix = "";
-                if(Integer.parseInt(System.getenv("USE_ZENDS").trim()) == 1) {
-                    externalToolCommandSuffix = " --defaults-file=/opt/zends/etc/zends.cnf";
-                }
-                externalToolCommandSuffix += " " + this.externalToolOptions + " --alter-foreign-keys-method=drop_swap --host=" + this.hostname + " --port=" + this.port + " --user=" + this.username + " --password=" + this.password + " --execute";
-                return_code = DaoUtils.executeCommand(externalToolCommandPrefix + tableToOptimize + externalToolCommandSuffix);
-                if(return_code != 0) {
-                    logger.error("External tool failed on: " + tableToOptimize + ". Therefore, table:" + tableToOptimize + "will not be optimized.");
-                } else {
-                    logger.debug("Successfully optimized table: " + tableToOptimize + "using percona " + externalToolName);
-                }
-
-                eventSummaryOptimizationTime.setEndTime();
-                SendOptimizationTimeEvent(eventSummaryOptimizationTime, tableToOptimize, "percona");
-            } else {
-                logger.error("External tool not available. Table: " + tableToOptimize + " will not be optimized.");
+            String externalToolCommandPrefix = externalToolName + " --alter \"ENGINE=Innodb\" D=" + this.dbname + ",t=";
+            String externalToolCommandSuffix = "";
+            if (Integer.parseInt(System.getenv("USE_ZENDS").trim()) == 1) {
+                externalToolCommandSuffix = " --defaults-file=/opt/zends/etc/zends.cnf";
             }
+            externalToolCommandSuffix += " " + this.externalToolOptions + " --alter-foreign-keys-method=drop_swap --host=" + this.hostname + " --port=" + this.port + " --user=" + this.username + " --password=" + this.password + " --execute";
+            int return_code = DaoUtils.executeCommand(externalToolCommandPrefix + tableToOptimize + externalToolCommandSuffix);
+            if (return_code != 0) {
+                logger.error("External tool failed on: " + tableToOptimize + ". Therefore, table:" + tableToOptimize + "will not be optimized.");
+            } else {
+                logger.debug("Successfully optimized table: " + tableToOptimize + "using percona " + externalToolName);
+            }
+
+            eventSummaryOptimizationTime.setEndTime();
+            SendOptimizationTimeEvent(eventSummaryOptimizationTime, tableToOptimize, "percona");
 
             if (this.tablesToOptimize.contains(tableToOptimize)) {
                 this.tablesToOptimize.remove(tableToOptimize);
             }
         } else {
-            String tableToOptimize = "event_summary";
-            if (! this.tablesToOptimize.contains(tableToOptimize)) {
-               this.tablesToOptimize.add(tableToOptimize);
+            if (this.useExternalTool) {
+                logger.warn("External tool not available. Table: " + tableToOptimize + " optimization may be slow.");
+            }
+            if (!this.tablesToOptimize.contains(tableToOptimize)) {
+                this.tablesToOptimize.add(tableToOptimize);
             }
         }
 
