@@ -79,8 +79,8 @@ GRANT ALL ON {0.dbname}.* TO '{0.dbuser}'@'{0.dbhost}' IDENTIFIED BY '{0.dbpass}
 GRANT ALL ON {0.dbname}.* TO '{0.dbuser}'@'%' IDENTIFIED BY '{0.dbpass}';
 GRANT SELECT ON mysql.proc TO '{0.dbuser}'@'{0.dbhost}' IDENTIFIED BY '{0.dbpass}';
 GRANT SELECT ON mysql.proc TO '{0.dbuser}'@'%';
-GRANT REPLICATION SLAVE ON *.* TO '{0.dbuser}'@'' IDENTIFIED BY '{0.dbpass}';
-GRANT REPLICATION SLAVE ON *.* TO '{0.dbuser}'@'{0.dbhost}' IDENTIFIED BY '{0.dbpass}';
+GRANT REPLICATION SLAVE ON *.* TO '{0.dbuser}' IDENTIFIED BY '{0.dbpass}';
+GRANT PROCESS ON *.* TO '{0.dbuser}' IDENTIFIED BY '{0.dbpass}';
 FLUSH PRIVILEGES;""".format(self)
 
         p = subprocess.Popen(cmd, stdin=subprocess.PIPE)
