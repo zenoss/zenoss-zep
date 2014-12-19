@@ -251,7 +251,7 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
 
             String externalToolCommandPrefix = externalToolName + " --alter \"ENGINE=Innodb\" D=" + this.dbname + ",t=";
             String externalToolCommandSuffix = "";
-            if (Integer.parseInt(System.getenv("USE_ZENDS").trim()) == 1) {
+            if (System.getenv("USE_ZENDS") != null && Integer.parseInt(System.getenv("USE_ZENDS").trim()) == 1) {
                 externalToolCommandSuffix = " --defaults-file=/opt/zends/etc/zends.cnf";
             }
             externalToolCommandSuffix += " " + this.externalToolOptions + " --alter-foreign-keys-method=drop_swap --host=" + this.hostname + " --port=" + this.port + " --user=" + this.username + " --password=" + this.password + " --execute";
