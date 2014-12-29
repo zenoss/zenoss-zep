@@ -148,6 +148,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     }
 
     @Override
+    @TransactionalReadOnly
     @Deprecated
     public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException {
         return listBatch(batchParams, maxUpdateTime, limit, false);
