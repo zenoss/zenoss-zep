@@ -1442,8 +1442,19 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             }
 
             @Override
+            public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit, boolean keysOnly) throws ZepException {
+                return archiveDao.listBatch(batchParams, maxUpdateTime, limit, keysOnly);
+            }
+
+
+            @Override
             public void importEvent(EventSummary eventSummary) throws ZepException {
                 archiveDao.importEvent(eventSummary);
+            }
+
+            @Override
+            public long estimateSize() throws ZepException {
+                return archiveDao.estimateSize();
             }
 
             @Override

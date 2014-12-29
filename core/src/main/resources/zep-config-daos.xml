@@ -223,70 +223,64 @@
         <property name="uuidGenerator" ref="uuidGenerator"/>
     </bean>
 
-    <bean id="lucene_summary" class="org.zenoss.zep.index.impl.EventIndexBackendConfiguration">
-        <constructor-arg value="lucene_summary"/>
-        <constructor-arg ref="luceneEventSummaryIndexBackend"/>
-        <property name="status" value="READER"/>
-        <property name="asyncUpdates" value="false"/>
-        <property name="honorDeletes" value="true"/>
+    <bean id="lucene_summary" class="org.zenoss.zep.index.impl.EventIndexBackendConfiguration" factory-method="createInstance">
+        <constructor-arg name="id" value="lucene_summary"/>
+        <constructor-arg name="backend" ref="luceneEventSummaryIndexBackend"/>
+        <constructor-arg name="status" value="${zep.summary.lucene.status:ENABLED}"/>
+        <constructor-arg name="asyncUpdates" value="${zep.summary.lucene.async.updates:false}"/>
+        <constructor-arg name="honorDeletes" value="${zep.summary.lucene.honor.deletes:true}"/>
+        <constructor-arg name="enableRebuilder" value="${zep.summary.lucene.rebuilder.enabled:true}"/>
+        <constructor-arg name="batchSize" value="${zep.summary.lucene.batchSize:10000}"/>
     </bean>
 
     <bean id="solr_summary" class="org.zenoss.zep.index.impl.EventIndexBackendConfiguration" factory-method="createInstance">
-        <constructor-arg name="enabled" value="${zep.solr.index.enable:false}"/>
-        <constructor-arg name="name" value="solr_summary"/>
+        <constructor-arg name="id" value="solr_summary"/>
         <constructor-arg name="backend" ref="solrEventIndexBackend"/>
-        <constructor-arg name="status" value="${zep.solr.summary.status:WRITER}"/>
-        <constructor-arg name="asyncUpdates" value="${zep.solr.summary.async.updates:true}"/>
-        <constructor-arg name="honorDeletes" value="${zep.solr.summary.honor.deletes:false}"/>
-        <constructor-arg name="batchSize" value="${zep.solr.summary.batchSize:1000}"/>
-    </bean>
-
-    <bean id="eventSummaryIndexStateStore" class="org.zenoss.zep.index.impl.RedisKeyValueStore">
-        <constructor-arg index="0" value="event_summary_index_state"/>
-        <constructor-arg index="1" ref="jedisPoolUtil"/>
-    </bean>
-
-    <bean id="eventSummaryIndexConfigStore" class="org.zenoss.zep.index.impl.RedisKeyValueStore">
-        <constructor-arg index="0" value="event_summary_index_config"/>
-        <constructor-arg index="1" ref="jedisPoolUtil"/>
+        <constructor-arg name="status" value="${zep.summary.solr.status:DISABLED}"/>
+        <constructor-arg name="asyncUpdates" value="${zep.summary.solr.async.updates:true}"/>
+        <constructor-arg name="honorDeletes" value="${zep.summary.solr.honor.deletes:false}"/>
+        <constructor-arg name="enableRebuilder" value="${zep.summary.solr.rebuilder.enabled:true}"/>
+        <constructor-arg name="batchSize" value="${zep.summary.solr.batchSize:10000}"/>
     </bean>
 
     <bean id="eventSummaryIndexDao" class="org.zenoss.zep.index.impl.MultiBackendEventIndexDao"
           init-method="init" destroy-method="close">
         <qualifier value="summary"/>
-        <constructor-arg index="0" value="event_summary"/>
-        <constructor-arg index="1" ref="eventSummaryDao"/>
-        <constructor-arg index="2" ref="workQueueBuilder"/>
-        <constructor-arg index="3" ref="eventSummaryIndexStateStore"/>
-        <constructor-arg index="4" ref="messages"/>
-        <constructor-arg index="5" ref="scheduler"/>
-        <constructor-arg index="6" ref="uuidGenerator"/>
-        <property name="useRedis" value="${zep.backend.configure.use.redis:false}" />
-        <property name="initialBackendConfigurations">
+        <constructor-arg name="name" value="event_summary"/>
+        <constructor-arg name="eventDao" ref="eventSummaryDao"/>
+        <constructor-arg name="indexMetadataDao" ref="indexMetadataDao"/>
+        <constructor-arg name="indexedDetailsConfiguration" ref="indexedDetailsConfiguration"/>
+        <constructor-arg name="stateFileDir" value="${zep.index.dir}"/>
+        <constructor-arg name="queueBuilder" ref="workQueueBuilder"/>
+        <constructor-arg name="messages" ref="messages"/>
+        <constructor-arg name="scheduler" ref="scheduler"/>
+        <constructor-arg name="uuidGenerator" ref="uuidGenerator"/>
+        <constructor-arg name="backends">
             <list>
                 <ref bean="lucene_summary"/>
                 <ref bean="solr_summary"/>
             </list>
-        </property>
+        </constructor-arg>
     </bean>
 
-    <bean id="lucene_archive" class="org.zenoss.zep.index.impl.EventIndexBackendConfiguration">
-        <constructor-arg value="lucene_archive"/>
-        <constructor-arg ref="luceneEventArchiveIndexBackend"/>
-        <property name="status" value="${zep.lucene.archive.status:READER}"/>
-        <property name="asyncUpdates" value="${zep.lucene.archive.async.updates:false}"/> <!--TODO: this is temporary to see if it affects integration tests -->
-        <property name="honorDeletes" value="${zep.lucene.archive.honor.deletes:true}"/>
+    <bean id="lucene_archive" class="org.zenoss.zep.index.impl.EventIndexBackendConfiguration" factory-method="createInstance">
+        <constructor-arg name="id" value="lucene_archive"/>
+        <constructor-arg name="backend" ref="luceneEventArchiveIndexBackend"/>
+        <constructor-arg name="status" value="${zep.archive.lucene.status:ENABLED}"/>
+        <constructor-arg name="asyncUpdates" value="${zep.archive.lucene.async.updates:false}"/>
+        <constructor-arg name="honorDeletes" value="${zep.archive.lucene.honor.deletes:true}"/>
+        <constructor-arg name="enableRebuilder" value="${zep.archive.lucene.rebuilder.enabled:true}"/>
+        <constructor-arg name="batchSize" value="${zep.archive.lucene.batchSize:10000}"/>
     </bean>
 
-    <bean id="solr_archive" class="org.zenoss.zep.index.impl.EventIndexBackendConfiguration"
-          factory-method="createInstance">
-        <constructor-arg name="enabled" value="${zep.solr.index.enable:false}"/>
-        <constructor-arg name="name" value="solr_archive"/>
+    <bean id="solr_archive" class="org.zenoss.zep.index.impl.EventIndexBackendConfiguration" factory-method="createInstance">
+        <constructor-arg name="id" value="solr_archive"/>
         <constructor-arg name="backend" ref="solrEventIndexBackend"/>
-        <constructor-arg name="status" value="${zep.solr.archive.status:WRITER}"/>
-        <constructor-arg name="asyncUpdates" value="${zep.solr.archive.async.updates:true}"/>
-        <constructor-arg name="honorDeletes" value="${zep.solr.archive.honor.deletes:true}"/>
-        <constructor-arg name="batchSize" value="${zep.solr.archive.batchSize:1000}"/>
+        <constructor-arg name="status" value="${zep.archive.solr.status:DISABLED}"/>
+        <constructor-arg name="asyncUpdates" value="${zep.archive.solr.async.updates:true}"/>
+        <constructor-arg name="honorDeletes" value="${zep.archive.solr.honor.deletes:true}"/>
+        <constructor-arg name="enableRebuilder" value="${zep.archive.solr.rebuilder.enabled:true}"/>
+        <constructor-arg name="batchSize" value="${zep.archive.solr.batchSize:10000}"/>
     </bean>
 
     <bean id="eventArchiveIndexStateStore" class="org.zenoss.zep.index.impl.RedisKeyValueStore">
@@ -302,20 +296,21 @@
     <bean id="eventArchiveIndexDao" class="org.zenoss.zep.index.impl.MultiBackendEventIndexDao"
           init-method="init" destroy-method="close">
         <qualifier value="archive"/>
-        <constructor-arg index="0" value="event_archive"/>
-        <constructor-arg index="1" ref="eventArchiveDao"/>
-        <constructor-arg index="2" ref="workQueueBuilder"/>
-        <constructor-arg index="3" ref="eventArchiveIndexStateStore"/>
-        <constructor-arg index="4" ref="messages"/>
-        <constructor-arg index="5" ref="scheduler"/>
-        <constructor-arg index="6" ref="uuidGenerator"/>
-        <property name="useRedis" value="${zep.backend.configure.use.redis:false}" />
-        <property name="initialBackendConfigurations">
+        <constructor-arg name="name" value="event_archive"/>
+        <constructor-arg name="eventDao" ref="eventArchiveDao"/>
+        <constructor-arg name="indexMetadataDao" ref="indexMetadataDao"/>
+        <constructor-arg name="indexedDetailsConfiguration" ref="indexedDetailsConfiguration"/>
+        <constructor-arg name="stateFileDir" value="${zep.index.dir}"/>
+        <constructor-arg name="queueBuilder" ref="workQueueBuilder"/>
+        <constructor-arg name="messages" ref="messages"/>
+        <constructor-arg name="scheduler" ref="scheduler"/>
+        <constructor-arg name="uuidGenerator" ref="uuidGenerator"/>
+        <constructor-arg name="backends">
             <list>
                 <ref bean="lucene_archive"/>
                 <ref bean="solr_archive"/>
             </list>
-        </property>
+        </constructor-arg>
     </bean>
 
     <bean id="eventStoreDao" class="org.zenoss.zep.dao.impl.EventStoreDaoImpl">
@@ -342,30 +337,6 @@
         <property name="pluginService" ref="pluginService"/>
     </bean>
 
-    <bean id="eventSummaryIndexRebuilder" class="org.zenoss.zep.index.impl.EventIndexRebuilderImpl">
-        <qualifier value="summary" />
-        <constructor-arg index="0" value="${zep.index.enabled:true}"/>
-        <property name="eventIndexer" ref="eventSummaryIndexer" />
-        <property name="configDao" ref="configDao"/>
-        <property name="summaryBaseDao" ref="eventSummaryDao" />
-        <property name="indexDao" ref="eventSummaryIndexDao" />
-        <property name="indexMetadataDao" ref="indexMetadataDao" />
-        <property name="indexedDetailsConfiguration" ref="indexedDetailsConfiguration"/>
-        <property name="indexDir" value="${zep.index.dir}" />
-    </bean>
-
-    <bean id="eventArchiveIndexRebuilder" class="org.zenoss.zep.index.impl.EventIndexRebuilderImpl">
-        <qualifier value="archive" />
-        <constructor-arg index="0" value="${zep.index.enabled:true}"/>
-        <property name="eventIndexer" ref="eventArchiveIndexer" />
-        <property name="configDao" ref="configDao"/>
-        <property name="summaryBaseDao" ref="eventArchiveDao" />
-        <property name="indexDao" ref="eventArchiveIndexDao" />
-        <property name="indexMetadataDao" ref="indexMetadataDao" />
-        <property name="indexedDetailsConfiguration" ref="indexedDetailsConfiguration"/>
-        <property name="indexDir" value="${zep.index.dir}" />
-    </bean>
-
     <bean id="jedisPoolConfig" class="redis.clients.jedis.JedisPoolConfig">
         <property name="blockWhenExhausted" value="true"/>
         <property name="minIdle" value="10"/>
@@ -386,7 +357,7 @@
     <bean id="jedisPool" class="redis.clients.jedis.JedisPool">
         <constructor-arg index="0" ref="jedisPoolConfig"/>
         <constructor-arg index="1" value="${zep.redis.host:127.0.0.1}"/>
-        <constructor-arg index="2" value="${zep.redis.port:6379}"/>
+        <constructor-arg index="2" value="${zep.redis.port:16379}"/>
     </bean>
 
     <bean id="jedisPoolUtil" class="org.zenoss.zep.utils.JedisPoolUtil">
@@ -400,12 +371,10 @@
     </bean>
 
     <bean id="workQueueBuilder" class="org.zenoss.zep.index.impl.RedisWorkQueueBuilder">
-        <constructor-arg index="0" ref="jedisPoolUtil"/>
+        <constructor-arg name="pool" ref="jedisPoolUtil"/>
+        <constructor-arg name="requeueThresholdInSeconds" value="${zep.async.retry_after:600}"/>
     </bean>
 
     <bean id="flapTrackerDao" class="org.zenoss.zep.dao.impl.FlapTrackerDaoImpl">
    </bean>
-
-
-
 </beans>

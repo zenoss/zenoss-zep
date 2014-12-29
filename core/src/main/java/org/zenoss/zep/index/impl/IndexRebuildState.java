@@ -11,83 +11,155 @@
 package org.zenoss.zep.index.impl;
 
 import org.zenoss.zep.ZepUtils;
+import org.zenoss.zep.dao.EventBatchParams;
 
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.text.ParseException;
 import java.util.Properties;
 
 /**
 * Saves state of index rebuild process so it can be restarted if ZEP is shut down.
 */
 class IndexRebuildState {
-    private final int indexVersion;
-    private final byte[] indexVersionHash;
-    private final long throughTime;
-    private Long startingLastSeen;
-    private String startingUuid;
+    public final long began;              // when did this rebuild begin? (millis since the epoch)
+    public final long updated;            // when was the rebuild state last updated? (milliseconds since the epoch)
+    public final long indexed;            // count of events re-indexed so far
+    public final Long expected;           // estimated total number of events being re-indexed
+    public final int indexVersion;        // version number to correspond with code changes
+    public final byte[] indexVersionHash; // checksum to correspond with configuration changes that affect the index
+    public final long throughTime;        // ignore events with update_time after this cut-off (millis since the epoch)
+    public final Long nextLastSeen;       // rebuild progress watermark, based on events' last_seen field
+    public final String nextUuid;         // rebuild progress watermark, based on events' uuid field
+    public final Long ended;              // when did this rebuild finish? (millis since the epoch)
+    private final boolean estimatable;
+    private final double percent;
+    private final long eta;
 
-    public IndexRebuildState(int indexVersion, byte[] indexVersionhash, long throughTime, Long startingLastSeen, String startingUuid) {
+    private static final String BEGAN          = "zep.index.progress.began_at";
+    private static final String UPDATED        = "zep.index.progress.updated_at";
+    private static final String ENDED          = "zep.index.progress.ended_at";
+    private static final String INDEXED        = "zep.index.progress.indexed";
+    private static final String EXPECTED       = "zep.index.progress.expected";
+    private static final String INDEX_VERSION  = "zep.index.version";
+    private static final String INDEX_HASH     = "zep.index.version_hash";
+    private static final String THROUGH_TIME   = "zep.index.through_time";
+    private static final String NEXT_LAST_SEEN = "zep.index.starting_last_seen";
+    private static final String NEXT_UUID      = "zep.index.starting_uuid";
+
+    private IndexRebuildState(long began, long updated, long indexed, Long expected,
+                              int indexVersion, byte[] indexVersionhash, long throughTime,
+                              Long nextLastSeen, String nextUuid, Long ended) {
+        this.began = began;
+        this.updated = updated;
+        this.indexed = indexed;
+        this.expected = expected;
         this.indexVersion = indexVersion;
         this.indexVersionHash = indexVersionhash;
         this.throughTime = throughTime;
-        this.startingLastSeen = startingLastSeen;
-        this.startingUuid = startingUuid;
+        this.nextLastSeen = nextLastSeen;
+        this.nextUuid = nextUuid;
+        this.ended = ended;
+
+        this.estimatable =
+                ended != null || (expected != null && expected > 0 && indexed > 0 && began > 0 && updated > began);
+
+        this.percent =
+                (ended != null) ? 1 :
+                (expected == null || expected <= 0 || indexed <= 0) ? 0 :
+                (indexed > expected) ? 1 :
+                (((double)indexed) / expected);
+
+        this.eta =
+                (ended != null) ? ended :
+                estimatable ? (began + (long)((updated - began) / percent())) :
+                0;
     }
 
-    public int getIndexVersion() {
-        return indexVersion;
+    public static final IndexRebuildState UNKNOWN = begin(-1, null, -1);
+
+    public static IndexRebuildState begin(int indexVersion, byte[] indexVersionHash, long throughTime) {
+        long now = System.currentTimeMillis();
+        return new IndexRebuildState(now, now, 0, null,
+                indexVersion, indexVersionHash, throughTime,
+                null, null, null);
     }
 
-    public byte[] getIndexVersionHash() {
-        return indexVersionHash;
+    public static IndexRebuildState update(IndexRebuildState state, long indexedDelta, Long nextLastSeen, String nextUuid) {
+
+//        if (state.nextLastSeen != null) {
+//            if (nextLastSeen == null || state.nextLastSeen < nextLastSeen) {
+//                // state has already advanced beyond the partition, just use state.
+//                nextLastSeen = state.nextLastSeen;
+//                nextUuid = state.nextUuid;
+//            } else if (state.nextLastSeen == nextLastSeen) {
+//                // same partition
+//                if (state.nextUuid != null && (nextUuid == null || state.nextUuid.compareTo(nextUuid) > 0)) {
+//                   // state has already advanced beyond the uuid, just use state.
+//                   nextUuid = state.nextUuid;
+//                }
+//            }
+//        }
+        long now = System.currentTimeMillis();
+        return new IndexRebuildState(state.began, now, state.indexed + indexedDelta, state.expected,
+                state.indexVersion, state.indexVersionHash, state.throughTime,
+                nextLastSeen, nextUuid, state.ended);
     }
 
-    public long getThroughTime() {
-        return throughTime;
+    public static IndexRebuildState end(IndexRebuildState state, long indexedDelta) {
+        long now = System.currentTimeMillis();
+        return new IndexRebuildState(state.began, now, state.indexed + indexedDelta, state.expected,
+                state.indexVersion, state.indexVersionHash, state.throughTime,
+                null, null, now);
     }
 
-    public Long getStartingLastSeen() {
-        return startingLastSeen;
+    public static IndexRebuildState expected(IndexRebuildState state, long expected) {
+        return new IndexRebuildState(state.began, state.updated, state.indexed, expected,
+                state.indexVersion, state.indexVersionHash, state.throughTime,
+                state.nextLastSeen, state.nextUuid, state.ended);
     }
 
-    public String getStartingUuid() {
-        return startingUuid;
+    private static IndexRebuildState fromProperties(Properties properties) throws ParseException {
+        long began = ZepUtils.parseUTC(properties.getProperty(BEGAN)).getTime();
+        long updated = ZepUtils.parseUTC(properties.getProperty(UPDATED)).getTime();
+        String tmp = properties.getProperty(ENDED);
+        Long ended = (tmp == null) ? null : ZepUtils.parseUTC(tmp).getTime();
+        long indexed = Long.parseLong(properties.getProperty(INDEXED),10);
+        tmp = properties.getProperty(EXPECTED);
+        Long expected = (tmp == null) ? null : Long.parseLong(tmp, 10);
+        int indexVersion = Integer.valueOf(properties.getProperty(INDEX_VERSION));
+        tmp = properties.getProperty(INDEX_HASH);
+        byte[] indexVersionHash = (tmp == null) ? null : ZepUtils.fromHex(tmp);
+        long throughTime = ZepUtils.parseUTC(properties.getProperty(THROUGH_TIME)).getTime();
+        tmp = properties.getProperty(NEXT_LAST_SEEN);
+        Long nextLastSeen = (tmp == null) ? null : Long.parseLong(tmp, 10);
+        String nextUuid = properties.getProperty(NEXT_UUID);
+        return new IndexRebuildState(began, updated, indexed, expected,
+                indexVersion, indexVersionHash, throughTime,
+                nextLastSeen, nextUuid, ended);
     }
 
-    private static String toHex(byte[] bytes) {
-        StringBuilder sb = new StringBuilder(bytes.length * 2);
-        for (byte b : bytes) {
-            int i = b & 0xff;
-            String s = Integer.toHexString(i);
-            if (s.length() == 1) {
-                sb.append('0');
-            }
-            sb.append(s);
-        }
-        return sb.toString();
-    }
-
-    private static byte[] fromHex(String hexString) {
-        if (hexString.length() % 2 != 0) {
-            throw new IllegalArgumentException("Hex string should be an even number of characters");
-        }
-        byte[] bytes = new byte[hexString.length()/2];
-        for (int i = 0; i < bytes.length; i++) {
-            int strIndex = i * 2;
-            bytes[i] = (byte) Integer.parseInt(hexString.substring(strIndex, strIndex+2), 16);
-        }
-        return bytes;
-    }
-
-    public void setStartingLastSeen(Long startingLastSeen) {
-        this.startingLastSeen = startingLastSeen;
-    }
-
-    public void setStartingUuid(String startingUuid) {
-        this.startingUuid = startingUuid;
+    private Properties toProperties() {
+        Properties properties = new Properties();
+        properties.setProperty(BEGAN, ZepUtils.formatUTC(began));
+        properties.setProperty(UPDATED, ZepUtils.formatUTC(updated));
+        if (ended != null)
+            properties.setProperty(ENDED, ZepUtils.formatUTC(ended));
+        properties.setProperty(INDEXED, Long.toString(indexed));
+        if (expected != null)
+            properties.setProperty(EXPECTED, expected.toString());
+        properties.setProperty(INDEX_VERSION, Integer.toString(indexVersion));
+        if (indexVersionHash != null)
+            properties.setProperty(INDEX_HASH, ZepUtils.hexstr(indexVersionHash));
+        properties.setProperty(THROUGH_TIME, ZepUtils.formatUTC(throughTime));
+        if (nextLastSeen != null)
+            properties.setProperty(NEXT_LAST_SEEN, nextLastSeen.toString());
+        if (nextUuid != null)
+            properties.setProperty(NEXT_UUID, nextUuid);
+        return properties;
     }
 
     /**
@@ -97,25 +169,12 @@ class IndexRebuildState {
      * @throws IOException If the current state cannot be saved.
      */
     public void save(File file) throws IOException {
-        Properties properties = new Properties();
-        properties.setProperty("zep.index.version", String.valueOf(indexVersion));
-        if (indexVersionHash != null) {
-            properties.setProperty("zep.index.version_hash", toHex(indexVersionHash));
-        }
-        properties.setProperty("zep.index.through_time", Long.toString(throughTime));
-        if (startingLastSeen != null) {
-            properties.setProperty("zep.index.starting_last_seen", startingLastSeen.toString());
-        }
-        if (startingUuid != null) {
-            properties.setProperty("zep.index.starting_uuid", startingUuid);
-        }
-
         FileOutputStream fos = null;
         File tempFile = null;
         try {
             tempFile = File.createTempFile("tmp", ".properties", file.getParentFile());
             fos = new FileOutputStream(tempFile);
-            properties.store(fos, "ZEP Internal Indexing State - Do Not Modify");
+            toProperties().store(fos, "ZEP Internal Indexing State - Do Not Modify");
             fos.close();
             fos = null;
             if (!tempFile.renameTo(file)) {
@@ -139,7 +198,7 @@ class IndexRebuildState {
      * @return The state loaded from the file, or null if the file doesn't exist or the state couldn't be read.
      * @throws IOException If an error occurs reading from the file.
      */
-    public static IndexRebuildState loadState(File file) throws IOException {
+    public static IndexRebuildState loadState(File file) throws IOException, ParseException {
         IndexRebuildState state = null;
         if (file.isFile()) {
             BufferedInputStream bis = null;
@@ -147,23 +206,7 @@ class IndexRebuildState {
                 bis = new BufferedInputStream(new FileInputStream(file));
                 Properties properties = new Properties();
                 properties.load(bis);
-
-                int indexVersion = Integer.valueOf(properties.getProperty("zep.index.version"));
-                byte[] indexVersionHash = null;
-                String indexVersionHashStr = properties.getProperty("zep.index.version_hash");
-                if (indexVersionHashStr != null) {
-                    indexVersionHash = fromHex(indexVersionHashStr);
-                }
-                long throughTime = Long.valueOf(properties.getProperty("zep.index.through_time"));
-                String startingUuid = properties.getProperty("zep.index.starting_uuid");
-
-                Long startingLastSeen = null;
-                String startingLastSeenStr = properties.getProperty("zep.index.starting_last_seen");
-                if (startingLastSeenStr != null) {
-                    startingLastSeen = Long.valueOf(startingLastSeenStr);
-                }
-
-                state = new IndexRebuildState(indexVersion, indexVersionHash, throughTime, startingLastSeen, startingUuid);
+                state = IndexRebuildState.fromProperties(properties);
             } catch (Exception e) {
                 throw new IOException(e.getLocalizedMessage(), e);
             } finally {
@@ -171,5 +214,31 @@ class IndexRebuildState {
             }
         }
         return state;
+    }
+
+    public EventBatchParams batchParams() {
+        return new EventBatchParams(nextLastSeen, nextUuid);
+    }
+
+    public String toString() {
+        return toProperties().toString();
+    }
+
+    public boolean isDone() {
+        return ended != null;
+    }
+
+    /** Returns a value between 0 and 1. */
+    public double percent() {
+        return percent;
+    }
+
+    /** Estimated time of arrival (completion), in milliseconds since the epoch. */
+    public long eta() {
+        return eta;
+    }
+
+    public boolean hasEstimate() {
+        return estimatable;
     }
 }

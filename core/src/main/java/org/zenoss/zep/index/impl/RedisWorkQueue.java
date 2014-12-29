@@ -62,7 +62,7 @@ public class RedisWorkQueue implements WorkQueue {
 
 
 
-    public RedisWorkQueue(JedisPoolUtil pool, String name) {
+    public RedisWorkQueue(JedisPoolUtil pool, String name, long requeueThresholdInSeconds) {
         this.pool = pool;
         this.name = name;
         this.queueListKey = "zep.work.queue.list:" + name;
@@ -72,7 +72,7 @@ public class RedisWorkQueue implements WorkQueue {
         this.allKeys = Lists.newArrayList(queueListKey, queueSetKey, holdZsetKey);
         requeueJedisUser = null;
         sizeJedisUser = new SizeJedisUser();
-        setInProgressDuration(24, TimeUnit.HOURS);
+        setInProgressDuration(requeueThresholdInSeconds, TimeUnit.SECONDS);
         setPollInterval(1, TimeUnit.MILLISECONDS);
     }
 
@@ -343,7 +343,8 @@ public class RedisWorkQueue implements WorkQueue {
     private static final String LUA_REQUEUE = (""
             + " do"
             + "   local c = 0;"
-            + "   for t in redis.call('zrangebyscore', KEYS[3], ARGV[1], ARGV[2]) do"
+            + "   local tasks = redis.call('zrangebyscore', KEYS[3], ARGV[1], ARGV[2]);"
+            + "   for t in next, tasks do"
             + "     c = c + 1"
             + "     if redis.call('sadd', KEYS[2], t) > 0 then"
             + "       redis.call('lpush', KEYS[1], t);"
@@ -438,8 +439,9 @@ public class RedisWorkQueue implements WorkQueue {
             String cutoff = Long.toString(maxStartTime);
             jedis.watch(holdZsetKey, queueSetKey);
             long count = 0;
+            Collection<String> tasks  = jedis.zrangeByScore(holdZsetKey, NEGATIVE_INF, cutoff);
             Transaction tx = jedis.multi();
-            for (String task : jedis.zrangeByScore(holdZsetKey, NEGATIVE_INF, cutoff)) {
+            for (String task : tasks) {
                 count++;
                 if (!jedis.sismember(queueSetKey, task)) {
                     tx.sadd(queueSetKey, task);

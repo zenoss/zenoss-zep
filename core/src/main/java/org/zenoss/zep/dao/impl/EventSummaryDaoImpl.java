@@ -10,7 +10,6 @@
 
 package org.zenoss.zep.dao.impl;
 
-import com.google.api.client.util.Lists;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -576,11 +575,25 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @TransactionalReadOnly
+    @Deprecated
     public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException {
-        return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_SUMMARY, null, batchParams, maxUpdateTime, limit,
-                new EventSummaryRowMapper(eventDaoHelper, databaseCompatibility));
+        return listBatch(batchParams, maxUpdateTime, limit, false);
     }
+
+    @Override
+    @TransactionalReadOnly
+    public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit, boolean keysOnly) throws ZepException {
+        RowMapper<EventSummary> mapper = keysOnly ? new EventKeyRowMapper(databaseCompatibility)
+                                         : new EventSummaryRowMapper(eventDaoHelper, databaseCompatibility);
+        return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_SUMMARY, null, batchParams, maxUpdateTime, limit, keysOnly, mapper);
+    }
+
+    @Override
+    @TransactionalReadOnly
+    public long estimateSize() throws ZepException {
+        return this.eventDaoHelper.estimateSize(this.template, TABLE_EVENT_SUMMARY);
+    }
+
 
     private static final EnumSet<EventStatus> AUDIT_LOG_STATUSES = EnumSet.of(
             EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED, EventStatus.STATUS_CLOSED,

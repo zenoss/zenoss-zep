@@ -87,6 +87,10 @@ public interface EventSummaryBaseDao {
      */
     public int updateDetails(String uuid, EventDetailSet details) throws ZepException;
 
+    /** @deprecated */
+    @Deprecated
+    public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException;
+
     /**
      * Used to page over all events in the database (for rebuilding database index).
      *
@@ -94,11 +98,13 @@ public interface EventSummaryBaseDao {
      *                    null as this parameter and subsequent queries should use result of the previous call.
      * @param maxUpdateTime The maximum update time to include.
      * @param limit The maximum number of events to return in this batch.
+     * @param keysOnly The events in the returned EventBatch need only contain the primary key fields.
      * @return A data structure containing a list of event summaries matching the specified parameters, as well as
      *         parameters for the next batch, if the list is empty, we're done.
      * @throws ZepException If an exception occurs.
      */
-    public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException;
+    public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit, boolean keysOnly) throws ZepException;
+
     /**
      * Method used to import a migrated event summary object from Zenoss 3.1.x to the new event
      * schema.
@@ -107,4 +113,12 @@ public interface EventSummaryBaseDao {
      * @throws ZepException If an exception occurs importing the event.
      */
     public void importEvent(EventSummary eventSummary) throws ZepException;
+
+    /**
+     * Provide a rough estimate of how many events are in the data store.
+     * Implementations should prioritize a speedy answer over accuracy.
+     *
+     * @throws ZepException If an exception occurs.
+     */
+    public long estimateSize() throws ZepException;
 }

@@ -6,11 +6,11 @@ import java.util.Collections;
 import java.util.List;
 
 public class EventBatch {
-    public final EventBatchParams nextParams;
+    public final EventBatchParams params;
     public final List<EventSummary> events;
 
-    public EventBatch(List<EventSummary> events, long nextLastSeen, String nextUuid) {
+    public EventBatch(List<EventSummary> events, Long nextLastSeen, String nextUuid) {
         this.events = Collections.unmodifiableList(events);
-        this.nextParams = new EventBatchParams(nextLastSeen, nextUuid);
+        this.params = new EventBatchParams(nextLastSeen, nextUuid);
     }
 }
