@@ -129,7 +129,7 @@ public class LuceneEventIndexMapper extends BaseEventIndexMapper {
                 Index.NOT_ANALYZED_NO_NORMS));
 
         doc.add(new IntField(FIELD_STATUS, summary.getStatus().getNumber(), Store.YES));
-        doc.add(new IntField(FIELD_COUNT, summary.getCount(), Store.YES));
+        doc.add(new LongField(FIELD_COUNT, summary.getCount(), Store.YES));
         doc.add(new LongField(FIELD_LAST_SEEN_TIME, summary.getLastSeenTime(), Store.YES));
         doc.add(new LongField(FIELD_FIRST_SEEN_TIME, summary.getFirstSeenTime(), Store.NO));
         doc.add(new LongField(FIELD_STATUS_CHANGE_TIME, summary.getStatusChangeTime(), Store.NO));
