@@ -9,7 +9,12 @@
 
 package org.zenoss.zep.index.impl;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
 import com.google.common.collect.Maps;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
@@ -23,8 +28,7 @@ import org.zenoss.zep.index.SavedSearchProcessor;
 
 import java.io.IOException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 
 public abstract class BaseEventIndexBackend<SS extends SavedSearch> implements EventIndexBackend {
@@ -34,12 +38,44 @@ public abstract class BaseEventIndexBackend<SS extends SavedSearch> implements E
 
     private final Map<String, SS> savedSearches = new ConcurrentHashMap<String, SS>();
 
+    private final LoadingCache<EventFilter, EventTagSeveritiesSet> tagSeveritiesCache;
+
+    private static final Date IMMEDIATELY = new Date(0);
     private static final Logger logger = LoggerFactory.getLogger(EventIndexBackend.class);
 
-    protected BaseEventIndexBackend(Messages messages, TaskScheduler scheduler, UUIDGenerator uuidGenerator) {
+    protected BaseEventIndexBackend(Messages messages, TaskScheduler scheduler, UUIDGenerator uuidGenerator,
+                                    int tagSeverityCacheSize, int tagSeveritiesCacheTTL) {
         this.messages = messages;
         this.scheduler = scheduler;
         this.uuidGenerator = uuidGenerator;
+        this.tagSeveritiesCache = CacheBuilder.
+                newBuilder().
+                maximumSize(tagSeverityCacheSize).
+                refreshAfterWrite(1, TimeUnit.SECONDS).
+                expireAfterWrite(tagSeveritiesCacheTTL, TimeUnit.SECONDS).
+                build(new CacheLoader<EventFilter, EventTagSeveritiesSet>() {
+                    @Override
+                    public EventTagSeveritiesSet load(EventFilter key) throws Exception {
+                        return reload(key, null).get();
+                    }
+
+                    @Override
+                    public ListenableFuture<EventTagSeveritiesSet> reload(final EventFilter filter, EventTagSeveritiesSet oldValue) throws Exception {
+                        final SettableFuture<EventTagSeveritiesSet> future = SettableFuture.create();
+                        Runnable setter = new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    future.set(_getEventTagSeverities(filter));
+                                } catch (ZepException e) {
+                                    future.setException(e);
+                                }
+                            }
+                        };
+                        BaseEventIndexBackend.this.scheduler.schedule(setter, IMMEDIATELY);
+                        return future;
+                    }
+                });
     }
 
     public void close() {
@@ -98,6 +134,14 @@ public abstract class BaseEventIndexBackend<SS extends SavedSearch> implements E
 
     @Override
     public EventTagSeveritiesSet getEventTagSeverities(EventFilter filter) throws ZepException {
+        try {
+            return tagSeveritiesCache.get(filter);
+        } catch (ExecutionException e) {
+            throw new ZepException(e);
+        }
+    }
+
+    private EventTagSeveritiesSet _getEventTagSeverities(EventFilter filter) throws ZepException {
         final Map<String, TagSeverities> tagSeveritiesMap = Maps.newHashMap();
         final boolean hasTagsFilter = filter.getTagFilterCount() > 0;
         for (EventTagFilter eventTagFilter : filter.getTagFilterList()) {

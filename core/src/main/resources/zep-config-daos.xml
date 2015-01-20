@@ -165,6 +165,8 @@
         <constructor-arg ref="messages"/>
         <constructor-arg ref="scheduler"/>
         <constructor-arg ref="uuidGenerator"/>
+        <constructor-arg value="${zep.query.tagSeverityCacheSize:0}"/>
+        <constructor-arg value="${zep.query.tagSeverityCacheTTL:3600}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
         <property name="luceneSearchTimeout" value="${zep.query.lucene_search_timeout:0}" />
@@ -202,6 +204,8 @@
         <constructor-arg ref="messages"/>
         <constructor-arg ref="scheduler"/>
         <constructor-arg ref="uuidGenerator"/>
+        <constructor-arg value="${zep.query.tagSeverityCacheSize:0}"/>
+        <constructor-arg value="${zep.query.tagSeverityCacheTTL:3600}"/>
         <property name="queryLimit" value="${zep.query.limit}" />
         <property name="indexDetailsConfiguration" ref="indexedDetailsConfiguration"/>
         <property name="luceneSearchTimeout" value="${zep.query.lucene_search_timeout:0}" />
@@ -221,6 +225,8 @@
         <property name="messages" ref="messages"/>
         <property name="scheduler" ref="scheduler"/>
         <property name="uuidGenerator" ref="uuidGenerator"/>
+        <property name="tagSeverityCacheSize" value="${zep.query.tagSeverityCacheSize:0}"/>
+        <property name="tagSeverityCacheTTL" value="${zep.query.tagSeverityCacheTTL:3600}"/>
     </bean>
 
     <bean id="lucene_summary" class="org.zenoss.zep.index.impl.EventIndexBackendConfiguration">

@@ -29,6 +29,8 @@ public class SolrEventIndexBackendFactory implements FactoryBean<SolrEventIndexB
     private int maxShardsPerNode = 0;
     private int concurrentUploadQueueSize = 10000;
     private int concurrentThreads = 4;
+    private int tagSeverityCacheSize = 0;
+    private int tagSeverityCacheTTL = 3600;
     private Messages messages;
     private TaskScheduler scheduler;
     private UUIDGenerator uuidGenerator;
@@ -63,6 +65,14 @@ public class SolrEventIndexBackendFactory implements FactoryBean<SolrEventIndexB
 
     public void setUuidGenerator(UUIDGenerator uuidGenerator) {
         this.uuidGenerator = uuidGenerator;
+    }
+
+    public void setTagSeverityCacheSize(int tagSeverityCacheSize) {
+        this.tagSeverityCacheSize = tagSeverityCacheSize;
+    }
+
+    public void setTagSeverityCacheTTL(int tagSeverityCacheTTL) {
+        this.tagSeverityCacheTTL = tagSeverityCacheTTL;
     }
 
     public void setSolrURL(String solrURL) {
@@ -129,7 +139,8 @@ public class SolrEventIndexBackendFactory implements FactoryBean<SolrEventIndexB
             maxShardsPerNode = shards;
 
         backend = new SolrEventIndexBackend(name, solrURL, config, dao, shards, replicationFactor, maxShardsPerNode,
-                concurrentUploadQueueSize, concurrentThreads, messages, scheduler, uuidGenerator);
+                concurrentUploadQueueSize, concurrentThreads, messages, scheduler, uuidGenerator, tagSeverityCacheSize,
+                tagSeverityCacheTTL);
         backend.start();
 
         return backend;
