@@ -20,7 +20,14 @@ END
 $$
 DELIMITER ;
 
+-- If we don't delete these two, the query planner sometimes chooses to use one
+-- of them when it would be better to use event_summary_last_seen_idx.
+CALL drop_index_if_exists('event_summary','event_summary_age_idx');
+CALL drop_index_if_exists('event_summary','event_summary_archive_idx');
+
+-- At one of our customers, this index was created manually.
 CALL drop_index_if_exists('event_summary','event_summary_last_seen');
+
 CALL drop_index_if_exists('event_summary','event_summary_last_seen_idx');
 CREATE INDEX event_summary_last_seen_idx ON event_summary(last_seen);
 
