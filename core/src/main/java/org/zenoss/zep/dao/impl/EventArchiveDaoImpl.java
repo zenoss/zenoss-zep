@@ -10,6 +10,7 @@
 
 package org.zenoss.zep.dao.impl;
 
+import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
@@ -81,6 +82,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public String create(Event event, EventPreCreateContext context) throws ZepException {
         if (!ZepConstants.CLOSED_STATUSES.contains(event.getStatus())) {
             throw new ZepException("Invalid status for event in event archive: " + event.getStatus());
@@ -107,6 +109,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalReadOnly
+    @Timed
     public EventSummary findByUuid(String uuid) throws ZepException {
         final Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
         List<EventSummary> summaries = this.template.query("SELECT * FROM event_archive WHERE uuid=:uuid",
@@ -117,6 +120,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @Override
     @TransactionalReadOnly
     @Deprecated
+    @Timed
     /** @deprecated use {@link #findByKey(Collection) instead}. */
     public List<EventSummary> findByUuids(List<String> uuids)
             throws ZepException {
@@ -129,6 +133,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalReadOnly
+    @Timed
     public List<EventSummary> findByKey(Collection<EventSummary> toLookup) throws ZepException {
         ArrayList<Object> fields = new ArrayList<Object>(toLookup.size() * 2);
         StringBuilder sql = new StringBuilder();
@@ -148,6 +153,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalReadOnly
+    @Timed
     public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException {
         return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_ARCHIVE, this.partitioner, batchParams, maxUpdateTime, limit,
                 new EventArchiveRowMapper(eventDaoHelper, databaseCompatibility));
@@ -155,6 +161,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public void initializePartitions() throws ZepException {
         this.partitioner.createPartitions(
                 this.partitionTableConfig.getInitialPastPartitions(),
@@ -162,6 +169,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     }
 
     @Override
+    @Timed
     public long getPartitionIntervalInMs() {
         return this.partitionTableConfig.getPartitionUnit().toMillis(
                 this.partitionTableConfig.getPartitionDuration());
@@ -169,12 +177,14 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int addNote(String uuid, EventNote note) throws ZepException {
         return this.eventDaoHelper.addNote(TABLE_EVENT_ARCHIVE, uuid, note, template);
     }
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException {
         return this.eventDaoHelper.updateDetails(TABLE_EVENT_ARCHIVE, uuid, details.getDetailsList(), template);
@@ -182,6 +192,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public void purge(int duration, TimeUnit unit) throws ZepException {
         this.partitioner.pruneAndCreatePartitions(duration,
                 unit,
@@ -191,6 +202,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public void importEvent(EventSummary eventSummary) throws ZepException {
         if (!ZepConstants.CLOSED_STATUSES.contains(eventSummary.getStatus())) {
             throw new ZepException("Invalid status for event in event archive: " + eventSummary.getStatus());
