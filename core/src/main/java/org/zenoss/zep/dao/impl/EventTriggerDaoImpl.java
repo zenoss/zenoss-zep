@@ -56,8 +56,8 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     private TypeConverter<String> uuidConverter;
 
     public EventTriggerDaoImpl(DataSource dataSource) {
-    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
+        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(),
+                new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
     }
 
     public void setEventSignalSpoolDao(EventSignalSpoolDao eventSignalSpoolDao) {

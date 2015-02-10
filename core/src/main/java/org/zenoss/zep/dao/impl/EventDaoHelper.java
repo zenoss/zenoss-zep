@@ -1,6 +1,6 @@
 /*****************************************************************************
  * 
- * Copyright (C) Zenoss, Inc. 2010-2011, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2010-2011, 2014 all rights reserved.
  * 
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -10,6 +10,8 @@
 
 package org.zenoss.zep.dao.impl;
 
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +30,8 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.protobufs.zep.Zep.EventTag.Builder;
 import org.zenoss.protobufs.zep.Zep.SyslogPriority;
+import org.zenoss.utils.dao.Partition;
+import org.zenoss.utils.dao.RangePartitioner;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConfigService;
 import org.zenoss.zep.ZepConstants;
@@ -35,6 +39,8 @@ import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.dao.DaoCache;
+import org.zenoss.zep.dao.EventBatch;
+import org.zenoss.zep.dao.EventBatchParams;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 
@@ -394,7 +400,7 @@ public class EventDaoHelper {
         }
     }
 
-    public Event eventMapper(ResultSet rs) throws SQLException {
+    public Event eventMapper(ResultSet rs, final boolean isArchive) throws SQLException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         Event.Builder eventBuilder = Event.newBuilder();
 
@@ -467,6 +473,10 @@ public class EventDaoHelper {
             } catch (IOException e) {
                 throw new SQLException(e);
             }
+        }
+        if (isArchive == true) {
+            EventDetail archiveDetail = EventDetail.newBuilder().setName("is_archive").addValue("true").build();
+            eventBuilder.addDetails(archiveDetail);
         }
 
         String tagsJson = rs.getString(COLUMN_TAGS_JSON);
@@ -620,14 +630,13 @@ public class EventDaoHelper {
     }
 
     @TransactionalReadOnly
-    public List<EventSummary> listBatch(SimpleJdbcOperations template, String tableName, String startingUuid,
-                                        long maxUpdateTime, int limit)
+    private List<EventSummary> listBatch(SimpleJdbcOperations template, String tableName,
+                                        String startingUuid, long maxUpdateTime, int limit, EventSummaryRowMapper esrm)
             throws ZepException {
         final String sql;
         final Map<String,Object> fields = new HashMap<String,Object>();
         fields.put("_max_update_time", databaseCompatibility.getTimestampConverter().toDatabaseType(maxUpdateTime));
         fields.put("_limit", limit);
-
         if (startingUuid == null) {
             sql = "SELECT * FROM " + tableName + " WHERE update_time <= :_max_update_time ORDER BY uuid LIMIT :_limit";
         }
@@ -636,8 +645,88 @@ public class EventDaoHelper {
             sql = "SELECT * FROM " + tableName + " WHERE uuid > :_starting_uuid AND update_time <= :_max_update_time " +
                     "ORDER BY uuid LIMIT :_limit";
         }
-        return template.query(sql, new EventSummaryRowMapper(this, databaseCompatibility), fields);
+        return template.query(sql, esrm, fields);
     }
+
+    @TransactionalReadOnly
+    public EventBatch listBatch(SimpleJdbcOperations template, String tableName, RangePartitioner partitioner,
+                                        EventBatchParams batchParams, long maxUpdateTime, int limit,
+                                        EventSummaryRowMapper esrm)
+            throws ZepException {
+        if (partitioner == null) {
+            List<EventSummary> events = listBatch(template, tableName, batchParams == null ? null : batchParams.nextUuid, maxUpdateTime, limit, esrm);
+            if (events.isEmpty()) {
+                return new EventBatch(events, Long.MIN_VALUE, null);
+            } else {
+                return new EventBatch(events, Long.MIN_VALUE, Iterables.getLast(events).getUuid());
+            }
+        } else {
+            final Object maxUpdateTimeObject = databaseCompatibility.getTimestampConverter().toDatabaseType(maxUpdateTime);
+            List<EventSummary> events = new ArrayList<EventSummary>(limit);
+            long nextLastSeen = (batchParams == null) ? Long.MAX_VALUE : batchParams.nextLastSeen;
+            String nextUuid = (batchParams == null) ? null : batchParams.nextUuid;
+            for (Partition p : Lists.reverse(partitioner.listPartitions())) {
+                if (p.getRangeMinimum() != null) {
+                    long partitionMin = p.getRangeMinimum().getTime();
+                    if (partitionMin > nextLastSeen)
+                        continue;
+                    else if (partitionMin < nextLastSeen)
+                        nextLastSeen = partitionMin;
+                    events.addAll(listBatchInPartition(template, tableName, p, nextUuid, maxUpdateTimeObject, limit - events.size(), esrm));
+                    if (events.size() >= limit) {
+                        nextUuid = Iterables.getLast(events).getUuid();
+                        break;
+                    } else {
+                        nextUuid = null;
+                    }
+                } else {
+                    nextLastSeen = Long.MIN_VALUE;
+                    events.addAll(listBatchInPartition(template, tableName, p, nextUuid, maxUpdateTimeObject, limit - events.size(), esrm));
+                    if (events.size() >= limit) {
+                        nextUuid = Iterables.getLast(events).getUuid();
+                        break;
+                    } else {
+                        nextUuid = null;
+                    }
+                }
+            }
+            return new EventBatch(events, nextLastSeen, nextUuid);
+        }
+    }
+
+    @TransactionalReadOnly
+    private List<EventSummary> listBatchInPartition(SimpleJdbcOperations template, String tableName,
+                                                   Partition partition, String nextUuid, Object maxUpdateTime,
+                                                   int limit, EventSummaryRowMapper esrm)
+        throws ZepException {
+        final Map<String,Object> fields = new HashMap<String,Object>();
+        final StringBuffer sql = new StringBuffer();
+        sql.append("SELECT * FROM ");
+        sql.append(tableName);
+        sql.append(" WHERE update_time <= :_max_update_time");
+        fields.put("_max_update_time", maxUpdateTime);
+
+        if (partition.getRangeMinimum() != null) {
+            sql.append(" AND last_seen >= :_range_min");
+            fields.put("_range_min", partition.getRangeMinimum().getTime());
+        }
+
+        if (partition.getRangeLessThan() != null) {
+            sql.append(" AND last_seen <= :_range_max");
+            fields.put("_range_max", partition.getRangeLessThan().getTime());
+        }
+
+        if (nextUuid != null) {
+            sql.append(" AND uuid > :_starting_uuid");
+            fields.put("_starting_uuid", uuidConverter.toDatabaseType(nextUuid));
+        }
+
+        sql.append(" ORDER BY uuid LIMIT :_limit");
+        fields.put("_limit", limit);
+        return template.query(sql.toString(), esrm, fields);
+    }
+
+
 
     /**
      * Adds the {@link ZepConstants#DETAIL_MIGRATE_UPDATE_TIME} detail to the event occurrence.

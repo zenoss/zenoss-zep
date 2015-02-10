@@ -73,7 +73,7 @@ public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscription
 
     public EventTriggerSubscriptionDaoImpl(DataSource dataSource) {
     	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
+    			new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
         this.insert = new SimpleJdbcInsert(dataSource).withTableName(TABLE_EVENT_TRIGGER_SUBSCRIPTION);
     }
 

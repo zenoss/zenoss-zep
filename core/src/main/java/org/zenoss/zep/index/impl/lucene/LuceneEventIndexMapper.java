@@ -1,6 +1,6 @@
 /*****************************************************************************
  *
- * Copyright (C) Zenoss, Inc. 2010-2011, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2010-2011, 2014, all rights reserved.
  *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -8,7 +8,7 @@
  ****************************************************************************/
 
 
-package org.zenoss.zep.index.impl;
+package org.zenoss.zep.index.impl.lucene;
 
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.KeywordAnalyzer;
@@ -34,13 +34,9 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepInstance;
-import org.zenoss.zep.ZepUtils;
-import org.zenoss.zep.index.IndexedDetailsConfiguration;
+import org.zenoss.zep.index.impl.BaseEventIndexMapper;
 import org.zenoss.zep.utils.IpUtils;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.StringReader;
 import java.net.Inet6Address;
 import java.net.InetAddress;
@@ -48,8 +44,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
 
 import static org.zenoss.zep.index.impl.IndexConstants.FIELD_AGENT;
 import static org.zenoss.zep.index.impl.IndexConstants.FIELD_COUNT;
@@ -87,17 +81,17 @@ import static org.zenoss.zep.index.impl.IndexConstants.IP_ADDRESS_TYPE_SUFFIX;
 import static org.zenoss.zep.index.impl.IndexConstants.LUCENE_VERSION;
 import static org.zenoss.zep.index.impl.IndexConstants.SORT_SUFFIX;
 
-public class EventIndexMapper {
+public class LuceneEventIndexMapper extends BaseEventIndexMapper {
 
     public static Analyzer createAnalyzer() {
         Map<String, Analyzer> fieldAnalyzers = new HashMap<String, Analyzer>();
-        fieldAnalyzers.put(FIELD_ELEMENT_IDENTIFIER, new IdentifierAnalyzer());
-        fieldAnalyzers.put(FIELD_ELEMENT_SUB_IDENTIFIER, new IdentifierAnalyzer());
-        fieldAnalyzers.put(FIELD_ELEMENT_TITLE, new IdentifierAnalyzer());
-        fieldAnalyzers.put(FIELD_ELEMENT_SUB_TITLE, new IdentifierAnalyzer());
-        fieldAnalyzers.put(FIELD_SUMMARY, new SummaryAnalyzer());
-        fieldAnalyzers.put(FIELD_EVENT_CLASS, new PathAnalyzer());
-        fieldAnalyzers.put(FIELD_MESSAGE, new SummaryAnalyzer());
+        fieldAnalyzers.put(FIELD_ELEMENT_IDENTIFIER, new LuceneIdentifierAnalyzer());
+        fieldAnalyzers.put(FIELD_ELEMENT_SUB_IDENTIFIER, new LuceneIdentifierAnalyzer());
+        fieldAnalyzers.put(FIELD_ELEMENT_TITLE, new LuceneIdentifierAnalyzer());
+        fieldAnalyzers.put(FIELD_ELEMENT_SUB_TITLE, new LuceneIdentifierAnalyzer());
+        fieldAnalyzers.put(FIELD_SUMMARY, new LuceneSummaryAnalyzer());
+        fieldAnalyzers.put(FIELD_EVENT_CLASS, new LucenePathAnalyzer());
+        fieldAnalyzers.put(FIELD_MESSAGE, new LuceneSummaryAnalyzer());
         return new PerFieldAnalyzerWrapper(new KeywordAnalyzer(), fieldAnalyzers);
     }
 
@@ -115,45 +109,11 @@ public class EventIndexMapper {
         return indexWriterConfig;
     }
 
-    private static byte[] compressProtobuf(EventSummary eventSummary) throws ZepException {
-        final byte[] uncompressed = eventSummary.toByteArray();
-        ByteArrayOutputStream baos = new ByteArrayOutputStream(uncompressed.length);
-        GZIPOutputStream gzos = null;
-        try {
-            gzos = new GZIPOutputStream(baos);
-            gzos.write(uncompressed);
-            gzos.finish();
-            return baos.toByteArray();
-        } catch (IOException e) {
-            throw new ZepException(e.getLocalizedMessage(), e);
-        } finally {
-            if (gzos != null) {
-                ZepUtils.close(gzos);
-            }
-        }
-    }
-
-    private static EventSummary uncompressProtobuf(byte[] compressed) throws ZepException {
-        ByteArrayInputStream bais = new ByteArrayInputStream(compressed);
-        GZIPInputStream gzis = null;
-        try {
-            gzis = new GZIPInputStream(bais);
-            return EventSummary.newBuilder().mergeFrom(gzis).build();
-        } catch (IOException e) {
-            throw new ZepException(e.getLocalizedMessage(), e);
-        } finally {
-            if (gzis != null) {
-                ZepUtils.close(gzis);
-            }
-        }
-    }
-
     public static final String DETAIL_INDEX_PREFIX = "details.";
 
-    private static final Logger logger = LoggerFactory.getLogger(EventIndexMapper.class);
+    private static final Logger logger = LoggerFactory.getLogger(LuceneEventIndexMapper.class);
 
-    public static Document fromEventSummary(IndexedDetailsConfiguration eventDetailsConfigDao, EventSummary summary, Map<String, EventDetailItem> detailsConfig,
-                                            boolean isArchive) throws ZepException {
+    public static Document fromEventSummary(EventSummary summary, Map<String, EventDetailItem> detailsConfig, boolean isArchive) throws ZepException {
         Document doc = new Document();
 
         // Store the entire serialized protobuf so we can reproduce the entire event from the index.
@@ -169,8 +129,8 @@ public class EventIndexMapper {
                 Index.NOT_ANALYZED_NO_NORMS));
 
         doc.add(new IntField(FIELD_STATUS, summary.getStatus().getNumber(), Store.YES));
-        doc.add(new IntField(FIELD_COUNT, summary.getCount(), Store.YES));
-        doc.add(new LongField(FIELD_LAST_SEEN_TIME, summary.getLastSeenTime(), Store.NO));
+        doc.add(new LongField(FIELD_COUNT, summary.getCount(), Store.YES));
+        doc.add(new LongField(FIELD_LAST_SEEN_TIME, summary.getLastSeenTime(), Store.YES));
         doc.add(new LongField(FIELD_FIRST_SEEN_TIME, summary.getFirstSeenTime(), Store.NO));
         doc.add(new LongField(FIELD_STATUS_CHANGE_TIME, summary.getStatusChangeTime(), Store.NO));
         doc.add(new LongField(FIELD_UPDATE_TIME, summary.getUpdateTime(), Store.NO));
@@ -226,14 +186,16 @@ public class EventIndexMapper {
         doc.add(new Field(FIELD_ELEMENT_SUB_TITLE_NOT_ANALYZED, subTitle.toLowerCase(), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         // find details  for indexing
         List<EventDetail> evtDetails = event.getDetailsList();
-        
-        // default all the details to unprintable ascii character so we can
-        // search for None's. That character was chosen because it doesn't take much space
-        Map<String, EventDetailItem> allDetails = eventDetailsConfigDao.getEventDetailItemsByName();
-        Iterator it = allDetails.entrySet().iterator();
+
+        // Details with no value are indexed using a default value so we can search for None's.
+        // The value used to index the null details depends on the type of the detail:
+        //     - Null numeric details are indexed using the Java min Integer
+        //     - Null text details are indexed using the bell character
+        // The values defined in the zep facade for null details must match the above values
+        Iterator<Map.Entry<String, EventDetailItem>> it = detailsConfig.entrySet().iterator();
         while (it.hasNext()) {
             boolean found = false;
-            Map.Entry entry = (Map.Entry) it.next();
+            Map.Entry<String, EventDetailItem> entry = it.next();
             // make sure that entry doesn't exist in the regular document
             for (EventDetail eDetail : evtDetails) {
                 String detailName = eDetail.getName();
@@ -245,7 +207,25 @@ public class EventIndexMapper {
 
             if (!found) {
                 String detailKeyName = DETAIL_INDEX_PREFIX + entry.getKey();
-                doc.add(new Field(detailKeyName, Character.toString((char)07), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+                EventDetailItem detailDefn = detailsConfig.get(entry.getKey());
+                switch (detailDefn.getType()) {
+                    case INTEGER:
+                        doc.add(new IntField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    case FLOAT:
+                        doc.add(new FloatField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    case LONG:
+                        doc.add(new LongField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    case DOUBLE:
+                        doc.add(new DoubleField(detailKeyName, Integer.MIN_VALUE, Store.NO));
+                        break;
+                    default:
+                        doc.add(new Field(detailKeyName, Character.toString((char)07), Store.NO, Index.NOT_ANALYZED_NO_NORMS));
+                        break;
+
+                }
             }
         }
 
@@ -322,7 +302,7 @@ public class EventIndexMapper {
 
     private static void createPathFields(Document doc, String detailKeyName, String detailValue) {
         String lowerCaseDetailValue = detailValue.toLowerCase();
-        doc.add(new TextField(detailKeyName, new PathTokenizer(new StringReader(lowerCaseDetailValue))));
+        doc.add(new TextField(detailKeyName, new LucenePathTokenizer(new StringReader(lowerCaseDetailValue))));
         // Store with a trailing slash
         doc.add(new Field(detailKeyName + SORT_SUFFIX, lowerCaseDetailValue + "/", Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
@@ -333,21 +313,26 @@ public class EventIndexMapper {
         doc.add(new Field(detailKeyName + IP_ADDRESS_TYPE_SUFFIX, typeVal, Store.NO, Index.NOT_ANALYZED_NO_NORMS));
         doc.add(new Field(detailKeyName + SORT_SUFFIX, IpUtils.canonicalIpAddress(value), Store.NO,
                 Index.NOT_ANALYZED_NO_NORMS));
-        doc.add(new Field(detailKeyName, new IpTokenizer(new StringReader(value.getHostAddress()))));
+        doc.add(new Field(detailKeyName, new LuceneIpTokenizer(new StringReader(value.getHostAddress()))));
     }
 
     public static EventSummary toEventSummary(Document item) throws ZepException {
         final EventSummary summary;
-        BytesRef protobufBytesRef = item.getBinaryValue(FIELD_PROTOBUF);
-        if (protobufBytesRef != null) {
-            summary = uncompressProtobuf(protobufBytesRef.bytes);
+        final BytesRef protobuf_bytesRef = item.getBinaryValue(FIELD_PROTOBUF);
+        if (protobuf_bytesRef != null) {
+            final byte[] protobuf = protobuf_bytesRef.bytes;
+            summary = uncompressProtobuf(protobuf);
         }
         else {
             // Only other possible fields stored on index.
             final String uuid = item.get(FIELD_UUID);
+            final String lastSeen = item.get(FIELD_LAST_SEEN_TIME);
             EventSummary.Builder summaryBuilder = EventSummary.newBuilder();
             if (uuid != null) {
                 summaryBuilder.setUuid(uuid);
+            }
+            if (lastSeen != null) {
+                summaryBuilder.setLastSeenTime(Long.parseLong(lastSeen));
             }
             summary = summaryBuilder.build();
         }

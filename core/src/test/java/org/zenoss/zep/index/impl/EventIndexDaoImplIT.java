@@ -1,6 +1,6 @@
 /*****************************************************************************
  *
- * Copyright (C) Zenoss, Inc. 2010, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2010, 2014 all rights reserved.
  *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -58,13 +58,15 @@ import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.EventArchiveDao;
+import org.zenoss.zep.dao.EventBatch;
+import org.zenoss.zep.dao.EventBatchParams;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.EventTestUtils;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
 import org.zenoss.zep.index.EventIndexDao;
-import org.zenoss.zep.index.LuceneEventIndexDao;
+import org.zenoss.zep.index.impl.lucene.LuceneEventIndexBackend;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import java.io.IOException;
@@ -94,24 +96,36 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     @Autowired
     @Qualifier("summary")
-    public LuceneEventIndexDao eventIndexDao;
+    public EventIndexDao eventIndexDao;
+
+    @Autowired
+    @Qualifier("summary")
+    public LuceneEventIndexBackend eventSummaryLuceneIndexBackend;
 
     @Autowired
     public EventArchiveDao eventArchiveDao;
 
     @Autowired
     @Qualifier("archive")
-    public LuceneEventIndexDao eventArchiveIndexDao;
+    public EventIndexDao eventArchiveIndexDao;
+
+    @Autowired
+    @Qualifier("archive")
+    public LuceneEventIndexBackend eventArchiveLuceneIndexBackend;
 
     @Autowired
     public DatabaseCompatibility databaseCompatibility;
 
     @Before
     public void setUp() throws ZepException {
+        ((MultiBackendEventIndexDao)eventIndexDao).disableRebuilders();
+        ((MultiBackendEventIndexDao)eventArchiveIndexDao).disableRebuilders();
+        ((MultiBackendEventIndexDao)eventIndexDao).disableAsyncProcessing();
+        ((MultiBackendEventIndexDao)eventArchiveIndexDao).disableAsyncProcessing();
         eventIndexDao.clear();
         eventArchiveIndexDao.clear();
-        eventIndexDao.setReaderReopenInterval(0);
-        eventArchiveIndexDao.setReaderReopenInterval(0);
+        eventSummaryLuceneIndexBackend.setReaderReopenInterval(0);
+        eventArchiveLuceneIndexBackend.setReaderReopenInterval(0);
     }
 
     @After
@@ -142,6 +156,10 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     @Test
     public void testList() throws ZepException {
+        eventIndexDao.commit();
+        EventSummaryResult emptyResult = eventIndexDao.list(EventSummaryRequest.newBuilder().setLimit(10).build());
+        assertEquals(0, emptyResult.getEventsCount());
+
         Set<String> uuidsToSearch = new HashSet<String>();
 
         EventSummary eventSummaryFromDb;
@@ -157,11 +175,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         eventIndexDao.index(eventSummaryFromDb);
         eventIndexDao.commit();
 
-        EventSummaryRequest.Builder requestBuilder = EventSummaryRequest.newBuilder();
-        requestBuilder.setLimit(10);
-        EventSummaryRequest request = requestBuilder.build();
-
-        EventSummaryResult result = eventIndexDao.list(request);
+        EventSummaryResult result = eventIndexDao.list(EventSummaryRequest.newBuilder().setLimit(10).build());
 
         Set<String> uuidsFound = new HashSet<String>();
         for (EventSummary e : result.getEventsList()) {
@@ -1199,8 +1213,8 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         }
     }
 
-    private Set<String> getFieldNames(EventIndexDao indexDao, String eventUuid) throws IOException {
-        IndexWriter indexWriter = (IndexWriter) ReflectionTestUtils.getField(indexDao, "writer");
+    private Set<String> getFieldNames(LuceneEventIndexBackend backend, String eventUuid) throws IOException {
+        IndexWriter indexWriter = (IndexWriter) ReflectionTestUtils.getField(backend, "writer");
         IndexReader reader = null;
         try {
             reader = IndexReader.open(indexWriter, true);
@@ -1225,9 +1239,10 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         // Verify that the event summary index stores serialized versions of the events
         EventSummary event = createSummaryNew(Event.newBuilder(EventTestUtils.createSampleEvent()).build());
         this.eventIndexDao.index(event);
-        Set<String> fieldNames = getFieldNames(this.eventIndexDao, event.getUuid());
-        assertEquals(Sets.newHashSet(IndexConstants.FIELD_UUID, IndexConstants.FIELD_STATUS, IndexConstants.FIELD_PROTOBUF,
-                IndexConstants.FIELD_COUNT, IndexConstants.FIELD_TAGS, IndexConstants.FIELD_SEVERITY), fieldNames);
+        Set<String> fieldNames = getFieldNames(this.eventSummaryLuceneIndexBackend, event.getUuid());
+        assertEquals(Sets.newHashSet(IndexConstants.FIELD_UUID, IndexConstants.FIELD_LAST_SEEN_TIME,
+                IndexConstants.FIELD_STATUS, IndexConstants.FIELD_PROTOBUF, IndexConstants.FIELD_COUNT,
+                IndexConstants.FIELD_TAGS, IndexConstants.FIELD_SEVERITY), fieldNames);
     }
 
     @Test
@@ -1235,8 +1250,10 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         // Verify that the event archive index doesn't store events in the index but gets them from the database
         EventSummary event = createArchiveClosed(Event.newBuilder(EventTestUtils.createSampleEvent()).build());
         this.eventArchiveIndexDao.index(event);
-        Set<String> fieldNames = getFieldNames(this.eventArchiveIndexDao, event.getUuid());
-        assertEquals(Sets.newHashSet(IndexConstants.FIELD_UUID, IndexConstants.FIELD_STATUS, IndexConstants.FIELD_COUNT, IndexConstants.FIELD_TAGS, IndexConstants.FIELD_SEVERITY), fieldNames);
+        Set<String> fieldNames = getFieldNames(this.eventArchiveLuceneIndexBackend, event.getUuid());
+        assertEquals(Sets.newHashSet(IndexConstants.FIELD_UUID, IndexConstants.FIELD_LAST_SEEN_TIME,
+                IndexConstants.FIELD_STATUS, IndexConstants.FIELD_COUNT, IndexConstants.FIELD_TAGS,
+                IndexConstants.FIELD_SEVERITY), fieldNames);
     }
 
     @Test
@@ -1396,6 +1413,20 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             }
 
             @Override
+            public List<EventSummary> findByKey(Collection<EventSummary> toLookup) throws ZepException {
+                // Delay the first call to findByUuids
+                if (initialDelay.compareAndSet(false, true)) {
+                    try {
+                        Thread.sleep(1500L);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new ZepException(e.getLocalizedMessage(), e);
+                    }
+                }
+                return archiveDao.findByKey(toLookup);
+            }
+
+            @Override
             public int addNote(String uuid, EventNote note) throws ZepException {
                 return archiveDao.addNote(uuid, note);
             }
@@ -1406,8 +1437,8 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             }
 
             @Override
-            public List<EventSummary> listBatch(String startingUuid, long maxUpdateTime, int limit) throws ZepException {
-                return archiveDao.listBatch(startingUuid, maxUpdateTime, limit);
+            public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException {
+                return archiveDao.listBatch(batchParams, maxUpdateTime, limit);
             }
 
             @Override
@@ -1437,14 +1468,14 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         String searchUuid = this.eventArchiveIndexDao.createSavedSearch(query);
 
         try {
-            ReflectionTestUtils.setField(this.eventArchiveIndexDao, "eventSummaryBaseDao", mockArchiveDao);
+            ReflectionTestUtils.setField(this.eventArchiveLuceneIndexBackend, "eventSummaryBaseDao", mockArchiveDao);
             for (int i = 0; i < 3; i++) {
                 EventSummaryResult result = this.eventArchiveIndexDao.savedSearch(searchUuid, 0, 1000);
                 assertEquals(1, result.getTotal());
                 assertEquals(summary.getUuid(), result.getEvents(0).getUuid());
             }
         } finally {
-            ReflectionTestUtils.setField(this.eventArchiveIndexDao, "eventSummaryBaseDao", archiveDao);
+            ReflectionTestUtils.setField(this.eventArchiveLuceneIndexBackend, "eventSummaryBaseDao", archiveDao);
             this.eventArchiveIndexDao.deleteSavedSearch(searchUuid);
         }
     }

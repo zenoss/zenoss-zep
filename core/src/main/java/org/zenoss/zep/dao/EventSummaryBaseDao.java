@@ -1,6 +1,6 @@
 /*****************************************************************************
  * 
- * Copyright (C) Zenoss, Inc. 2011, all rights reserved.
+ * Copyright (C) Zenoss, Inc. 2011, 2014 all rights reserved.
  * 
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
@@ -17,6 +17,7 @@ import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 
+import java.util.Collection;
 import java.util.List;
 
 /**
@@ -45,14 +46,24 @@ public interface EventSummaryBaseDao {
 
     /**
      * Retrieves event summary entries with the specified UUIDs.
-     * 
+     * @deprecated use {@link #findByKey(Collection)} instead.
      * @param uuids UUIDs to find.
      * @return The matching event summary entries.
      * @throws ZepException
      *             If an error occurs.
      */
+    @Deprecated
     public List<EventSummary> findByUuids(List<String> uuids) throws ZepException;
-    
+
+    /**
+     * Retrieves event summary entries with matching primary key (summary: UUID, or archive: UUID/last_seen)
+     *
+     * @param toLookup events to find, only their primary key fields need to be populated.
+     * @return The matching event summary entries.
+     * @throws ZepException If an error occurs.
+     */
+    public List<EventSummary> findByKey(Collection<EventSummary> toLookup) throws ZepException;
+
     /**
      * Add a note to the event.
      *
@@ -78,16 +89,16 @@ public interface EventSummaryBaseDao {
 
     /**
      * Used to page over all events in the database (for rebuilding database index).
-     * 
-     * @param startingUuid The starting UUID of this batch. The first query should pass null as this parameter and
-     *                     subsequent queries should use the last event summary UUID from the previous query.
+     *
+     * @param batchParams Parameters that specify where to continue batch processing from. The first query should pass
+     *                    null as this parameter and subsequent queries should use result of the previous call.
      * @param maxUpdateTime The maximum update time to include.
      * @param limit The maximum number of events to return in this batch.
-     * @return A list of event summaries matching the specified parameters, or an empty list if none exist.
+     * @return A data structure containing a list of event summaries matching the specified parameters, as well as
+     *         parameters for the next batch, if the list is empty, we're done.
      * @throws ZepException If an exception occurs.
      */
-    public List<EventSummary> listBatch(String startingUuid, long maxUpdateTime, int limit) throws ZepException;
-
+    public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException;
     /**
      * Method used to import a migrated event summary object from Zenoss 3.1.x to the new event
      * schema.

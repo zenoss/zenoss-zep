@@ -26,12 +26,14 @@ class IndexRebuildState {
     private final int indexVersion;
     private final byte[] indexVersionHash;
     private final long throughTime;
+    private Long startingLastSeen;
     private String startingUuid;
 
-    public IndexRebuildState(int indexVersion, byte[] indexVersionhash, long throughTime, String startingUuid) {
+    public IndexRebuildState(int indexVersion, byte[] indexVersionhash, long throughTime, Long startingLastSeen, String startingUuid) {
         this.indexVersion = indexVersion;
         this.indexVersionHash = indexVersionhash;
         this.throughTime = throughTime;
+        this.startingLastSeen = startingLastSeen;
         this.startingUuid = startingUuid;
     }
 
@@ -45,6 +47,10 @@ class IndexRebuildState {
 
     public long getThroughTime() {
         return throughTime;
+    }
+
+    public Long getStartingLastSeen() {
+        return startingLastSeen;
     }
 
     public String getStartingUuid() {
@@ -76,6 +82,10 @@ class IndexRebuildState {
         return bytes;
     }
 
+    public void setStartingLastSeen(Long startingLastSeen) {
+        this.startingLastSeen = startingLastSeen;
+    }
+
     public void setStartingUuid(String startingUuid) {
         this.startingUuid = startingUuid;
     }
@@ -93,6 +103,9 @@ class IndexRebuildState {
             properties.setProperty("zep.index.version_hash", toHex(indexVersionHash));
         }
         properties.setProperty("zep.index.through_time", Long.toString(throughTime));
+        if (startingLastSeen != null) {
+            properties.setProperty("zep.index.starting_last_seen", startingLastSeen.toString());
+        }
         if (startingUuid != null) {
             properties.setProperty("zep.index.starting_uuid", startingUuid);
         }
@@ -144,7 +157,13 @@ class IndexRebuildState {
                 long throughTime = Long.valueOf(properties.getProperty("zep.index.through_time"));
                 String startingUuid = properties.getProperty("zep.index.starting_uuid");
 
-                state = new IndexRebuildState(indexVersion, indexVersionHash, throughTime, startingUuid);
+                Long startingLastSeen = null;
+                String startingLastSeenStr = properties.getProperty("zep.index.starting_last_seen");
+                if (startingLastSeenStr != null) {
+                    startingLastSeen = Long.valueOf(startingLastSeenStr);
+                }
+
+                state = new IndexRebuildState(indexVersion, indexVersionHash, throughTime, startingLastSeen, startingUuid);
             } catch (Exception e) {
                 throw new IOException(e.getLocalizedMessage(), e);
             } finally {
