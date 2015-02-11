@@ -601,7 +601,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
 
         switch (sort.getField()) {
             case COUNT:
-                sortFields.add(new SortField(FIELD_COUNT, SortField.Type.INT, reverse));
+                sortFields.add(new SortField(FIELD_COUNT, SortField.Type.LONG, reverse));
                 break;
             case ELEMENT_IDENTIFIER:
                 sortFields.add(new SortField(FIELD_ELEMENT_IDENTIFIER_NOT_ANALYZED, termOrdValcomparator, reverse));
