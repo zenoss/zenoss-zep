@@ -41,7 +41,7 @@ public class ZepContextLoaderListener extends SpringContextLoaderListener {
             try {
                 // get our pid, send SIGKILL
                 Process p = Runtime.getRuntime().exec(new String[]{"bash", "-c", "zeneventserver status | awk -F= '{ print $2 }' | xargs kill -9"});
-                p.wait();
+                p.waitFor();
             } catch (IOException ex) {
             } catch (InterruptedException e) {
             }
