@@ -10,10 +10,12 @@
 
 package org.zenoss.zep.dao.impl;
 
+import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.annotation.Timed;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
@@ -26,16 +28,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.util.StringUtils;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.model.Model.ModelElementType;
-import org.zenoss.protobufs.zep.Zep.Event;
-import org.zenoss.protobufs.zep.Zep.EventActor;
-import org.zenoss.protobufs.zep.Zep.EventAuditLog;
-import org.zenoss.protobufs.zep.Zep.EventDetail;
-import org.zenoss.protobufs.zep.Zep.EventDetailSet;
-import org.zenoss.protobufs.zep.Zep.EventNote;
-import org.zenoss.protobufs.zep.Zep.EventSeverity;
-import org.zenoss.protobufs.zep.Zep.EventStatus;
-import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.protobufs.zep.Zep.EventSummaryOrBuilder;
+import org.zenoss.protobufs.zep.Zep.*;
 import org.zenoss.zep.Counters;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
@@ -45,30 +38,16 @@ import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventBatch;
 import org.zenoss.zep.dao.EventBatchParams;
 import org.zenoss.zep.dao.EventSummaryDao;
-import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.DatabaseType;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
-import org.zenoss.zep.dao.impl.compat.TypeConverter;
-import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
+import org.zenoss.zep.dao.impl.compat.*;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 
-import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.io.IOException;
+import java.lang.reflect.Proxy;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
@@ -76,6 +55,9 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private static final Logger logger = LoggerFactory.getLogger(EventSummaryDaoImpl.class);
+
+    @Autowired
+    protected MetricRegistry metricRegistry;
 
     private final DataSource dataSource;
 
@@ -211,19 +193,66 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         final String sql = "SELECT event_count,first_seen,last_seen,details_json,status_id,uuid FROM event_summary" +
                 " WHERE fingerprint_hash=? FOR UPDATE";
-        final List<EventSummaryOrBuilder> oldSummaryList = this.template.getJdbcOperations().query(sql,
-                new RowMapperResultSetExtractor<EventSummaryOrBuilder>(this.eventDedupMapper, 1),
-                fields.get(COLUMN_FINGERPRINT_HASH));
+        final List<EventSummaryOrBuilder> oldSummaryList;
+        try {
+            oldSummaryList = metricRegistry.timer(getClass().getName() + ".createSelectByFingerprintHash").time(new Callable<List<EventSummaryOrBuilder>>() {
+                @Override
+                public List<EventSummaryOrBuilder> call() throws Exception {
+                    return EventSummaryDaoImpl.this.template.getJdbcOperations().query(sql,
+                            new RowMapperResultSetExtractor<EventSummaryOrBuilder>(EventSummaryDaoImpl.this.eventDedupMapper, 1),
+                            fields.get(COLUMN_FINGERPRINT_HASH));
+                }
+            });
+        } catch (ZepException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ZepException(e);
+        }
         final String uuid;
         if (!oldSummaryList.isEmpty()) {
-            uuid = dedupEvent(oldSummaryList.get(0), event, fields);
+            final Event finalEvent = event;
+            try {
+                uuid = metricRegistry.timer(getClass().getName() + ".dedupEvent").time(new Callable<String>() {
+                    @Override
+                    public String call() throws Exception {
+                        return dedupEvent(oldSummaryList.get(0), finalEvent, fields);
+                    }
+                });
+            } catch (ZepException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new ZepException(e);
+            }
         }
         else {
-            insert.execute(fields);
+            try {
+                metricRegistry.timer(getClass().getName() + ".createInsert").time(new Callable<Object>() {
+                    @Override
+                    public Object call() throws Exception {
+                        insert.execute(fields);
+                        return null;
+                    }
+                });
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
             uuid = createdUuid;
 
             // Add the uuid to the event_summary_index_queue
-            this.indexSignal(uuid, updateTime);
+            try {
+                metricRegistry.timer(getClass().getName() + ".indexSignal").time(new Callable<Object>() {
+                    @Override
+                    public Object call() throws Exception {
+                        EventSummaryDaoImpl.this.indexSignal(uuid, updateTime);
+                        return null;
+                    }
+                });
+            } catch (ZepException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new ZepException(e);
+            }
+
         }
 
         // Mark cleared events as cleared by this event
