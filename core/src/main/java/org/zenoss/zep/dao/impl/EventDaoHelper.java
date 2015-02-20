@@ -15,6 +15,7 @@ import com.google.common.collect.Lists;
 import com.google.protobuf.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
@@ -574,10 +575,21 @@ public class EventDaoHelper {
                 newNoteJson.append(",\n").append(currentNoteJson);
             }
             fields.put(COLUMN_NOTES_JSON, newNoteJson.toString());
+            try {
+                final String updateSql = "UPDATE " + tableName + " SET update_time=:update_time,notes_json=:notes_json" +
+                                         " WHERE uuid=:uuid";
+                return template.update(updateSql, fields);
+            } catch (DataIntegrityViolationException e) {
+                int sizeOfNotes = newNoteJson.length();
+                logger.warn(" Truncating the NotesJson field value to half to avoid DataIntegrityExceptions");
+                final StringBuilder updatedNoteJson;
+                updatedNoteJson = newNoteJson.delete(0,newNoteJson.indexOf(",\n",sizeOfNotes/2)+1);
+                fields.put(COLUMN_NOTES_JSON, updatedNoteJson.toString());
+                final String updateSql = "UPDATE " + tableName + " SET update_time=:update_time,notes_json=:notes_json" +
+                            " WHERE uuid=:uuid";
+                return template.update(updateSql, fields);
 
-            final String updateSql = "UPDATE " + tableName + " SET update_time=:update_time,notes_json=:notes_json" +
-                    " WHERE uuid=:uuid";
-            return template.update(updateSql, fields);
+            }
         } catch (IOException e) {
             throw new ZepException(e);
         }
