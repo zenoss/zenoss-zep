@@ -208,6 +208,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         } catch (Exception e) {
             throw new ZepException(e);
         }
+        metricRegistry.histogram(getClass().getName() + ".createOldSummaryListSize").update(oldSummaryList.size());
         final String uuid;
         if (!oldSummaryList.isEmpty()) {
             final Event finalEvent = event;
