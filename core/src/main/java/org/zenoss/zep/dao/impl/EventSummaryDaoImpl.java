@@ -286,13 +286,37 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         updateFields.put(COLUMN_FINGERPRINT_HASH, insertFields.get(COLUMN_FINGERPRINT_HASH));
 
         long updateTime = System.currentTimeMillis();
-        String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " +
+        final String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " +
                     "SELECT uuid, " + String.valueOf(updateTime) + " " +
                     "FROM event_summary " + 
                     "WHERE fingerprint_hash=:fingerprint_hash";
-        this.template.update(indexSql, updateFields);
+        try {
+            metricRegistry.timer(getClass().getName() + ".dedupInsertIntoQueue").time(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    EventSummaryDaoImpl.this.template.update(indexSql, updateFields);
+                    return null;
+                }
+            });
+        } catch (ZepException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ZepException(e);
+        }
 
-        this.template.update(updateSql.toString(), updateFields);
+        try {
+            metricRegistry.timer(getClass().getName() + ".dedupUpdateSummary").time(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    EventSummaryDaoImpl.this.template.update(updateSql.toString(), updateFields);
+                    return null;
+                }
+            });
+        } catch (ZepException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ZepException(e);
+        }
         return oldSummary.getUuid();
     }
 
