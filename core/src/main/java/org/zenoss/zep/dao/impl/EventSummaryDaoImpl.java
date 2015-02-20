@@ -10,10 +10,12 @@
 
 package org.zenoss.zep.dao.impl;
 
-import com.google.api.client.util.Lists;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.annotation.Timed;
 import com.google.common.collect.Sets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.RowMapper;
@@ -26,17 +28,8 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.util.StringUtils;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.model.Model.ModelElementType;
-import org.zenoss.protobufs.zep.Zep.Event;
-import org.zenoss.protobufs.zep.Zep.EventActor;
-import org.zenoss.protobufs.zep.Zep.EventAuditLog;
-import org.zenoss.protobufs.zep.Zep.EventDetail;
-import org.zenoss.protobufs.zep.Zep.EventDetailSet;
-import org.zenoss.protobufs.zep.Zep.EventNote;
-import org.zenoss.protobufs.zep.Zep.EventSeverity;
-import org.zenoss.protobufs.zep.Zep.EventStatus;
-import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.protobufs.zep.Zep.EventSummaryOrBuilder;
-import org.zenoss.zep.StatisticsService;
+import org.zenoss.protobufs.zep.Zep.*;
+import org.zenoss.zep.Counters;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
@@ -45,30 +38,16 @@ import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventBatch;
 import org.zenoss.zep.dao.EventBatchParams;
 import org.zenoss.zep.dao.EventSummaryDao;
-import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.DatabaseType;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionCallback;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
-import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
-import org.zenoss.zep.dao.impl.compat.TypeConverter;
-import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
+import org.zenoss.zep.dao.impl.compat.*;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 
-import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.io.IOException;
+import java.lang.reflect.Proxy;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
@@ -76,6 +55,9 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private static final Logger logger = LoggerFactory.getLogger(EventSummaryDaoImpl.class);
+
+    @Autowired
+    protected MetricRegistry metricRegistry;
 
     private final DataSource dataSource;
 
@@ -97,7 +79,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private RowMapper<EventSummaryOrBuilder> eventDedupMapper;
 
-    private StatisticsService statisticsService;
+    private Counters counters;
 
     public EventSummaryDaoImpl(DataSource dataSource) throws MetaDataAccessException {
         this.dataSource = dataSource;
@@ -152,12 +134,13 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         this.nestedTransactionService = nestedTransactionService;
     }
 
-    public void setStatisticsService(final StatisticsService statisticsService) {
-        this.statisticsService = statisticsService;
+    public void setCounters(final Counters counters) {
+        this.counters = counters;
     }
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public String create(Event event, EventPreCreateContext context) throws ZepException {
         final TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         final Map<String, Object> fields = eventDaoHelper.createOccurrenceFields(event);
@@ -210,19 +193,67 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         final String sql = "SELECT event_count,first_seen,last_seen,details_json,status_id,uuid FROM event_summary" +
                 " WHERE fingerprint_hash=? FOR UPDATE";
-        final List<EventSummaryOrBuilder> oldSummaryList = this.template.getJdbcOperations().query(sql,
-                new RowMapperResultSetExtractor<EventSummaryOrBuilder>(this.eventDedupMapper, 1),
-                fields.get(COLUMN_FINGERPRINT_HASH));
+        final List<EventSummaryOrBuilder> oldSummaryList;
+        try {
+            oldSummaryList = metricRegistry.timer(getClass().getName() + ".createSelectByFingerprintHash").time(new Callable<List<EventSummaryOrBuilder>>() {
+                @Override
+                public List<EventSummaryOrBuilder> call() throws Exception {
+                    return EventSummaryDaoImpl.this.template.getJdbcOperations().query(sql,
+                            new RowMapperResultSetExtractor<EventSummaryOrBuilder>(EventSummaryDaoImpl.this.eventDedupMapper, 1),
+                            fields.get(COLUMN_FINGERPRINT_HASH));
+                }
+            });
+        } catch (ZepException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ZepException(e);
+        }
+        metricRegistry.histogram(getClass().getName() + ".createOldSummaryListSize").update(oldSummaryList.size());
         final String uuid;
         if (!oldSummaryList.isEmpty()) {
-            uuid = dedupEvent(oldSummaryList.get(0), event, fields);
+            final Event finalEvent = event;
+            try {
+                uuid = metricRegistry.timer(getClass().getName() + ".dedupEvent").time(new Callable<String>() {
+                    @Override
+                    public String call() throws Exception {
+                        return dedupEvent(oldSummaryList.get(0), finalEvent, fields);
+                    }
+                });
+            } catch (ZepException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new ZepException(e);
+            }
         }
         else {
-            insert.execute(fields);
+            try {
+                metricRegistry.timer(getClass().getName() + ".createInsert").time(new Callable<Object>() {
+                    @Override
+                    public Object call() throws Exception {
+                        insert.execute(fields);
+                        return null;
+                    }
+                });
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
             uuid = createdUuid;
 
             // Add the uuid to the event_summary_index_queue
-            this.indexSignal(uuid, updateTime);
+            try {
+                metricRegistry.timer(getClass().getName() + ".indexSignal").time(new Callable<Object>() {
+                    @Override
+                    public Object call() throws Exception {
+                        EventSummaryDaoImpl.this.indexSignal(uuid, updateTime);
+                        return null;
+                    }
+                });
+            } catch (ZepException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new ZepException(e);
+            }
+
         }
 
         // Mark cleared events as cleared by this event
@@ -234,15 +265,27 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         return uuid;
     }
 
-    private String dedupEvent(EventSummaryOrBuilder oldSummary, Event event, Map<String,Object> insertFields)
+    private String dedupEvent(final EventSummaryOrBuilder oldSummary, final Event event, final Map<String,Object> insertFields)
             throws ZepException {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
             @Override
             public void afterCommit() {
-                statisticsService.addToDedupedEventCount(1);
+                counters.addToDedupedEventCount(1);
             }
         });
-        final Map<String,Object> updateFields = getUpdateFields(oldSummary, event, insertFields);
+        final Map<String,Object> updateFields;
+        try {
+            updateFields = metricRegistry.timer(getClass().getName() + ".getUpdateFields").time(new Callable<Map<String, Object>>() {
+                @Override
+                public Map<String, Object> call() throws Exception {
+                    return getUpdateFields(oldSummary, event, insertFields);
+                }
+            });
+        } catch (ZepException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ZepException(e);
+        }
         final StringBuilder updateSql = new StringBuilder("UPDATE event_summary SET ");
         for (Iterator<String> it = updateFields.keySet().iterator(); it.hasNext(); ) {
             final String fieldName = it.next();
@@ -255,13 +298,37 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         updateFields.put(COLUMN_FINGERPRINT_HASH, insertFields.get(COLUMN_FINGERPRINT_HASH));
 
         long updateTime = System.currentTimeMillis();
-        String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " +
+        final String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " +
                     "SELECT uuid, " + String.valueOf(updateTime) + " " +
                     "FROM event_summary " + 
                     "WHERE fingerprint_hash=:fingerprint_hash";
-        this.template.update(indexSql, updateFields);
+        try {
+            metricRegistry.timer(getClass().getName() + ".dedupInsertIntoQueue").time(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    EventSummaryDaoImpl.this.template.update(indexSql, updateFields);
+                    return null;
+                }
+            });
+        } catch (ZepException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ZepException(e);
+        }
 
-        this.template.update(updateSql.toString(), updateFields);
+        try {
+            metricRegistry.timer(getClass().getName() + ".dedupUpdateSummary").time(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    EventSummaryDaoImpl.this.template.update(updateSql.toString(), updateFields);
+                    return null;
+                }
+            });
+        } catch (ZepException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ZepException(e);
+        }
         return oldSummary.getUuid();
     }
 
@@ -381,7 +448,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
             @Override
             public void afterCommit() {
-                statisticsService.addToClearedEventCount(results.size());
+                counters.addToClearedEventCount(results.size());
             }
         });
         return results;
@@ -429,6 +496,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int reidentify(ModelElementType type, String id, String uuid, String title, String parentUuid)
             throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
@@ -490,6 +558,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int deidentify(String uuid) throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         long updateTime = System.currentTimeMillis();
@@ -536,6 +605,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalReadOnly
+    @Timed
     public EventSummary findByUuid(String uuid) throws ZepException {
         final Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
         List<EventSummary> summaries = this.template.query("SELECT * FROM event_summary WHERE uuid=:uuid",
@@ -545,6 +615,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @Deprecated
+    @Timed
     /** @deprecated use {@link #findByKey(Collection) instead}. */
     public List<EventSummary> findByUuids(final List<String> uuids) throws ZepException {
         return findByUuids((Collection)uuids);
@@ -564,6 +635,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalReadOnly
+    @Timed
     /**
      * This implementation only makes use of the UUID field to lookup the events.
      */
@@ -577,6 +649,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalReadOnly
+    @Timed
     public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException {
         return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_SUMMARY, null, batchParams, maxUpdateTime, limit,
                 new EventSummaryRowMapper(eventDaoHelper, databaseCompatibility));
@@ -600,6 +673,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
+    @Timed
     public long getAgeEligibleEventCount(long duration, TimeUnit unit, EventSeverity maxSeverity,
                                          boolean inclusiveSeverity) {
         List<Integer> severityIds = getSeverityIds(maxSeverity, inclusiveSeverity);
@@ -616,6 +690,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int ageEvents(long agingInterval, TimeUnit unit,
                          EventSeverity maxSeverity, int limit, boolean inclusiveSeverity) throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
@@ -683,7 +758,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
                 @Override
                 public void afterCommit() {
-                    statisticsService.addToAgedEventCount(numRows);
+                    counters.addToAgedEventCount(numRows);
                 }
             });
         }
@@ -692,6 +767,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int addNote(String uuid, EventNote note) throws ZepException {
         // Add the uuid to the event_summary_index_queue
         final long updateTime =  System.currentTimeMillis();
@@ -702,6 +778,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException {
         // Add the uuid to the event_summary_index_queue
@@ -919,6 +996,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int acknowledge(List<String> uuids, String userUuid, String userName)
             throws ZepException {
         /* NEW | ACKNOWLEDGED | SUPPRESSED -> ACKNOWLEDGED */
@@ -940,6 +1018,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
+    @Timed
     public long getArchiveEligibleEventCount(long duration, TimeUnit unit) {
         String sql = "SELECT COUNT(*) FROM event_summary WHERE status_id IN (:_closed_status_ids) AND last_seen < :_last_seen";
         Map<String, Object> fields = createSharedFields(duration, unit);
@@ -948,6 +1027,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int archive(long duration, TimeUnit unit, int limit) throws ZepException {
         Map<String, Object> fields = createSharedFields(duration, unit);
         fields.put("_limit", limit);
@@ -966,6 +1046,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int close(List<String> uuids, String userUuid, String userName) throws ZepException {
         /* NEW | ACKNOWLEDGED | SUPPRESSED -> CLOSED */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED,
@@ -978,6 +1059,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int reopen(List<String> uuids, String userUuid, String userName) throws ZepException {
         /* CLOSED | CLEARED | AGED | ACKNOWLEDGED | SUPPRESSED -> NEW */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_CLOSED, EventStatus.STATUS_CLEARED,
@@ -990,6 +1072,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int suppress(List<String> uuids) throws ZepException {
         /* NEW -> SUPPRESSED */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_NEW);
@@ -998,6 +1081,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public int archive(List<String> uuids) throws ZepException {
         if (uuids.isEmpty()) {
             return 0;
@@ -1047,14 +1131,16 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
             @Override
             public void afterCommit() {
-                statisticsService.addToArchivedEventCount(updated);
+                counters.addToArchivedEventCount(updated);
             }
         });
         return updated;
     }
 
+
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public void importEvent(EventSummary eventSummary) throws ZepException {
         final long updateTime = System.currentTimeMillis();
         final EventSummary.Builder summaryBuilder = EventSummary.newBuilder(eventSummary);

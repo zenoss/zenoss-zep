@@ -10,6 +10,7 @@
 
 package org.zenoss.zep.impl;
 
+import com.codahale.metrics.annotation.Timed;
 import org.zenoss.amqp.AmqpConnectionManager;
 import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.ExchangeConfiguration;
@@ -37,6 +38,7 @@ public class EventPublisherImpl implements EventPublisher {
     }
 
     @Override
+    @Timed
     public void publishEvent(Event rawEvent) throws ZepException {
         try {
             this.connectionManager.publish(exchangeConfiguration, createRoutingKey(rawEvent), rawEvent);
