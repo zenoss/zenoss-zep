@@ -265,7 +265,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         return uuid;
     }
 
-    private String dedupEvent(EventSummaryOrBuilder oldSummary, Event event, Map<String,Object> insertFields)
+    private String dedupEvent(final EventSummaryOrBuilder oldSummary, final Event event, final Map<String,Object> insertFields)
             throws ZepException {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
             @Override
@@ -273,7 +273,19 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 counters.addToDedupedEventCount(1);
             }
         });
-        final Map<String,Object> updateFields = getUpdateFields(oldSummary, event, insertFields);
+        final Map<String,Object> updateFields;
+        try {
+            updateFields = metricRegistry.timer(getClass().getName() + ".getUpdateFields").time(new Callable<Map<String, Object>>() {
+                @Override
+                public Map<String, Object> call() throws Exception {
+                    return getUpdateFields(oldSummary, event, insertFields);
+                }
+            });
+        } catch (ZepException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ZepException(e);
+        }
         final StringBuilder updateSql = new StringBuilder("UPDATE event_summary SET ");
         for (Iterator<String> it = updateFields.keySet().iterator(); it.hasNext(); ) {
             final String fieldName = it.next();
