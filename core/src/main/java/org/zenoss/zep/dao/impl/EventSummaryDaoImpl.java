@@ -184,6 +184,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }
 
         fields.put(COLUMN_STATUS_ID, event.getStatus().getNumber());
+        fields.put(COLUMN_CLOSED_STATUS, ZepConstants.CLOSED_STATUSES.contains(event.getStatus()));
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(updateTime));
         fields.put(COLUMN_FIRST_SEEN, timestampConverter.toDatabaseType(firstSeen));
         fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(created));
@@ -320,6 +321,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             }
             if (updateStatus && oldStatus != newStatus) {
                 updateFields.put(COLUMN_STATUS_ID, insertFields.get(COLUMN_STATUS_ID));
+                updateFields.put(COLUMN_CLOSED_STATUS, insertFields.get(COLUMN_CLOSED_STATUS));
                 updateFields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(occurrence.getCreatedTime()));
             }
 
@@ -364,21 +366,20 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         Map<String,Object> fields = new HashMap<String,Object>(2);
         fields.put("_clear_created_time", timestampConverter.toDatabaseType(lastSeen));
         fields.put("_clear_hashes", clearHashes);
-        fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
 
         long updateTime = System.currentTimeMillis();
         String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " 
                 + "SELECT uuid, " + String.valueOf(updateTime) + " FROM event_summary " +
                 "WHERE last_seen <= :_clear_created_time " +
                 "AND clear_fingerprint_hash IN (:_clear_hashes) " +
-                "AND status_id NOT IN (:_closed_status_ids) ";
+                "AND closed_status = FALSE ";
         this.template.update(indexSql, fields); 
 
         /* Find events that this clear event would clear. */
         final String sql = "SELECT uuid FROM event_summary " + 
                 "WHERE last_seen <= :_clear_created_time " +
                 "AND clear_fingerprint_hash IN (:_clear_hashes) " +
-                "AND status_id NOT IN (:_closed_status_ids) " + 
+                "AND closed_status = FALSE " +
                 "FOR UPDATE";
 
         final List<String> results = this.template.query(sql, new RowMapper<String>() {
@@ -601,11 +602,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED, EventStatus.STATUS_CLOSED,
             EventStatus.STATUS_CLEARED);
 
-    private static final List<Integer> CLOSED_STATUS_IDS = Arrays.asList(
-            EventStatus.STATUS_AGED.getNumber(),
-            EventStatus.STATUS_CLEARED.getNumber(),
-            EventStatus.STATUS_CLOSED.getNumber());
-
     private static List<Integer> getSeverityIds(EventSeverity maxSeverity, boolean inclusiveSeverity) {
         List<Integer> severityIds = EventDaoHelper.getSeverityIdsLessThan(maxSeverity);
         if (inclusiveSeverity) {
@@ -623,7 +619,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         if (severityIds.isEmpty()) {
             return 0;
         }
-        String sql = "SELECT count(*) FROM event_summary WHERE status_id NOT IN (:_closed_status_ids) AND " +
+        String sql = "SELECT count(*) FROM event_summary WHERE closed_status = FALSE AND " +
                 "last_seen < :_last_seen AND severity_id IN (:_severity_ids)";
         Map <String, Object> fields = createSharedFields(duration, unit);
         fields.put("_severity_ids", severityIds);
@@ -653,11 +649,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
         Map<String, Object> fields = new HashMap<String, Object>();
         fields.put(COLUMN_STATUS_ID, EventStatus.STATUS_AGED.getNumber());
+        fields.put(COLUMN_CLOSED_STATUS, ZepConstants.CLOSED_STATUSES.contains(EventStatus.STATUS_AGED));
         fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(now));
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(now));
         fields.put(COLUMN_LAST_SEEN, timestampConverter.toDatabaseType(ageTs));
         fields.put("_severity_ids", severityIds);
-        fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
         fields.put("_limit", limit);
 
         final String updateSql;
@@ -667,14 +663,15 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                     "FROM event_summary " + 
                     " WHERE last_seen < :last_seen AND" +
                     " severity_id IN (:_severity_ids) AND" +
-                    " status_id NOT IN (:_closed_status_ids) LIMIT :_limit";
+                    " closed_status = FALSE LIMIT :_limit";
             this.template.update(indexSql, fields);
 
             // Use UPDATE ... LIMIT
             updateSql = "UPDATE event_summary SET" +
                     " status_id=:status_id,status_change=:status_change,update_time=:update_time" +
+                    ",closed_status=:closed_status" +
                     " WHERE last_seen < :last_seen AND severity_id IN (:_severity_ids)" +
-                    " AND status_id NOT IN (:_closed_status_ids) LIMIT :_limit";
+                    " AND closed_status = FALSE LIMIT :_limit";
         }
         else if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
             String indexSql = "INSERT INTO event_summary_index_queue (uuid, update_time) " +
@@ -682,15 +679,16 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                     "FROM event_summary " + 
                     " WHERE uuid IN (SELECT uuid FROM event_summary WHERE" +
                     " last_seen < :last_seen AND severity_id IN (:_severity_ids)" +
-                    " AND status_id NOT IN (:_closed_status_ids) LIMIT :_limit)";
+                    " AND closed_status = FALSE LIMIT :_limit)";
             this.template.update(indexSql, fields);
 
             // Use UPDATE ... WHERE pk IN (SELECT ... LIMIT)
             updateSql = "UPDATE event_summary SET" +
                     " status_id=:status_id,status_change=:status_change,update_time=:update_time" +
+                    ",closed_status=:closed_status" +
                     " WHERE uuid IN (SELECT uuid FROM event_summary WHERE" +
                     " last_seen < :last_seen AND severity_id IN (:_severity_ids)" +
-                    " AND status_id NOT IN (:_closed_status_ids) LIMIT :_limit)";
+                    " AND closed_status = FALSE LIMIT :_limit)";
         }
         else {
             throw new IllegalStateException("Unsupported database type: " + databaseCompatibility.getDatabaseType());
@@ -794,6 +792,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         final Map<String,Object> fields = updateFields.toMap(uuidConverter);
         fields.put(COLUMN_STATUS_ID, status.getNumber());
         fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(now));
+        fields.put(COLUMN_CLOSED_STATUS, ZepConstants.CLOSED_STATUSES.contains(status));
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(now));
         fields.put("_uuids", TypeConverterUtils.batchToDatabaseType(uuidConverter, uuids));
         // If we aren't acknowledging events, we need to clear out the current user name / UUID values
@@ -910,7 +909,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         }, fields);
 
         final String updateSql = "UPDATE event_summary SET status_id=:status_id,status_change=:status_change," +
-              "update_time=:update_time,"+
+              "closed_status=:closed_status,update_time=:update_time,"+
               (status != EventStatus.STATUS_CLOSED && status != EventStatus.STATUS_CLEARED ? "current_user_uuid=:current_user_uuid,current_user_name=:current_user_name,":"" ) +
                "cleared_by_event_uuid=:cleared_by_event_uuid,fingerprint_hash=:fingerprint_hash," +
                 "audit_json=:audit_json WHERE uuid=:uuid";
@@ -955,14 +954,13 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         Object lastSeen = timestampConverter.toDatabaseType(delta);
         Map<String, Object> fields = new HashMap<String, Object>();
         fields.put("_last_seen", lastSeen);
-        fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
         return fields;
     }
 
     @Override
     @Timed
     public long getArchiveEligibleEventCount(long duration, TimeUnit unit) {
-        String sql = "SELECT COUNT(*) FROM event_summary WHERE status_id IN (:_closed_status_ids) AND last_seen < :_last_seen";
+        String sql = "SELECT COUNT(*) FROM event_summary WHERE closed_status = TRUE AND last_seen < :_last_seen";
         Map<String, Object> fields = createSharedFields(duration, unit);
         return template.queryForInt(sql, fields);
     }
@@ -974,7 +972,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         Map<String, Object> fields = createSharedFields(duration, unit);
         fields.put("_limit", limit);
 
-        final String sql = "SELECT uuid FROM event_summary WHERE status_id IN (:_closed_status_ids) AND "
+        final String sql = "SELECT uuid FROM event_summary WHERE closed_status = TRUE AND "
                 + "last_seen < :_last_seen LIMIT :_limit FOR UPDATE";
         final List<String> uuids = this.template.query(sql, new RowMapper<String>() {
             @Override
@@ -1040,7 +1038,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         Map<String, Object> fields = new HashMap<String,Object>();
         fields.put(COLUMN_UPDATE_TIME, timestampConverter.toDatabaseType(System.currentTimeMillis()));
         fields.put("_uuids", TypeConverterUtils.batchToDatabaseType(uuidConverter, uuids));
-        fields.put("_closed_status_ids", CLOSED_STATUS_IDS);
         StringBuilder selectColumns = new StringBuilder();
 
         for (Iterator<String> it = this.archiveColumnNames.iterator(); it.hasNext();) {
@@ -1060,15 +1057,15 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         this.template.update("INSERT INTO event_summary_index_queue (uuid, update_time) " 
             + "SELECT uuid, " + String.valueOf(updateTime) + " " 
             + "FROM event_summary" +
-            " WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)", 
+            " WHERE uuid IN (:_uuids) AND closed_status = TRUE",
                 fields); 
 
         String insertSql = String.format("INSERT INTO event_archive (%s) SELECT %s FROM event_summary" +
-                " WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids) ON DUPLICATE KEY UPDATE summary=event_summary.summary",
+                " WHERE uuid IN (:_uuids) AND closed_status = TRUE ON DUPLICATE KEY UPDATE summary=event_summary.summary",
                 StringUtils.collectionToCommaDelimitedString(this.archiveColumnNames), selectColumns);
 
         this.template.update(insertSql, fields);
-        final int updated = this.template.update("DELETE FROM event_summary WHERE uuid IN (:_uuids) AND status_id IN (:_closed_status_ids)",
+        final int updated = this.template.update("DELETE FROM event_summary WHERE uuid IN (:_uuids) AND closed_status = TRUE",
                 fields);
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
             @Override
@@ -1099,9 +1096,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         if (ZepConstants.CLOSED_STATUSES.contains(eventSummary.getStatus())) {
             String uniqueFingerprint = (String) fields.get(COLUMN_FINGERPRINT) + '|' + updateTime;
             fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1(uniqueFingerprint));
+            fields.put(COLUMN_CLOSED_STATUS, Boolean.TRUE);
         }
         else {
             fields.put(COLUMN_FINGERPRINT_HASH, DaoUtils.sha1((String)fields.get(COLUMN_FINGERPRINT)));
+            fields.put(COLUMN_CLOSED_STATUS, Boolean.FALSE);
         }
 
         if (eventSummary.getOccurrence(0).getSeverity() != EventSeverity.SEVERITY_CLEAR) {
