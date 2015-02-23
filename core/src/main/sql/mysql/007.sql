@@ -1,8 +1,12 @@
 -- Copyright (C) 2015, Zenoss Inc.  All Rights Reserved.
 
 --
--- Adds an index for faster aging of events from summary to archive.
+-- Adds closed_status column and improves related composite indexes.
 --
+
+ALTER TABLE event_summary ADD COLUMN closed_status TINYINT(1) NOT NULL DEFAULT 0;
+UPDATE event_summary SET closed_status = 1 WHERE status_id IN (3,4,6);
+ALTER TABLE event_summary ALTER COLUMN closed_status DROP DEFAULT;
 
 DROP PROCEDURE IF EXISTS drop_index_if_exists;
 DELIMITER $$
@@ -20,16 +24,22 @@ END
 $$
 DELIMITER ;
 
--- If we don't delete these two, the query planner sometimes chooses to use one
--- of them when it would be better to use event_summary_last_seen_idx.
+-- These are no longer useful.
 CALL drop_index_if_exists('event_summary','event_summary_age_idx');
 CALL drop_index_if_exists('event_summary','event_summary_archive_idx');
 
--- At one of our customers, this index was created manually.
+-- A few installs had these indexes created manually.
 CALL drop_index_if_exists('event_summary','event_summary_last_seen');
-
 CALL drop_index_if_exists('event_summary','event_summary_last_seen_idx');
-CREATE INDEX event_summary_last_seen_idx ON event_summary(last_seen);
+
+CALL drop_index_if_exists('event_summary','event_summary_closed_last_seen_idx');
+CREATE INDEX event_summary_closed_last_seen_idx ON event_summary(closed_status, last_seen);
+
+CALL drop_index_if_exists('event_summary','event_summary_closed_uuid_idx');
+CREATE INDEX event_summary_closed_uuid_idx ON event_summary(closed_status, uuid);
+
+CALL drop_index_if_exists('event_summary','event_summary_clear_idx');
+CREATE INDEX event_summary_clear_idx ON event_summary(closed_status, clear_fingerprint_hash, last_seen);
 
 DROP PROCEDURE IF EXISTS drop_index_if_exists;
 
