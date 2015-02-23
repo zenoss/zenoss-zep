@@ -52,7 +52,7 @@
     <bean id="eventProcessor" class="org.zenoss.zep.impl.EventProcessorImpl">
         <property name="pluginService" ref="pluginService"/>
         <property name="eventSummaryDao" ref="eventSummaryDao"/>
-        <property name="statisticsService" ref="statisticsService"/>
+        <property name="counters" ref="counters"/>
     </bean>
 
     <bean id="eventPublisher" class="org.zenoss.zep.impl.EventPublisherImpl">
@@ -193,7 +193,10 @@
         </property>
     </bean>
 
+    <bean id="counters" class="org.zenoss.zep.impl.CountersImpl" />
+
     <bean id="statisticsService" class="org.zenoss.zep.impl.StatisticsServiceImpl">
+        <property name="counters" ref="counters"/>
         <property name="configDao" ref="configDao"/>
         <property name="eventSummaryDao" ref="eventSummaryDao"/>
         <property name="eventSummaryIndexDao" ref="eventSummaryIndexDao"/>
