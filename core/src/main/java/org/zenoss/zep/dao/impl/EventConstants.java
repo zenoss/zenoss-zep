@@ -51,6 +51,7 @@ public class EventConstants {
 
     // Summary / Archive fields
     public static final String COLUMN_STATUS_ID = "status_id";
+    public static final String COLUMN_CLOSED_STATUS = "closed_status";
     public static final String COLUMN_UPDATE_TIME = "update_time";
     public static final String COLUMN_FIRST_SEEN = "first_seen";
     public static final String COLUMN_STATUS_CHANGE = "status_change";
