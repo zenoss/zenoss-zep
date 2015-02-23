@@ -294,7 +294,17 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 throw new ZepException(e);
             }
         }
-
+        if (uuid == null && !clearedEventUuids.isEmpty()) {
+            // This only happens if another thread was processing the same dup and grabbed ours,
+            // AND in the time between that thread leaving its critical section and this thread
+            // querying for the event_summary by fingerprint_hash, the record we're interested in
+            // got deleted (archived).
+            //
+            // Anyway, probably not a big deal.
+            logger.info("Rare race condition thwarted update of clearedByEventUuid for {} events.",
+                    clearedEventUuids.size());
+            return null;
+        }
         try {
             metricRegistry.timer(getClass().getName() + ".dedupClearEvents").time(new Callable<Object>() {
                 @Override
@@ -330,9 +340,10 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(summary.getStatusChangeTime()));
         fields.put(COLUMN_LAST_SEEN, timestampConverter.toDatabaseType(summary.getLastSeenTime()));
         fields.put(COLUMN_EVENT_COUNT, summary.getCount());
-
-        final String createdUuid = this.uuidGenerator.generate().toString();
-        fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(createdUuid));
+        if (!summary.hasUuid() || summary.getUuid() == null) {
+            throw new NullPointerException("missing uuid");
+        }
+        fields.put(COLUMN_UUID, uuidConverter.toDatabaseType(summary.getUuid()));
         if (createClearHash) {
             fields.put(COLUMN_CLEAR_FINGERPRINT_HASH, EventDaoUtils.createClearHash(event,
                     context.getClearFingerprintGenerator()));
@@ -355,31 +366,24 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                             new RowMapperResultSetExtractor<EventSummary.Builder>(eventDedupMapper, 1),
                             fingerprintHash);
                     final EventSummary.Builder summary;
-                    final boolean deduping;
-                    if (!oldSummaryList.isEmpty() && !events.isEmpty()) {
-                        deduping = true;
+                    if (!oldSummaryList.isEmpty()) {
                         summary = oldSummaryList.get(0);
-                        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
-                            @Override
-                            public void afterCommit() {
-                                counters.addToDedupedEventCount(events.size());
-                            }
-                        });
                     } else {
                         summary = EventSummary.newBuilder();
                         summary.setCount(0);
                         summary.addOccurrenceBuilder(0);
-                        deduping = false;
                     }
 
                     boolean isNewer = false;
                     for (Event event : events) {
                         isNewer = merge(summary, event) || isNewer;
                     }
-                    summary.setUpdateTime(System.currentTimeMillis());
 
                     if (!events.isEmpty()) {
-                        if (deduping) {
+                        summary.setUpdateTime(System.currentTimeMillis());
+                        final long dedupCount;
+                        if (!oldSummaryList.isEmpty()) {
+                            dedupCount = events.size();
                             final Map<String,Object> fields = getUpdateFields(summary,isNewer, context, createClearHash);
                             final StringBuilder updateSql = new StringBuilder("UPDATE event_summary SET ");
                             int i = 0;
@@ -395,11 +399,20 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                                     " FROM event_summary WHERE fingerprint_hash=:fingerprint_hash";
                             template.update(indexSql, fields);
                         } else {
+                            dedupCount = events.size() - 1;
                             summary.setUuid(uuidGenerator.generate().toString());
                             final Map<String,Object> fields = getInsertFields(summary, context, createClearHash);
                             fields.put(COLUMN_FINGERPRINT_HASH, fingerprintHash);
                             insert.execute(fields);
                             indexSignal(summary.getUuid(), System.currentTimeMillis());
+                        }
+                        if (dedupCount > 0) {
+                            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
+                                @Override
+                                public void afterCommit() {
+                                    counters.addToDedupedEventCount(dedupCount);
+                                }
+                            });
                         }
                     }
                     return summary.getUuid();
@@ -437,6 +450,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             ob.setMessage(occurrence.getMessage());
             ob.clearTags();
             ob.addAllTags(occurrence.getTagsList());
+            if (!ob.hasFingerprint() || ob.getFingerprint() == null) {
+                ob.setFingerprint(occurrence.getFingerprint());
+            }
             if (occurrence.getActor() != null) {
                 ab.setElementUuid(occurrence.getActor().getElementUuid());
                 ab.setElementTypeId(occurrence.getActor().getElementTypeId());
@@ -477,7 +493,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                     ob.addAllDetails(newDetails);
                 } else {
                     ob.clearDetails();
-                    ob.addAllDetails(eventDaoHelper.mergeDetails(oldDetails, newDetails).values());
+                    String json = eventDaoHelper.mergeDetailsToJson(oldDetails, newDetails);
+                    try {
+                        ob.addAllDetails(JsonFormat.mergeAllDelimitedFrom(json, EventDetail.getDefaultInstance()));
+                    } catch (IOException e) {
+                        throw new ZepException(e);
+                    }
                 }
             }
         } else {
@@ -493,7 +514,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                     ob.addAllDetails(oldDetails);
                 } else {
                     ob.clearDetails();
-                    ob.addAllDetails(eventDaoHelper.mergeDetails(oldDetails, newDetails).values());
+                    String json = eventDaoHelper.mergeDetailsToJson(oldDetails, newDetails);
+                    try {
+                        ob.addAllDetails(JsonFormat.mergeAllDelimitedFrom(json, EventDetail.getDefaultInstance()));
+                    } catch (IOException e) {
+                        throw new ZepException(e);
+                    }
                 }
             }
         }
@@ -530,7 +556,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 fields.put(fieldName, insertFields.get(fieldName));
             }
             fields.put(COLUMN_STATUS_ID, insertFields.get(COLUMN_STATUS_ID));
-            fields.put(COLUMN_STATUS_ID, insertFields.get(COLUMN_CLOSED_STATUS));
+            fields.put(COLUMN_CLOSED_STATUS, insertFields.get(COLUMN_CLOSED_STATUS));
             fields.put(COLUMN_STATUS_CHANGE, timestampConverter.toDatabaseType(summary.getStatusChangeTime()));
         }
         fields.put(COLUMN_EVENT_COUNT, summary.getCount());
@@ -1069,11 +1095,13 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 final String newFingerprint;
                 // When closing an event, give it a unique fingerprint hash
                 if (ZepConstants.CLOSED_STATUSES.contains(status)) {
+                    updateFields.put(COLUMN_CLOSED_STATUS, Boolean.TRUE);
                     newFingerprint = EventDaoUtils.join('|', fingerprint, Long.toString(now));
                 }
                 // When re-opening an event, give it the true fingerprint_hash. This is required to correctly
                 // de-duplicate events.
                 else {
+                    updateFields.put(COLUMN_CLOSED_STATUS, Boolean.FALSE);
                     newFingerprint = fingerprint;
                 }
 
