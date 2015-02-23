@@ -52,7 +52,7 @@
         <property name="uuidGenerator" ref="uuidGenerator"/>
         <property name="databaseCompatibility" ref="databaseCompatibility"/>
         <property name="nestedTransactionService" ref="nestedTransactionService"/>
-        <property name="statisticsService" ref="statisticsService"/>
+        <property name="counters" ref="counters"/>
     </bean>
     <bean id="eventArchiveDao" class="org.zenoss.zep.dao.impl.EventArchiveDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
