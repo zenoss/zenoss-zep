@@ -186,15 +186,16 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
 
     @Override
     @Timed
-    public synchronized int indexFully() throws ZepException {
+    public int indexFully() throws ZepException {
         int totalIndexed = 0;
         final long now = System.currentTimeMillis();
         int numIndexed;
-        do {
-            numIndexed = doIndex(now);
-            totalIndexed += numIndexed;
-        } while (numIndexed > 0);
-
+        synchronized (this) {
+            do {
+                numIndexed = doIndex(now);
+                totalIndexed += numIndexed;
+            } while (numIndexed > 0);
+        }
         return totalIndexed;
     }
 
