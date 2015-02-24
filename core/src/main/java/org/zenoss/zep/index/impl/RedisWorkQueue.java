@@ -72,7 +72,7 @@ public class RedisWorkQueue implements WorkQueue {
         this.allKeys = Lists.newArrayList(queueListKey, queueSetKey, holdZsetKey);
         requeueJedisUser = null;
         sizeJedisUser = new SizeJedisUser();
-        setInProgressDuration(24, TimeUnit.HOURS);
+        setInProgressDuration(1, TimeUnit.MINUTES);
         setPollInterval(1, TimeUnit.MILLISECONDS);
     }
 
@@ -436,12 +436,23 @@ public class RedisWorkQueue implements WorkQueue {
         public Long use(Jedis jedis) throws RedisTransactionCollision {
             long maxStartTime = System.currentTimeMillis() - inProgressDurationInMillis;
             String cutoff = Long.toString(maxStartTime);
-            jedis.watch(holdZsetKey, queueSetKey);
             long count = 0;
+
+            jedis.watch(holdZsetKey, queueSetKey);
+
+            Set<String> tasks = jedis.zrangeByScore(holdZsetKey, NEGATIVE_INF, cutoff);
+            Set<String> tasksAlreadyInQueue = new HashSet<String>();
+            for (String task : tasks) {
+                if (jedis.sismember(queueSetKey, task)) {
+                    tasksAlreadyInQueue.add(task);
+                }
+            }
+            tasks.removeAll(tasksAlreadyInQueue);
+
             Transaction tx = jedis.multi();
-            for (String task : jedis.zrangeByScore(holdZsetKey, NEGATIVE_INF, cutoff)) {
+            for (String task : tasks) {
                 count++;
-                if (!jedis.sismember(queueSetKey, task)) {
+                if (!tasksAlreadyInQueue.contains(task)) {
                     tx.sadd(queueSetKey, task);
                     tx.lpush(queueListKey, task);
                 }
