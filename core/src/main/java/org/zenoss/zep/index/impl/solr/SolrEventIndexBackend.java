@@ -554,7 +554,7 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
                 SolrQuery query = search.getSolrQuery().getCopy();
                 query.setRows(limit);
                 query.setStart(offset);
-                query.setFields(IndexConstants.FIELD_UUID, IndexConstants.FIELD_PROTOBUF);
+                query.setFields(IndexConstants.FIELD_UUID, IndexConstants.FIELD_LAST_SEEN_TIME, IndexConstants.FIELD_PROTOBUF);
                 return execute(query, false);
             }
         };
@@ -569,7 +569,7 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
                 SolrQuery query = search.getSolrQuery().getCopy();
                 query.setRows(limit);
                 query.setStart(offset);
-                query.setFields(IndexConstants.FIELD_UUID);
+                query.setFields(IndexConstants.FIELD_UUID, IndexConstants.FIELD_LAST_SEEN_TIME);
                 return execute(query, true);
             }
         };
