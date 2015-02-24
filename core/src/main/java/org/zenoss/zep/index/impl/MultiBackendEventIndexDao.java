@@ -913,10 +913,12 @@ public class MultiBackendEventIndexDao extends BaseEventIndexDaoImpl<MultiBacken
                         sleep(1000);
                         continue;
                     }
-                    if (enableAsyncProcessing && configuration.isAsyncUpdates() && !workQueues.get(backendId).isReady()) {
-                        logStatus("is waiting for work queue to be ready");
+
+                    if (enableAsyncProcessing && configuration.isAsyncUpdates() 
+                            && (workQueues.get(backendId)==null || !workQueues.get(backendId).isReady()) ) {
+                        logger.warn(getName() + " is waiting for work queue to be ready");
                         sleep(1000);
-                        continue;   
+                        continue;
                     }
 
                     RebuilderProgress progress = loadRebuildProgress();
