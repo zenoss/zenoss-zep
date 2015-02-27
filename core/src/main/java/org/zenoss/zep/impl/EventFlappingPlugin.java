@@ -10,6 +10,7 @@
 
 package org.zenoss.zep.impl;
 
+import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -315,6 +316,7 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     }
 
     @Override
+    @Timed
     public Event processEvent(Event event, EventPreCreateContext context) throws ZepException {
         if (enabled) {
             final long startTime = System.currentTimeMillis();

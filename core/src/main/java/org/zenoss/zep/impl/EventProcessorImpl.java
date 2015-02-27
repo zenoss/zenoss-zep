@@ -10,6 +10,7 @@
 
 package org.zenoss.zep.impl;
 
+import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
@@ -17,9 +18,9 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
+import org.zenoss.zep.Counters;
 import org.zenoss.zep.EventProcessor;
 import org.zenoss.zep.PluginService;
-import org.zenoss.zep.StatisticsService;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.plugins.EventPostCreateContext;
@@ -41,7 +42,7 @@ public class EventProcessorImpl implements EventProcessor {
 
     private EventSummaryDao eventSummaryDao;
 
-    private StatisticsService statisticsService;
+    private Counters counters;
 
     public void setEventSummaryDao(EventSummaryDao eventSummaryDao) {
         this.eventSummaryDao = eventSummaryDao;
@@ -57,8 +58,8 @@ public class EventProcessorImpl implements EventProcessor {
         this.pluginService = pluginService;
     }
 
-    public void setStatisticsService(final StatisticsService statisticsService) {
-        this.statisticsService = statisticsService;
+    public void setCounters(Counters counters) {
+        this.counters = counters;
     }
 
     private static Event eventFromRawEvent(ZepRawEvent zepRawEvent) {
@@ -71,23 +72,24 @@ public class EventProcessorImpl implements EventProcessor {
     }
 
     @Override
+    @Timed
     public void processEvent(ZepRawEvent zepRawEvent) throws ZepException {
         logger.debug("processEvent: event={}", zepRawEvent);
-        statisticsService.addToProcessedEventCount(1);
+        counters.addToProcessedEventCount(1);
 
         if (zepRawEvent.getEvent().getStatus() == EventStatus.STATUS_DROPPED) {
             logger.debug("Event dropped: {}", zepRawEvent);
-            statisticsService.addToDroppedEventCount(1);
+            counters.addToDroppedEventCount(1);
             return;
         } else if (zepRawEvent.getEvent().getUuid().isEmpty()) {
             logger.error("Could not process event, has no uuid: {}",
                     zepRawEvent);
-            statisticsService.addToDroppedEventCount(1);
+            counters.addToDroppedEventCount(1);
             return;
         } else if (!zepRawEvent.getEvent().hasCreatedTime()) {
             logger.error("Could not process event, has no created_time: {}",
                     zepRawEvent);
-            statisticsService.addToDroppedEventCount(1);
+            counters.addToDroppedEventCount(1);
             return;
         }
 
@@ -98,7 +100,7 @@ public class EventProcessorImpl implements EventProcessor {
             Event modified = plugin.processEvent(event, ctx);
             if (modified != null && modified.getStatus() == EventStatus.STATUS_DROPPED) {
                 logger.debug("Event dropped by {}", plugin.getId());
-                statisticsService.addToDroppedEventCount(1);
+                counters.addToDroppedEventCount(1);
                 return;
             }
 
@@ -115,7 +117,11 @@ public class EventProcessorImpl implements EventProcessor {
             // Catch DuplicateKeyException and retry creating the event. Otherwise, the failure
             // will propagate to the AMQP consumer, the message will be rejected (and re-queued),
             // leading to unnecessary load on the AMQP server re-queueing/re-delivering the event.
-            logger.debug("DuplicateKeyException - retrying event: {}", event);
+            if (logger.isDebugEnabled()) {
+                logger.info("DuplicateKeyException - retrying event: {}", event);
+            } else {
+                logger.info("DuplicateKeyException - retrying event: {}", event.getUuid());
+            }
             uuid = this.eventSummaryDao.create(event, ctx);
         }
 
