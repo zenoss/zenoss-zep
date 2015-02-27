@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
+import org.zenoss.zep.Counters;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepMXBean;
 import org.zenoss.zep.StatisticsService;
@@ -27,7 +28,6 @@ import javax.management.StandardMBean;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class StatisticsServiceImpl extends StandardMBean implements StatisticsService {
 
@@ -52,19 +52,13 @@ public class StatisticsServiceImpl extends StandardMBean implements StatisticsSe
         attributeDescriptions.put("ArchiveIndexDocCount", "archive index doc count");
     }
 
+    private Counters counters;
     private ConfigDao configDao;
     private EventSummaryDao eventSummaryDao;
     private EventIndexDao eventSummaryIndexDao;
     private EventIndexDao eventArchiveIndexDao;
     private EventIndexQueueDao eventSummaryIndexQueueDao;
     private EventIndexQueueDao eventArchiveIndexQueueDao;
-
-    private AtomicLong processedEventCount = new AtomicLong();
-    private AtomicLong dedupedEventCount = new AtomicLong();
-    private AtomicLong droppedEventCount = new AtomicLong();
-    private AtomicLong clearedEventCount = new AtomicLong();
-    private AtomicLong archivedEventCount = new AtomicLong();
-    private AtomicLong agedEventCount = new AtomicLong();
 
     public StatisticsServiceImpl() {
         super(ZepMXBean.class, true);
@@ -78,6 +72,10 @@ public class StatisticsServiceImpl extends StandardMBean implements StatisticsSe
     @Override
     public String getAttributeDescription(String name) {
         return attributeDescriptions.get(name);
+    }
+
+    public void setCounters(final Counters counters) {
+        this.counters = counters;
     }
 
     public void setConfigDao(final ConfigDao configDao) {
@@ -105,63 +103,33 @@ public class StatisticsServiceImpl extends StandardMBean implements StatisticsSe
     }
 
     @Override
-    public long getProcessedEventCount() {
-        return processedEventCount.get();
-    }
-
-    @Override
-    public void addToProcessedEventCount(long delta) {
-        processedEventCount.getAndAdd(delta);
-    }
-
-    @Override
-    public long getDedupedEventCount() {
-        return dedupedEventCount.get();
-    }
-
-    @Override
-    public void addToDedupedEventCount(long delta) {
-        dedupedEventCount.getAndAdd(delta);
-    }
-
-    @Override
-    public long getDroppedEventCount() {
-        return droppedEventCount.get();
-    }
-
-    @Override
-    public void addToDroppedEventCount(long delta) {
-        droppedEventCount.getAndAdd(delta);
-    }
-
-    @Override
-    public long getClearedEventCount() {
-        return clearedEventCount.get();
-    }
-
-    @Override
-    public void addToClearedEventCount(long delta) {
-        clearedEventCount.getAndAdd(delta);
+    public long getAgedEventCount() {
+        return counters.getAgedEventCount();
     }
 
     @Override
     public long getArchivedEventCount() {
-        return archivedEventCount.get();
+        return counters.getArchivedEventCount();
     }
 
     @Override
-    public void addToArchivedEventCount(long delta) {
-        archivedEventCount.getAndAdd(delta);
+    public long getClearedEventCount() {
+        return counters.getClearedEventCount();
     }
 
     @Override
-    public long getAgedEventCount() {
-        return agedEventCount.get();
+    public long getDedupedEventCount() {
+        return counters.getDedupedEventCount();
     }
 
     @Override
-    public void addToAgedEventCount(long delta) {
-        agedEventCount.getAndAdd(delta);
+    public long getDroppedEventCount() {
+        return counters.getDroppedEventCount();
+    }
+
+    @Override
+    public long getProcessedEventCount() {
+        return counters.getProcessedEventCount();
     }
 
     @Override
@@ -227,5 +195,4 @@ public class StatisticsServiceImpl extends StandardMBean implements StatisticsSe
     public long getArchiveIndexDocCount() {
         return getNumDocs(eventArchiveIndexDao);
     }
-
 }
