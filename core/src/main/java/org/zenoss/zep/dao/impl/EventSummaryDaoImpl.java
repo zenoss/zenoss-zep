@@ -39,6 +39,7 @@ import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.protobufs.zep.Zep.EventSummaryOrBuilder;
+import org.zenoss.protobufs.zep.Zep.EventTag;
 import org.zenoss.zep.Counters;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepConstants;
@@ -435,33 +436,37 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             merged.setLastSeenTime(occurrence.getCreatedTime());
             Event.Builder ob = merged.getOccurrenceBuilder(0);
             EventActor.Builder ab = ob.getActorBuilder();
-            ob.setEventGroup(occurrence.getEventGroup());
-            ob.setEventClass(occurrence.getEventClass());
-            ob.setEventClassKey(occurrence.getEventClassKey());
-            ob.setEventClassMappingUuid(occurrence.getEventClassMappingUuid());
-            ob.setEventKey(occurrence.getEventKey());
-            ob.setSeverity(occurrence.getSeverity());
-            ob.setMonitor(occurrence.getMonitor());
-            ob.setAgent(occurrence.getAgent());
-            ob.setSyslogFacility(occurrence.getSyslogFacility());
-            ob.setSyslogPriority(occurrence.getSyslogPriority());
-            ob.setNtEventCode(occurrence.getNtEventCode());
-            ob.setSummary(occurrence.getSummary());
-            ob.setMessage(occurrence.getMessage());
-            ob.clearTags();
-            ob.addAllTags(occurrence.getTagsList());
-            if (!ob.hasFingerprint() || ob.getFingerprint() == null) {
+            if (occurrence.hasEventGroup()) ob.setEventGroup(occurrence.getEventGroup());
+            if (occurrence.hasEventClass()) ob.setEventClass(occurrence.getEventClass());
+            if (occurrence.hasEventClassKey()) ob.setEventClassKey(occurrence.getEventClassKey());
+            if (occurrence.hasEventClassMappingUuid()) ob.setEventClassMappingUuid(occurrence.getEventClassMappingUuid());
+            if (occurrence.hasEventKey()) ob.setEventKey(occurrence.getEventKey());
+            if (occurrence.hasSeverity()) ob.setSeverity(occurrence.getSeverity());
+            if (occurrence.hasMonitor()) ob.setMonitor(occurrence.getMonitor());
+            if (occurrence.hasAgent()) ob.setAgent(occurrence.getAgent());
+            if (occurrence.hasSyslogFacility()) ob.setSyslogFacility(occurrence.getSyslogFacility());
+            if (occurrence.hasSyslogPriority()) ob.setSyslogPriority(occurrence.getSyslogPriority());
+            if (occurrence.hasNtEventCode()) ob.setNtEventCode(occurrence.getNtEventCode());
+            if (occurrence.hasSummary()) ob.setSummary(occurrence.getSummary());
+            if (occurrence.hasMessage()) ob.setMessage(occurrence.getMessage());
+            List<EventTag> tagsList = occurrence.getTagsList();
+            if (tagsList != null && !tagsList.isEmpty()) {
+                ob.clearTags();
+                ob.addAllTags(tagsList);
+            }
+            if (!ob.hasFingerprint() || ob.getFingerprint() == null && occurrence.hasFingerprint()) {
                 ob.setFingerprint(occurrence.getFingerprint());
             }
-            if (occurrence.getActor() != null) {
-                ab.setElementUuid(occurrence.getActor().getElementUuid());
-                ab.setElementTypeId(occurrence.getActor().getElementTypeId());
-                ab.setElementIdentifier(occurrence.getActor().getElementIdentifier());
-                ab.setElementTitle(occurrence.getActor().getElementTitle());
-                ab.setElementSubUuid(occurrence.getActor().getElementSubUuid());
-                ab.setElementSubTypeId(occurrence.getActor().getElementSubTypeId());
-                ab.setElementSubIdentifier(occurrence.getActor().getElementSubIdentifier());
-                ab.setElementSubTitle(occurrence.getActor().getElementSubTitle());
+            EventActor actor = occurrence.getActor();
+            if (actor != null) {
+                if (actor.hasElementUuid()) ab.setElementUuid(actor.getElementUuid());
+                if (actor.hasElementTypeId()) ab.setElementTypeId(actor.getElementTypeId());
+                if (actor.hasElementIdentifier()) ab.setElementIdentifier(actor.getElementIdentifier());
+                if (actor.hasElementTitle()) ab.setElementTitle(actor.getElementTitle());
+                if (actor.hasElementSubUuid()) ab.setElementSubUuid(actor.getElementSubUuid());
+                if (actor.hasElementSubTypeId()) ab.setElementSubTypeId(actor.getElementSubTypeId());
+                if (actor.hasElementSubIdentifier()) ab.setElementSubIdentifier(actor.getElementSubIdentifier());
+                if (actor.hasElementSubTitle()) ab.setElementSubTitle(actor.getElementSubTitle());
             }
 
             // Update status except for ACKNOWLEDGED -> {NEW|SUPPRESSED}
