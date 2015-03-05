@@ -298,10 +298,10 @@ if __name__ == '__main__':
     log.debug('Schema files: %s', schema_files)
     migrator = dbtypes[options.dbtype]['migrator'](**vars(options))
     try:
-        if options.force:
-            print 'Dropping database: %s' % options.dbname
-            migrator.dropDatabase()
         if not (options.dbtype == 'mysql' and options.update_schema_only):
+            if options.force:
+                print 'Dropping database: %s' % options.dbname
+                migrator.dropDatabase()
             print 'Creating database: %s' % options.dbname
             migrator.createDatabase()
             migrator.initializeDatabase()
