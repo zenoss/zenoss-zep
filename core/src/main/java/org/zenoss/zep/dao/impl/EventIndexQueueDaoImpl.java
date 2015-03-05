@@ -10,6 +10,7 @@
 
 package org.zenoss.zep.dao.impl;
 
+import com.codahale.metrics.annotation.Timed;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.jdbc.core.RowMapper;
@@ -23,18 +24,13 @@ import org.zenoss.zep.dao.EventIndexQueueDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.events.EventIndexQueueSizeEvent;
-import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.*;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Gauge;
@@ -108,6 +104,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
 
     @Override
     @TransactionalRollbackAllExceptions
+    @Timed
     public List<Long> indexEvents(final EventIndexHandler handler, final int limit,
                                   final long maxUpdateTime) throws ZepException {
         final Map<String,Object> selectFields = new HashMap<String,Object>();
@@ -134,48 +131,92 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
         }
 
         final Set<String> eventUuids = new HashSet<String>();
-        final List<Long> indexQueueIds = this.template.query(sql, new RowMapper<Long>() {
-            @Override
-            public Long mapRow(ResultSet rs, int rowNum) throws SQLException {
-                final long iqId = rs.getLong("iq_id");
-                final String iqUuid = uuidConverter.fromDatabaseType(rs, "iq_uuid");
-                // Don't process the same event multiple times.
-                if (eventUuids.add(iqUuid)) {
-                    final Object uuid = rs.getObject("uuid");
-                    if (uuid != null) {
-                        EventSummary summary = rowMapper.mapRow(rs, rowNum);
-                        try {
-                            handler.handle(summary);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e.getLocalizedMessage(), e);
+        final List<EventSummary> indexed = new ArrayList<EventSummary>();
+        final List<String> deleted = new ArrayList<String>();
+        final List<Long> indexQueueIds;
+        try {
+            indexQueueIds = metrics.timer(getClass().getName() + ".indexEventsQuery").time(new Callable<List<Long>>() {
+                @Override
+                public List<Long> call() throws Exception {
+                    return template.query(sql, new RowMapper<Long>() {
+                        @Override
+                        public Long mapRow(ResultSet rs, int rowNum) throws SQLException {
+                            final long iqId = rs.getLong("iq_id");
+                            final String iqUuid = uuidConverter.fromDatabaseType(rs, "iq_uuid");
+                            // Don't process the same event multiple times.
+                            if (eventUuids.add(iqUuid)) {
+                                final Object uuid = rs.getObject("uuid");
+                                if (uuid != null) {
+                                    indexed.add(rowMapper.mapRow(rs, rowNum));
+                                }
+                                else {
+                                    deleted.add(iqUuid);
+                                }
+                            }
+                            return iqId;
                         }
-                    }
-                    else {
-                        try {
-                            handler.handleDeleted(iqUuid);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e.getLocalizedMessage(), e);
-                        }
-                    }
+                    }, selectFields);
                 }
-                return iqId;
-            }
-        }, selectFields);
-        
-        if (!indexQueueIds.isEmpty()) {
-            try {
-                handler.handleComplete();
-            } catch (Exception e) {
-                throw new ZepException(e.getLocalizedMessage(), e);
-            }
+            });
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
 
-        // publish current size of event_*_index_queue table
-        this.lastQueueSize = this.template.queryForInt("SELECT COUNT(1) FROM " + this.queueTableName);
-        this.applicationEventPublisher.publishEvent(
-                new EventIndexQueueSizeEvent(this, tableName, this.lastQueueSize, limit)
-        );
+        try {
+            metrics.timer(getClass().getName() + ".indexEvents-handle").time(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    for (final EventSummary summary : indexed) {
+                        metrics.timer(getClass().getName() + ".indexEvents-handleOne").time(new Callable<Object>() {
+                            @Override
+                            public Object call() throws Exception {
+                                handler.handle(summary);
+                                return null;
+                            }
+                        });
+                    }
+                    return null;
+                }
+            });
+            metrics.timer(getClass().getName() + ".indexEvents-handleDelete").time(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    for (final String iqUuid : deleted) {
+                        metrics.timer(getClass().getName() + ".indexEvents-handleDeletedOne").time(new Callable<Object>() {
+                            @Override
+                            public Object call() throws Exception {
+                                handler.handleDeleted(iqUuid);
+                                return null;
+                            }
+                        });
+                    }
+                    return null;
+                }
+            });
 
+            if (!indexQueueIds.isEmpty()) {
+                metrics.timer(getClass().getName() + ".indexEvents-handleComplete").time(new Callable<Object>() {
+                    @Override
+                    public Object call() throws Exception {
+                        handler.handleComplete();
+                        return null;
+                    }
+                });
+            }
+
+            // publish current size of event_*_index_queue table
+            metrics.timer(getClass().getName() + ".indexEvents-count").time(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    lastQueueSize = template.queryForInt("SELECT COUNT(1) FROM " + queueTableName);
+                    applicationEventPublisher.publishEvent(
+                            new EventIndexQueueSizeEvent(this, tableName, lastQueueSize, limit));
+                    return null;
+                }
+            });
+        } catch (Exception e) {
+            throw new ZepException(e.getLocalizedMessage(), e);
+        }
         return indexQueueIds;
     }
 
