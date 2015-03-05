@@ -12,10 +12,20 @@ package org.zenoss.zep.dao;
 
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 
+import java.util.*;
+
 /**
  * Event index handler interface.
  */
 public interface EventIndexHandler {
+
+    /**
+     * Handler called (usually in batches) for each event before it is passed to {@link #handle(EventSummary)}.
+     * @param events The events to be handled.
+     * @throws Exception If an exception occurs.
+     */
+    public void prepareToHandle(Collection<EventSummary> events) throws Exception;
+
     /**
      * Handler called for each event summary to be indexed.
      * 

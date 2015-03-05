@@ -163,6 +163,13 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
         }
 
         try {
+            metrics.timer(getClass().getName() + ".indexEvents-prepareToHandle").time(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    handler.prepareToHandle(indexed);
+                    return null;
+                }
+            });
             metrics.timer(getClass().getName() + ".indexEvents-handle").time(new Callable<Object>() {
                 @Override
                 public Object call() throws Exception {

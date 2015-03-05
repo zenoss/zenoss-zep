@@ -13,11 +13,23 @@ package org.zenoss.zep.plugins;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
 
+import java.util.*;
+
 /**
  * Defines a post-index plug-in which operates on an eventSummary after it has
  * been persisted and indexed.
  */
 public abstract class EventPostIndexPlugin extends EventPlugin {
+    /**
+     * Prepare to process the eventSummaries. This method gives the plugin a chance to do some batch-oriented
+     * optimizations before processEvent is called for each individual event.
+     *
+     * @param eventSummaries The eventSummaries that will be passed to {@link #processEvent(EventSummary, EventPostIndexContext)}.
+     * @param context Context passed to EventPostIndexPlugin.
+     * @throws ZepException If an exception occurs.
+     */
+    public void preProcessEvents(Collection<EventSummary> eventSummaries, EventPostIndexContext context) throws ZepException {}
+
     /**
      * Processes the eventSummary.
      * 

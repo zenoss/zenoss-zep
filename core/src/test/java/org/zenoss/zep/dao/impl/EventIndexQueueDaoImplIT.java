@@ -34,9 +34,7 @@ import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.impl.MultiBackendEventIndexDao;
 import org.zenoss.zep.index.impl.lucene.LuceneEventIndexBackend;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.*;
@@ -106,6 +104,11 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         private List<EventSummary> indexed = new ArrayList<EventSummary>();
         private List<String> deleted = new ArrayList<String>();
         private AtomicBoolean completed = new AtomicBoolean(false);
+
+        @Override
+        public void prepareToHandle(Collection<EventSummary> events) throws Exception {
+            //noop
+        }
 
         @Override
         public void handle(EventSummary event) throws Exception {
