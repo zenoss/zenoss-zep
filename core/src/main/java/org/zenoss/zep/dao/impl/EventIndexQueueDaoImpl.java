@@ -29,12 +29,7 @@ import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Gauge;
@@ -134,6 +129,8 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
         }
 
         final Set<String> eventUuids = new HashSet<String>();
+        final List<EventSummary> indexed = new ArrayList<EventSummary>();
+        final List<String> deleted = new ArrayList<String>();
         final List<Long> indexQueueIds = this.template.query(sql, new RowMapper<Long>() {
             @Override
             public Long mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -143,25 +140,37 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
                 if (eventUuids.add(iqUuid)) {
                     final Object uuid = rs.getObject("uuid");
                     if (uuid != null) {
-                        EventSummary summary = rowMapper.mapRow(rs, rowNum);
-                        try {
-                            handler.handle(summary);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e.getLocalizedMessage(), e);
-                        }
+                        indexed.add(rowMapper.mapRow(rs, rowNum));
                     }
                     else {
-                        try {
-                            handler.handleDeleted(iqUuid);
-                        } catch (Exception e) {
-                            throw new RuntimeException(e.getLocalizedMessage(), e);
-                        }
+                        deleted.add(iqUuid);
                     }
                 }
                 return iqId;
             }
         }, selectFields);
-        
+
+        if (!indexed.isEmpty()) {
+            try {
+                handler.prepareToHandle(indexed);
+            } catch (Exception e) {
+                throw new RuntimeException(e.getLocalizedMessage(), e);
+            }
+        }
+        for (EventSummary summary : indexed) {
+            try {
+                handler.handle(summary);
+            } catch (Exception e) {
+                throw new RuntimeException(e.getLocalizedMessage(), e);
+            }
+        }
+        for (String iqUuid : deleted) {
+            try {
+                handler.handleDeleted(iqUuid);
+            } catch (Exception e) {
+                throw new RuntimeException(e.getLocalizedMessage(), e);
+            }
+        }
         if (!indexQueueIds.isEmpty()) {
             try {
                 handler.handleComplete();

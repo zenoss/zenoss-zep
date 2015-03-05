@@ -53,15 +53,7 @@ import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -595,6 +587,45 @@ public class TriggerPlugin extends EventPostIndexPlugin {
     }
 
     @Override
+    public void preProcessEvents(Collection<EventSummary> eventSummaries, EventPostIndexContext context) throws ZepException {
+        Set<String> uuids = new HashSet<String>(eventSummaries.size());
+        for (EventSummary event : eventSummaries)
+            uuids.add(event.getUuid());
+        List<EventSignalSpool> spools = this.signalSpoolDao.findAllByEventSummaryUuids(uuids);
+        for (EventSignalSpool spool : spools) {
+            rememberSpool(spool, context);
+        }
+    }
+
+    private void rememberSpool(EventSignalSpool spool, EventPostIndexContext context) {
+        Map<String, Map<String, EventSignalSpool>> state = getStateFromContext(context);
+        Map<String, EventSignalSpool> m = state.get(spool.getSubscriptionUuid());
+        if (m == null) {
+            m = new HashMap<String, EventSignalSpool>();
+            state.put(spool.getSubscriptionUuid(), m);
+        }
+        m.put(spool.getEventSummaryUuid(), spool);
+    }
+
+    private EventSignalSpool getSpoolBySubscriptionAndEventSummary(EventPostIndexContext context,
+                                                                   EventTriggerSubscription subscription,
+                                                                   EventSummary eventSummary) {
+        Map<String, Map<String, EventSignalSpool>> state = getStateFromContext(context);
+        Map<String, EventSignalSpool> m = state.get(subscription.getUuid());
+        if (m == null) return null;
+        return m.get(eventSummary.getUuid());
+    }
+
+    private Map<String,Map<String,EventSignalSpool>> getStateFromContext(EventPostIndexContext context) {
+        Map<String,Map<String,EventSignalSpool>> state = (Map<String, Map<String, EventSignalSpool>>) context.getPluginState(this);
+        if (state == null) {
+            state = new HashMap<String, Map<String, EventSignalSpool>>();
+            context.setPluginState(this, state);
+        }
+        return state;
+    }
+
+    @Override
     public void processEvent(EventSummary eventSummary, EventPostIndexContext context) throws ZepException {
         // Ignore events in the archive.
         if (context.isArchive()) {
@@ -603,34 +634,13 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         final EventStatus evtstatus = eventSummary.getStatus();
 
         if (OPEN_STATUSES.contains(evtstatus)) {
-            processOpenEvent(eventSummary);
+            processOpenEvent(eventSummary, context);
         } else {
             batchState.get().eventsToDeleteFromSpool.put(eventSummary.getUuid(), eventSummary);
         }
     }
 
-    /**
-     * Returns all EventSignalSpool objects keyed by the subscription UUID and event summary UUID for the specified
-     * event summary.
-     *
-     * @param eventSummary The event summary.
-     * @return A map of EventSignalSpool objects (keyed by the subscription UUID and event summary UUID) for the
-     * specified event summary.
-     * @throws ZepException If a failure occurs querying the database.
-     */
-    private Map<String,EventSignalSpool> getSpoolsForEventBySubcription(EventSummary eventSummary) throws ZepException {
-        final List<EventSignalSpool> spools = this.signalSpoolDao.findAllByEventSummaryUuid(eventSummary.getUuid());
-        if (spools.isEmpty()) {
-            return Collections.emptyMap();
-        }
-        final Map<String,EventSignalSpool> spoolsBySubscription = new HashMap<String, EventSignalSpool>(spools.size());
-        for (EventSignalSpool spool : spools) {
-            spoolsBySubscription.put(spool.getSubscriptionUuid() + '|' + spool.getEventSummaryUuid(), spool);
-        }
-        return spoolsBySubscription;
-    }
-
-    private void processOpenEvent(EventSummary eventSummary) throws ZepException {
+    private void processOpenEvent(EventSummary eventSummary, EventPostIndexContext context) throws ZepException {
         final long now = System.currentTimeMillis();
         BatchIndexState state = batchState.get();
         List<EventTrigger> triggers = state.triggers;
@@ -644,7 +654,6 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         boolean rescheduleSpool = false;
 
         RuleContext ruleContext = null;
-        Map<String,EventSignalSpool> spoolsBySubscription = null;
 
         if (!triggers.isEmpty()) {
             logger.debug("Event: {}", eventSummary);
@@ -686,13 +695,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                 final int delaySeconds = subscription.getDelaySeconds();
                 final int repeatSeconds = subscription.getRepeatSeconds();
 
-                // see if any signalling spool already exists for this trigger-eventSummary
-                // combination
-                if (spoolsBySubscription == null) {
-                    spoolsBySubscription = getSpoolsForEventBySubcription(eventSummary);
-                }
-                EventSignalSpool currentSpool = spoolsBySubscription.get(subscription.getUuid() + '|' +
-                        eventSummary.getUuid());
+                EventSignalSpool currentSpool = getSpoolBySubscriptionAndEventSummary(context, subscription,eventSummary);
                 boolean spoolExists = (currentSpool != null);
                 boolean spoolModified = false;
 
