@@ -53,25 +53,37 @@ class SchemaMigration(object):
         raise NotImplementedError()
 
 class MysqlMigration(SchemaMigration):
-    def _getAdminCommand(self):
+
+    def _getCommand(self):
+        user = self.dbadminuser
+        password = self.dbadminpass
+
+        # If we are calling update_schema_only, we assume the db has
+        # been created and initialized so we can use the not admin user
+        # to run commands
+        #
+        if self.update_schema_only:
+            user = self.dbuser
+            password = self.dbpass
+
         cmd = ['mysql', '--batch', '--skip-column-names']
         if self.dbhost:
             cmd.extend(['--host', self.dbhost])
         if self.dbport:
             cmd.extend(['--port', str(self.dbport)])
-        if self.dbadminuser:
-            cmd.extend(['--user', self.dbadminuser])
-        if self.dbadminpass:
-            cmd.extend(['--password=%s' % self.dbadminpass])
+        if user:
+            cmd.extend(['--user', user])
+        if password:
+            cmd.extend(['--password=%s' % password])
         return cmd
 
     def dropDatabase(self):
-        cmd = self._getAdminCommand()
+        cmd = self._getCommand()
         cmd.extend(['-e', 'DROP DATABASE IF EXISTS %s' % self.dbname])
         subprocess.check_call(cmd)
 
     def createDatabase(self):
-        cmd = self._getAdminCommand()
+        cmd = self._getCommand()
         cmd_in = "CREATE DATABASE IF NOT EXISTS {0.dbname};\n".format(self)
         if self.dbhost and self.dbuser and self.dbpass:
             cmd_in += """
@@ -93,7 +105,7 @@ FLUSH PRIVILEGES;""".format(self)
         pass
 
     def getSchemaVersion(self):
-        cmd = self._getAdminCommand()
+        cmd = self._getCommand()
         cmd.extend(['-e', 'SELECT MAX(version) FROM %s.schema_version' % self.dbname])
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         cmd_out, cmd_err = p.communicate()
@@ -102,7 +114,7 @@ FLUSH PRIVILEGES;""".format(self)
         return int(version) if version else 0
 
     def applySchemaFile(self, filename):
-        cmd = self._getAdminCommand()
+        cmd = self._getCommand()
         cmd.extend([self.dbname])
         cmd_in = "SOURCE {0};".format(filename)
 
@@ -245,6 +257,8 @@ if __name__ == '__main__':
     parser.add_option('--schemadir', dest='schemadir', default=os.path.join(zenhome, 'share', 'zeneventserver', 'sql'))
     parser.add_option('--force', dest='force', action='store_true', help='Overwrite existing database')
     parser.add_option('-v', '--logseverity', default='INFO', dest='logseverity', help='Logging severity threshold')
+    parser.add_option('--update_schema_only', dest='update_schema_only', action='store_true', default=False, help='Apply schema files only')
+
     options, args = parser.parse_args()
     try:
         loglevel = int(options.logseverity)
@@ -284,12 +298,13 @@ if __name__ == '__main__':
     log.debug('Schema files: %s', schema_files)
     migrator = dbtypes[options.dbtype]['migrator'](**vars(options))
     try:
-        if options.force:
-            print 'Dropping database: %s' % options.dbname
-            migrator.dropDatabase()
-        print 'Creating database: %s' % options.dbname
-        migrator.createDatabase()
-        migrator.initializeDatabase()
+        if not (options.dbtype == 'mysql' and options.update_schema_only):
+            if options.force:
+                print 'Dropping database: %s' % options.dbname
+                migrator.dropDatabase()
+            print 'Creating database: %s' % options.dbname
+            migrator.createDatabase()
+            migrator.initializeDatabase()
         current_version = migrator.getSchemaVersion()
         log.debug('Current schema version: %d', current_version)
         for schema_version, schema_file in schema_files:
