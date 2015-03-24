@@ -27,6 +27,7 @@ import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventIndexQueueDao;
 import org.zenoss.zep.dao.EventSummaryBaseDao;
 import org.zenoss.zep.dao.EventSummaryDao;
+import org.zenoss.zep.dao.IndexQueueID;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
@@ -132,7 +133,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
                             boolean archive) throws ZepException {
         EventSummary eventSummary = create(eventSummaryBaseDao, archive);
         TestEventIndexHandler handler = new TestEventIndexHandler();
-        List<Long> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
+        List<IndexQueueID> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
         assertEquals(1, indexQueueIds.size());
         assertTrue(handler.completed.get());
         assertEquals(1, handler.indexed.size());
@@ -179,7 +180,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         EventSummary summaryWithNote = eventSummaryBaseDao.findByUuid(summary.getUuid());
 
         TestEventIndexHandler handler = new TestEventIndexHandler();
-        List<Long> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
+        List<IndexQueueID> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
         assertEquals(1, indexQueueIds.size());
         assertTrue(handler.completed.get());
         assertEquals(1, handler.indexed.size());
@@ -220,7 +221,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         }
 
         TestEventIndexHandler handler = new TestEventIndexHandler();
-        List<Long> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
+        List<IndexQueueID> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
         assertEquals(1, indexQueueIds.size());
         assertTrue(handler.completed.get());
         assertTrue(handler.indexed.isEmpty());
@@ -264,7 +265,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
             eventSummaryDao.create(event, new EventPreCreateContextImpl());
         }
         TestEventIndexHandler handler = new TestEventIndexHandler();
-        List<Long> indexQueueIds = eventSummaryIndexQueueDao.indexEvents(handler, 1000);
+        List<IndexQueueID> indexQueueIds = eventSummaryIndexQueueDao.indexEvents(handler, 1000);
         // The number of queue ids should be 500
         assertEquals(500, indexQueueIds.size());
         assertEquals(1, handler.indexed.size());

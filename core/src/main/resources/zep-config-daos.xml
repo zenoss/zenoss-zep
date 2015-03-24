@@ -53,6 +53,7 @@
         <property name="databaseCompatibility" ref="databaseCompatibility"/>
         <property name="nestedTransactionService" ref="nestedTransactionService"/>
         <property name="counters" ref="counters"/>
+        <property name="eventIndexQueue" ref="eventSummaryIndexQueueDao"/>
     </bean>
     <bean id="eventArchiveDao" class="org.zenoss.zep.dao.impl.EventArchiveDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
@@ -110,6 +111,8 @@
         <constructor-arg index="1" value="false" />
         <constructor-arg index="2" ref="eventDaoHelper" />
         <constructor-arg index="3" ref="databaseCompatibility" />
+        <property name="queueBuilder" ref="workQueueBuilder"/>
+        <property name="eventSummaryDao" ref="eventSummaryDao"/>
     </bean>
     <bean id="eventArchiveIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
         <qualifier value="archive" />
@@ -117,6 +120,8 @@
         <constructor-arg index="1" value="true" />
         <constructor-arg index="2" ref="eventDaoHelper" />
         <constructor-arg index="3" ref="databaseCompatibility" />
+        <property name="queueBuilder" ref="workQueueBuilder"/>
+        <property name="eventSummaryDao" ref="eventSummaryDao"/>
     </bean>
     <bean id="dbMaintenanceService" class="org.zenoss.zep.dao.impl.DBMaintenanceServiceImpl">
         <constructor-arg index="0" ref="dataSource" />

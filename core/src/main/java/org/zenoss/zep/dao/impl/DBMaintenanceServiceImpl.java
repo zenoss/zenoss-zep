@@ -140,8 +140,6 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
                         zepConfig.get(ELAPSED_WARN)),
                     String.valueOf(this.elapsedWarnThresholdSeconds)));
 
-        this.tablesToOptimize.add("event_summary_index_queue");
-        this.tablesToOptimize.add("event_archive_index_queue");
         this.tablesToOptimize.add("event_trigger_signal_spool");
         this.tablesToOptimize.add("daemon_heartbeat");
     }

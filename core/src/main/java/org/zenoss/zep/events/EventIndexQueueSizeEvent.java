@@ -6,18 +6,18 @@ package org.zenoss.zep.events;
 
 public class EventIndexQueueSizeEvent extends ZepEvent {
 
-    private final int size;
+    private final long size;
     private final String tableName;
     private final int limit;
 
-    public EventIndexQueueSizeEvent(Object source, String tableName, int size, int limit) {
+    public EventIndexQueueSizeEvent(Object source, String tableName, long size, int limit) {
         super(source);
         this.size = size;
         this.tableName = tableName;
         this.limit = limit;
     }
 
-    public int getSize() {
+    public long getSize() {
         return this.size;
     }
 

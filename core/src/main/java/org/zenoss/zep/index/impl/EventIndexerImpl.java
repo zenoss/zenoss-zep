@@ -10,26 +10,20 @@
 
 package org.zenoss.zep.index.impl;
 
-import com.google.api.client.util.Lists;
-import com.google.api.client.util.Maps;
-import com.google.common.base.Predicate;
-import com.google.common.collect.Iterables;
+import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationListener;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.zep.PluginService;
 import org.zenoss.zep.ZepConstants;
 import org.zenoss.zep.ZepException;
-import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventIndexQueueDao;
-import org.zenoss.zep.dao.EventSignalSpool;
-import org.zenoss.zep.dao.impl.DaoUtils;
+import org.zenoss.zep.dao.IndexQueueID;
 import org.zenoss.zep.events.ZepConfigUpdatedEvent;
 import org.zenoss.zep.impl.ThreadRenamingRunnable;
 import org.zenoss.zep.index.EventIndexDao;
@@ -37,18 +31,17 @@ import org.zenoss.zep.index.EventIndexer;
 import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
-import java.util.*;
-import java.util.concurrent.Callable;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import com.codahale.metrics.annotation.Timed;
-
-import javax.annotation.Nullable;
 
 public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepConfigUpdatedEvent> {
     private static final Logger logger = LoggerFactory.getLogger(EventIndexerImpl.class);
@@ -64,7 +57,6 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     private PluginService pluginService;
     private volatile int limit;
     private volatile long intervalMilliseconds;
-    private ConfigDao configDao;
 
     public EventIndexerImpl(EventIndexDao indexDao) {
         this.indexDao = indexDao;
@@ -210,7 +202,8 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
 
     private int doIndex(long throughTime) throws ZepException {
         final EventPostIndexContext context = new EventPostIndexContext() {
-            private final Map<EventPostIndexPlugin,Object> pluginState = new HashMap<EventPostIndexPlugin, Object>();
+            private final Map<EventPostIndexPlugin, Object> pluginState = new HashMap<EventPostIndexPlugin, Object>();
+
             @Override
             public boolean isArchive() {
                 return !isSummary;
@@ -228,7 +221,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
         };
         final List<EventPostIndexPlugin> plugins = this.pluginService.getPluginsByType(EventPostIndexPlugin.class);
         final AtomicBoolean calledStartBatch = new AtomicBoolean();
-        final List<Long> indexQueueIds = queueDao.indexEvents(new EventIndexHandler() {
+        final List<IndexQueueID> indexQueueIds = queueDao.indexEvents(new EventIndexHandler() {
             @Override
             public void prepareToHandle(Collection<EventSummary> events) throws Exception {
                 List<EventSummary> willPostProcess = new ArrayList<EventSummary>(events.size());
@@ -289,12 +282,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
         if (!indexQueueIds.isEmpty()) {
             logger.debug("Completed indexing {} events on {}", indexQueueIds.size(), indexDao.getName());
             try {
-                DaoUtils.deadlockRetry(new Callable<Integer>() {
-                    @Override
-                    public Integer call() throws Exception {
-                        return queueDao.deleteIndexQueueIds(indexQueueIds);
-                    }
-                });
+                queueDao.deleteIndexQueueIds(indexQueueIds);
             } catch (ZepException e) {
                 throw e;
             } catch (Exception e) {
