@@ -91,10 +91,6 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     private boolean txSynchronizedQueue = true;
 
-    public void setTxSynchronizedQueue(boolean val){
-	txSynchronizedQueue = val;
-    }
-
     private final ConcurrentMap<String, List<Event>> deduping = new ConcurrentHashMap<String, List<Event>>();
 
     private final DataSource dataSource;
@@ -176,6 +172,11 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     public void setCounters(final Counters counters) {
         this.counters = counters;
+    }
+
+    @Override
+    public void setTxSynchronizedQueue(boolean val){
+	txSynchronizedQueue = val;
     }
 
     @Override

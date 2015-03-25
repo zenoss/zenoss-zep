@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2011, 2014 all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventStatus;
@@ -36,7 +35,11 @@ import org.zenoss.zep.index.impl.MultiBackendEventIndexDao;
 import org.zenoss.zep.index.impl.RedisWorkQueue;
 import org.zenoss.zep.index.impl.lucene.LuceneEventIndexBackend;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.Assert.*;
@@ -44,7 +47,7 @@ import static org.junit.Assert.*;
 /**
  * Integration tests for EventIndexQueueDao.
  */
-@ContextConfiguration({ "classpath:zep-config.xml"})
+@ContextConfiguration({"classpath:zep-config.xml"})
 public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
     @Autowired
     public RedisWorkQueue workQueue;
@@ -84,16 +87,16 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
 
     @Before
     public void setup() throws ZepException {
-        ((MultiBackendEventIndexDao)eventSummaryIndexDao).disableRebuilders();
-        ((MultiBackendEventIndexDao)eventArchiveIndexDao).disableRebuilders();
-        ((MultiBackendEventIndexDao)eventSummaryIndexDao).disableAsyncProcessing();
-        ((MultiBackendEventIndexDao)eventArchiveIndexDao).disableAsyncProcessing();
+        ((MultiBackendEventIndexDao) eventSummaryIndexDao).disableRebuilders();
+        ((MultiBackendEventIndexDao) eventArchiveIndexDao).disableRebuilders();
+        ((MultiBackendEventIndexDao) eventSummaryIndexDao).disableAsyncProcessing();
+        ((MultiBackendEventIndexDao) eventArchiveIndexDao).disableAsyncProcessing();
         eventSummaryIndexDao.clear();
         eventArchiveIndexDao.clear();
         eventSummaryLuceneIndexBackend.setReaderReopenInterval(0);
         eventArchiveLuceneIndexBackend.setReaderReopenInterval(0);
-	this.workQueue.clearAll();
-	    //        this.simpleJdbcTemplate.update("TRUNCATE TABLE event_summary_index_queue");
+        eventSummaryDao.setTxSynchronizedQueue(false);
+        this.workQueue.clearAll();
         this.simpleJdbcTemplate.update("TRUNCATE TABLE event_archive_index_queue");
     }
 
@@ -135,7 +138,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
     }
 
     private EventSummary testCreate(EventSummaryBaseDao eventSummaryBaseDao, EventIndexQueueDao eventIndexQueueDao,
-                            boolean archive) throws ZepException {
+                                    boolean archive) throws ZepException {
         EventSummary eventSummary = create(eventSummaryBaseDao, archive);
         TestEventIndexHandler handler = new TestEventIndexHandler();
         List<IndexQueueID> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
@@ -157,7 +160,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
     }
 
     public static EventSummary removeIsArchiveDetail(EventSummary input) {
-        for (int i=0; i < input.getOccurrence(0).getDetailsCount(); i++) {
+        for (int i = 0; i < input.getOccurrence(0).getDetailsCount(); i++) {
             if ("is_archive".equals(input.getOccurrence(0).getDetails(i).getName())) {
                 EventSummary.Builder builder = EventSummary.newBuilder(input);
                 Event.Builder eventBuilder = builder.getOccurrenceBuilder(0);
@@ -169,7 +172,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
     }
 
     @Test
-    public void testIndexCreatedEvents()  throws ZepException {
+    public void testIndexCreatedEvents() throws ZepException {
         testCreate(eventSummaryDao, eventSummaryIndexQueueDao, false);
         testCreate(eventArchiveDao, eventArchiveIndexQueueDao, true);
     }
@@ -216,22 +219,22 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         String tableName = (archive) ? EventConstants.TABLE_EVENT_ARCHIVE : EventConstants.TABLE_EVENT_SUMMARY;
         // event_summary triggers were dropped after adding the percona external tool for optimize
         // emulating the old event_summary triggers...
-        if(!archive) {
-	    int closed = eventSummaryDao.close(Collections.singletonList(summary.getUuid()), UUID.randomUUID().toString(), "test");
+        if (!archive) {
+            int closed = eventSummaryDao.close(Collections.singletonList(summary.getUuid()), UUID.randomUUID().toString(), "test");
             assertEquals(1, closed);
-	    TestEventIndexHandler handler = new TestEventIndexHandler();
-	    List<IndexQueueID> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
-	    assertEquals(1, indexQueueIds.size());
-	    assertTrue(handler.completed.get());
-	    assertEquals(1, handler.indexed.size());
-	    assertTrue(handler.deleted.isEmpty());
-	    int archived = eventSummaryDao.archive(Collections.singletonList(summary.getUuid()));
+            TestEventIndexHandler handler = new TestEventIndexHandler();
+            List<IndexQueueID> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
+            assertEquals(1, indexQueueIds.size());
+            assertTrue(handler.completed.get());
+            assertEquals(1, handler.indexed.size());
+            assertTrue(handler.deleted.isEmpty());
+            int archived = eventSummaryDao.archive(Collections.singletonList(summary.getUuid()));
             assertEquals(1, archived);
-        }else{
-	    int numDeleted = this.simpleJdbcTemplate.update("DELETE FROM " + tableName + " WHERE uuid=?",
-							    uuidConverter.toDatabaseType(summary.getUuid()));
-	    assertEquals(1, numDeleted);
-	}
+        } else {
+            int numDeleted = this.simpleJdbcTemplate.update("DELETE FROM " + tableName + " WHERE uuid=?",
+                    uuidConverter.toDatabaseType(summary.getUuid()));
+            assertEquals(1, numDeleted);
+        }
 
         TestEventIndexHandler handler = new TestEventIndexHandler();
         List<IndexQueueID> indexQueueIds = eventIndexQueueDao.indexEvents(handler, 1000);
