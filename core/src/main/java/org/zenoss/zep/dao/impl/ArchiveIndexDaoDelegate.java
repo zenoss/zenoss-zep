@@ -49,12 +49,6 @@ public class ArchiveIndexDaoDelegate implements IndexDaoDelegate {
         return new PollArchiveIndexEvents(limit, maxUpdateTime);
     }
 
-
-    @Override
-    public void queueEvents(List<String> uuids, long timestamp) {
-        throw new UnsupportedOperationException();
-    }
-
     @Override
     @Transactional(readOnly = true)
     public long getQueueLength() {

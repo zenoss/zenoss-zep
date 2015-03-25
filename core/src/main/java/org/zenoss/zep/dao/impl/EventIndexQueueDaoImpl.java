@@ -59,8 +59,8 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
         this.metrics = metrics;
         String metricName = "";
         String baseName = this.getClass().getCanonicalName();
-        metricName = MetricRegistry.name(baseName, indexDaoDelegate.getQueueName(), "size");
         this.indexedCounter = metrics.counter(MetricRegistry.name(baseName, indexDaoDelegate.getQueueName(), "indexed"));
+        metricName = MetricRegistry.name(baseName, indexDaoDelegate.getQueueName(), "size");
         this.metrics.register(metricName, new Gauge<Long>() {
             @Override
             public Long getValue() {
@@ -117,11 +117,6 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
 
         this.indexedCounter.inc(eventsIDs.size());
         return eventsIDs;
-    }
-
-    @Override
-    public void queueEvents(List<String> uuids, long timestamp) {
-        indexDaoDelegate.queueEvents(uuids, timestamp);
     }
 
     @Override

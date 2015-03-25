@@ -9,9 +9,7 @@ import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.IndexQueueID;
 import org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl.PollEvents;
 import org.zenoss.zep.index.WorkQueue;
-import org.zenoss.zep.index.WorkQueueBuilder;
 import org.zenoss.zep.index.impl.EventIndexBackendTask;
-import org.zenoss.zep.index.impl.RedisWorkQueueBuilder;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -20,33 +18,19 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 public class SummaryIndexDaoDelegate implements IndexDaoDelegate {
-    final private String queueName;
+    final private String queueName = EventConstants.TABLE_EVENT_SUMMARY_INDEX;
     final private WorkQueue redisWorkQueue;
-    private EventSummaryDao eventSummaryDao;
+    final private EventSummaryDao eventSummaryDao;
 
 
-
-    public SummaryIndexDaoDelegate(WorkQueueBuilder builder) {
-        this.queueName = EventConstants.TABLE_EVENT_SUMMARY + "_index_queue";
-        this.redisWorkQueue = builder.build(queueName);
+    public SummaryIndexDaoDelegate(WorkQueue redisWorkQueue, EventSummaryDao eventSummaryDao) {
+        this.redisWorkQueue = redisWorkQueue;
+        this.eventSummaryDao = eventSummaryDao;
     }
 
     @Override
     public PollEvents pollEvents(int limit, long maxUpdateTime) {
         return new RedisPollEvents(limit, maxUpdateTime, eventSummaryDao);
-    }
-
-    @Override
-    public void queueEvents(List<String> uuids, long timestamp) {
-        if (uuids.isEmpty()) {
-            return;
-        }
-
-        List<EventIndexBackendTask> tasks = Lists.newArrayListWithCapacity(uuids.size());
-        for (String uuid : uuids) {
-            tasks.add(EventIndexBackendTask.Index(uuid, timestamp));
-        }
-        redisWorkQueue.addAll(tasks);
     }
 
     @Override
@@ -71,10 +55,6 @@ public class SummaryIndexDaoDelegate implements IndexDaoDelegate {
     @Override
     public String getQueueName() {
         return queueName;
-    }
-
-    public void setEventSummaryDao(EventSummaryDao eventSummaryDao) {
-        this.eventSummaryDao = eventSummaryDao;
     }
 
     private class RedisPollEvents implements PollEvents {

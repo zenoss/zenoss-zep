@@ -39,8 +39,6 @@ public interface EventIndexQueueDao {
      */
     public List<IndexQueueID> indexEvents(EventIndexHandler handler, int limit, long maxUpdateTime) throws ZepException;
 
-    public void queueEvents(List<String> uuid, long timestamp);
-
     public long getQueueLength();
 
     /**

@@ -48,7 +48,6 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventBatch;
 import org.zenoss.zep.dao.EventBatchParams;
-import org.zenoss.zep.dao.EventIndexQueueDao;
 import org.zenoss.zep.dao.EventSummaryDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.DatabaseType;
@@ -57,6 +56,8 @@ import org.zenoss.zep.dao.impl.compat.NestedTransactionContext;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
+import org.zenoss.zep.index.WorkQueue;
+import org.zenoss.zep.index.impl.EventIndexBackendTask;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 
 import javax.sql.DataSource;
@@ -111,7 +112,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     private RowMapper<EventSummary.Builder> eventDedupMapper;
 
     private Counters counters;
-    private EventIndexQueueDao eventIndexQueue;
+    private WorkQueue eventIndexQueue;
 
     public EventSummaryDaoImpl(DataSource dataSource) throws MetaDataAccessException {
         this.dataSource = dataSource;
@@ -580,7 +581,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         return results;
     }
 
-    public void setEventIndexQueue(EventIndexQueueDao eventIndexQueue) {
+    public void setEventIndexQueue(WorkQueue eventIndexQueue) {
         this.eventIndexQueue = eventIndexQueue;
     }
 
@@ -1290,7 +1291,15 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
             @Override
             public void afterCommit() {
-                eventIndexQueue.queueEvents(eventUuids, updateTime);
+                if (eventUuids.isEmpty()) {
+                    return;
+                }
+
+                List<EventIndexBackendTask> tasks = Lists.newArrayListWithCapacity(eventUuids.size());
+                for (String uuid : eventUuids) {
+                    tasks.add(EventIndexBackendTask.Index(uuid, updateTime));
+                }
+                eventIndexQueue.addAll(tasks);
             }
         });
     }
