@@ -85,6 +85,18 @@ public class RedisWorkQueue implements WorkQueue {
                 .toString();
     }
 
+    public void clearAll() {
+        pool.useJedis(new JedisUser<Object>() {
+            @Override
+		public Object use(Jedis jedis) throws RedisTransactionCollision {
+                jedis.del(queueListKey);
+                jedis.del(queueSetKey);
+                jedis.del(holdZsetKey);
+                return null;
+            }
+	    });
+    }
+
     @Override
     public boolean isReady() {
         return this.pool.isReady();
@@ -205,7 +217,7 @@ public class RedisWorkQueue implements WorkQueue {
         while (result == null || result.isEmpty()) {
             final long remaining = due - System.nanoTime();
             if (remaining <= 0)
-                return null;
+                return Collections.emptyList();
             final long nanos = (remaining < pollIntervalInNanos) ? remaining : pollIntervalInNanos;
             Thread.sleep(nanos / 1000000, (int)nanos % 1000000);
             result = poll(maxSize);

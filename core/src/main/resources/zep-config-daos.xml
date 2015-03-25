@@ -54,6 +54,7 @@
         <property name="nestedTransactionService" ref="nestedTransactionService"/>
         <property name="counters" ref="counters"/>
         <property name="eventIndexQueue" ref="summaryIndexQueue"/>
+        <property name="txSynchronizedQueue" value="${zep.txSynchronizedIndexQueue:true}"/>
     </bean>
     <bean id="eventArchiveDao" class="org.zenoss.zep.dao.impl.EventArchiveDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>

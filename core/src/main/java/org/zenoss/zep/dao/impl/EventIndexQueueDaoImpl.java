@@ -55,8 +55,8 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
     }
 
     @Resource(name = "metrics")
-    public void setBean(MetricRegistry metrics) {
-        this.metrics = metrics;
+    public void setMetrics(MetricRegistry metrics) {
+	this.metrics = metrics;
         String metricName = "";
         String baseName = this.getClass().getCanonicalName();
         this.indexedCounter = metrics.counter(MetricRegistry.name(baseName, indexDaoDelegate.getQueueName(), "indexed"));

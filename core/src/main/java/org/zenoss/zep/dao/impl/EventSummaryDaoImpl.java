@@ -89,6 +89,12 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     @Autowired
     protected MetricRegistry metricRegistry;
 
+    private boolean txSynchronizedQueue = true;
+
+    public void setTxSynchronizedQueue(boolean val){
+	txSynchronizedQueue = val;
+    }
+
     private final ConcurrentMap<String, List<Event>> deduping = new ConcurrentHashMap<String, List<Event>>();
 
     private final DataSource dataSource;
@@ -1283,24 +1289,33 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         this.indexSignal(ids, updateTime);
     }
 
-    private void indexSignal(final String eventUuid, final long updateTime) throws ZepException {
+    private void indexSignal(final String eventUuid, final long updateTime) {
         this.indexSignal(Collections.singletonList(eventUuid), updateTime);
     }
 
-    private void indexSignal(final List<String> eventUuids, final long updateTime) throws ZepException {
+    private void indexSignal(final List<String> eventUuids, final long updateTime) {
+	if (!txSynchronizedQueue){
+	    doIndexSignal(eventUuids, updateTime);
+	    return;
+	}
+
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
             @Override
             public void afterCommit() {
-                if (eventUuids.isEmpty()) {
-                    return;
-                }
-
-                List<EventIndexBackendTask> tasks = Lists.newArrayListWithCapacity(eventUuids.size());
-                for (String uuid : eventUuids) {
-                    tasks.add(EventIndexBackendTask.Index(uuid, updateTime));
-                }
-                eventIndexQueue.addAll(tasks);
+		doIndexSignal(eventUuids, updateTime);
             }
-        });
+	    });
+    }
+
+    private void doIndexSignal(final List<String> eventUuids, final long updateTime){
+	if (eventUuids.isEmpty()) {
+	    return;
+	}
+
+	List<EventIndexBackendTask> tasks = Lists.newArrayListWithCapacity(eventUuids.size());
+	for (String uuid : eventUuids) {
+	    tasks.add(EventIndexBackendTask.Index(uuid, updateTime));
+	}
+	eventIndexQueue.addAll(tasks);
     }
 }
