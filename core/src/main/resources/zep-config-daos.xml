@@ -112,7 +112,7 @@
     <bean id="summaryIndexQueueDelegate" class="org.zenoss.zep.dao.impl.SummaryIndexDaoDelegate">
         <qualifier value="summary" />
         <constructor-arg index="0" ref="workQueueBuilder" />
-        <constructor-arg index="1" ref="eventSummaryDao" />
+        <property name="eventSummaryDao" ref="eventSummaryDao" />
     </bean>
     <bean id="eventArchiveIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
         <qualifier value="archive" />

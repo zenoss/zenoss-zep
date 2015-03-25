@@ -20,14 +20,13 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 public class SummaryIndexDaoDelegate implements IndexDaoDelegate {
-    private final String queueName;
+    final private String queueName;
     final private WorkQueue redisWorkQueue;
-    final private EventSummaryDao eventSummaryDao;
+    private EventSummaryDao eventSummaryDao;
 
 
 
-    public SummaryIndexDaoDelegate(WorkQueueBuilder builder, EventSummaryDao eventSummaryDao) {
-        this.eventSummaryDao = eventSummaryDao;
+    public SummaryIndexDaoDelegate(WorkQueueBuilder builder) {
         this.queueName = EventConstants.TABLE_EVENT_SUMMARY + "_index_queue";
         this.redisWorkQueue = builder.build(queueName);
     }
@@ -72,6 +71,10 @@ public class SummaryIndexDaoDelegate implements IndexDaoDelegate {
     @Override
     public String getQueueName() {
         return queueName;
+    }
+
+    public void setEventSummaryDao(EventSummaryDao eventSummaryDao) {
+        this.eventSummaryDao = eventSummaryDao;
     }
 
     private class RedisPollEvents implements PollEvents {
