@@ -107,21 +107,22 @@
     </bean>
     <bean id="eventSummaryIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
         <qualifier value="summary" />
-        <constructor-arg index="0" ref="dataSource" />
-        <constructor-arg index="1" value="false" />
-        <constructor-arg index="2" ref="eventDaoHelper" />
-        <constructor-arg index="3" ref="databaseCompatibility" />
-        <property name="queueBuilder" ref="workQueueBuilder"/>
-        <property name="eventSummaryDao" ref="eventSummaryDao"/>
+        <constructor-arg index="0" ref="summaryIndexQueueDelegate" />
     </bean>
-    <bean id="eventArchiveIndexQueueDao" class="org.zenoss.zep.dao.impl.EventArchiveIndexQueueDaoImpl">
+    <bean id="summaryIndexQueueDelegate" class="org.zenoss.zep.dao.impl.SummaryIndexDaoDelegate">
+        <qualifier value="summary" />
+        <constructor-arg index="0" ref="workQueueBuilder" />
+        <constructor-arg index="1" ref="eventSummaryDao" />
+    </bean>
+    <bean id="eventArchiveIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
+        <qualifier value="archive" />
+        <constructor-arg index="0" ref="archiveIndexQueueDelegate" />
+    </bean>
+    <bean id="archiveIndexQueueDelegate" class="org.zenoss.zep.dao.impl.ArchiveIndexDaoDelegate">
         <qualifier value="archive" />
         <constructor-arg index="0" ref="dataSource" />
-        <constructor-arg index="1" value="true" />
-        <constructor-arg index="2" ref="eventDaoHelper" />
-        <constructor-arg index="3" ref="databaseCompatibility" />
-        <property name="queueBuilder" ref="workQueueBuilder"/>
-        <property name="eventSummaryDao" ref="eventSummaryDao"/>
+        <constructor-arg index="1" ref="eventDaoHelper" />
+        <constructor-arg index="2" ref="databaseCompatibility" />
     </bean>
     <bean id="dbMaintenanceService" class="org.zenoss.zep.dao.impl.DBMaintenanceServiceImpl">
         <constructor-arg index="0" ref="dataSource" />
