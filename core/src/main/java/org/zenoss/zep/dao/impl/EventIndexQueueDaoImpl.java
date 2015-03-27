@@ -1,154 +1,84 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2011, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
 package org.zenoss.zep.dao.impl;
 
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.Gauge;
+import com.codahale.metrics.MetricRegistry;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
-import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventIndexHandler;
 import org.zenoss.zep.dao.EventIndexQueueDao;
-import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
-import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.IndexQueueID;
 import org.zenoss.zep.events.EventIndexQueueSizeEvent;
-import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
-
-import java.lang.reflect.Proxy;
-import javax.sql.DataSource;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.*;
-
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Gauge;
 
 import javax.annotation.Resource;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Implementation of EventIndexQueueDao.
  */
 public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEventPublisherAware {
-    
-    private final SimpleJdbcOperations template;
-    private final String queueTableName;
-    private final String tableName;
-    private final EventSummaryRowMapper rowMapper;
+
+    private final IndexDaoDelegate  indexDaoDelegate;
     private ApplicationEventPublisher applicationEventPublisher;
 
-    private final TypeConverter<String> uuidConverter;
-    private final TypeConverter<Long> timestampConverter;
-
-    private final boolean isArchive;
-
     private MetricRegistry metrics;
-    private int lastQueueSize = -1;
+    private Counter indexedCounter;
+    private long lastQueueSize = -1;
 
     @Override
     public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
         this.applicationEventPublisher = applicationEventPublisher;
     }
 
-    public EventIndexQueueDaoImpl(DataSource ds, boolean isArchive, EventDaoHelper daoHelper,
-                                  DatabaseCompatibility databaseCompatibility) {
-        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(),
-                new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
-        this.isArchive = isArchive;
-        if (isArchive) {
-            this.tableName = EventConstants.TABLE_EVENT_ARCHIVE;
-        }
-        else {
-            this.tableName = EventConstants.TABLE_EVENT_SUMMARY;
-        }
-        this.queueTableName = this.tableName + "_index_queue";
-        this.uuidConverter = databaseCompatibility.getUUIDConverter();
-        this.timestampConverter = databaseCompatibility.getTimestampConverter();
-        this.rowMapper = new EventSummaryRowMapper(daoHelper, databaseCompatibility);
+    public EventIndexQueueDaoImpl(IndexDaoDelegate indexDaoDelegate) {
+        this.indexDaoDelegate = indexDaoDelegate;
     }
-    
+
     @Override
     @TransactionalRollbackAllExceptions
-    public List<Long> indexEvents(final EventIndexHandler handler, final int limit) throws ZepException {
+    public List<IndexQueueID> indexEvents(final EventIndexHandler handler, final int limit) throws ZepException {
         return indexEvents(handler, limit, -1L);
     }
 
-    @Resource(name="metrics")
-    public void setBean( MetricRegistry metrics ) {
-        this.metrics = metrics;
+    @Resource(name = "metrics")
+    public void setMetrics(MetricRegistry metrics) {
+	this.metrics = metrics;
         String metricName = "";
-        if(this.isArchive) {
-            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "archiveIndexQueueSize");
-            }
-        else {
-            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "summaryIndexQueueSize");
-            }
-        this.metrics.register(metricName, new Gauge<Integer>() {
+        String baseName = this.getClass().getCanonicalName();
+        this.indexedCounter = metrics.counter(MetricRegistry.name(baseName, indexDaoDelegate.getQueueName(), "indexed"));
+        metricName = MetricRegistry.name(baseName, indexDaoDelegate.getQueueName(), "size");
+        this.metrics.register(metricName, new Gauge<Long>() {
             @Override
-            public Integer getValue() {
+            public Long getValue() {
                 return lastQueueSize;
-                }
-            });
-        }
+            }
+        });
+    }
 
     @Override
     @TransactionalRollbackAllExceptions
-    public List<Long> indexEvents(final EventIndexHandler handler, final int limit,
-                                  final long maxUpdateTime) throws ZepException {
-        final Map<String,Object> selectFields = new HashMap<String,Object>();
-        selectFields.put("_limit", limit);
+    public List<IndexQueueID> indexEvents(final EventIndexHandler handler, final int limit,
+                                          final long maxUpdateTime) throws ZepException {
 
-        final String sql;
 
-        // Used for partition pruning
-        final String queryJoinLastSeen = (this.isArchive) ? "AND iq.last_seen=es.last_seen " : "";
-
-        if (maxUpdateTime > 0L) {
-            selectFields.put("_max_update_time", timestampConverter.toDatabaseType(maxUpdateTime));
-            sql = "SELECT iq.id AS iq_id, iq.uuid AS iq_uuid, iq.update_time AS iq_update_time," +
-                "es.* FROM " + this.queueTableName + " AS iq " +
-                "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " + queryJoinLastSeen +
-                "WHERE iq.update_time <= :_max_update_time " +
-                "ORDER BY iq_id LIMIT :_limit";
-        }
-        else {
-            sql = "SELECT iq.id AS iq_id, iq.uuid AS iq_uuid, iq.update_time AS iq_update_time," +
-                "es.* FROM " + this.queueTableName + " AS iq " + 
-                "LEFT JOIN " + this.tableName + " es ON iq.uuid=es.uuid " + queryJoinLastSeen +
-                "ORDER BY iq_id LIMIT :_limit";
-        }
-
-        final Set<String> eventUuids = new HashSet<String>();
-        final List<EventSummary> indexed = new ArrayList<EventSummary>();
-        final List<String> deleted = new ArrayList<String>();
-        final List<Long> indexQueueIds = this.template.query(sql, new RowMapper<Long>() {
-            @Override
-            public Long mapRow(ResultSet rs, int rowNum) throws SQLException {
-                final long iqId = rs.getLong("iq_id");
-                final String iqUuid = uuidConverter.fromDatabaseType(rs, "iq_uuid");
-                // Don't process the same event multiple times.
-                if (eventUuids.add(iqUuid)) {
-                    final Object uuid = rs.getObject("uuid");
-                    if (uuid != null) {
-                        indexed.add(rowMapper.mapRow(rs, rowNum));
-                    }
-                    else {
-                        deleted.add(iqUuid);
-                    }
-                }
-                return iqId;
-            }
-        }, selectFields);
+        PollEvents pollEvents = indexDaoDelegate.pollEvents(limit, maxUpdateTime).invoke();
+        List<EventSummary> indexed = pollEvents.getIndexed();
+        Set<String> deleted = pollEvents.getDeleted();
+        List<IndexQueueID> eventsIDs = pollEvents.getIndexQueueIds();
 
         if (!indexed.isEmpty()) {
             try {
@@ -171,7 +101,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
                 throw new RuntimeException(e.getLocalizedMessage(), e);
             }
         }
-        if (!indexQueueIds.isEmpty()) {
+        if (!eventsIDs.isEmpty()) {
             try {
                 handler.handleComplete();
             } catch (Exception e) {
@@ -179,30 +109,36 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
             }
         }
 
-        // publish current size of event_*_index_queue table
-        this.lastQueueSize = this.template.queryForInt("SELECT COUNT(1) FROM " + this.queueTableName);
+        // publish current size of event_*_index_queue
+        this.lastQueueSize = indexDaoDelegate.getQueueLength();
         this.applicationEventPublisher.publishEvent(
-                new EventIndexQueueSizeEvent(this, tableName, this.lastQueueSize, limit)
+                new EventIndexQueueSizeEvent(this, indexDaoDelegate.getQueueName(), this.lastQueueSize, limit)
         );
 
-        return indexQueueIds;
+        this.indexedCounter.inc(eventsIDs.size());
+        return eventsIDs;
     }
 
     @Override
-    @Transactional(readOnly = true)
     public long getQueueLength() {
-        String sql = String.format("SELECT COUNT(*) FROM %s", queueTableName);
-        return template.queryForLong(sql);
+        return indexDaoDelegate.getQueueLength();
     }
 
     @Override
     @TransactionalRollbackAllExceptions
-    public int deleteIndexQueueIds(List<Long> queueIds) throws ZepException {
-        if (queueIds.isEmpty()) {
-            return 0;
-        }
-        final String deleteSql = "DELETE FROM " + this.queueTableName + " WHERE id IN (:_iq_ids)";
-        final Map<String,List<Long>> deleteFields = Collections.singletonMap("_iq_ids", queueIds);
-        return this.template.update(deleteSql, deleteFields);
+    public void deleteIndexQueueIds(List<IndexQueueID> queueIds) throws ZepException {
+        indexDaoDelegate.deleteIndexQueueIds(queueIds);
     }
+
+    public static interface PollEvents {
+        List<IndexQueueID> getIndexQueueIds();
+
+        List<EventSummary> getIndexed();
+
+        Set<String> getDeleted();
+
+        PollEvents invoke() throws ZepException;
+    }
+
+
 }
