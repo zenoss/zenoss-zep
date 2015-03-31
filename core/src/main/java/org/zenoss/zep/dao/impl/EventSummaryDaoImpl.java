@@ -1295,28 +1295,28 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     private void indexSignal(final List<String> eventUuids, final long updateTime) {
-	if (!txSynchronizedQueue){
-	    doIndexSignal(eventUuids, updateTime);
-	    return;
-	}
+        if (!txSynchronizedQueue) {
+            doIndexSignal(eventUuids, updateTime);
+            return;
+        }
 
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
             @Override
             public void afterCommit() {
-		doIndexSignal(eventUuids, updateTime);
+                doIndexSignal(eventUuids, updateTime);
             }
-	    });
+        });
     }
 
-    private void doIndexSignal(final List<String> eventUuids, final long updateTime){
-	if (eventUuids.isEmpty()) {
-	    return;
-	}
+    private void doIndexSignal(final List<String> eventUuids, final long updateTime) {
+        if (eventUuids.isEmpty()) {
+            return;
+        }
 
-	List<EventIndexBackendTask> tasks = Lists.newArrayListWithCapacity(eventUuids.size());
-	for (String uuid : eventUuids) {
-	    tasks.add(EventIndexBackendTask.Index(uuid, updateTime));
-	}
-	eventIndexQueue.addAll(tasks);
+        List<EventIndexBackendTask> tasks = Lists.newArrayListWithCapacity(eventUuids.size());
+        for (String uuid : eventUuids) {
+            tasks.add(EventIndexBackendTask.Index(uuid, updateTime));
+        }
+        eventIndexQueue.addAll(tasks);
     }
 }
