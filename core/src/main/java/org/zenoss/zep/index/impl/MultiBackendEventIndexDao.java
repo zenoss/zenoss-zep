@@ -115,35 +115,39 @@ public class MultiBackendEventIndexDao extends BaseEventIndexDaoImpl<MultiBacken
                     logger.info("Found {} of {} events by primary key", events.size(), toIndex.size());
                 else
                     logger.debug("Found {} of {} events by primary key", events.size(), toIndex.size());
+                boolean success = true;
                 try {
                     backend.index(events);
                     logger.debug("Indexed {} events", events.size());
                 } catch (ZepException e) {
+                    success = false;
                     if (logger.isDebugEnabled())
                         logger.warn(String.format("failed to process task to index events (%d) for backend %s", events.size(), backendId), e);
                     else
                         logger.warn(String.format("failed to process task to index events (%d) for backend %s", events.size(), backendId));
                 }
-                List<EventIndexBackendTask> completedTasks = Lists.newArrayListWithExpectedSize(events.size());
-                for (EventSummary event : events) {
-                    EventIndexBackendTask task = indexTasks.remove(event.getUuid());
-                    if (task != null) // should always be true
-                        completedTasks.add(task);
-                }
-                q.completeAll(completedTasks);
+                if(success) {
+                    List<EventIndexBackendTask> completedTasks = Lists.newArrayListWithExpectedSize(events.size());
+                    for (EventSummary event : events) {
+                        EventIndexBackendTask task = indexTasks.remove(event.getUuid());
+                        if (task != null) // should always be true
+                            completedTasks.add(task);
+                    }
+                    q.completeAll(completedTasks);
 
-                if (!indexTasks.isEmpty()) {
-                    try {
-                        if (configuration.isHonorDeletes()) {
-                            logger.debug("Removing {} events from the index since they weren't found by primary key in the database", indexTasks.size());
-                            backend.delete(indexTasks.keySet());
+                    if (!indexTasks.isEmpty()) {
+                        try {
+                            if (configuration.isHonorDeletes()) {
+                                logger.debug("Removing {} events from the index since they weren't found by primary key in the database", indexTasks.size());
+                                backend.delete(indexTasks.keySet());
+                            }
+                            q.completeAll(indexTasks.values());
+                        } catch (ZepException e) {
+                            if (logger.isDebugEnabled())
+                                logger.warn(String.format("failed to delete %d events from backend %s", toIndex.size(), backendId), e);
+                            else
+                                logger.warn(String.format("failed to delete %d events from backend %s", toIndex.size(), backendId));
                         }
-                        q.completeAll(indexTasks.values());
-                    } catch (ZepException e) {
-                        if (logger.isDebugEnabled())
-                            logger.warn(String.format("failed to delete %d events from backend %s", toIndex.size(), backendId), e);
-                        else
-                            logger.warn(String.format("failed to delete %d events from backend %s", toIndex.size(), backendId));
                     }
                 }
             }
@@ -909,10 +913,12 @@ public class MultiBackendEventIndexDao extends BaseEventIndexDaoImpl<MultiBacken
                         sleep(1000);
                         continue;
                     }
-                    if (enableAsyncProcessing && configuration.isAsyncUpdates() && !workQueues.get(backendId).isReady()) {
-                        logStatus("is waiting for work queue to be ready");
+
+                    if (enableAsyncProcessing && configuration.isAsyncUpdates() 
+                            && (workQueues.get(backendId)==null || !workQueues.get(backendId).isReady()) ) {
+                        logger.warn(getName() + " is waiting for work queue to be ready");
                         sleep(1000);
-                        continue;   
+                        continue;
                     }
 
                     RebuilderProgress progress = loadRebuildProgress();

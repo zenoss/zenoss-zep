@@ -39,6 +39,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+
+import com.codahale.metrics.MetricRegistry; 
+import com.codahale.metrics.Gauge;
+import javax.annotation.Resource;
 
 import com.codahale.metrics.annotation.Timed;
 
@@ -58,9 +63,13 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     private volatile long intervalMilliseconds;
     private ConfigDao configDao;
 
+    private MetricRegistry metrics;
+    private AtomicLong indexedDocs;
+
     public EventIndexerImpl(EventIndexDao indexDao) {
         this.indexDao = indexDao;
         this.isSummary = "event_summary".equals(indexDao.getName());
+        indexedDocs = new AtomicLong();
     }
 
     public void setQueueDao(EventIndexQueueDao queueDao) {
@@ -86,6 +95,24 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
         updateIndexConfig(zepConfig);
     }
 
+    @Resource(name="metrics")
+    public void setBean( MetricRegistry metrics ) {
+        this.metrics = metrics;
+        String metricName = "";
+        if(this.isSummary) {
+            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "summaryIndexedDocs");
+        }
+        else {
+            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "archiveIndexedDocs");
+        }
+        this.metrics.register(metricName, new Gauge<Long>() {
+            @Override
+            public Long getValue() {
+                return indexedDocs.get();
+            }
+        });
+    }
+
     @Override
     public synchronized void start(ZepConfig config) throws InterruptedException {
         stop();
@@ -99,6 +126,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
                     int numIndexed = 0;
                     try {
                         numIndexed = index();
+                        indexedDocs.addAndGet(numIndexed);
                     } catch (ZepException e) {
                         logger.warn("Failed to index events", e);
                     } catch (Exception e) {
