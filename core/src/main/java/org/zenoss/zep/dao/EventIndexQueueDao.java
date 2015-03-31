@@ -50,4 +50,10 @@ public interface EventIndexQueueDao {
      */
     public int deleteIndexQueueIds(List<Long> queueIds) throws ZepException;
 
+    /**
+     * time stamp of the last indexed entry
+     * @return time stamp, 0 if nothing has been indexed
+     */
+    public long getLastIndexTime();
+
 }

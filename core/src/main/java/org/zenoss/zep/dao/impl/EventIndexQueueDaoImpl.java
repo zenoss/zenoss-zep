@@ -54,6 +54,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
 
     private MetricRegistry metrics;
     private int lastQueueSize = -1;
+    private volatile long lastIndexTime = -1;
 
     @Override
     public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
@@ -136,6 +137,11 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
             public Long mapRow(ResultSet rs, int rowNum) throws SQLException {
                 final long iqId = rs.getLong("iq_id");
                 final String iqUuid = uuidConverter.fromDatabaseType(rs, "iq_uuid");
+                final long iqTime = rs.getLong("iq_update_time");
+                if (iqTime > lastIndexTime) {
+                    lastIndexTime = iqTime;
+                }
+
                 // Don't process the same event multiple times.
                 if (eventUuids.add(iqUuid)) {
                     final Object uuid = rs.getObject("uuid");
@@ -186,6 +192,10 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
         );
 
         return indexQueueIds;
+    }
+
+    public long getLastIndexTime(){
+	return lastIndexTime;
     }
 
     @Override

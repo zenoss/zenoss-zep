@@ -17,6 +17,7 @@ import com.google.common.collect.Iterables;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationListener;
+import org.zenoss.amqp.ThreadRenamingCallable;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -62,6 +63,8 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     private volatile boolean shutdown = false;
     private Future<?> indexFuture = null;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private final ExecutorService indexExecutor = Executors.newSingleThreadExecutor();
+    private long lastIndex = 0;
 
     private final EventIndexDao indexDao;
     private final boolean isSummary;
@@ -188,23 +191,52 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
 
     @Override
     @Timed
-    public synchronized int index() throws ZepException {
-        return doIndex(-1L);
+    public int index() throws ZepException {
+        String name = "INDEX__" + this.indexDao.getName().toUpperCase();
+
+        Future<Integer> resultFuture = this.indexExecutor.submit(new ThreadRenamingCallable<Integer>(name) {
+            @Override
+            public Integer doCall() throws Exception {
+                return doIndex(-1L);
+            }
+	    });
+        try {
+            return resultFuture.get();
+        } catch (InterruptedException e) {
+            throw new ZepException(e);
+        } catch (ExecutionException e) {
+            throw new ZepException(e);
+        }
     }
 
     @Override
     @Timed
     public int indexFully() throws ZepException {
-        int totalIndexed = 0;
+        String name = "INDEX_FULLY_" + this.indexDao.getName().toUpperCase();
         final long now = System.currentTimeMillis();
-        int numIndexed;
-        synchronized (this) {
-            do {
-                numIndexed = doIndex(now);
-                totalIndexed += numIndexed;
-            } while (numIndexed > 0);
+        if (now < queueDao.getLastIndexTime()){
+            return 0;
         }
-        return totalIndexed;
+
+        Future<Integer> resultFuture = this.indexExecutor.submit(new ThreadRenamingCallable<Integer>(name) {
+            @Override
+            protected Integer doCall() throws Exception {
+                int totalIndexed = 0;
+                int numIndexed;
+                do {
+                    numIndexed = doIndex(now);
+                    totalIndexed += numIndexed;
+                } while (numIndexed > 0);
+                return totalIndexed;
+            }
+	    });
+        try {
+            return resultFuture.get();
+        } catch (InterruptedException e) {
+            throw new ZepException(e);
+        } catch (ExecutionException e) {
+            throw new ZepException(e);
+        }
     }
 
     /**
@@ -236,7 +268,10 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
         return shouldRun;
     }
 
-    private int doIndex(long throughTime) throws ZepException {
+    private synchronized int doIndex(long throughTime) throws ZepException {
+	    if (throughTime > 0 && throughTime < queueDao.getLastIndexTime()){
+	    return 0;
+	}
         final EventPostIndexContext context = new EventPostIndexContext() {
             private final Map<EventPostIndexPlugin,Object> pluginState = new HashMap<EventPostIndexPlugin, Object>();
             @Override
