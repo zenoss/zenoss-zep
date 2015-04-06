@@ -305,12 +305,12 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
 
             @Override
             public void handleComplete() throws Exception {
+                indexDao.commit();
                 if (calledStartBatch.get()) {
                     for (EventPostIndexPlugin plugin : plugins) {
                         plugin.endBatch(context);
                     }
                 }
-                indexDao.commit();
             }
         }, limit, throughTime);
 
