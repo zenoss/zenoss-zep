@@ -31,7 +31,9 @@ public abstract class EventPostIndexPlugin extends EventPlugin {
     public void preProcessEvents(Collection<EventSummary> eventSummaries, EventPostIndexContext context) throws ZepException {}
 
     /**
-     * Processes the eventSummary.
+     * Processes the eventSummary. At this time, the index has not yet been
+     * committed, so any process that will immediately rely on a consistent
+     * index state should wait until the batch is ended.
      * 
      * @param eventSummary The eventSummary to process.
      * @param context Context passed to EventPostIndexPlugin.
@@ -54,7 +56,9 @@ public abstract class EventPostIndexPlugin extends EventPlugin {
     /**
      * Called when the post index batch operation has completed. This should
      * perform any final operations for the plug-in and clean up any shared
-     * state initialized in {@link #startBatch(EventPostIndexContext)}.
+     * state initialized in {@link #startBatch(EventPostIndexContext)}. This
+     * method runs after the index has been committed, so can rely on the index
+     * to be consistent.
      *
      * @param context Context for the post-index plug-in.
      * @throws Exception If an exception occurs.
