@@ -245,6 +245,11 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
             }
 
             @Override
+            public int getIndexLimit() {
+                return limit;
+            }
+
+            @Override
             public Object getPluginState(EventPostIndexPlugin plugin) {
                 return pluginState.get(plugin);
             }
