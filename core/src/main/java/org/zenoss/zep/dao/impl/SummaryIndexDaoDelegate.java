@@ -30,6 +30,7 @@ public class SummaryIndexDaoDelegate implements IndexDaoDelegate {
 
     @Override
     public PollEvents pollEvents(int limit, long maxUpdateTime) {
+        this.redisWorkQueue.requeueOldTasks();
         return new RedisPollEvents(limit, maxUpdateTime, eventSummaryDao);
     }
 
