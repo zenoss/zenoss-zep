@@ -166,4 +166,5 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
     public int archive(long duration, TimeUnit unit, int limit)
             throws ZepException;
 
+    void setTxSynchronizedQueue(boolean b);
 }

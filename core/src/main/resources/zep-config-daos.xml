@@ -2,11 +2,11 @@
 <beans xmlns="http://www.springframework.org/schema/beans"
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xmlns:tx="http://www.springframework.org/schema/tx"
-       xmlns:p="http://www.springframework.org/schema/p"
+       xmlns:p="http://www.springframework.org/schema/p" xmlns:util="http://www.springframework.org/schema/util"
        xsi:schemaLocation="http://www.springframework.org/schema/beans
                         http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
                         http://www.springframework.org/schema/tx
-                        http://www.springframework.org/schema/tx/spring-tx-3.0.xsd">
+                        http://www.springframework.org/schema/tx/spring-tx-3.0.xsd http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util.xsd">
 
     <!-- Transaction Support -->
     <tx:annotation-driven/>
@@ -53,6 +53,8 @@
         <property name="databaseCompatibility" ref="databaseCompatibility"/>
         <property name="nestedTransactionService" ref="nestedTransactionService"/>
         <property name="counters" ref="counters"/>
+        <property name="eventIndexQueue" ref="summaryIndexQueue"/>
+        <property name="txSynchronizedQueue" value="${zep.txSynchronizedIndexQueue:true}"/>
     </bean>
     <bean id="eventArchiveDao" class="org.zenoss.zep.dao.impl.EventArchiveDaoImpl">
         <constructor-arg index="0" ref="dataSource"/>
@@ -106,17 +108,34 @@
     </bean>
     <bean id="eventSummaryIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
         <qualifier value="summary" />
-        <constructor-arg index="0" ref="dataSource" />
-        <constructor-arg index="1" value="false" />
-        <constructor-arg index="2" ref="eventDaoHelper" />
-        <constructor-arg index="3" ref="databaseCompatibility" />
+        <constructor-arg index="0" ref="summaryIndexQueueDelegate" />
+    </bean>
+    <bean id="queueBuilder"
+          class="org.zenoss.zep.index.impl.RedisWorkQueueBuilder">
+        <constructor-arg ref="jedisPoolUtil"/>
+    </bean>
+    <bean id="summaryIndexQueue"
+          factory-bean="queueBuilder"
+          factory-method="build"
+            >
+        <constructor-arg type="java.lang.String">
+            <util:constant static-field="org.zenoss.zep.dao.impl.EventConstants.TABLE_EVENT_SUMMARY_INDEX"/>
+        </constructor-arg>
+    </bean>
+    <bean id="summaryIndexQueueDelegate" class="org.zenoss.zep.dao.impl.SummaryIndexDaoDelegate">
+        <qualifier value="summary" />
+        <constructor-arg index="0" ref="summaryIndexQueue" />
+        <constructor-arg index="1" ref="eventSummaryDao" />
     </bean>
     <bean id="eventArchiveIndexQueueDao" class="org.zenoss.zep.dao.impl.EventIndexQueueDaoImpl">
         <qualifier value="archive" />
+        <constructor-arg index="0" ref="archiveIndexQueueDelegate" />
+    </bean>
+    <bean id="archiveIndexQueueDelegate" class="org.zenoss.zep.dao.impl.ArchiveIndexDaoDelegate">
+        <qualifier value="archive" />
         <constructor-arg index="0" ref="dataSource" />
-        <constructor-arg index="1" value="true" />
-        <constructor-arg index="2" ref="eventDaoHelper" />
-        <constructor-arg index="3" ref="databaseCompatibility" />
+        <constructor-arg index="1" ref="eventDaoHelper" />
+        <constructor-arg index="2" ref="databaseCompatibility" />
     </bean>
     <bean id="dbMaintenanceService" class="org.zenoss.zep.dao.impl.DBMaintenanceServiceImpl">
         <constructor-arg index="0" ref="dataSource" />
@@ -374,12 +393,12 @@
 
     <bean id="jedisPoolConfig" class="redis.clients.jedis.JedisPoolConfig">
         <property name="blockWhenExhausted" value="true"/>
-        <property name="minIdle" value="10"/>
-        <property name="maxIdle" value="50"/>
-        <property name="maxTotal" value="200"/>
-        <property name="maxWaitMillis" value="10000"/>
-        <property name="testOnBorrow" value="true"/>
-        <property name="testWhileIdle" value="true"/>
+        <property name="minIdle" value="${zep.jedis.pool.minidle:10}"/>
+        <property name="maxIdle" value="${zep.jedis.pool.maxidle:50}"/>
+        <property name="maxTotal" value="${zep.jedis.pool.max:200}"/>
+        <property name="maxWaitMillis" value="${zep.jedis.pool.maxwait:10000}"/>
+        <property name="testOnBorrow" value="${zep.jedis.pool.testonborrow:false}"/>
+        <property name="testWhileIdle" value="${zep.jedis.pool.testidle:true}"/>
     </bean>
 
     <bean id="jedisConnectionFactory" class="org.springframework.data.redis.connection.jedis.JedisConnectionFactory">

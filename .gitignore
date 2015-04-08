@@ -11,6 +11,7 @@ target
 var
 *.orig
 log
+.idea
 
 .build
 .extracted
