@@ -238,6 +238,11 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
             }
 
             @Override
+            public int getIndexLimit() {
+                return limit;
+            }
+
+            @Override
             public Object getPluginState(EventPostIndexPlugin plugin) {
                 return pluginState.get(plugin);
             }
@@ -298,12 +303,17 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
 
             @Override
             public void handleComplete() throws Exception {
+                indexDao.commit();
                 if (calledStartBatch.get()) {
                     for (EventPostIndexPlugin plugin : plugins) {
-                        plugin.endBatch(context);
+                        try {
+                            plugin.endBatch(context);
+                        } catch (Exception e) {
+                            // Post-processing plug-in failures are not fatal errors.
+                            logger.warn("Failed to finish batch for post-processing plug-in.", e);
+                        }
                     }
                 }
-                indexDao.commit();
             }
         }, limit, throughTime);
 
