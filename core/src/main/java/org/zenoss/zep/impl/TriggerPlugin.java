@@ -152,8 +152,19 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             // define basic infrastructure class for evaluating rules
             this.python.exec(
                 "class DictAsObj(object):\n" +
-                "  def __init__(self, **kwargs):\n" +
-                "    for k,v in kwargs.iteritems(): setattr(self,k,v)");
+                "    def __init__(self, **kwargs):\n" +
+                "        def setobj(x, y):\n" +
+                "            o = getattr(x, y) if hasattr(x, y) else DictAsObj()\n" +
+                "            setattr(x, y, o)\n" +
+                "            return o\n" +
+                "        for k,v in kwargs.iteritems():\n" +
+                "            segments = k.split('.')\n" +
+                "            leaf = reduce(\n" +
+                "                lambda x, y: setobj(x, y),\n" +
+                "                segments[:-1],\n" +
+                "                self\n" +
+                "            )\n" +
+                "            setattr(leaf, segments[-1], v)");
 
             // expose to Java a Python dict->DictAsObj conversion function
             this.toObject = (PyFunction)this.python.eval("lambda dd : DictAsObj(**dd)");
@@ -451,6 +462,9 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                 else if (DETAIL_DEVICE_LOCATION.equals(detailName)) {
                     // expect that this is a single-value detail.
                     location = singleDetailValue;
+                }
+                else {
+                    eventdict.put(detailName, new PyString(singleDetailValue));
                 }
             }
 
