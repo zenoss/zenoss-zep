@@ -36,8 +36,8 @@ public class RawEventQueueListener extends AbstractQueueListener
     
     private boolean throttleConsumer = true;
     private volatile boolean indexQueueLag = false;
-    private int indexQueueThreshold = 100000;
-    private int consumerSleepTime = 100;
+    private int indexQueueThreshold = 10000;
+    private int consumerSleepTime = 1000;
 
     @Override
     public void onApplicationEvent(EventIndexQueueSizeEvent event) {
@@ -49,15 +49,23 @@ public class RawEventQueueListener extends AbstractQueueListener
                 localThreshold = Math.max(event.getLimit(), 100) * 2;
             }
 
-            if (event.getSize() > localThreshold) {
+            final long size = event.getSize();
+
+            // If already throttling, we wont resume until we are
+            // 50% below the threshold
+            if (this.indexQueueLag==true) {
+                localThreshold = (int) (localThreshold - 0.5*localThreshold);
+            }
+
+            if (size > localThreshold) {
                 // enable the throttle
                 if (this.indexQueueLag != true) {
-                    logger.warn("Enabling zenevents consumer throttling.");
+                    logger.warn("Enabling zenevents consumer throttling. Queue Size: {}.", size);
                     this.indexQueueLag = true;
                 }
             } else {
                 if (this.indexQueueLag != false) {
-                    logger.info("Disabling zenevents consumer throttling.");
+                    logger.info("Disabling zenevents consumer throttling. Queue Size: {}.", size);
                     this.indexQueueLag = false;
                 }
             }
@@ -103,7 +111,7 @@ public class RawEventQueueListener extends AbstractQueueListener
         if (!(message instanceof ZepRawEvent)) {
             logger.warn("Unexpected message type: {}", message);
         } else {
-            if (this.indexQueueLag && this.throttleConsumer) {
+            while (this.indexQueueLag && this.throttleConsumer) {
                 Thread.sleep(this.consumerSleepTime);
             }
             this.eventProcessor.processEvent((ZepRawEvent) message);
