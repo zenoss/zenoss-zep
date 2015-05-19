@@ -55,6 +55,7 @@ import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
 
 import static org.zenoss.zep.index.impl.IndexConstants.*;
 
@@ -81,6 +82,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
     private MetricRegistry metrics;
     private int indexResultsCount = -1;
     private int luceneSearchTimeout = 0;
+    private TimeLimiter timeLimiter = null;
 
     public LuceneEventIndexBackend(String name, IndexWriter writer, EventSummaryBaseDao eventSummaryBaseDao,
                                    Integer maxClauseCount, LuceneFilterCacheManager filterCacheManager, int readerRefreshInterval,
@@ -97,7 +99,6 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         this.filterCacheManager = filterCacheManager;
         this.readerReopenInterval = readerRefreshInterval;
         BooleanQuery.setMaxClauseCount(maxClauseCount);
-
         // Deal with the reader reopen thread
         if (this.readerReopenInterval != 0) {
             startReopenThread();
@@ -212,6 +213,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
     public void setLuceneSearchTimeout(int luceneSearchTimeout) {
         if (luceneSearchTimeout > 0) {
             this.luceneSearchTimeout = luceneSearchTimeout;
+            this.timeLimiter = new SimpleTimeLimiter(Executors.newCachedThreadPool());
             logger.info("Lucene search timeout set to " + this.luceneSearchTimeout + " seconds.");
         }
     }
@@ -414,8 +416,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
 
         try {
             if (this.luceneSearchTimeout > 0) {
-                TimeLimiter limiter = new SimpleTimeLimiter();
-                docs = (TopDocs)limiter.callWithTimeout(search_call, this.luceneSearchTimeout, TimeUnit.SECONDS, true);
+                docs = (TopDocs)this.timeLimiter.callWithTimeout(search_call, this.luceneSearchTimeout, TimeUnit.SECONDS, true);
             }
             else
                 docs = (TopDocs)search_call.call();
