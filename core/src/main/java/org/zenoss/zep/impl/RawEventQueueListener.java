@@ -49,7 +49,7 @@ public class RawEventQueueListener extends AbstractQueueListener
                 localThreshold = Math.max(event.getLimit(), 100) * 2;
             }
 
-            int size = event.getSize();
+            final long size = event.getSize();
 
             // If already throttling, we wont resume until we are
             // 50% below the threshold
