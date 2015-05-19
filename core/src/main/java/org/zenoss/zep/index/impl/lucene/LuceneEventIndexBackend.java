@@ -836,12 +836,15 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
                 IndexSearcher searcher = new IndexSearcher(reader);
                 return searchToEventSummaryResult(searcher, search.getQuery(), search.getSort(), fieldsToLoad, offset, limit);
             } catch (IOException e) {
+                throw new ZepException(e);
+            }
+            finally {
                 try {
-                    reader.decRef();
+                    if (reader != null)
+                        reader.decRef();
                 } catch (IOException ex) {
                     logger.warn("Exception decrementing reference count", ex);
                 }
-                throw new ZepException(e);
             }
         }
     }
