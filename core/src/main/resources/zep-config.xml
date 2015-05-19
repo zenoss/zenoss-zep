@@ -65,8 +65,8 @@
         <property name="executorService" ref="queueExecutor" />
         <property name="eventProcessor" ref="eventProcessor"/>
         <property name="throttleConsumer" value="${zep.index.throttle:true}" />
-        <property name="indexQueueThreshold" value="${zep.index.throttle_threshold:100000}"/>
-        <property name="consumerSleepTime" value="${zep.index.throttle_sleep:100}"/>
+        <property name="indexQueueThreshold" value="${zep.index.throttle_threshold:10000}"/>
+        <property name="consumerSleepTime" value="${zep.index.throttle_sleep:1000}"/>
     </bean>
 
     <bean id="modelChangeEventQueueListener" class="org.zenoss.zep.impl.ModelChangeEventQueueListener"
