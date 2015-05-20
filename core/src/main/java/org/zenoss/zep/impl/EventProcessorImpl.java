@@ -10,6 +10,8 @@
 
 package org.zenoss.zep.impl;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +30,9 @@ import org.zenoss.zep.plugins.EventPostCreatePlugin;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.plugins.EventPreCreatePlugin;
 
+import javax.annotation.Resource;
+
+
 /**
  * Default implementation of {@link EventProcessor} which uses
  * {@link PluginService} to load the appropriate plug-ins and process events.
@@ -43,6 +48,10 @@ public class EventProcessorImpl implements EventProcessor {
     private EventSummaryDao eventSummaryDao;
 
     private Counters counters;
+
+    private MetricRegistry metrics = new MetricRegistry();
+    private Timer preCreatePluginsTimer = metrics.timer("preCreateForUnitTest");
+    private Timer postCreatePluginsTimer= metrics.timer("postCreateForUnitTest");
 
     public void setEventSummaryDao(EventSummaryDao eventSummaryDao) {
         this.eventSummaryDao = eventSummaryDao;
@@ -97,7 +106,9 @@ public class EventProcessorImpl implements EventProcessor {
         Event event = eventFromRawEvent(zepRawEvent);
 
         for (EventPreCreatePlugin plugin : pluginService.getPluginsByType(EventPreCreatePlugin.class)) {
+            final Timer.Context timerContext = preCreatePluginsTimer.time();
             Event modified = plugin.processEvent(event, ctx);
+            timerContext.stop();
             if (modified != null && modified.getStatus() == EventStatus.STATUS_DROPPED) {
                 logger.debug("Event dropped by {}", plugin.getId());
                 counters.addToDroppedEventCount(1);
@@ -132,13 +143,26 @@ public class EventProcessorImpl implements EventProcessor {
             if (summary == null && uuid != null) {
                 summary = this.eventSummaryDao.findByUuid(uuid);
             }
+            final Timer.Context timerContext = postCreatePluginsTimer.time();
             try {
                 plugin.processEvent(event, summary, context);
             } catch (Exception e) {
                 logger.warn("Failed to run post-create plugin: {} on event: {}, summary: {}",
                         new Object[] { plugin.getId(), event, summary }, e);
+            } finally {
+                timerContext.stop();
             }
         }
+    }
+
+    @Resource(name="metrics")
+    public void setBean( MetricRegistry metrics ) {
+        this.metrics = metrics;
+        String preCreatePluginsTimerName = MetricRegistry.name(this.getClass().getCanonicalName(), "preCreatePlugins");
+        String postCreatePluginsTimerName = MetricRegistry.name(this.getClass().getCanonicalName(), "postCreatePlugins");
+        // Set up timers for plugins
+        preCreatePluginsTimer = metrics.timer(preCreatePluginsTimerName);
+        postCreatePluginsTimer = metrics.timer(postCreatePluginsTimerName);
     }
 
 }

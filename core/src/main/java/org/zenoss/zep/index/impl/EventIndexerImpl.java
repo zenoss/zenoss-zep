@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.codahale.metrics.MetricRegistry; 
 import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Timer;
 import javax.annotation.Resource;
 
 public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepConfigUpdatedEvent> {
@@ -65,6 +66,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
 
     private MetricRegistry metrics;
     private AtomicLong indexedDocs;
+    private Timer pluginsTimer;
 
     public EventIndexerImpl(EventIndexDao indexDao) {
         this.indexDao = indexDao;
@@ -99,11 +101,14 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     public void setBean( MetricRegistry metrics ) {
         this.metrics = metrics;
         String metricName = "";
+        String pluginsTimerName = "";
         if(this.isSummary) {
             metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "summaryIndexedDocs");
+            pluginsTimerName = MetricRegistry.name(this.getClass().getCanonicalName(), "summaryPlugins");
         }
         else {
             metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "archiveIndexedDocs");
+            pluginsTimerName = MetricRegistry.name(this.getClass().getCanonicalName(), "archivePlugins");
         }
         this.metrics.register(metricName, new Gauge<Long>() {
             @Override
@@ -111,6 +116,8 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
                 return indexedDocs.get();
             }
         });
+        // Set up timer for plugins
+        pluginsTimer = metrics.timer(pluginsTimerName);
     }
 
     @Override
@@ -282,6 +289,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
                 indexDao.stage(event);
                 if (shouldRunPostprocessing(event)) {
                     boolean shouldStartBatch = calledStartBatch.compareAndSet(false, true);
+                    final Timer.Context timerContext = pluginsTimer.time();
                     for (EventPostIndexPlugin plugin : plugins) {
                         try {
                             if (shouldStartBatch) {
@@ -293,6 +301,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
                             logger.warn("Failed to run post-processing plug-in on event: " + event, e);
                         }
                     }
+                    timerContext.stop();
                 }
             }
 
