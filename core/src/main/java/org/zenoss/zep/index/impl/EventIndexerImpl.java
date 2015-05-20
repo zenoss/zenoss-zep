@@ -46,6 +46,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import com.codahale.metrics.MetricRegistry; 
 import com.codahale.metrics.Gauge;
+import com.codahale.metrics.Timer;
 import javax.annotation.Resource;
 
 public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepConfigUpdatedEvent> {
