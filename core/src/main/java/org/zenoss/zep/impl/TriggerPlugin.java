@@ -879,7 +879,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                 int repeatInterval = trSub.getRepeatSeconds();
 
                 // Schedule the next repeat
-                if (repeatInterval > 0) {
+                if (repeatInterval > 0 && OPEN_STATUSES.contains(status) && status != EventStatus.STATUS_ACKNOWLEDGED) {
                     long nextFlush = processCutoffTime + TimeUnit.SECONDS.toMillis(repeatInterval);
                     spool.setFlushTime(nextFlush);
                 }
