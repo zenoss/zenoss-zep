@@ -848,7 +848,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
                 // These should have been deleted when the event was run through the TriggerPlugin when the status
                 // changed, but just in case delete them as the event is now in a closed state.
-                if (!OPEN_STATUSES.contains(status) || status == EventStatus.STATUS_ACKNOWLEDGED) {
+                if (!OPEN_STATUSES.contains(status)) {
                     spoolsToDelete.add(spool.getUuid());
                     continue;
                 }
@@ -877,10 +877,9 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                 }
 
                 int repeatInterval = trSub.getRepeatSeconds();
-                boolean onlySendInitial = trSub.getSendInitialOccurrence();
 
                 // Schedule the next repeat
-                if (!onlySendInitial && repeatInterval > 0) {
+                if (repeatInterval > 0 && OPEN_STATUSES.contains(status) && status != EventStatus.STATUS_ACKNOWLEDGED) {
                     long nextFlush = processCutoffTime + TimeUnit.SECONDS.toMillis(repeatInterval);
                     spool.setFlushTime(nextFlush);
                 }
