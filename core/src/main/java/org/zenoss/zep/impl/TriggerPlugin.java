@@ -296,7 +296,6 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         PyObject device;
         PyObject element;
         PyObject subElement;
-        PyObject zpDetails;
 
         private RuleContext() {
         }
@@ -346,7 +345,6 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             PyDictionary devdict = new PyDictionary();
             PyDictionary elemdict = new PyDictionary();
             PyDictionary subelemdict = new PyDictionary();
-            PyDictionary zpDetDict = new PyDictionary();
 
             // Match old behavior (pre-4.x)
             int prodState = 0;
@@ -454,12 +452,6 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                     // expect that this is a single-value detail.
                     location = singleDetailValue;
                 }
-                else {
-                    // Custom details added by ZenPacks, we replace the dots by underscore and add them
-                    // to the zp detail dict. The UI did the same when the rule was created
-                    String customDetail = detailName.replaceAll("\\.", "_");
-                    zpDetDict.put(customDetail, new PyString(singleDetailValue));
-                }
             }
 
             devdict.put("device_class", new PyString(deviceClass));
@@ -481,7 +473,6 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             ctx.device = toObject.__call__(devdict);
             ctx.element = toObject.__call__(elemdict);
             ctx.subElement = toObject.__call__(subelemdict);
-            ctx.zpDetails = toObject.__call__(zpDetDict);
             return ctx;
         }
     }
@@ -506,7 +497,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             if (cacheItem == null || !cacheItem.getRuleSource().equals(ruleSource)) {
                 try {
                     fn = (PyFunction)this.pythonHelper.getPythonInterpreter().eval(
-                            "lambda evt, dev, elem, sub_elem, zp_det : " + ruleSource
+                            "lambda evt, dev, elem, sub_elem : " + ruleSource
                     );
                 } catch (PySyntaxError e) {
                     String fmt = Py.formatException(e.type, e.value);
@@ -524,8 +515,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                 return false;
             }
             // evaluate the rule function
-            PyObject [] args = { ruleContext.event, ruleContext.device, ruleContext.element, ruleContext.subElement, ruleContext.zpDetails } ;
-            result = fn.__call__(args);
+            result = fn.__call__(ruleContext.event, ruleContext.device, ruleContext.element, ruleContext.subElement);
         } catch (PySyntaxError pysynerr) {
             // evaluating rule raised an exception - treat as "False" eval
             String fmt = Py.formatException(pysynerr.type, pysynerr.value);
