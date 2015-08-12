@@ -316,7 +316,6 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
     }
 
     @Override
-    @Timed
     public Event processEvent(Event event, EventPreCreateContext context) throws ZepException {
         if (enabled) {
             final long startTime = System.currentTimeMillis();
