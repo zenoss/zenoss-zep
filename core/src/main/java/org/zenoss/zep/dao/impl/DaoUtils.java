@@ -55,6 +55,65 @@ import java.util.Properties;
 import java.util.concurrent.Callable;
 
 public final class DaoUtils {
+
+    /*
+     * Handler for asynchronously reading from an InputStream, and writing the contents
+     * out to a Logger.  It will run until it gets interrupt() called on it.  The
+     * intended use of this is as a Thread.  Pass it the InputStream being written to and
+     * a logger instance to log to.
+     *
+     * The calling code should call interrupt() on this thread, and then join() to wait until
+     * it's done processing the InputStream.  The provided InputStream should NOT be closed
+     * prior to the completion of this thread.
+     */
+    private static class StreamingStreamReaderToLog implements Runnable {
+
+        private InputStream is;
+        private Logger logger;
+
+        public StreamingStreamReaderToLog(InputStream is, Logger logger) {
+            this.is = is;
+            this.logger = logger; //thread safe
+        }
+
+        @Override
+        public void run() {
+            BufferedReader reader = null;
+            try {
+                reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                if (is != null) {
+                    while (true) {
+                        doRead(reader);
+                        if (Thread.interrupted()) {
+                            return;
+                        }
+                        Thread.sleep(1);
+                    }
+                }
+            } catch (IOException e) {
+                logger.error("Error occurred while reading output of command: " + e.getMessage());
+            // in case interrupt() is called on this thread while it's sleeping
+            } catch (InterruptedException e) {
+                try {
+                    if (reader != null) {
+                        doRead(reader);
+                    }
+                } catch (IOException f) {}
+                return;
+            }
+        }
+
+        private void doRead(BufferedReader reader) throws IOException {
+            while (reader.ready()) {
+                String line = reader.readLine();
+                if (line != null) {
+                    logger.info(line);
+                }
+            }
+            return;
+        }
+    }
+
     private static final Logger logger = LoggerFactory.getLogger(DaoUtils.class.getName());
     
     private static final String MYSQL_PROTOCOL = "mysql";
@@ -176,31 +235,38 @@ public final class DaoUtils {
         }
     }
 
-    public static int executeCommand(String command) {
-        String response = "";
-
+    public static int executeCommand(String command, String logPrefix) {
         ProcessBuilder pb = new ProcessBuilder("bash", "-c", command);
         pb.redirectErrorStream(true);
 
         int shellExitStatus = -1;
-        InputStream shellIn = null;
 
         try {
+            logger.info("Running command: " + command);
             Process shell = pb.start();
             // To capture output from the shell
-            shellIn = shell.getInputStream();
-
+            InputStream shellIn = shell.getInputStream();
+            // Start a thread to read the command output and log it
+            Thread streamThread =  new Thread(new StreamingStreamReaderToLog(shellIn, logger));
+            if (logPrefix != null) {
+                streamThread.setName(Thread.currentThread().getName() + logPrefix);
+            }
+            streamThread.start();
             // Wait for the shell to finish and get the return code
             shellExitStatus = shell.waitFor();
+            // Stop the logger thread
+            streamThread.interrupt();
+            streamThread.join();
             if(shellExitStatus != 0) {
-                response = DaoUtils.convertStreamToStr(shellIn);
-                logger.error("Error (return code: " + shellExitStatus + ") from \"" + command + "\": \nOutput: " + response);
+                logger.error("Error (return code: " + shellExitStatus + ") from \"" + command + "\"");
+            } else {
+                logger.info("Command ran successfully (return code: " + shellExitStatus + ") from \"" + command + "\"");
             }
             shellIn.close();
         } catch (IOException e) {
-            logger.error("Error occured while executing Linux command. Error Description: " + e.getMessage());
+            logger.error("Error occurred while executing Linux command. Error Description: " + e.getMessage());
         } catch (InterruptedException e) {
-            logger.error("Error occured while executing Linux command. Error Description: " + e.getMessage());
+            logger.error("Error occurred while executing Linux command. Error Description: " + e.getMessage());
         }
 
         return shellExitStatus;
