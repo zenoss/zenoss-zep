@@ -24,6 +24,7 @@ import org.python.util.PythonInterpreter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.task.TaskRejectedException;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.TriggerContext;
@@ -260,7 +261,11 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                 processSpool(System.currentTimeMillis());
             }
         }, "ZEP_TRIGGER_PLUGIN_SPOOL");
-        spoolFuture = scheduler.schedule(runnable, trigger);
+        try {
+            spoolFuture = scheduler.schedule(runnable, trigger);
+        } catch (TaskRejectedException e) {
+            logger.warn("Zep and rabbitmq-server may require a restart. Exception: {}", e);
+        }
     }
 
     public void setTriggerDao(EventTriggerDao triggerDao) {
