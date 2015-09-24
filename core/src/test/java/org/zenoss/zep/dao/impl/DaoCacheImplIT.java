@@ -40,6 +40,13 @@ public class DaoCacheImplIT extends
         assertEquals(simpleJdbcTemplate.queryForInt(sql, agent), res);
 
         assertEquals(agent, daoCache.getAgentFromId(res));
+
+        //test case sensitivity
+        String agent2 = agent.toUpperCase();
+        int res2 = daoCache.getAgentId(agent2);
+        assertFalse(res == res2);//this should be a new ID
+        assertEquals(agent2, daoCache.getAgentFromId(res2)); //Should still work both ways
+        assertEquals(agent, daoCache.getAgentFromId(res)); //We didn't overwrite the previous entry
     }
 
     @Test
@@ -53,6 +60,13 @@ public class DaoCacheImplIT extends
         assertEquals(simpleJdbcTemplate.queryForInt(sql, eventClass), res);
 
         assertEquals(eventClass, daoCache.getEventClassFromId(res));
+
+        //test case sensitivity
+        String eventClass2 = eventClass.toUpperCase();
+        int res2 = daoCache.getEventClassId(eventClass2);
+        assertFalse(res == res2);//this should be a new ID
+        assertEquals(eventClass2, daoCache.getEventClassFromId(res2)); //Should still work both ways
+        assertEquals(eventClass, daoCache.getEventClassFromId(res)); //We didn't overwrite the previous entry
     }
 
     @Test
@@ -66,6 +80,13 @@ public class DaoCacheImplIT extends
         assertEquals(simpleJdbcTemplate.queryForInt(sql, eventClassKey), res);
 
         assertEquals(eventClassKey, daoCache.getEventClassKeyFromId(res));
+
+        //test case sensitivity
+        String eventClassKey2 = eventClassKey.toUpperCase();
+        int res2 = daoCache.getEventClassKeyId(eventClassKey2);
+        assertFalse(res == res2);//this should be a new ID
+        assertEquals(eventClassKey2, daoCache.getEventClassKeyFromId(res2)); //Should still work both ways
+        assertEquals(eventClassKey, daoCache.getEventClassKeyFromId(res)); //We didn't overwrite the previous entry
     }
 
     @Test
@@ -79,6 +100,13 @@ public class DaoCacheImplIT extends
         assertEquals(simpleJdbcTemplate.queryForInt(sql, eventGroup), res);
 
         assertEquals(eventGroup, daoCache.getEventGroupFromId(res));
+
+        //test case sensitivity
+        String eventGroup2 = eventGroup.toUpperCase();
+        int res2 = daoCache.getEventGroupId(eventGroup2);
+        assertFalse(res == res2);//this should be a new ID
+        assertEquals(eventGroup2, daoCache.getEventGroupFromId(res2)); //Should still work both ways
+        assertEquals(eventGroup, daoCache.getEventGroupFromId(res)); //We didn't overwrite the previous entry
     }
 
     @Test
@@ -92,6 +120,13 @@ public class DaoCacheImplIT extends
         assertEquals(simpleJdbcTemplate.queryForInt(sql, monitor), res);
 
         assertEquals(monitor, daoCache.getMonitorFromId(res));
+
+        //test case sensitivity
+        String monitor2 = monitor.toUpperCase();
+        int res2 = daoCache.getMonitorId(monitor2);
+        assertFalse(res == res2);//this should be a new ID
+        assertEquals(monitor2, daoCache.getMonitorFromId(res2)); //Should still work both ways
+        assertEquals(monitor, daoCache.getMonitorFromId(res)); //We didn't overwrite the previous entry
     }
 
     @Test
@@ -105,6 +140,13 @@ public class DaoCacheImplIT extends
         assertEquals(simpleJdbcTemplate.queryForInt(sql, eventKey), res);
 
         assertEquals(eventKey, daoCache.getEventKeyFromId(res));
+
+        //test case sensitivity
+        String eventKey2 = eventKey.toUpperCase();
+        int res2 = daoCache.getEventKeyId(eventKey2);
+        assertFalse(res == res2);//this should be a new ID
+        assertEquals(eventKey2, daoCache.getEventKeyFromId(res2)); //Should still work both ways
+        assertEquals(eventKey, daoCache.getEventKeyFromId(res)); //We didn't overwrite the previous entry
     }
 
 }
