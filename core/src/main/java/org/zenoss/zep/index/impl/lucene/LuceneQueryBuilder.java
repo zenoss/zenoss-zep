@@ -385,7 +385,7 @@ public class LuceneQueryBuilder extends BaseQueryBuilder<LuceneQueryBuilder> {
                 }
                 // Prefix
                 else if (value.endsWith("*")) {
-                    value = value.substring(0, value.length() - 1);
+                    value = StringUtils.trimTrailingCharacter(value, '*');
                     filter = filterCache.get(PREFIX, new Term(nonAnalyzed(fieldName), value));
                 }
                 // Exact match
