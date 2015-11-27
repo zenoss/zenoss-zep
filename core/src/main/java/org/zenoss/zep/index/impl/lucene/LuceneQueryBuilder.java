@@ -376,15 +376,16 @@ public class LuceneQueryBuilder extends BaseQueryBuilder<LuceneQueryBuilder> {
         final Analyzer analyzer = new LucenePathAnalyzer();
         for (String value : values) {
             final Filter filter;
-            if (value.startsWith("/")) {
-                value = value.toLowerCase();
+            String value_without_leading_wildcard = StringUtils.trimLeadingCharacter(value, '*');
+            if (value_without_leading_wildcard.startsWith("/")) {
+                value = value_without_leading_wildcard.toLowerCase();
                 // Starts-with
                 if (value.endsWith("/")) {
                     filter = filterCache.get(PREFIX, new Term(nonAnalyzed(fieldName), value));
                 }
                 // Prefix
                 else if (value.endsWith("*")) {
-                    value = value.substring(0, value.length() - 1);
+                    value = StringUtils.trimTrailingCharacter(value, '*');
                     filter = filterCache.get(PREFIX, new Term(nonAnalyzed(fieldName), value));
                 }
                 // Exact match
