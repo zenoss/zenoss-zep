@@ -24,8 +24,7 @@ get_pid() {
 }
 
 run() {
-    update_schema_in_background
-
+    update_schema
     PID=$$
     rm -f $PIDFILE
     echo $PID > $PIDFILE
@@ -33,8 +32,7 @@ run() {
 }
 
 run_quiet() {
-    update_schema_in_background
-
+    update_schema
     JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
     PID=$$
     rm -f $PIDFILE
@@ -69,29 +67,18 @@ wait_for_startup() {
 }
 
 update_schema() {
-    zengc=$ZENHOME/bin/zenglobalconf
+    zengc=${ZENHOME}/bin/zenglobalconf
     local dbname=$(${zengc} -p zep-db)
     local dbtype=$(${zengc} -p zep-db-type)
     local host=$(${zengc} -p zep-host)
     local port=$(${zengc} -p zep-port)
     local user=$(${zengc} -p zep-user)
     local userpass=$(${zengc} -p zep-password)
-    /opt/zenoss/bin/zeneventserver-create-db --update_schema_only \
+    ${ZENHOME}/bin/zeneventserver-create-db --update_schema_only \
 	--dbhost $host --dbport $port \
         --dbname $dbname --dbtype $dbtype \
         --dbuser $user --dbpass "$userpass" || return "$?"
     return 0
-}
-
-wait_and_update_schema() {
-    local port=$1
-    wait_for_startup $port || return $?
-    update_schema || return $?
-    return 0
-}
-
-update_schema_in_background() {
-    ${ZENHOME}/bin/zeneventserver wait_and_update_schema >${ZENHOME}/log/zenupdateschema.log 2>&1 &
 }
 
 start() {
@@ -101,6 +88,7 @@ start() {
         echo is already running
     else
         echo starting...
+        update_schema
         JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
         # Redirect stdout/stderr to separate log file
         JETTY_ARGS="$JETTY_ARGS --pre=etc/zeneventserver/jetty/jetty-logging.xml"
@@ -111,9 +99,6 @@ start() {
         rm -f $PIDFILE
         echo $PID > $PIDFILE
         wait_for_startup ${port}
-        RC=$?
-        update_schema
-        return $RC
     fi
 }
 
@@ -293,9 +278,6 @@ generic() {
         threads)
             threads "$@"
             ;;
-        wait_and_update_schema)
-	    wait_and_update_schema ${ZEP_PORT}
-	    ;;
         *)
             cat - <<HELP
 Usage: $0 {start|stop|restart|status|run|run_quiet|threads} [options]
