@@ -24,6 +24,7 @@ get_pid() {
 }
 
 run() {
+    update_schema
     PID=$$
     rm -f $PIDFILE
     echo $PID > $PIDFILE
@@ -31,6 +32,7 @@ run() {
 }
 
 run_quiet() {
+    update_schema
     JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
     PID=$$
     rm -f $PIDFILE
@@ -64,6 +66,21 @@ wait_for_startup() {
     return 0
 }
 
+update_schema() {
+    zengc=${ZENHOME}/bin/zenglobalconf
+    local dbname=$(${zengc} -p zep-db)
+    local dbtype=$(${zengc} -p zep-db-type)
+    local host=$(${zengc} -p zep-host)
+    local port=$(${zengc} -p zep-port)
+    local user=$(${zengc} -p zep-user)
+    local userpass=$(${zengc} -p zep-password)
+    ${ZENHOME}/bin/zeneventserver-create-db --update_schema_only \
+	--dbhost $host --dbport $port \
+        --dbname $dbname --dbtype $dbtype \
+        --dbuser $user --dbpass "$userpass" || return "$?"
+    return 0
+}
+
 start() {
     local port=$1
     local pid=`get_pid`
@@ -71,6 +88,7 @@ start() {
         echo is already running
     else
         echo starting...
+        update_schema
         JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
         # Redirect stdout/stderr to separate log file
         JETTY_ARGS="$JETTY_ARGS --pre=etc/zeneventserver/jetty/jetty-logging.xml"
