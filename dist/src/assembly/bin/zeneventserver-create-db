@@ -307,10 +307,14 @@ if __name__ == '__main__':
             migrator.initializeDatabase()
         current_version = migrator.getSchemaVersion()
         log.debug('Current schema version: %d', current_version)
+        schema_count = 0
         for schema_version, schema_file in schema_files:
             if schema_version > current_version:
                 print 'Applying schema version: %d' % schema_version
+                schema_count += 1
                 migrator.applySchemaFile(schema_file)
+        if schema_count == 0:
+            print 'No schema updates to apply'
     except subprocess.CalledProcessError as e:
         sys.exit(e.returncode)
     except RuntimeError as e:
