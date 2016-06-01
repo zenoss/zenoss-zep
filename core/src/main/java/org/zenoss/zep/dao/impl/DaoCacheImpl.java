@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
@@ -271,16 +272,19 @@ public class DaoCacheImpl implements DaoCache {
         @Override
         public int insertOrSelect(final String name) {
             try {
-                return this.nestedTransactionService.executeInNestedTransaction(new NestedTransactionCallback<Integer>() {
-                    @Override
-                    public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
-                        final Map<String, Object> args = Collections.singletonMap(COLUMN_NAME, (Object)name);
-                        return jdbcInsert.executeAndReturnKey(args).intValue();
-                    }
-                });
-            }
-            catch (DuplicateKeyException e) {
                 return this.template.queryForInt(selectIdByNameSql, name);
+            }catch (EmptyResultDataAccessException ere) {
+                try {
+                    return this.nestedTransactionService.executeInNestedTransaction(new NestedTransactionCallback<Integer>() {
+                        @Override
+                        public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
+                            final Map<String, Object> args = Collections.singletonMap(COLUMN_NAME, (Object) name);
+                            return jdbcInsert.executeAndReturnKey(args).intValue();
+                        }
+                    });
+                }catch (DuplicateKeyException e) {
+                    return this.template.queryForInt(selectIdByNameSql, name);
+                }
             }
         }
 
