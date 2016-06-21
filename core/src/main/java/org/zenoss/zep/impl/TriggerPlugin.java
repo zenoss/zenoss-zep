@@ -86,6 +86,10 @@ public class TriggerPlugin extends EventPostIndexPlugin {
     private AmqpConnectionManager connectionManager;
     private ExchangeConfiguration destinationExchange;
 
+    // The default value is specified in zep-config.xml.
+    // Can be overridden by specifying plugin.TriggerPlugin.triggerRuleCacheSize
+    // in the zeneventserver.conf file.
+    private int triggerRuleCacheSize;
     /**
      * Caches the result of compiling a trigger rule. Contains the original rule source, and the compiled PyFunction
      * from the source. The PyFunction can be null if the rule source is invalid and can't be compiled to valid
@@ -115,10 +119,6 @@ public class TriggerPlugin extends EventPostIndexPlugin {
                     '}';
         }
     }
-
-    // Default size of trigger rule cache - can be overridden by specifying plugin.TriggerPlugin.triggerRuleCacheSize
-    // in the zeneventserver.conf file.
-    private static final int DEFAULT_TRIGGER_RULE_CACHE_SIZE = 200;
 
     // Map of Trigger UUID -> TriggerRuleCache.
     protected Map<String, TriggerRuleCache> triggerRuleCache;
@@ -215,17 +215,12 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         }
     }
 
-    private int getTriggerRuleCacheSize() {
-        int triggerRuleCacheSize = DEFAULT_TRIGGER_RULE_CACHE_SIZE;
-        String cacheSize = properties.get("triggerRuleCacheSize");
-        if (cacheSize != null) {
-            try {
-                triggerRuleCacheSize = Integer.parseInt(cacheSize.trim());
-            } catch (NumberFormatException e) {
-                logger.warn("Invalid trigger rule cache size: {}", cacheSize);
-            }
-        }
+    public int getTriggerRuleCacheSize() {
         return triggerRuleCacheSize;
+    }
+
+    public void setTriggerRuleCacheSize(int size) {
+        triggerRuleCacheSize = size;
     }
 
     private boolean cacheIsFull(Map<String, TriggerRuleCache> cache) {
