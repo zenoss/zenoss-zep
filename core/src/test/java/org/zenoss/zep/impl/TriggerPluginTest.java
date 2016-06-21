@@ -51,6 +51,7 @@ public class TriggerPluginTest {
     public void testInit() throws IOException, ZepException {
         Map<String,String> props = new HashMap<String,String>();
         this.triggerPlugin = new TriggerPlugin();
+        triggerPlugin.setTriggerRuleCacheSize(10);
         this.spoolDaoMock = createMock(EventSignalSpoolDao.class);
         expect(spoolDaoMock.findAllDue()).andReturn(Collections.<EventSignalSpool> emptyList()).anyTimes();
         this.schedulerMock = createMock(TaskScheduler.class);
