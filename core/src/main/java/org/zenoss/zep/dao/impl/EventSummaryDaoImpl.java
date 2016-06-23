@@ -1080,7 +1080,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 "closed_status=:closed_status,update_time=:update_time," +
                 (status != EventStatus.STATUS_CLOSED && status != EventStatus.STATUS_CLEARED ? "current_user_uuid=:current_user_uuid,current_user_name=:current_user_name," : "") +
                 "cleared_by_event_uuid=:cleared_by_event_uuid,fingerprint_hash=:fingerprint_hash," +
-                "audit_json=:audit_json WHERE uuid IN (SELECT uuid FROM (SELECT uuid FROM event_summary) AS temp_uuid WHERE uuid=:uuid ORDER BY uuid)";
+                "audit_json=:audit_json WHERE uuid IN (SELECT uuid FROM (SELECT uuid FROM event_summary WHERE uuid=:uuid ORDER BY uuid) AS temp_uuid)";
 
 
         int numRows = 0;
@@ -1229,7 +1229,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                 StringUtils.collectionToCommaDelimitedString(this.archiveColumnNames), selectColumns);
 
         this.template.update(insertSql, fields);
-        final int updated = this.template.update("DELETE FROM event_summary WHERE uuid IN (SELECT uuid FROM (SELECT uuid, closed_status FROM event_summary) AS temp_uuid_closed_status WHERE uuid IN (:_uuids) AND closed_status = TRUE ORDER BY uuid)",
+        final int updated = this.template.update("DELETE FROM event_summary WHERE uuid IN (SELECT uuid FROM (SELECT uuid, closed_status FROM event_summary WHERE uuid IN (:_uuids) AND closed_status = TRUE ORDER BY uuid) AS temp_uuid_closed_status)",
                 fields);
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronizationAdapter() {
             @Override
