@@ -85,6 +85,18 @@ public class RedisWorkQueue implements WorkQueue {
                 .toString();
     }
 
+    public void clearAll() {
+        pool.useJedis(new JedisUser<Object>() {
+            @Override
+		public Object use(Jedis jedis) throws RedisTransactionCollision {
+                jedis.del(queueListKey);
+                jedis.del(queueSetKey);
+                jedis.del(holdZsetKey);
+                return null;
+            }
+	    });
+    }
+
     @Override
     public boolean isReady() {
         return this.pool.isReady();
@@ -205,7 +217,7 @@ public class RedisWorkQueue implements WorkQueue {
         while (result == null || result.isEmpty()) {
             final long remaining = due - System.nanoTime();
             if (remaining <= 0)
-                return null;
+                return Collections.emptyList();
             final long nanos = (remaining < pollIntervalInNanos) ? remaining : pollIntervalInNanos;
             Thread.sleep(nanos / 1000000, (int)nanos % 1000000);
             result = poll(maxSize);
@@ -343,12 +355,12 @@ public class RedisWorkQueue implements WorkQueue {
     private static final String LUA_REQUEUE = (""
             + " do"
             + "   local c = 0;"
-            + "   for t in redis.call('zrangebyscore', KEYS[3], ARGV[1], ARGV[2]) do"
+            + "   for time, event in pairs(redis.call('zrangebyscore', KEYS[3], ARGV[1], ARGV[2])) do"
             + "     c = c + 1"
-            + "     if redis.call('sadd', KEYS[2], t) > 0 then"
-            + "       redis.call('lpush', KEYS[1], t);"
+            + "     if redis.call('sadd', KEYS[2], event) > 0 then"
+            + "       redis.call('lpush', KEYS[1], event);"
             + "     end"
-            + "     redis.call('zrem', KEYS[3], t);"
+            + "     redis.call('zrem', KEYS[3], time, event);"
             + "   end"
             + "   return c;"
             + " end"

@@ -35,14 +35,12 @@ import org.apache.solr.common.params.SolrParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.TaskScheduler;
-import org.springframework.stereotype.Component;
 import org.zenoss.protobufs.zep.Zep.*;
 import org.zenoss.protobufs.zep.Zep.EventSort.Field;
 import org.zenoss.zep.Messages;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
-import org.zenoss.zep.dao.EventSummaryBaseDao;
 import org.zenoss.zep.index.IndexedDetailsConfiguration;
 import org.zenoss.zep.index.SavedSearchProcessor;
 import org.zenoss.zep.index.impl.BaseEventIndexBackend;
@@ -104,8 +102,9 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
     public SolrEventIndexBackend(String name, String server, IndexedDetailsConfiguration indexedDetailsConfiguration,
                                  EventArchiveDao archiveDao, int shards, int replicationFactor, int maxShardsPerNode,
                                  int concurrentUploadQueueSize, int concurrentThreads,
-                                 Messages messages, TaskScheduler scheduler, UUIDGenerator uuidGenerator) {
-        super(messages, scheduler, uuidGenerator);
+                                 Messages messages, TaskScheduler scheduler, UUIDGenerator uuidGenerator,
+                                 int tagSeverityCacheSize, int tagSeveritiesCacheTTL) {
+        super(messages, scheduler, uuidGenerator, tagSeverityCacheSize, tagSeveritiesCacheTTL);
         this.name = name;
         this.indexedDetailsConfiguration = indexedDetailsConfiguration;
         this.archiveDao = archiveDao;

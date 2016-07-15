@@ -28,10 +28,8 @@ import org.zenoss.zep.ZepInstance;
 import org.zenoss.zep.dao.DBMaintenanceService;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.DatabaseType;
-import org.zenoss.zep.dao.impl.DaoUtils;
 
 import javax.sql.DataSource;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -140,8 +138,6 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
                         zepConfig.get(ELAPSED_WARN)),
                     String.valueOf(this.elapsedWarnThresholdSeconds)));
 
-        this.tablesToOptimize.add("event_summary_index_queue");
-        this.tablesToOptimize.add("event_archive_index_queue");
         this.tablesToOptimize.add("event_trigger_signal_spool");
         this.tablesToOptimize.add("daemon_heartbeat");
     }
@@ -243,19 +239,19 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
         final String tableToOptimize = "event_summary";
         // if we want to use percona's pt-online-schema-change to avoid locking the tables due to mysql optimize...
         //checks if external tool is available
-        if (this.useExternalTool && dbType == DatabaseType.MYSQL && DaoUtils.executeCommand("ls " + externalToolName) == 0) {
+        if (this.useExternalTool && dbType == DatabaseType.MYSQL && DaoUtils.executeCommand("ls " + externalToolName, null) == 0) {
             logger.info("Validating state of event_summary");
             this.validateEventSummaryState();
             logger.debug("Optimizing table: " + tableToOptimize + " via percona " + externalToolName);
             eventSummaryOptimizationTime.setStartTime();
 
-            String externalToolCommandPrefix = externalToolName + " --alter \"ENGINE=Innodb\" D=" + this.dbname + ",t=";
+            String externalToolCommandPrefix = externalToolName + " --statistics --alter \"ENGINE=Innodb\" D=" + this.dbname + ",t=";
             String externalToolCommandSuffix = "";
             if (System.getenv("USE_ZENDS") != null && Integer.parseInt(System.getenv("USE_ZENDS").trim()) == 1) {
                 externalToolCommandSuffix = " --defaults-file=/opt/zends/etc/zends.cnf";
             }
             externalToolCommandSuffix += " " + this.externalToolOptions + " --alter-foreign-keys-method=drop_swap --host=" + this.hostname + " --port=" + this.port + " --user=" + this.username + " --password=" + this.password + " --execute";
-            int return_code = DaoUtils.executeCommand(externalToolCommandPrefix + tableToOptimize + externalToolCommandSuffix);
+            int return_code = DaoUtils.executeCommand(externalToolCommandPrefix + tableToOptimize + externalToolCommandSuffix, "-OPTIMIZE");
             if (return_code != 0) {
                 logger.error("External tool failed on: " + tableToOptimize + ". Therefore, table:" + tableToOptimize + "will not be optimized.");
             } else {

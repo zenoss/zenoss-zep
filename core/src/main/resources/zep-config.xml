@@ -155,6 +155,7 @@
         <property name="eventTriggerSubscriptionDao" ref="eventTriggerSubscriptionDao"/>
         <property name="connectionManager" ref="amqpConnectionManager"/>
         <property name="eventStoreDao" ref="eventStoreDao"/>
+        <property name="triggerRuleCacheSize" value="${plugin.TriggerPlugin.triggerRuleCacheSize:200}" />
     </bean>
 
 

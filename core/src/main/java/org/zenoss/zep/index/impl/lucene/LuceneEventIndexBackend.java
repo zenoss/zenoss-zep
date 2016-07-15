@@ -86,10 +86,11 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
 
     public LuceneEventIndexBackend(String name, IndexWriter writer, EventSummaryBaseDao eventSummaryBaseDao,
                                    Integer maxClauseCount, LuceneFilterCacheManager filterCacheManager, int readerRefreshInterval,
-                                   Messages messages, TaskScheduler scheduler, UUIDGenerator uuidGenerator)
+                                   Messages messages, TaskScheduler scheduler, UUIDGenerator uuidGenerator,
+                                   int tagSeverityCacheSize, int tagSeveritiesCacheTTL)
             throws IOException
     {
-        super(messages, scheduler, uuidGenerator);
+        super(messages, scheduler, uuidGenerator, tagSeverityCacheSize, tagSeveritiesCacheTTL);
         this.name = name;
         this.writer = writer;
         this.trackingIndexWriter = new TrackingIndexWriter(this.writer);

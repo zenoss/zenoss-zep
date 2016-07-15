@@ -19,5 +19,11 @@ public interface EventPostIndexContext {
      *
      * @return True if the event is in the event archive, false otherwise.
      */
-    public boolean isArchive();
+    boolean isArchive();
+
+    int getIndexLimit();
+
+    Object getPluginState(EventPostIndexPlugin plugin);
+
+    void setPluginState(EventPostIndexPlugin plugin, Object state);
 }

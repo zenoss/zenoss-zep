@@ -16,6 +16,8 @@ import java.util.Set;
 
 /**
  * Abstract class defined for all plug-ins.
+ * Note: plugins should not include annotations that cause spring to create
+ *       a proxy or PluginService will not be able to discover them
  */
 public abstract class EventPlugin {
 

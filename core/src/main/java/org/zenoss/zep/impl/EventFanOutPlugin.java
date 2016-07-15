@@ -16,12 +16,15 @@ import org.zenoss.amqp.AmqpConnectionManager;
 import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.ExchangeConfiguration;
 import org.zenoss.amqp.ZenossQueueConfig;
+import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class EventFanOutPlugin extends EventPostIndexPlugin {
 
@@ -42,14 +45,35 @@ public class EventFanOutPlugin extends EventPostIndexPlugin {
     }
 
     @Override
+    public void startBatch(EventPostIndexContext context) throws Exception {
+        context.setPluginState(this, new ArrayList<EventSummary>(context.getIndexLimit()));
+    }
+
+    @Override
     public void processEvent(EventSummary eventSummary, EventPostIndexContext context) throws ZepException {
-        final String eventClass = eventSummary.getOccurrence(0).getEventClass();
-        try {
-            logger.debug("Publishing event to fan-out exchange: {}", eventSummary);
-            this.amqpConnectionManager.publish(this.exchangeConfiguration,
-                    ROUTING_KEY_PREFIX + sanitizeEventClass(eventClass), eventSummary);
-        } catch (AmqpException e) {
-            throw new ZepException(e);
+        List<EventSummary> events = (List<EventSummary>) context.getPluginState(this);
+        events.add(eventSummary);
+    }
+
+    @Override
+    public void endBatch(EventPostIndexContext context) throws Exception {
+        List<EventSummary> events = (List<EventSummary>) context.getPluginState(this);
+        AmqpException lastException = null;
+        int exceptionCount = 0;
+        for (EventSummary eventSummary : events) {
+            final String eventClass = eventSummary.getOccurrence(0).getEventClass();
+            try {
+                logger.debug("Publishing event to fan-out exchange: {}", eventSummary);
+                this.amqpConnectionManager.publish(this.exchangeConfiguration,
+                        ROUTING_KEY_PREFIX + sanitizeEventClass(eventClass), eventSummary);
+            } catch (AmqpException e) {
+                lastException = e;
+                exceptionCount++;
+            }
+        }
+        context.setPluginState(this, null);
+        if (exceptionCount > 0 && lastException != null) {
+            throw new ZepException(lastException);
         }
     }
 

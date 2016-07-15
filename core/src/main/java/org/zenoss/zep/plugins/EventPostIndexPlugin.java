@@ -13,13 +13,27 @@ package org.zenoss.zep.plugins;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
 
+import java.util.*;
+
 /**
  * Defines a post-index plug-in which operates on an eventSummary after it has
  * been persisted and indexed.
  */
 public abstract class EventPostIndexPlugin extends EventPlugin {
     /**
-     * Processes the eventSummary.
+     * Prepare to process the eventSummaries. This method gives the plugin a chance to do some batch-oriented
+     * optimizations before processEvent is called for each individual event.
+     *
+     * @param eventSummaries The eventSummaries that will be passed to {@link #processEvent(EventSummary, EventPostIndexContext)}.
+     * @param context Context passed to EventPostIndexPlugin.
+     * @throws ZepException If an exception occurs.
+     */
+    public void preProcessEvents(Collection<EventSummary> eventSummaries, EventPostIndexContext context) throws ZepException {}
+
+    /**
+     * Processes the eventSummary. At this time, the index has not yet been
+     * committed, so any process that will immediately rely on a consistent
+     * index state should wait until the batch is ended.
      * 
      * @param eventSummary The eventSummary to process.
      * @param context Context passed to EventPostIndexPlugin.
@@ -42,7 +56,9 @@ public abstract class EventPostIndexPlugin extends EventPlugin {
     /**
      * Called when the post index batch operation has completed. This should
      * perform any final operations for the plug-in and clean up any shared
-     * state initialized in {@link #startBatch(EventPostIndexContext)}.
+     * state initialized in {@link #startBatch(EventPostIndexContext)}. This
+     * method runs after the index has been committed, so can rely on the index
+     * to be consistent.
      *
      * @param context Context for the post-index plug-in.
      * @throws Exception If an exception occurs.

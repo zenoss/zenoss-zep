@@ -20,7 +20,7 @@ package org.zenoss.zep;
  *   Number of aged events
  *   Number of events that could be archived
  *   Number of events that could be aged
- *   Index summary queue table count (SELECT COUNT(*) FROM event_summary_index_queue)
+ *   Index summary queue count (size of the redis work queue)
  *   Index archive queue table count (SELECT COUNT(*) FROM event_archive_index_queue)
  *   relevant Lucene statistics. Size of indexes.
  */

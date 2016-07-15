@@ -147,7 +147,8 @@ public abstract class BaseQueryBuilder<B extends BaseQueryBuilder<B>> {
         addDetails(filter.getDetailsList());
 
         for (EventFilter subFilter : filter.getSubfilterList()) {
-            B sub = subBuilder(occur);
+            Occur subOccur = subFilter.getOperator() == FilterOperator.OR ? Occur.SHOULD : Occur.MUST;
+            B sub = subBuilder(subOccur);
             sub.addFilter(subFilter);
             subClauses.add(sub);
         }
