@@ -88,11 +88,6 @@
             </properties>
         </profile>
     </profiles>
-    <scm>
-        <connection>scm:svn:http://dev.zenoss.com/svnint/trunk/core/zep</connection>
-        <developerConnection>scm:svn:http://dev.zenoss.com/svnint/trunk/core/zep</developerConnection>
-        <url>http://dev.zenoss.com/tracint/browser/trunk/core/zep</url>
-    </scm>
     <dependencies>
         <dependency>
             <groupId>junit</groupId>
