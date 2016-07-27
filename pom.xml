@@ -4,7 +4,7 @@
     <groupId>org.zenoss.zep</groupId>
     <artifactId>zep-parent</artifactId>
     <packaging>pom</packaging>
-    <version>2.2.0</version>
+    <version>2.2.1</version>
     <name>Zenoss Event Processor Parent</name>
     <url>http://www.zenoss.com</url>
     <modules>
@@ -88,11 +88,6 @@
             </properties>
         </profile>
     </profiles>
-    <scm>
-        <connection>scm:svn:http://dev.zenoss.com/svnint/trunk/core/zep</connection>
-        <developerConnection>scm:svn:http://dev.zenoss.com/svnint/trunk/core/zep</developerConnection>
-        <url>http://dev.zenoss.com/tracint/browser/trunk/core/zep</url>
-    </scm>
     <dependencies>
         <dependency>
             <groupId>junit</groupId>
