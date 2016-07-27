@@ -62,7 +62,7 @@ JAVAEXE="java"
 . ${JETTY_BIN}/zeneventserver-functions.sh
 
 # Check for java
-JVERSION=`LC_ALL=C $JAVAEXE -version 2>&1 | grep "java version" | awk '{print $3}' | cut -d'"' -f2`
+JVERSION=`LC_ALL=C $JAVAEXE -version 2>&1 | grep "java version\|openjdk version" | awk '{print $3}' | cut -d'"' -f2`
 case "$JVERSION" in
     1.[6789].*)
         ;;
