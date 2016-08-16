@@ -209,8 +209,6 @@
     <metrics:metric-registry id="metrics" name="zep" />
     <metrics:health-check-registry id="metrics-health" />
     <metrics:annotation-driven metric-registry="metrics" health-check-registry="metrics-health" />
-    <metrics:reporter type="slf4j" metric-registry="metrics" period="1m" />
-
     <metrics:reporter type="zenoss" metric-registry="metrics" period="${zep.metrics.post.period:30s}" id="zenossReporter"
                       username="${zauth-username:#{null}}" password="${zauth-password:#{null}}" tags="daemon:zep" prefix="zep"/>
 
