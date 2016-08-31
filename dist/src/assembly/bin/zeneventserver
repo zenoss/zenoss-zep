@@ -9,6 +9,17 @@
 # 
 ##############################################################################
 
+ZEPDIR=${ZENHOME}/webapps/zeneventserver
+ZEP_WEB_XML=${ZEPDIR}/WEB-INF/web.xml
+
+if [ ! -f ${ZEP_WEB_XML} ]; then
+    # if web.xml doesn't exists we might be in dev mode
+    # cd into zep directory and try to run via maven
+    set -e
+    cd ${ZEPDIR}/core
+    mvn -DskipTests=true jetty:run
+    exit
+fi
 
 #get path to this script
 RELDIR=`dirname $0`
