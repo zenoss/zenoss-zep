@@ -9,6 +9,7 @@
 # 
 ##############################################################################
 
+
 ZEPDIR=${ZENHOME}/webapps/zeneventserver
 ZEP_WEB_XML=${ZEPDIR}/WEB-INF/web.xml
 
@@ -17,8 +18,39 @@ if [ ! -f ${ZEP_WEB_XML} ]; then
     # cd into zep directory and try to run via maven
     set -e
     cd ${ZEPDIR}/core
-    mvn -DskipTests=true jetty:run
-    exit
+    CMD=$1
+    case "$CMD" in
+        run)
+            mvn -DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index clean jetty:run
+            exit
+            ;;
+        start)
+            mvn -DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index clean jetty:run  >${ZENHOME}/log/zeneventserver.log  2>&1 &
+	    n=0
+	    while [ $n -lt 30 ]
+	    do
+		echo $n
+		curl http://localhost:8084/zeneventserver/api/1.0/heartbeats/ >/dev/null 2>$1 && break  
+		n=$[$n+1]
+		sleep 2
+	    done
+
+	    if [ $n -ge 30 ]; then
+		mvn -DskipTests=true jetty:stop
+		echo "zep failed to start after 60 seconds"
+		exit 1
+	    fi
+            exit
+            ;;
+        stop)
+
+            mvn -DskipTests=true jetty:stop
+            exit
+            ;;
+        *)
+            echo "only start, stop and run supported in devmode"
+            exit 1
+    esac
 fi
 
 #get path to this script
