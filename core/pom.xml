@@ -326,6 +326,7 @@
                 <configuration>
                     <webAppConfig>
                         <resourceBase>${project.basedir}/../webapp/src/main/webapp</resourceBase>
+                        <contextPath>/zeneventserver</contextPath>
                     </webAppConfig>
                  <stopKey>STOP</stopKey>
                  <stopPort>9999</stopPort>
