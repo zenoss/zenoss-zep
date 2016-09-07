@@ -24,20 +24,24 @@ if [ ! -f ${ZEP_WEB_XML} ]; then
             mvn -DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index clean jetty:run
             exit
             ;;
+        run_quiet)
+            mvn -DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index clean jetty:run >${ZENHOME}/log/zeneventserver.log 2>&1
+            exit
+            ;;
         start)
             mvn -DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index clean jetty:run  >${ZENHOME}/log/zeneventserver.log  2>&1 &
 	    n=0
-	    while [ $n -lt 30 ]
+	    while [ $n -lt 150 ]
 	    do
-		echo $n
+		echo -n '.'
 		curl http://localhost:8084/zeneventserver/api/1.0/heartbeats/ >/dev/null 2>$1 && break  
 		n=$[$n+1]
 		sleep 2
 	    done
-
-	    if [ $n -ge 30 ]; then
+	    echo ""
+	    if [ $n -ge 150 ]; then
 		mvn -DskipTests=true jetty:stop
-		echo "zep failed to start after 60 seconds"
+		echo "zep failed to start after 300 seconds"
 		exit 1
 	    fi
             exit
