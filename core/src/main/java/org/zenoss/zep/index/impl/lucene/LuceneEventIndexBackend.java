@@ -288,6 +288,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         } catch (IOException e) {
             throw new ZepException(e);
         } catch (OutOfMemoryError e) {
+            logger.error("OutOfMemoryException thrown while indexing event - {} : {}", event.getUuid(), e);
             closeSearcherManager();
             throw e;
         }
@@ -323,6 +324,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         } catch (IOException e) {
             throw new ZepException(e);
         } catch (OutOfMemoryError e) {
+            logger.error("OutOfMemoryException thrown while deleting eventUuids : {} - {}", eventUuids, e);
             closeSearcherManager();
             throw e;
         }
@@ -336,6 +338,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         } catch (IOException e) {
             throw new ZepException(e);
         } catch (OutOfMemoryError e) {
+            logger.error("OutOfMemoryException thrown while commiting event changes: {} ",e);
             closeSearcherManager();
             throw e;
         }
@@ -385,6 +388,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         } catch (IOException e) {
             throw new ZepException(e.getLocalizedMessage(), e);
         } catch (OutOfMemoryError e) {
+            logger.error("OutOfMemoryException thrown while performing listInternal search : {}", e);
             closeSearcherManager();
             throw e;
         } finally {
@@ -431,6 +435,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
             throw new ZepException(msg + e.getLocalizedMessage(), e);
         }
         catch (OutOfMemoryError oome) {
+            logger.error("OutOfMemoryException thrown while performing time limited search : {}", oome);
             throw oome;
         }
         catch (Exception e) {
@@ -536,6 +541,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         } catch (IOException e) {
             throw new ZepException(e);
         } catch (OutOfMemoryError e) {
+            logger.error("OutOfMemoryException thrown while findingByUuid for eventUuid:{} - {}", uuid, e);
             closeSearcherManager();
             throw e;
         } finally {
@@ -557,6 +563,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         } catch (IOException e) {
             throw new ZepException(e);
         } catch (OutOfMemoryError e) {
+            logger.error("OutOfMemoryException thrown while purging events older than {} :{} ",threshold.getDate(), e);
             closeSearcherManager();
             throw e;
         } finally {
@@ -573,6 +580,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         } catch (IOException e) {
             throw new ZepException(e);
         } catch (OutOfMemoryError e) {
+            logger.error("OutOfMemoryException thrown while clearing events for {} : {} ",name, e);
             closeSearcherManager();
             throw e;
         }
@@ -817,6 +825,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         } catch (IOException e) {
             throw new ZepException(e);
         } catch (OutOfMemoryError e) {
+            logger.error("OutOfMemoryException thrown while searching EventTagSeverities : {}", e);
             closeSearcherManager();
             throw e;
         } finally {
