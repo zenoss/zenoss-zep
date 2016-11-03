@@ -28,7 +28,7 @@ run() {
     PID=$$
     rm -f $PIDFILE
     echo $PID > $PIDFILE
-    exec java ${JVM_ARGS} -jar ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
+    exec java ${JVM_ARGS} -XX:OnOutOfMemoryError="kill -9 %p" -jar ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
 }
 
 run_quiet() {
@@ -37,7 +37,7 @@ run_quiet() {
     PID=$$
     rm -f $PIDFILE
     echo $PID > $PIDFILE
-    exec java ${JVM_ARGS} -jar ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
+    exec java ${JVM_ARGS} -XX:OnOutOfMemoryError="kill -9 %p" -jar ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
 }
 
 # Waits for the process to be started (assumes when the ZEP port is listening the
@@ -92,7 +92,7 @@ start() {
         JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
         # Redirect stdout/stderr to separate log file
         JETTY_ARGS="$JETTY_ARGS --pre=etc/zeneventserver/jetty/jetty-logging.xml"
-        java ${JVM_ARGS} -jar ${JETTYSTART_JAR} ${JETTY_ARGS} \
+        java ${JVM_ARGS} -XX:OnOutOfMemoryError="kill -9 %p" -jar ${JETTYSTART_JAR} ${JETTY_ARGS} \
         ${START_ARGS} > /dev/null 2>&1 &
         PID=$!
         disown $PID
