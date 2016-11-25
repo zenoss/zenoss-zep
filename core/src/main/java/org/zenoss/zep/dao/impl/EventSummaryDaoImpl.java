@@ -228,7 +228,14 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         final byte[] fingerprintHash;
         final String uuid;
         if (ZepConstants.CLOSED_STATUSES.contains(event.getStatus())) {
-            fingerprintHash = DaoUtils.sha1(fingerprint + '|' + System.currentTimeMillis());
+            long ts;
+            ts = System.currentTimeMillis();
+            // Change fingerprintHash value for clear event to prevent
+            // undesirable DuplicateKeyException (ZEN-26244)
+            if (event.getSeverity() == EventSeverity.SEVERITY_CLEAR) {
+                ts = ts - 1;
+            }
+            fingerprintHash = DaoUtils.sha1(fingerprint + '|' + ts);
             uuid = saveEventByFingerprint(fingerprintHash, Collections.singleton(event), context, createClearHash);
         } else {
             fingerprintHash = DaoUtils.sha1(fingerprint);
