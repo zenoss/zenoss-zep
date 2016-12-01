@@ -230,8 +230,9 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         if (ZepConstants.CLOSED_STATUSES.contains(event.getStatus())) {
             long ts;
             ts = System.currentTimeMillis();
-            // Change fingerprintHash value for clear event to prevent
-            // undesirable DuplicateKeyException (ZEN-26244)
+            // When the clear event and the event it clears happen to close is the same
+            // millisecond, the fingerprint hashes will be the same and DuplicateKeyException is raised.
+            // Subtracting 1 from the value here ensures that the same timestamp isn't used.
             if (event.getSeverity() == EventSeverity.SEVERITY_CLEAR) {
                 ts = ts - 1;
             }
