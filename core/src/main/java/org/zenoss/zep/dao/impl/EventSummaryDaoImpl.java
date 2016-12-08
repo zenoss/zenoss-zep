@@ -228,7 +228,15 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         final byte[] fingerprintHash;
         final String uuid;
         if (ZepConstants.CLOSED_STATUSES.contains(event.getStatus())) {
-            fingerprintHash = DaoUtils.sha1(fingerprint + '|' + System.currentTimeMillis());
+            long ts;
+            ts = System.currentTimeMillis();
+            // When the clear event and the event it clears happen to close is the same
+            // millisecond, the fingerprint hashes will be the same and DuplicateKeyException is raised.
+            // Subtracting 1 from the value here ensures that the same timestamp isn't used.
+            if (event.getSeverity() == EventSeverity.SEVERITY_CLEAR) {
+                ts = ts - 1;
+            }
+            fingerprintHash = DaoUtils.sha1(fingerprint + '|' + ts);
             uuid = saveEventByFingerprint(fingerprintHash, Collections.singleton(event), context, createClearHash);
         } else {
             fingerprintHash = DaoUtils.sha1(fingerprint);
