@@ -471,7 +471,6 @@ public abstract class BaseQueryBuilder<B extends BaseQueryBuilder<B>> {
                             } catch (IllegalArgumentException e) {
                                 // Didn't match IP range - try performing a substring match
                                 sub.addIpAddressSubstringField(key, val);
-                                logger.info(e.getLocalizedMessage());
                             }
                         }
                         break;
