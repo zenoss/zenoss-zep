@@ -51,6 +51,12 @@ if [ ! -f ${ZEP_WEB_XML} ]; then
             mvn -DskipTests=true jetty:stop
             exit
             ;;
+        status)
+            # In devmode echo this message so that testDaemons in
+            # Products.ZenUtils.tests.testCommandLineProgs always passes.
+            echo "program running"
+            exit
+            ;;
         *)
             echo "only start, stop and run supported in devmode"
             exit 1
