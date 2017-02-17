@@ -9,7 +9,7 @@
     <parent>
         <groupId>org.zenoss.zep</groupId>
         <artifactId>zep-parent</artifactId>
-        <version>2.2.1</version>
+        <version>2.3.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <dependencies>
@@ -319,6 +319,20 @@
     </dependencies>
     <build>
         <plugins>
+	  <plugin>
+                <groupId>org.mortbay.jetty</groupId>
+                <artifactId>jetty-maven-plugin</artifactId>
+                <version>${version.jetty}</version>
+                <configuration>
+                    <webAppConfig>
+                        <resourceBase>${project.basedir}/../webapp/src/main/webapp</resourceBase>
+                        <contextPath>/zeneventserver</contextPath>
+                    </webAppConfig>
+                 <stopKey>STOP</stopKey>
+                 <stopPort>9999</stopPort>
+                 <scanIntervalSeconds>5</scanIntervalSeconds>
+                </configuration>
+	  </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>

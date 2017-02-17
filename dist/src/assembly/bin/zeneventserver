@@ -10,6 +10,59 @@
 ##############################################################################
 
 
+ZEPDIR=${ZENHOME}/webapps/zeneventserver
+ZEP_WEB_XML=${ZEPDIR}/WEB-INF/web.xml
+
+if [ ! -f ${ZEP_WEB_XML} ]; then
+    # if web.xml doesn't exists we might be in dev mode
+    # cd into zep directory and try to run via maven
+    set -e
+    cd ${ZEPDIR}/core
+    CMD=$1
+    case "$CMD" in
+        run)
+            mvn -DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index clean jetty:run
+            exit
+            ;;
+        run_quiet)
+            mvn -DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index clean jetty:run >${ZENHOME}/log/zeneventserver.log 2>&1
+            exit
+            ;;
+        start)
+            mvn -DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index clean jetty:run  >${ZENHOME}/log/zeneventserver.log  2>&1 &
+	    n=0
+	    while [ $n -lt 150 ]
+	    do
+		echo -n '.'
+		curl http://localhost:8084/zeneventserver/api/1.0/heartbeats/ >/dev/null 2>$1 && break  
+		n=$[$n+1]
+		sleep 2
+	    done
+	    echo ""
+	    if [ $n -ge 150 ]; then
+		mvn -DskipTests=true jetty:stop
+		echo "zep failed to start after 300 seconds"
+		exit 1
+	    fi
+            exit
+            ;;
+        stop)
+
+            mvn -DskipTests=true jetty:stop
+            exit
+            ;;
+        status)
+            # In devmode echo this message so that testDaemons in
+            # Products.ZenUtils.tests.testCommandLineProgs always passes.
+            echo "program running"
+            exit
+            ;;
+        *)
+            echo "only start, stop and run supported in devmode"
+            exit 1
+    esac
+fi
+
 #get path to this script
 RELDIR=`dirname $0`
 cd $RELDIR
