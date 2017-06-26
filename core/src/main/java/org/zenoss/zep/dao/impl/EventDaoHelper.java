@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010-2011, 2014 all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.UUID;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
 
@@ -77,7 +78,7 @@ public class EventDaoHelper {
 
     public EventDaoHelper() {
     }
-    
+
     public void setZepConfigService(ZepConfigService zepConfigService) throws ZepException {
         this.zepConfigService = zepConfigService;
     }
@@ -469,10 +470,14 @@ public class EventDaoHelper {
         String detailsJson = rs.getString(COLUMN_DETAILS_JSON);
         if (detailsJson != null && !detailsJson.isEmpty()) {
             try {
-                List<EventDetail> details = JsonFormat.mergeAllDelimitedFrom(detailsJson, EventDetail.getDefaultInstance());
+                List<EventDetail> details = JsonFormat.mergeAllDelimitedFrom(
+                    detailsJson, EventDetail.getDefaultInstance()
+                );
                 eventBuilder.addAllDetails(details);
             } catch (IOException e) {
-                throw new SQLException(e);
+                //java.util.UUID uuid = (java.util.UUID) rs.getObject(COLUMN_UUID);
+                String uuid = uuidConverter.fromDatabaseType(rs, COLUMN_UUID);
+                logger.error("Failed to parse details for event {}", uuid.toString());
             }
         }
         if (isArchive == true) {
