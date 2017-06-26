@@ -60,6 +60,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.UUID;
 
 import static org.zenoss.zep.dao.impl.EventConstants.*;
 
@@ -478,10 +479,14 @@ public class EventDaoHelper {
                 // get the rm resource name
                 String elementIdentifier = rs.getString(COLUMN_ELEMENT_IDENTIFIER);
                 String fingerprint = rs.getString(COLUMN_FINGERPRINT);
+                //String uuid = rs.getBinaryStream(COLUMN_UUID);
+                java.util.UUID uuid = (java.util.UUID) rs.getObject(COLUMN_UUID);
 
                 logger.error(
-                    "Failed to parse invalid json: device: {}, fingerprint: {}, details: {}",
-                    elementIdentifier, fingerprint, detailsJson
+                    "Failed to parse details for event {}",
+                    uuid
+                    //"Failed to parse invalid json: device: {}, fingerprint: {}, details: {}",
+                    //elementIdentifier, fingerprint, detailsJson
                 );
             }
         }
