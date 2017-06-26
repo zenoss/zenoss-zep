@@ -1,10 +1,10 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010-2011, 2014 all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
@@ -77,7 +77,7 @@ public class EventDaoHelper {
 
     public EventDaoHelper() {
     }
-    
+
     public void setZepConfigService(ZepConfigService zepConfigService) throws ZepException {
         this.zepConfigService = zepConfigService;
     }
@@ -469,10 +469,20 @@ public class EventDaoHelper {
         String detailsJson = rs.getString(COLUMN_DETAILS_JSON);
         if (detailsJson != null && !detailsJson.isEmpty()) {
             try {
-                List<EventDetail> details = JsonFormat.mergeAllDelimitedFrom(detailsJson, EventDetail.getDefaultInstance());
+                List<EventDetail> details = JsonFormat.mergeAllDelimitedFrom(
+                    detailsJson, EventDetail.getDefaultInstance()
+                );
                 eventBuilder.addAllDetails(details);
             } catch (IOException e) {
-                throw new SQLException(e);
+                //throw new SQLException(e);
+                // get the rm resource name
+                String elementIdentifier = rs.getString(COLUMN_ELEMENT_IDENTIFIER);
+                String fingerprint = rs.getString(COLUMN_FINGERPRINT);
+
+                logger.error(
+                    "Failed to parse invalid json: device: {}, fingerprint: {}, details: {}",
+                    elementIdentifier, fingerprint, detailsJson
+                );
             }
         }
         if (isArchive == true) {
