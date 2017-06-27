@@ -475,19 +475,8 @@ public class EventDaoHelper {
                 );
                 eventBuilder.addAllDetails(details);
             } catch (IOException e) {
-                //throw new SQLException(e);
-                // get the rm resource name
-                String elementIdentifier = rs.getString(COLUMN_ELEMENT_IDENTIFIER);
-                String fingerprint = rs.getString(COLUMN_FINGERPRINT);
-                //String uuid = rs.getBinaryStream(COLUMN_UUID);
-                java.util.UUID uuid = (java.util.UUID) rs.getObject(COLUMN_UUID);
-
-                logger.error(
-                    "Failed to parse details for event {}",
-                    uuid
-                    //"Failed to parse invalid json: device: {}, fingerprint: {}, details: {}",
-                    //elementIdentifier, fingerprint, detailsJson
-                );
+                String uuid = uuidConverter.fromDatabaseType(rs, COLUMN_UUID);
+                logger.error("Failed to parse details for event {}", uuid.toString());
             }
         }
         if (isArchive == true) {
