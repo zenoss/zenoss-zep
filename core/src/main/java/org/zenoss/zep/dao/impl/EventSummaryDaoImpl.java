@@ -182,7 +182,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.create")
     @TransactionalRollbackAllExceptions
     public String create(Event event, final EventPreCreateContext context) throws ZepException {
 
@@ -636,7 +636,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.reidentify")
     public int reidentify(ModelElementType type, String id, String uuid, String title, String parentUuid)
             throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
@@ -696,7 +696,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.deidentify")
     public int deidentify(String uuid) throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         long updateTime = System.currentTimeMillis();
@@ -739,7 +739,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalReadOnly
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.findByUuid")
     public EventSummary findByUuid(String uuid) throws ZepException {
         final Map<String, Object> fields = Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
         List<EventSummary> summaries = this.template.query("SELECT * FROM event_summary WHERE uuid=:uuid",
@@ -749,7 +749,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @Deprecated
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.findByUuids")
     /** @deprecated use {@link #findByKey(Collection) instead}. */
     public List<EventSummary> findByUuids(final List<String> uuids) throws ZepException {
         return findByUuids((Collection) uuids);
@@ -769,7 +769,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalReadOnly
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.findByKey")
     /**
      * This implementation only makes use of the UUID field to lookup the events.
      */
@@ -783,7 +783,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalReadOnly
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.listBatch")
     public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException {
         return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_SUMMARY, null, batchParams, maxUpdateTime, limit,
                 new EventSummaryRowMapper(eventDaoHelper, databaseCompatibility));
@@ -802,7 +802,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.getAgeEligibleEventCount")
     public long getAgeEligibleEventCount(long duration, TimeUnit unit, EventSeverity maxSeverity,
                                          boolean inclusiveSeverity) {
         List<Integer> severityIds = getSeverityIds(maxSeverity, inclusiveSeverity);
@@ -819,7 +819,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.ageEvents")
     public int ageEvents(long agingInterval, TimeUnit unit,
                          EventSeverity maxSeverity, int limit, boolean inclusiveSeverity) throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
@@ -892,7 +892,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.addNote")
     public int addNote(String uuid, EventNote note) throws ZepException {
         final long updateTime = System.currentTimeMillis();
         this.indexSignal(uuid);
@@ -902,7 +902,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.updateDetails")
     public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException {
         final long updateTime = System.currentTimeMillis();
@@ -1113,7 +1113,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.acknowledge")
     public int acknowledge(List<String> uuids, String userUuid, String userName)
             throws ZepException {
         /* NEW | ACKNOWLEDGED | SUPPRESSED -> ACKNOWLEDGED */
@@ -1134,7 +1134,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
     }
 
     @Override
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.getArchiveEligibleEventCount")
     public long getArchiveEligibleEventCount(long duration, TimeUnit unit) {
         String sql = "SELECT COUNT(*) FROM event_summary WHERE closed_status = TRUE AND last_seen < :_last_seen";
         Map<String, Object> fields = createSharedFields(duration, unit);
@@ -1143,7 +1143,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.archive")
     public int archive(long duration, TimeUnit unit, int limit) throws ZepException {
         Map<String, Object> fields = createSharedFields(duration, unit);
         fields.put("_limit", limit);
@@ -1162,7 +1162,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.close")
     public int close(List<String> uuids, String userUuid, String userName) throws ZepException {
         /* NEW | ACKNOWLEDGED | SUPPRESSED -> CLOSED */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_NEW, EventStatus.STATUS_ACKNOWLEDGED,
@@ -1175,7 +1175,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.reopen")
     public int reopen(List<String> uuids, String userUuid, String userName) throws ZepException {
         /* CLOSED | CLEARED | AGED | ACKNOWLEDGED | SUPPRESSED -> NEW */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_CLOSED, EventStatus.STATUS_CLEARED,
@@ -1188,7 +1188,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.suppress")
     public int suppress(List<String> uuids) throws ZepException {
         /* NEW -> SUPPRESSED */
         List<EventStatus> currentStatuses = Arrays.asList(EventStatus.STATUS_NEW);
@@ -1197,7 +1197,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.archiveList")
     public int archive(List<String> uuids) throws ZepException {
         if (uuids.isEmpty()) {
             return 0;
@@ -1250,7 +1250,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventSummary.importEvent")
     public void importEvent(EventSummary eventSummary) throws ZepException {
         final long updateTime = System.currentTimeMillis();
         final EventSummary.Builder summaryBuilder = EventSummary.newBuilder(eventSummary);
