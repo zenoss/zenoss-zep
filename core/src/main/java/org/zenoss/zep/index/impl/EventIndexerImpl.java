@@ -186,13 +186,13 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     }
 
     @Override
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventIndexer.index")
     public synchronized int index() throws ZepException {
         return doIndex(-1L);
     }
 
     @Override
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventIndexer.indexFully")
     public int indexFully() throws ZepException {
         int totalIndexed = 0;
         final long now = System.currentTimeMillis();

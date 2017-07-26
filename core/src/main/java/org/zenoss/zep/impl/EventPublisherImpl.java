@@ -38,7 +38,7 @@ public class EventPublisherImpl implements EventPublisher {
     }
 
     @Override
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventPublisher.publishEvent")
     public void publishEvent(Event rawEvent) throws ZepException {
         try {
             this.connectionManager.publish(exchangeConfiguration, createRoutingKey(rawEvent), rawEvent);

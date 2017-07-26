@@ -81,7 +81,7 @@ public class EventProcessorImpl implements EventProcessor {
     }
 
     @Override
-    @Timed
+    @Timed(absolute=true, name="zeneventserver.EventProcessor.processEvent")
     public void processEvent(ZepRawEvent zepRawEvent) throws ZepException {
         logger.debug("processEvent: event={}", zepRawEvent);
         counters.addToProcessedEventCount(1);
