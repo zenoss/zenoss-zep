@@ -82,7 +82,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed(absolute=true, name="zeneventserver.EventArchive.create")
+    @Timed(absolute=true, name="EventArchive.create")
     public String create(Event event, EventPreCreateContext context) throws ZepException {
         if (!ZepConstants.CLOSED_STATUSES.contains(event.getStatus())) {
             throw new ZepException("Invalid status for event in event archive: " + event.getStatus());
@@ -109,7 +109,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalReadOnly
-    @Timed(absolute=true, name="zeneventserver.EventArchive.findByUuid")
+    @Timed(absolute=true, name="EventArchive.findByUuid")
     public EventSummary findByUuid(String uuid) throws ZepException {
         final Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
         List<EventSummary> summaries = this.template.query("SELECT * FROM event_archive WHERE uuid=:uuid",
@@ -120,7 +120,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @Override
     @TransactionalReadOnly
     @Deprecated
-    @Timed(absolute=true, name="zeneventserver.EventArchive.findByUuids")
+    @Timed(absolute=true, name="EventArchive.findByUuids")
     /** @deprecated use {@link #findByKey(Collection) instead}. */
     public List<EventSummary> findByUuids(List<String> uuids)
             throws ZepException {
@@ -133,7 +133,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalReadOnly
-    @Timed(absolute=true, name="zeneventserver.EventArchive.findByKey")
+    @Timed(absolute=true, name="EventArchive.findByKey")
     public List<EventSummary> findByKey(Collection<EventSummary> toLookup) throws ZepException {
         ArrayList<Object> fields = new ArrayList<Object>(toLookup.size() * 2);
         StringBuilder sql = new StringBuilder();
@@ -153,7 +153,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalReadOnly
-    @Timed(absolute=true, name="zeneventserver.EventArchive.listBatch")
+    @Timed(absolute=true, name="EventArchive.listBatch")
     public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException {
         return this.eventDaoHelper.listBatch(this.template, TABLE_EVENT_ARCHIVE, this.partitioner, batchParams, maxUpdateTime, limit,
                 new EventArchiveRowMapper(eventDaoHelper, databaseCompatibility));
@@ -161,7 +161,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed(absolute=true, name="zeneventserver.EventArchive.initializePartitions")
+    @Timed(absolute=true, name="EventArchive.initializePartitions")
     public void initializePartitions() throws ZepException {
         this.partitioner.createPartitions(
                 this.partitionTableConfig.getInitialPastPartitions(),
@@ -169,7 +169,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     }
 
     @Override
-    @Timed(absolute=true, name="zeneventserver.EventArchive.getPartitionIntervalInMs")
+    @Timed(absolute=true, name="EventArchive.getPartitionIntervalInMs")
     public long getPartitionIntervalInMs() {
         return this.partitionTableConfig.getPartitionUnit().toMillis(
                 this.partitionTableConfig.getPartitionDuration());
@@ -177,14 +177,14 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed(absolute=true, name="zeneventserver.EventArchive.addNote")
+    @Timed(absolute=true, name="EventArchive.addNote")
     public int addNote(String uuid, EventNote note) throws ZepException {
         return this.eventDaoHelper.addNote(TABLE_EVENT_ARCHIVE, uuid, note, template);
     }
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed(absolute=true, name="zeneventserver.EventArchive.updateDetails")
+    @Timed(absolute=true, name="EventArchive.updateDetails")
     public int updateDetails(String uuid, EventDetailSet details)
             throws ZepException {
         return this.eventDaoHelper.updateDetails(TABLE_EVENT_ARCHIVE, uuid, details.getDetailsList(), template);
@@ -192,7 +192,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed(absolute=true, name="zeneventserver.EventArchive.purge")
+    @Timed(absolute=true, name="EventArchive.purge")
     public void purge(int duration, TimeUnit unit) throws ZepException {
         this.partitioner.pruneAndCreatePartitions(duration,
                 unit,
@@ -202,7 +202,7 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @Override
     @TransactionalRollbackAllExceptions
-    @Timed(absolute=true, name="zeneventserver.EventArchive.importEvent")
+    @Timed(absolute=true, name="EventArchive.importEvent")
     public void importEvent(EventSummary eventSummary) throws ZepException {
         if (!ZepConstants.CLOSED_STATUSES.contains(eventSummary.getStatus())) {
             throw new ZepException("Invalid status for event in event archive: " + eventSummary.getStatus());
