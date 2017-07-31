@@ -194,7 +194,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
         if (event.getSeverity() == EventSeverity.SEVERITY_CLEAR) {
             final Event finalEvent = event;
             try {
-                clearedEventUuids = metricRegistry.timer(getClass().getName() + ".clearEvents").time(new Callable<List<String>>() {
+                clearedEventUuids = metricRegistry.timer("EventSummaryDaoImpl.clearEvents").time(new Callable<List<String>>() {
                     @Override
                     public List<String> call() throws Exception {
                         return clearEvents(finalEvent, context);
@@ -243,7 +243,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             final String hashAsString = new String(fingerprintHash).intern();
             final Event finalEvent = event;
             try {
-                metricRegistry.timer(getClass().getName() + ".queueDedup").time(new Callable() {
+                metricRegistry.timer("EventSummaryDaoImpl.queueDedup").time(new Callable() {
                     @Override
                     public Object call() throws Exception {
                         boolean queued = false;
@@ -267,7 +267,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             }
 
             try {
-                uuid = metricRegistry.timer(getClass().getName() + ".dedupSync").time(new Callable<String>() {
+                uuid = metricRegistry.timer("EventSummaryDaoImpl.dedupSync").time(new Callable<String>() {
                     @Override
                     public String call() throws Exception {
                         synchronized (hashAsString) {
@@ -296,7 +296,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
             return null;
         }
         try {
-            metricRegistry.timer(getClass().getName() + ".dedupClearEvents").time(new Callable<Object>() {
+            metricRegistry.timer("EventSummaryDaoImpl.dedupClearEvents").time(new Callable<Object>() {
                 @Override
                 public Object call() throws Exception {
                     // Mark cleared events as cleared by this event
@@ -345,7 +345,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                                           final EventPreCreateContext context, final boolean createClearHash)
             throws ZepException {
         try {
-            return metricRegistry.timer(getClass().getName() + ".saveEventByFingerprint").time(new Callable<String>() {
+            return metricRegistry.timer("EventSummaryDaoImpl.saveEventByFingerprint").time(new Callable<String>() {
                 @Override
                 public String call() throws Exception {
                     final List<EventSummary.Builder> oldSummaryList = template.getJdbcOperations().query(
