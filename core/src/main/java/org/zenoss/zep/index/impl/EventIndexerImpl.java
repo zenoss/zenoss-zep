@@ -103,12 +103,12 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
         String metricName = "";
         String pluginsTimerName = "";
         if(this.isSummary) {
-            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "summaryIndexedDocs");
-            pluginsTimerName = MetricRegistry.name(this.getClass().getCanonicalName(), "summaryPlugins");
+            metricName = MetricRegistry.name("EventIndexer", "summaryIndexedDocs");
+            pluginsTimerName = MetricRegistry.name("EventIndexer", "summaryPlugins");
         }
         else {
-            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "archiveIndexedDocs");
-            pluginsTimerName = MetricRegistry.name(this.getClass().getCanonicalName(), "archivePlugins");
+            metricName = MetricRegistry.name("EventIndexer", "archiveIndexedDocs");
+            pluginsTimerName = MetricRegistry.name("EventIndexer", "archivePlugins");
         }
         this.metrics.register(metricName, new Gauge<Long>() {
             @Override
@@ -186,13 +186,13 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     }
 
     @Override
-    @Timed
+    @Timed(absolute=true, name="EventIndexer.index")
     public synchronized int index() throws ZepException {
         return doIndex(-1L);
     }
 
     @Override
-    @Timed
+    @Timed(absolute=true, name="EventIndexer.indexFully")
     public int indexFully() throws ZepException {
         int totalIndexed = 0;
         final long now = System.currentTimeMillis();

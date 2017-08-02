@@ -34,17 +34,17 @@ public abstract class AbstractQueueListener extends QueueListener {
     @Autowired
     protected MetricRegistry metricRegistry;
 
-    private final String ackMessageTimerName     = this.getClass().getName() + ".ackMessage";
-    private final String handleMessageTimerName  = this.getClass().getName() + ".handleMessage";
-    private final String receiveMessageTimerName = this.getClass().getName() + ".receiveMessage";
-    private final String rejectMessageTimerName  = this.getClass().getName() + ".rejectMessage";
+    private final String ackMessageTimerName     = this.getClass().getSimpleName() + ".ackMessage";
+    private final String handleMessageTimerName  = this.getClass().getSimpleName() + ".handleMessage";
+    private final String receiveMessageTimerName = this.getClass().getSimpleName() + ".receiveMessage";
+    private final String rejectMessageTimerName  = this.getClass().getSimpleName() + ".rejectMessage";
 
     protected abstract String getQueueIdentifier();
-
 
     public void setExecutorService(ExecutorService executorService) {
         this.executorService = executorService;
     }
+    
     protected void rejectMessage(final Consumer<?> consumer, final Message<?> message, final boolean requeue) {
         try {
             metricRegistry.timer(rejectMessageTimerName).time(new Callable<Object>() {

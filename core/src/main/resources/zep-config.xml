@@ -210,10 +210,10 @@
     <metrics:health-check-registry id="metrics-health" />
     <metrics:annotation-driven metric-registry="metrics" health-check-registry="metrics-health" />
     <metrics:reporter type="zenoss" metric-registry="metrics" period="${zep.metrics.post.period:30s}" id="zenossReporter"
-                      username="${zauth-username:#{null}}" password="${zauth-password:#{null}}" tags="daemon:zep" prefix="zep"/>
+                      username="${zauth-username:#{null}}" password="${zauth-password:#{null}}" tags="zenoss_daemon:zeneventserver" prefix="zeneventserver" />
 
     <metrics:reporter type="zenoss" metric-registry="metrics" period="${zep.metrics.post.period:30s}" id="ControlCenterReporter"
-        post-url="${CONTROLPLANE_CONSUMER_URL:http://localhost:22350/api/metrics/store}" tags="daemon:zep" prefix="zep"/>
+        post-url="${CONTROLPLANE_CONSUMER_URL:http://localhost:22350/api/metrics/store}" tags="zenoss_daemon:zeneventserver" prefix="zeneventserver" />
 
     <metrics:register metric-registry="metrics">
         <bean metrics:name="jvm.gc" class="com.codahale.metrics.jvm.GarbageCollectorMetricSet" />

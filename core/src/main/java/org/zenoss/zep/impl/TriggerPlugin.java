@@ -10,6 +10,7 @@
 
 package org.zenoss.zep.impl;
 
+import com.codahale.metrics.annotation.Timed;
 import com.google.common.base.Splitter;
 import org.python.core.Py;
 import org.python.core.PyDictionary;
@@ -800,6 +801,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         }
     }
 
+    @Timed(absolute=true, name="Trigger.publishSignal")
     protected void publishSignal(EventSummary eventSummary, EventTriggerSubscription subscription) throws ZepException {
         Event occurrence = eventSummary.getOccurrence(0);
         Signal.Builder signalBuilder = Signal.newBuilder();
