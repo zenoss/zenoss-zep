@@ -110,10 +110,10 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
 
     private String getMetricName(String metricName) {
         if(this.archive) {
-            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "archive" + metricName);
+            metricName = MetricRegistry.name("LuceneEventIndexBackend", "archive" + metricName);
         }
         else {
-            metricName = MetricRegistry.name(this.getClass().getCanonicalName(), "summary" + metricName);
+            metricName = MetricRegistry.name("LuceneEventIndexBackend", "summary" + metricName);
         }
         return metricName;
     }

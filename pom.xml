@@ -4,7 +4,7 @@
     <groupId>org.zenoss.zep</groupId>
     <artifactId>zep-parent</artifactId>
     <packaging>pom</packaging>
-    <version>2.3.0</version>
+    <version>2.4.0</version>
     <name>Zenoss Event Processor Parent</name>
     <url>http://www.zenoss.com</url>
     <modules>
@@ -130,6 +130,9 @@
                 <configuration>
                     <source>1.7</source>
                     <target>1.7</target>
+                <compilerArgs>
+                  <arg>-Xlint:all</arg>
+                </compilerArgs>
                 </configuration>
             </plugin>
             <plugin>

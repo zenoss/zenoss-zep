@@ -81,7 +81,7 @@ public class EventProcessorImpl implements EventProcessor {
     }
 
     @Override
-    @Timed
+    @Timed(absolute=true, name="EventProcessor.processEvent")
     public void processEvent(ZepRawEvent zepRawEvent) throws ZepException {
         logger.debug("processEvent: event={}", zepRawEvent);
         counters.addToProcessedEventCount(1);
@@ -158,8 +158,8 @@ public class EventProcessorImpl implements EventProcessor {
     @Resource(name="metrics")
     public void setBean( MetricRegistry metrics ) {
         this.metrics = metrics;
-        String preCreatePluginsTimerName = MetricRegistry.name(this.getClass().getCanonicalName(), "preCreatePlugins");
-        String postCreatePluginsTimerName = MetricRegistry.name(this.getClass().getCanonicalName(), "postCreatePlugins");
+        String preCreatePluginsTimerName = MetricRegistry.name("EventProcessorImpl", "preCreatePlugins");
+        String postCreatePluginsTimerName = MetricRegistry.name("EventProcessorImpl", "postCreatePlugins");
         // Set up timers for plugins
         preCreatePluginsTimer = metrics.timer(preCreatePluginsTimerName);
         postCreatePluginsTimer = metrics.timer(postCreatePluginsTimerName);
