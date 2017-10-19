@@ -137,7 +137,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
                     } catch (ZepException e) {
                         logger.warn("Failed to index events", e);
                     } catch (Exception e) {
-                        logger.warn("General failure indexing events", e);
+                        logger.error("General failure indexing events", e);
                     }
                     // If we aren't shut down and we aren't processing a large backlog of events, wait to index the
                     // next batch of events after a delay.
