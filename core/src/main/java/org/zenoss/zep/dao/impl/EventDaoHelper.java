@@ -100,10 +100,11 @@ public class EventDaoHelper {
         return str.length() * 2 < eventMaxSizeBytes;
     }
 
-    private List<EventDetail> removeNonZenossDetails(List<EventDetail> details) {
+    private List<EventDetail> removeUnimportantDetails(List<EventDetail> details) {
         List<EventDetail> cleanDetails = new ArrayList<EventDetail>();
         for (EventDetail detail : details) {
-            if (detail.getName().startsWith("zenoss.")) {
+            String name = detail.getName();
+            if (name.startsWith("zenoss.") || name.startsWith("impact.") || name.startsWith("__meta__.impact.")) {
                 cleanDetails.add(detail);
             }
         }
@@ -191,12 +192,12 @@ public class EventDaoHelper {
             try {
                 detailsJson = JsonFormat.writeAllDelimitedAsString(mergeDuplicateDetails(event.getDetailsList()));
 
-                // if the detailsJson string is too big, filter out non-Zenoss
+                // if the detailsJson string is too big, filter out non-important
                 // details and try again.
                 long eventMaxSizeBytes = zepConfigService.getConfig().getEventMaxSizeBytes();
                 if (!isValidDetailsSize(detailsJson, eventMaxSizeBytes)) {
                     detailsJson = JsonFormat.writeAllDelimitedAsString(
-                            mergeDuplicateDetails(removeNonZenossDetails(event.getDetailsList())));
+                            mergeDuplicateDetails(removeUnimportantDetails(event.getDetailsList())));
 
                     if (!isValidDetailsSize(detailsJson, eventMaxSizeBytes)) {
                         // TODO: What to do when we can't reduce the size enough?
@@ -304,9 +305,9 @@ public class EventDaoHelper {
                 }
                 else {
                     // If the entire set of new details is not small enough,
-                    // truncate all non-zenoss details.
+                    // truncate all non-zenoss and non-impact details.
                     final String originalResults = results;
-                    final List<EventDetail> newZenossDetails = removeNonZenossDetails(newDetails);
+                    final List<EventDetail> newZenossDetails = removeUnimportantDetails(newDetails);
                     results = JsonFormat.writeAllDelimitedAsString(newZenossDetails);
                     logger.warn("Truncating old details because details are not a valid size. " +
                             "New non-Zenoss details have also been truncated due to size. " +
