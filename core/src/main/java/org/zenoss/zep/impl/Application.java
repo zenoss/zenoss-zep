@@ -382,7 +382,7 @@ public class Application implements ApplicationEventPublisherAware, ApplicationC
                             } catch (TransientDataAccessException e) {
                                 logger.debug("Failed to archive events", e);
                             } catch (Exception e) {
-                                logger.warn("Failed to archive events", e);
+                                logger.error("Failed to archive events", e);
                             }
                         }
                     }, "ZEP_EVENT_ARCHIVER"), startTime, archiveIntervalMilliseconds);
