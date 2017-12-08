@@ -18,8 +18,13 @@ import org.springframework.context.ApplicationListener;
 import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.Channel;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
+import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventActor;
+import org.zenoss.protobufs.zep.Zep.EventSeverity;
 import org.zenoss.zep.EventProcessor;
+import org.zenoss.zep.ZepException;
 import org.zenoss.zep.events.EventIndexQueueSizeEvent;
+import java.util.UUID;
 
 public class RawEventQueueListener extends AbstractQueueListener
     implements ApplicationListener<EventIndexQueueSizeEvent>, ApplicationEventPublisherAware {
@@ -106,6 +111,22 @@ public class RawEventQueueListener extends AbstractQueueListener
         this.consumerSleepTime = consumerSleepTime;
     }
 
+    public ZepRawEvent createFallbackEvent(String message){
+        final EventActor.Builder actorBuilder = EventActor.newBuilder();
+        actorBuilder.setElementIdentifier("System");
+        Event.Builder eventBuilder = Event.newBuilder();
+        eventBuilder.setUuid(UUID.randomUUID().toString());
+        eventBuilder.setCreatedTime(System.currentTimeMillis());
+        eventBuilder.setSummary("Event Error");
+        eventBuilder.setActor(actorBuilder.build());
+        eventBuilder.setMessage(message);
+        eventBuilder.setSeverity(EventSeverity.SEVERITY_ERROR);
+        final Event event = eventBuilder.build();
+        final ZepRawEvent zepEvent = ZepRawEvent.newBuilder()
+                .setEvent(event).build();
+        return zepEvent;
+    }
+
     @Override
     public void handle(com.google.protobuf.Message message) throws Exception {
         if (!(message instanceof ZepRawEvent)) {
@@ -114,7 +135,14 @@ public class RawEventQueueListener extends AbstractQueueListener
             while (this.indexQueueLag && this.throttleConsumer) {
                 Thread.sleep(this.consumerSleepTime);
             }
-            this.eventProcessor.processEvent((ZepRawEvent) message);
+            try{
+                this.eventProcessor.processEvent((ZepRawEvent) message);
+            } catch(ZepException e){
+                logger.error("Event did not parse correctly..", e);
+                /* create a new event with the contents of the failed event */
+                String msg = "An event has failed to parse (missing a field?)\n" + message.toString();
+                this.eventProcessor.processEvent(createFallbackEvent(msg));
+            }
         }
     }
 }
