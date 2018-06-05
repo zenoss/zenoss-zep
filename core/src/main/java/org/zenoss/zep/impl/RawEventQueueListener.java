@@ -40,7 +40,7 @@ public class RawEventQueueListener extends AbstractQueueListener
     protected MetricRegistry metricRegistry;
 
     @PostConstruct
-    public void initit() {
+    public void initRejectMessageMetric() {
         try {
             metricRegistry.timer(this.getClass().getSimpleName() + ".rejectMessage");
         } catch (Exception ex) {
