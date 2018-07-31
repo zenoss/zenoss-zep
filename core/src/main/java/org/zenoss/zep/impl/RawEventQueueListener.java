@@ -1,17 +1,18 @@
 /*****************************************************************************
- * 
+ *
  * Copyright (C) Zenoss, Inc. 2010, all rights reserved.
- * 
+ *
  * This content is made available according to terms specified in
  * License.zenoss under the directory where your Zenoss product is installed.
- * 
+ *
  ****************************************************************************/
 
 
 package org.zenoss.zep.impl;
-
+import com.codahale.metrics.MetricRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.ApplicationEventPublisherAware;
 import org.springframework.context.ApplicationListener;
@@ -20,6 +21,7 @@ import org.zenoss.amqp.Channel;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.EventProcessor;
 import org.zenoss.zep.events.EventIndexQueueSizeEvent;
+import javax.annotation.PostConstruct;
 
 public class RawEventQueueListener extends AbstractQueueListener
     implements ApplicationListener<EventIndexQueueSizeEvent>, ApplicationEventPublisherAware {
@@ -33,7 +35,19 @@ public class RawEventQueueListener extends AbstractQueueListener
     public void setPrefetchCount(int prefetchCount) {
         this.prefetchCount = prefetchCount;
     }
-    
+
+    @Autowired
+    protected MetricRegistry metricRegistry;
+
+    @PostConstruct
+    public void initRejectMessageMetric() {
+        try {
+            metricRegistry.timer(this.getClass().getSimpleName() + ".rejectMessage");
+        } catch (Exception ex) {
+            logger.warn("Set rejectMessage default metric value error: {}", ex);
+        }
+    }
+
     private boolean throttleConsumer = true;
     private volatile boolean indexQueueLag = false;
     private int indexQueueThreshold = 10000;
