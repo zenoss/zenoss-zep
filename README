@@ -10,7 +10,19 @@ Prerequisites:
 
 == Configuration ==
 
-1) Create a database for use by ZEP and import the database schema. There is
+1) Install maven and create a file ~/.m2/settings.xml with these contents:
+
+<settings>
+  <mirrors>
+    <mirror>
+      <id>europa</id>
+      <mirrorOf>*</mirrorOf>
+      <url>http://nexus.zenoss.eng:8081/nexus/content/groups/public</url>
+    </mirror>
+  </mirrors>
+</settings>
+
+2) Create a database for use by ZEP and import the database schema. There is
 a script named 'populate_schema.sh' in this directory which can be used to
 initialize the database. It assumes the following default settings:
 
