@@ -49,6 +49,10 @@
         <property name="amqpConnectionManager" ref="amqpConnectionManager"/>
     </bean>
 
+    <bean id="zingPlugin" class="org.zenoss.zep.impl.ZingPlugin">
+        <constructor-arg index="0" value="${zep.zing.enabled:false}"/>
+    </bean>
+
     <bean id="eventProcessor" class="org.zenoss.zep.impl.EventProcessorImpl">
         <property name="pluginService" ref="pluginService"/>
         <property name="eventSummaryDao" ref="eventSummaryDao"/>
