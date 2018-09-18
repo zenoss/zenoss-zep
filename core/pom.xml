@@ -316,6 +316,11 @@
             <version>${version.metrics}</version>
         </dependency>
         <!-- end of coda hale stuff -->
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-pubsub</artifactId>
+            <version>1.40.0</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>

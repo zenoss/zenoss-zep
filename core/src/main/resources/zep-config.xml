@@ -49,10 +49,6 @@
         <property name="amqpConnectionManager" ref="amqpConnectionManager"/>
     </bean>
 
-    <bean id="zingPlugin" class="org.zenoss.zep.impl.ZingPlugin">
-        <constructor-arg index="0" value="${zep.zing.enabled:false}"/>
-    </bean>
-
     <bean id="eventProcessor" class="org.zenoss.zep.impl.EventProcessorImpl">
         <property name="pluginService" ref="pluginService"/>
         <property name="eventSummaryDao" ref="eventSummaryDao"/>
@@ -181,6 +177,25 @@
     </bean>
 
     <bean id="uuidGenerator" class="org.zenoss.zep.impl.UUIDGeneratorImpl">
+    </bean>
+
+    <!-- ZING! -->
+    <bean id="zingConfig" class="org.zenoss.zep.zing.ZingConfig">
+        <property name="enabled" value="${zep.zing.enabled:false}"/>
+        <property name="useEmulator" value="${zep.zing.use_emulator:false}"/>
+        <property name="tenant" value="${zep.zing.tenant:#{''}}"/>
+        <property name="source" value="${zep.zing.source:#{''}}"/>
+        <property name="topic" value="${zep.zing.topic:#{''}}"/>
+        <property name="emulatorHostAndPort" value="${zep.zing.emulator_url:#{''}}"/>
+        <property name="credentialsPath" value="${zep.zing.credentials:#{''}}"/>
+    </bean>
+
+    <bean id="zingEventProcessor" class="org.zenoss.zep.zing.impl.ZingEventProcessorImpl">
+        <constructor-arg index="0" ref="zingConfig"/>
+    </bean>
+
+    <bean id="zingPlugin" class="org.zenoss.zep.impl.ZingPlugin">
+        <constructor-arg index="0" ref="zingEventProcessor"/>
     </bean>
 
     <!-- Framework for MBeans support -->
