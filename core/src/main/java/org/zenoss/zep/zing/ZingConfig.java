@@ -8,29 +8,32 @@ public class ZingConfig {
     
     private static final Logger logger = LoggerFactory.getLogger(ZingConfig.class);
 
-    private boolean enabled = false;
+    public boolean enabled = false;
 
-    private boolean useEmulator = false;
+    public boolean useEmulator = false;
 
-    private String tenant = "";
+    public String tenant = "";
 
-    private String source = "";
+    public String source = "";
 
-    private String topic = "";
+    public String project = "";
 
-    private String emulatorHostAndPort = "";
+    public String topic = "";
 
-    private String credentialsPath = "";
+    public String emulatorHostAndPort = "";
+
+    public String credentialsPath = "";
 
     public ZingConfig() {}
 
     public ZingConfig(boolean enabled, boolean useEmulator,
-                      String tenant, String source, String topic,
+                      String tenant, String source, String project, String topic,
                       String emulatorHostAndPort, String credentialsPath) {
         this.enabled = enabled;
         this.useEmulator = useEmulator;
         this.tenant = tenant;
         this.source = source;
+        this.project = project;
         this.topic = topic;
         this.emulatorHostAndPort = emulatorHostAndPort;
         this.credentialsPath = credentialsPath;
@@ -40,7 +43,7 @@ public class ZingConfig {
         this.enabled = enabled;
     }
 
-    public boolean getEnabled() {
+    public boolean forwardEvents() {
         return this.enabled;
     }
 
@@ -56,6 +59,10 @@ public class ZingConfig {
         this.source = src;
     }
 
+    public void setProject(String project) {
+        this.project = project;
+    }
+
     public void setTopic(String topic) {
         this.topic = topic;
     }
@@ -69,7 +76,7 @@ public class ZingConfig {
     }
 
     public String toString() {
-        final StringBuffer strBuf = new StringBuffer("Zing Config: ");
+        final StringBuffer strBuf = new StringBuffer();
         strBuf.append(" / enabled = ").append(this.enabled);
         strBuf.append(" / useEmulator = ").append(this.useEmulator);
         strBuf.append(" / emulatorUrl = ").append(this.emulatorHostAndPort);
@@ -78,5 +85,21 @@ public class ZingConfig {
         strBuf.append(" / topic = ").append(this.topic);
         strBuf.append(" / credentials path = ").append(this.credentialsPath);
         return strBuf.toString();
+    }
+
+    public boolean validate() {
+        boolean valid = true;
+        if ( this.tenant.isEmpty() || this.source.isEmpty() ||
+             this.project.isEmpty() || this.topic.isEmpty() ) {
+            valid = false;
+        }
+
+        if (valid && this.useEmulator && this.emulatorHostAndPort.isEmpty()) {
+            valid = false;
+        }
+        // FIXME when do we need creds??
+        //this.credentialsPath = credentialsPath;
+
+        return valid;
     }
 }

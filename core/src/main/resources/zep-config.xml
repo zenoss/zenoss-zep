@@ -185,12 +185,13 @@
         <property name="useEmulator" value="${zep.zing.use_emulator:false}"/>
         <property name="tenant" value="${zep.zing.tenant:#{''}}"/>
         <property name="source" value="${zep.zing.source:#{''}}"/>
+        <property name="project" value="${zep.zing.project:#{''}}"/>
         <property name="topic" value="${zep.zing.topic:#{''}}"/>
         <property name="emulatorHostAndPort" value="${zep.zing.emulator_url:#{''}}"/>
         <property name="credentialsPath" value="${zep.zing.credentials:#{''}}"/>
     </bean>
 
-    <bean id="zingEventProcessor" class="org.zenoss.zep.zing.impl.ZingEventProcessorImpl">
+    <bean id="zingEventProcessor" class="org.zenoss.zep.zing.impl.ZingEventProcessorImpl" destroy-method="shutdown">
         <constructor-arg index="0" ref="zingConfig"/>
     </bean>
 
