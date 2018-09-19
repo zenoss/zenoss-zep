@@ -24,21 +24,29 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         logger.info("Zing Event Processor created with config: {}", cfg.toString());
         this.enabled = this.config.forwardEvents();
         if (this.enabled) {
-            if (this.config.validate()) {
-                this.publisher = new ZingMessagePublisher(this.config);
-            } else {
+            if (!this.config.validate()) {
                 logger.error("Zing configuration is not valid. Events will not be forwarded to Zenoss Cloud");
                 this.enabled = false;
             }
+        }
+    }
+
+    public void init() {
+        // FIXME THIS TAKES FOREVER IF IT CANT ACCESS PUBSUB
+        logger.info("initializing zing event processor...");
+        if (this.enabled) {
+            this.publisher = new ZingMessagePublisher(this.config);
         }
         if(this.publisher==null) {
             this.enabled = false;
             logger.error("Could not create publisher. Events will not be forwarded to Zenoss Cloud");
         }
+        logger.info("initializing zing event processor...DONE");
     }
 
     public void processEvent(EventSummary eventSummary) {
         if (this.enabled) {
+            this.publisher.publishEvent();
             logger.info("PROCESS EVENTTT YOOO");
         } else {
             logger.info("DONT FORWARD EVENTS YOOO");

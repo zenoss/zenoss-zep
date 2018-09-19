@@ -13,6 +13,22 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
     <dependencies>
+        <!-- dependencies added to fix conflicts with libs brought by pubsub libs-->
+        <dependency>
+           <groupId>com.google.protobuf</groupId>
+           <artifactId>protobuf-java</artifactId>
+           <version>3.4.0</version>
+           <type>jar</type>
+           <scope>compile</scope>
+       </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>21.0</version>
+            <type>jar</type>
+            <scope>compile</scope>
+        </dependency>
+        <!--     -->
         <dependency>
             <groupId>javax.servlet</groupId>
             <artifactId>servlet-api</artifactId>
@@ -41,12 +57,14 @@
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
+        <!--  Removed to solve conflicts with the version pulled by pubsub
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>15.0</version>
             <type>jar</type>
         </dependency>
+        -->
         <dependency>
             <groupId>org.apache.lucene</groupId>
             <artifactId>lucene-queries</artifactId>

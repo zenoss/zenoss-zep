@@ -191,7 +191,8 @@
         <property name="credentialsPath" value="${zep.zing.credentials:#{''}}"/>
     </bean>
 
-    <bean id="zingEventProcessor" class="org.zenoss.zep.zing.impl.ZingEventProcessorImpl" destroy-method="shutdown">
+    <bean id="zingEventProcessor" class="org.zenoss.zep.zing.impl.ZingEventProcessorImpl" 
+          destroy-method="shutdown" init-method="init">
         <constructor-arg index="0" ref="zingConfig"/>
     </bean>
 
