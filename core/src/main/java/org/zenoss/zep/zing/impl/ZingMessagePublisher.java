@@ -6,10 +6,15 @@ import org.slf4j.LoggerFactory;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.api.gax.core.CredentialsProvider;
+import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.auth.oauth2.ServiceAccountCredentials;
 
 import org.zenoss.zep.zing.ZingConfig;
+import org.zenoss.protobufs.zep.Zep.EventSummary;
 
 import java.io.IOException;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -19,6 +24,7 @@ import com.google.api.gax.rpc.TransportChannelProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.cloud.pubsub.v1.TopicAdminSettings;
+import com.google.api.gax.rpc.AlreadyExistsException;
 
 public class ZingMessagePublisher {
 
@@ -75,6 +81,8 @@ public class ZingMessagePublisher {
                                 .build());
             topicAdminClient.createTopic(this.topicName);
             logger.info("topic created in emulator");
+        } catch(AlreadyExistsException aee) {
+            // topic already exists
         } catch(IOException e) {
             logger.error("Exception creating pubsub topic on emulator", e);
         }
@@ -93,7 +101,17 @@ public class ZingMessagePublisher {
     }
 
     CredentialsProvider buildCredentials(String filepath) {
-        return null;
+        CredentialsProvider credentialsProvider = null;
+        try {
+            credentialsProvider =
+                FixedCredentialsProvider.create(
+                    ServiceAccountCredentials.fromStream(new FileInputStream(filepath)));
+        } catch (FileNotFoundException fe) {
+            logger.error("Could not open credentials file {}", filepath);
+        } catch (IOException e) {
+            logger.error("Exception creating pubsub credentials from file {} / {}", filepath, e);
+        }
+        return credentialsProvider;
     }
 
     public void shutdown() {
@@ -106,7 +124,7 @@ public class ZingMessagePublisher {
         }
     }
 
-    public void publishEvent() {
+    public void publishEvent(EventSummary eventSummary) {
         logger.info("PACOO send msg");
     }
 }

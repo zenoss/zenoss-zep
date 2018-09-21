@@ -20,6 +20,8 @@ public class ZingPlugin extends EventPostIndexPlugin {
     }
 
     public void processEvent(Zep.EventSummary eventSummary, EventPostIndexContext context) throws ZepException {
-        zingEventProcessor.processEvent(eventSummary);
+        if (!context.isArchive()) { // Zenoss Cloud doesnt care about archiving
+            zingEventProcessor.processEvent(eventSummary);
+        }
     }
 }

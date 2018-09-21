@@ -46,10 +46,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
 
     public void processEvent(EventSummary eventSummary) {
         if (this.enabled) {
-            this.publisher.publishEvent();
-            logger.info("PROCESS EVENTTT YOOO");
-        } else {
-            logger.info("DONT FORWARD EVENTS YOOO");
+            this.publisher.publishEvent(eventSummary);
         }
     }
 
