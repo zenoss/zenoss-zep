@@ -2,14 +2,16 @@ package org.zenoss.zep.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zenoss.protobufs.zep.Zep;
+import org.zenoss.protobufs.zep.Zep.Event;
+import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
-import org.zenoss.zep.plugins.EventPostIndexContext;
-import org.zenoss.zep.plugins.EventPostIndexPlugin;
+import org.zenoss.zep.plugins.EventPostCreatePlugin;
+import org.zenoss.zep.plugins.EventPostCreateContext;
+
 import org.zenoss.zep.zing.ZingEventProcessor;
 
 
-public class ZingPlugin extends EventPostIndexPlugin {
+public class ZingPlugin extends EventPostCreatePlugin {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingPlugin.class);
 
@@ -19,9 +21,8 @@ public class ZingPlugin extends EventPostIndexPlugin {
         this.zingEventProcessor = zingEventProcessor;
     }
 
-    public void processEvent(Zep.EventSummary eventSummary, EventPostIndexContext context) throws ZepException {
-        if (!context.isArchive()) { // Zenoss Cloud doesnt care about archiving
-            zingEventProcessor.processEvent(eventSummary);
-        }
+    @Override
+    public void processEvent(Event eventOccurrence, EventSummary event, EventPostCreateContext context) throws ZepException {
+        this.zingEventProcessor.processEvent(eventOccurrence, event);
     }
 }

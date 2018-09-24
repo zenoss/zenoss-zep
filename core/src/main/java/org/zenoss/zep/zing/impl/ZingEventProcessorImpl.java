@@ -4,6 +4,7 @@ package org.zenoss.zep.zing.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
+import org.zenoss.protobufs.zep.Zep.Event;
 
 import org.zenoss.zep.zing.ZingEventProcessor;
 import org.zenoss.zep.zing.ZingConfig;
@@ -44,9 +45,10 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         logger.info("initializing zing event processor...DONE");
     }
 
-    public void processEvent(EventSummary eventSummary) {
+    public void processEvent(Event eventOccurrence, EventSummary event) {
         if (this.enabled) {
-            this.publisher.publishEvent(eventSummary);
+            // convert event to zing protobuf and send
+            this.publisher.publishEvent(event);
         }
     }
 
