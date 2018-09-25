@@ -26,6 +26,12 @@ import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.cloud.pubsub.v1.TopicAdminSettings;
 import com.google.api.gax.rpc.AlreadyExistsException;
 
+import com.google.pubsub.v1.PubsubMessage;
+import com.google.protobuf.ByteString;
+import com.google.api.core.ApiFuture;
+import com.google.api.core.ApiFutureCallback;
+import com.google.api.core.ApiFutures;
+
 public class ZingMessagePublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingEventProcessorImpl.class);
@@ -124,6 +130,22 @@ public class ZingMessagePublisher {
     }
 
     public void publishEvent(ZingEvent event) {
+        if (this.publisher != null) {
+            String msg = event.toString();
+            ByteString data = ByteString.copyFromUtf8(msg);
+            PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(data).build();
+
+            ApiFuture<String> messageIdFuture = publisher.publish(pubsubMessage);
+            ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
+                public void onSuccess(String messageId) {
+                    logger.info("published with message id: " + messageId);
+                }
+
+                public void onFailure(Throwable t) {
+                    logger.info("failed to publish: " + t);
+                }
+            });
+        }
         logger.info("PACOO send msg");
     }
 }

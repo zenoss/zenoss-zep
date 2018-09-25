@@ -75,7 +75,6 @@ public class ZingEvent {
         strBuf.append("\n message = ").append(this.message);
         strBuf.append("\n monitor = ").append(this.monitor);
         strBuf.append("\n agent = ").append(this.agent);
-        strBuf.append("\n ------------- ");
         strBuf.append("\n eventKey = ").append(this.eventKey);
         strBuf.append("\n eventClass = ").append(this.eventClass);
         strBuf.append("\n eventClassKey = ").append(this.eventClassKey);
