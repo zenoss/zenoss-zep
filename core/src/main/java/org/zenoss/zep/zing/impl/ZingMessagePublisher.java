@@ -72,7 +72,6 @@ public class ZingMessagePublisher {
           FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel));
         CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
         // Make sure topic exists
-        // FIXME if topic exists this throws exception
         try {
             TopicAdminClient topicAdminClient = TopicAdminClient.create(
                             TopicAdminSettings.newBuilder()
@@ -80,9 +79,9 @@ public class ZingMessagePublisher {
                                 .setCredentialsProvider(credentialsProvider)
                                 .build());
             topicAdminClient.createTopic(this.topicName);
-            logger.info("topic created in emulator");
+            logger.info("topic {} created in emulator", this.topicName);
         } catch(AlreadyExistsException aee) {
-            // topic already exists
+            logger.info("topic {} already exists in emulator", this.topicName);
         } catch(IOException e) {
             logger.error("Exception creating pubsub topic on emulator", e);
         }
@@ -124,7 +123,7 @@ public class ZingMessagePublisher {
         }
     }
 
-    public void publishEvent(EventSummary eventSummary) {
+    public void publishEvent(ZingEvent event) {
         logger.info("PACOO send msg");
     }
 }

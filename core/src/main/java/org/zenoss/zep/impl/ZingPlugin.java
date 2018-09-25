@@ -23,6 +23,12 @@ public class ZingPlugin extends EventPostCreatePlugin {
 
     @Override
     public void processEvent(Event eventOccurrence, EventSummary event, EventPostCreateContext context) throws ZepException {
-        this.zingEventProcessor.processEvent(eventOccurrence, event);
+        // if eventOccurrence is a clear event, the EventSummary is null
+        try {
+            this.zingEventProcessor.processEvent(eventOccurrence, event);
+        } catch (Exception e) {
+            logger.info("PACOO ESTO PETAAA 2 {}", e);
+            throw new ZepException(e);
+        }
     }
 }
