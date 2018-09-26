@@ -339,6 +339,11 @@
             <artifactId>google-cloud-pubsub</artifactId>
             <version>1.40.0</version>
         </dependency>
+        <dependency>
+            <groupId>org.zenoss.zing.proto</groupId>
+            <artifactId>zing-proto</artifactId>
+            <version>${zing-proto.version}</version>
+        </dependency>
     </dependencies>
     <build>
         <plugins>
