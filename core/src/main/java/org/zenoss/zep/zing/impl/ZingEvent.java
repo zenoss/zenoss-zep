@@ -5,7 +5,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
+import org.zenoss.zing.proto.event.Event;
+
 public class ZingEvent {
+
+    private final String tenant;
+    private final String source;
 
     private final long occurrenceTime;
     private final String fingerprint;
@@ -34,32 +39,36 @@ public class ZingEvent {
     private final Map<String, List<String>> details;
 
     private  ZingEvent (Builder b) {
-        this.occurrenceTime = b.builder_occurrenceTime;
-        this.fingerprint = b.builder_fingerprint;
-        this.severity = b.builder_severity;
-        this.contextUUID = b.builder_contextUUID;
-        this.contextIdentifier = b.builder_contextIdentifier;
-        this.contextTitle = b.builder_contextTitle;
-        this.contextType = b.builder_contextType;
-        this.childContextUUID = b.builder_childContextUUID;
-        this.childContextIdentifier = b.builder_childContextIdentifier;
-        this.childContextTitle = b.builder_childContextTitle;
-        this.childContextType = b.builder_childContextType;
-        this.message = b.builder_message;
-        this.summary = b.builder_summary;
-        this.uuid = b.builder_uuid;
-        this.monitor = b.builder_monitor;
-        this.agent = b.builder_agent;
-        this.eventKey = b.builder_eventKey;
-        this.eventClass = b.builder_eventClass;
-        this.eventClassKey = b.builder_eventClassKey;
-        this.eventClassMappingUuid = b.builder_eventClassMappingUuid;
-        this.eventGroup = b.builder_eventGroup;
-        this.details = b.builder_details;
+        this.tenant = b.tenant_;
+        this.source = b.source_;
+        this.occurrenceTime = b.occurrenceTime_;
+        this.fingerprint = b.fingerprint_;
+        this.severity = b.severity_;
+        this.contextUUID = b.contextUUID_;
+        this.contextIdentifier = b.contextIdentifier_;
+        this.contextTitle = b.contextTitle_;
+        this.contextType = b.contextType_;
+        this.childContextUUID = b.childContextUUID_;
+        this.childContextIdentifier = b.childContextIdentifier_;
+        this.childContextTitle = b.childContextTitle_;
+        this.childContextType = b.childContextType_;
+        this.message = b.message_;
+        this.summary = b.summary_;
+        this.uuid = b.uuid_;
+        this.monitor = b.monitor_;
+        this.agent = b.agent_;
+        this.eventKey = b.eventKey_;
+        this.eventClass = b.eventClass_;
+        this.eventClassKey = b.eventClassKey_;
+        this.eventClassMappingUuid = b.eventClassMappingUuid_;
+        this.eventGroup = b.eventGroup_;
+        this.details = b.details_;
     }
 
     public String toString() {
         final StringBuffer strBuf = new StringBuffer();
+        strBuf.append("\n tenant = ").append(this.tenant);
+        strBuf.append("\n source = ").append(this.source);
         strBuf.append("\n uuid = ").append(this.uuid);
         strBuf.append("\n occurrenceTime = ").append(this.occurrenceTime);
         strBuf.append("\n fingerprint = ").append(this.fingerprint);
@@ -87,147 +96,164 @@ public class ZingEvent {
         return strBuf.toString();
     }
 
+    private boolean isNullOrEmpty(String str) {
+        return str == null || str.trim().isEmpty();
+    }
+
     public boolean isValid() {
         boolean badEvent = this.occurrenceTime == 0 ||
-                           this.severity == null    || this.severity.isEmpty() ||
-                           this.fingerprint == null || this.fingerprint.isEmpty() ||
-                           this.contextUUID == null || this.contextUUID.isEmpty();
+                            this.isNullOrEmpty(this.tenant) ||
+                            this.isNullOrEmpty(this.source) ||
+                            this.isNullOrEmpty(this.severity) ||
+                            this.isNullOrEmpty(this.fingerprint) ||
+                            this.isNullOrEmpty(this.contextUUID);
         return !badEvent;
     }
 
+    public Event toZingEvent() {
+        Event.Builder b = Event.newBuilder();
+        b.setTenant(this.tenant);
+        b.setTimestamp(this.occurrenceTime);
+        // dimensions
+
+        // metadata
+
+        return b.build();
+    }
+
     public static class Builder {
-        private long builder_occurrenceTime;
-        private String builder_fingerprint;
-        private String builder_severity;
-        private String builder_contextUUID;
-        private String builder_contextIdentifier;
-        private String builder_contextTitle;
-        private String builder_contextType;
-        private String builder_childContextUUID;
-        private String builder_childContextIdentifier;
-        private String builder_childContextTitle;
-        private String builder_childContextType;
-        private String builder_message;
-        private String builder_summary;
-        private String builder_uuid;
-        private String builder_monitor;
-        private String builder_agent;
-        private String builder_eventKey;
-        private String builder_eventClass;
-        private String builder_eventClassKey;
-        private String builder_eventClassMappingUuid;
-        private String builder_eventGroup;
+        private final String tenant_;
+        private final String source_;
+        private final long occurrenceTime_;
+        private String fingerprint_;
+        private String severity_;
+        private String contextUUID_;
+        private String contextIdentifier_;
+        private String contextTitle_;
+        private String contextType_;
+        private String childContextUUID_;
+        private String childContextIdentifier_;
+        private String childContextTitle_;
+        private String childContextType_;
+        private String message_;
+        private String summary_;
+        private String uuid_;
+        private String monitor_;
+        private String agent_;
+        private String eventKey_;
+        private String eventClass_;
+        private String eventClassKey_;
+        private String eventClassMappingUuid_;
+        private String eventGroup_;
 
-        private Map<String, List<String>> builder_details = new HashMap<>();
+        private Map<String, List<String>> details_ = new HashMap<>();
 
-        public Builder() {
+        public Builder(String tnt, String src, long ts) {
+            this.tenant_ = tnt;
+            this.source_ = src;
+            this.occurrenceTime_ = ts;
         }
 
-        public Builder uuid(String value) {
-            this.builder_uuid = value;
+        public Builder setUuid(String value) {
+            this.uuid_ = value;
             return this;
         }
 
-        public Builder occurrenceTime(long value) {
-            this.builder_occurrenceTime = value;
+        public Builder setFingerprint(String value) {
+            this.fingerprint_ = value;
             return this;
         }
 
-        public Builder fingerprint(String value) {
-            this.builder_fingerprint = value;
+        public Builder setSeverity(String value) {
+            this.severity_ = value;
             return this;
         }
 
-        public Builder severity(String value) {
-            this.builder_severity = value;
+        public Builder setMessage(String value){
+            this.message_ = value;
             return this;
         }
 
-        public Builder message(String value){
-            this.builder_message = value;
+        public Builder setSummary(String value){
+            this.summary_ = value;
             return this;
         }
 
-        public Builder summary(String value){
-            this.builder_summary = value;
+        public Builder setContextUUID(String value){
+            this.contextUUID_ = value;
             return this;
         }
 
-        public Builder contextUUID(String value){
-            this.builder_contextUUID = value;
+        public Builder setContextIdentifier(String value){
+            this.contextIdentifier_ = value;
             return this;
         }
 
-        public Builder contextIdentifier(String value){
-            this.builder_contextIdentifier = value;
+        public Builder setContextTitle(String value){
+            this.contextTitle_ = value;
             return this;
         }
 
-        public Builder contextTitle(String value){
-            this.builder_contextTitle = value;
+        public Builder setContextType(String value){
+            this.contextType_ = value;
             return this;
         }
 
-        public Builder contextType(String value){
-            this.builder_contextType = value;
-            return this;
-        }
-
-        public Builder childContextUUID(String value){
-            this.builder_childContextUUID = value;
+        public Builder setChildContextUUID(String value){
+            this.childContextUUID_ = value;
             return this;
         }
         
-        public Builder childContextIdentifier(String value){
-            this.builder_childContextIdentifier = value;
+        public Builder setChildContextIdentifier(String value){
+            this.childContextIdentifier_ = value;
             return this;
         }
-        public Builder childContextTitle(String value){
-            this.builder_childContextTitle = value;
+        public Builder setChildContextTitle(String value){
+            this.childContextTitle_ = value;
             return this;
         }
-        public Builder childContextType(String value){
-            this.builder_childContextType = value;
-            return this;
-        }
-
-        public Builder monitor(String value){
-            this.builder_monitor = value;
+        public Builder setChildContextType(String value){
+            this.childContextType_ = value;
             return this;
         }
 
-        public Builder agent(String value){
-            this.builder_agent = value;
+        public Builder setMonitor(String value){
+            this.monitor_ = value;
             return this;
         }
 
-        public Builder eventKey(String value) {
-            this.builder_eventKey = value;
-            return this;
-        }
-        public Builder eventClass(String value) {
-            this.builder_eventClass = value;
+        public Builder setAgent(String value){
+            this.agent_ = value;
             return this;
         }
 
-        public Builder eventClassKey(String value) {
-            this.builder_eventClassKey = value;
+        public Builder setEventKey(String value) {
+            this.eventKey_ = value;
+            return this;
+        }
+        public Builder setEventClass(String value) {
+            this.eventClass_ = value;
             return this;
         }
 
-        public Builder eventClassMappingUuid(String value) {
-            this.builder_eventClassMappingUuid = value;
+        public Builder setEventClassKey(String value) {
+            this.eventClassKey_ = value;
             return this;
         }
 
-        public Builder eventGroup(String value) {
-            this.builder_eventGroup = value;
+        public Builder setEventClassMappingUuid(String value) {
+            this.eventClassMappingUuid_ = value;
             return this;
         }
 
-        public Builder detail(String k, List<String> v) {
+        public Builder setEventGroup(String value) {
+            this.eventGroup_ = value;
+            return this;
+        }
+
+        public Builder setDetail(String k, List<String> v) {
             // FIXME do we need to clone v?
-            this.builder_details.put(k, v);
+            this.details_.put(k, v);
             return this;
         }
 

@@ -6,6 +6,6 @@ import org.zenoss.protobufs.zep.Zep.Event;
 
 public interface ZingEventProcessor {
 
-    public void processEvent(Event eventOccurrence, EventSummary eventSummary);
+    void processEvent(Event eventOccurrence, EventSummary eventSummary);
 
 }

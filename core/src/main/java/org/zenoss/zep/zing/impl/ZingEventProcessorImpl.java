@@ -50,36 +50,39 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
     public void processEvent(Event event, EventSummary summary) {
         if (this.enabled) {
             // convert event to zing protobuf and send
-            ZingEvent.Builder builder = new ZingEvent.Builder();
-            builder.uuid(event.getUuid());
-            builder.occurrenceTime(event.getCreatedTime());
-
-            if (event.hasFingerprint()) builder.fingerprint(event.getFingerprint());
-            if (event.hasSeverity()) builder.severity(event.getSeverity().name());
+            long ts;
+            if (!event.hasCreatedTime())
+                return;
+            ZingEvent.Builder builder = new ZingEvent.Builder(this.config.tenant,
+                                                              this.config.source,
+                                                              event.getCreatedTime());
+            if (event.hasUuid()) builder.setUuid(event.getUuid());
+            if (event.hasFingerprint()) builder.setFingerprint(event.getFingerprint());
+            if (event.hasSeverity()) builder.setSeverity(event.getSeverity().name());
             EventActor actor = event.getActor();
             if (actor != null) {
-                if (actor.hasElementUuid()) builder.contextUUID(actor.getElementUuid());
-                if (actor.hasElementIdentifier()) builder.contextIdentifier(actor.getElementIdentifier());
-                if (actor.hasElementTitle()) builder.contextTitle(actor.getElementTitle());
-                if (actor.hasElementTypeId()) builder.contextType(actor.getElementTypeId().name());
-                if (actor.hasElementSubUuid()) builder.childContextUUID(actor.getElementSubUuid());
-                if (actor.hasElementSubIdentifier()) builder.childContextIdentifier(actor.getElementSubIdentifier());
-                if (actor.hasElementSubTitle()) builder.childContextTitle(actor.getElementSubTitle());
-                if (actor.hasElementSubTypeId()) builder.childContextType(actor.getElementSubTypeId().name());
+                if (actor.hasElementUuid()) builder.setContextUUID(actor.getElementUuid());
+                if (actor.hasElementIdentifier()) builder.setContextIdentifier(actor.getElementIdentifier());
+                if (actor.hasElementTitle()) builder.setContextTitle(actor.getElementTitle());
+                if (actor.hasElementTypeId()) builder.setContextType(actor.getElementTypeId().name());
+                if (actor.hasElementSubUuid()) builder.setChildContextUUID(actor.getElementSubUuid());
+                if (actor.hasElementSubIdentifier()) builder.setChildContextIdentifier(actor.getElementSubIdentifier());
+                if (actor.hasElementSubTitle()) builder.setChildContextTitle(actor.getElementSubTitle());
+                if (actor.hasElementSubTypeId()) builder.setChildContextType(actor.getElementSubTypeId().name());
             }
-            if (event.hasMessage()) builder.message(event.getMessage());
-            if (event.hasSummary()) builder.summary(event.getSummary());
-            if (event.hasMonitor()) builder.monitor(event.getMonitor());
-            if (event.hasAgent()) builder.agent(event.getAgent());
+            if (event.hasMessage()) builder.setMessage(event.getMessage());
+            if (event.hasSummary()) builder.setSummary(event.getSummary());
+            if (event.hasMonitor()) builder.setMonitor(event.getMonitor());
+            if (event.hasAgent()) builder.setAgent(event.getAgent());
 
-            if (event.hasEventKey()) builder.eventKey(event.getEventKey());
-            if (event.hasEventClass()) builder.eventClass(event.getEventClass());
-            if (event.hasEventClassKey()) builder.eventClassKey(event.getEventClassKey());
-            if (event.hasEventClassMappingUuid()) builder.eventClassMappingUuid(event.getEventClassMappingUuid());
-            if (event.hasEventGroup()) builder.eventGroup(event.getEventGroup());
+            if (event.hasEventKey()) builder.setEventKey(event.getEventKey());
+            if (event.hasEventClass()) builder.setEventClass(event.getEventClass());
+            if (event.hasEventClassKey()) builder.setEventClassKey(event.getEventClassKey());
+            if (event.hasEventClassMappingUuid()) builder.setEventClassMappingUuid(event.getEventClassMappingUuid());
+            if (event.hasEventGroup()) builder.setEventGroup(event.getEventGroup());
 
             for (EventDetail d : event.getDetailsList()) {
-                builder.detail(d.getName(), d.getValueList());
+                builder.setDetail(d.getName(), d.getValueList());
             }
 
             ZingEvent zingEvent = builder.build();
