@@ -61,14 +61,14 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             if (event.hasSeverity()) builder.setSeverity(event.getSeverity().name());
             EventActor actor = event.getActor();
             if (actor != null) {
-                if (actor.hasElementUuid()) builder.setContextUUID(actor.getElementUuid());
-                if (actor.hasElementIdentifier()) builder.setContextIdentifier(actor.getElementIdentifier());
-                if (actor.hasElementTitle()) builder.setContextTitle(actor.getElementTitle());
-                if (actor.hasElementTypeId()) builder.setContextType(actor.getElementTypeId().name());
-                if (actor.hasElementSubUuid()) builder.setChildContextUUID(actor.getElementSubUuid());
-                if (actor.hasElementSubIdentifier()) builder.setChildContextIdentifier(actor.getElementSubIdentifier());
-                if (actor.hasElementSubTitle()) builder.setChildContextTitle(actor.getElementSubTitle());
-                if (actor.hasElementSubTypeId()) builder.setChildContextType(actor.getElementSubTypeId().name());
+                if (actor.hasElementUuid()) builder.setParentContextUUID(actor.getElementUuid());
+                if (actor.hasElementIdentifier()) builder.setParentContextIdentifier(actor.getElementIdentifier());
+                if (actor.hasElementTitle()) builder.setParentContextTitle(actor.getElementTitle());
+                if (actor.hasElementTypeId()) builder.setParentContextType(actor.getElementTypeId().name());
+                if (actor.hasElementSubUuid()) builder.setContextUUID(actor.getElementSubUuid());
+                if (actor.hasElementSubIdentifier()) builder.setContextIdentifier(actor.getElementSubIdentifier());
+                if (actor.hasElementSubTitle()) builder.setContextTitle(actor.getElementSubTitle());
+                if (actor.hasElementSubTypeId()) builder.setContextType(actor.getElementSubTypeId().name());
             }
             if (event.hasMessage()) builder.setMessage(event.getMessage());
             if (event.hasSummary()) builder.setSummary(event.getSummary());
