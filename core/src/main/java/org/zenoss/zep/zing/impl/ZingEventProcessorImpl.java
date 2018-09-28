@@ -11,6 +11,8 @@ import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.zep.zing.ZingEventProcessor;
 import org.zenoss.zep.zing.ZingConfig;
 
+import java.util.List;
+
 
 public class ZingEventProcessorImpl implements ZingEventProcessor {
 
@@ -94,6 +96,11 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
                 logger.info("DROPPING BAD EVENT!!!!!!");
             }
         }
+    }
+
+    public void processUpdatedEvents(List<String> uuids) {
+        // get events and send them to Zenoss Cloud
+        logger.info("GOT EVENT UPDATE for {}. Implement me!", uuids);
     }
 
     public void shutdown() {

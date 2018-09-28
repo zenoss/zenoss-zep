@@ -1,4 +1,4 @@
-package org.zenoss.zep.impl;
+package org.zenoss.zep.zing.impl;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,13 +11,13 @@ import org.zenoss.zep.plugins.EventPostCreateContext;
 import org.zenoss.zep.zing.ZingEventProcessor;
 
 
-public class ZingPlugin extends EventPostCreatePlugin {
+public class ZingPostCreatePlugin extends EventPostCreatePlugin {
 
-    private static final Logger logger = LoggerFactory.getLogger(ZingPlugin.class);
+    private static final Logger logger = LoggerFactory.getLogger(ZingPostCreatePlugin.class);
 
     private final ZingEventProcessor zingEventProcessor;
 
-    public ZingPlugin(ZingEventProcessor zingEventProcessor) {
+    public ZingPostCreatePlugin(ZingEventProcessor zingEventProcessor) {
         this.zingEventProcessor = zingEventProcessor;
     }
 
