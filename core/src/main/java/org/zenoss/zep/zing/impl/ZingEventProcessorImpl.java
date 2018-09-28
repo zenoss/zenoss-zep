@@ -52,7 +52,6 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
     public void processEvent(Event event, EventSummary summary) {
         if (this.enabled) {
             // convert event to zing protobuf and send
-            long ts;
             if (!event.hasCreatedTime())
                 return;
             ZingEvent.Builder builder = new ZingEvent.Builder(this.config.tenant,
@@ -86,7 +85,12 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             for (EventDetail d : event.getDetailsList()) {
                 builder.setDetail(d.getName(), d.getValueList());
             }
-
+            if (summary != null ){
+                if (summary.hasCount()) builder.setCount(summary.getCount());
+                if (summary.hasFirstSeenTime()) builder.setFirstSeen(summary.getFirstSeenTime());
+                if (summary.hasLastSeenTime()) builder.setLastSeen(summary.getLastSeenTime());
+                if (summary.hasUpdateTime()) builder.setUpdateTime(summary.getUpdateTime());
+            }
             ZingEvent zingEvent = builder.build();
             logger.info("publishing event {}", zingEvent);
             if (zingEvent.isValid()) {

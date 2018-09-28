@@ -38,6 +38,12 @@ public class ZingEvent {
 
     private final Map<String, List<String>> details;
 
+    // Processed event attributes
+    private final int count;
+    private final long lastSeen;
+    private final long firstSeen;
+    private final long updateTime;
+
     private  ZingEvent (Builder b) {
         this.tenant = b.tenant_;
         this.source = b.source_;
@@ -70,6 +76,11 @@ public class ZingEvent {
         this.eventClassMappingUuid = b.eventClassMappingUuid_;
         this.eventGroup = b.eventGroup_;
         this.details = b.details_;
+        this.count = b.count_;
+        this.firstSeen = b.firstSeen_;
+        this.lastSeen = b.lastSeen_;
+        this.updateTime = b.updateTime_;
+
     }
 
     public String toString() {
@@ -100,6 +111,10 @@ public class ZingEvent {
         for (Map.Entry<String,List<String>> entry : this.details.entrySet()) {
             strBuf.append("\n\t ").append(entry.getKey()).append(" : ").append(entry.getValue());
         }
+        strBuf.append("\n count = ").append(this.count);
+        strBuf.append("\n firstSeen = ").append(this.firstSeen);
+        strBuf.append("\n lastSeen = ").append(this.lastSeen);
+        strBuf.append("\n updateTime = ").append(this.updateTime);
         return strBuf.toString();
     }
 
@@ -111,6 +126,7 @@ public class ZingEvent {
         boolean badEvent = this.occurrenceTime == 0 ||
                             ZingUtils.isNullOrEmpty(this.tenant) ||
                             ZingUtils.isNullOrEmpty(this.source) ||
+                            ZingUtils.isNullOrEmpty(this.uuid) ||
                             ZingUtils.isNullOrEmpty(this.severity) ||
                             ZingUtils.isNullOrEmpty(this.fingerprint) ||
                             ZingUtils.isNullOrEmpty(this.contextUUID);
@@ -129,10 +145,12 @@ public class ZingEvent {
             b.setTimestamp(this.occurrenceTime);
             // Dimensions - for zep events we trust the fingerprint as unique
             //      source
-            b.putDimensions("source", ZingUtils.getAnyValueFromObject(this.source));
             //      fingerprint
+            //      zep event uuid
+            b.putDimensions("source", ZingUtils.getAnyValueFromObject(this.source));
             b.putDimensions("fingerprint", ZingUtils.getAnyValueFromObject(this.fingerprint));
-            //      uuid ?? only if we care about event updates
+            b.putDimensions("uuid", ZingUtils.getAnyValueFromObject(this.uuid));
+
             //-----------
             //  Metadata
             //-----------
@@ -174,7 +192,14 @@ public class ZingEvent {
                 b.putMetadata( "eventClassMappingUuid", ZingUtils.getAnyArray(this.eventClassMappingUuid));
             if (!ZingUtils.isNullOrEmpty(this.eventGroup))
                 b.putMetadata( "eventGroup", ZingUtils.getAnyArray(this.eventGroup));
-
+            if (this.count > 0)
+                b.putMetadata( "count", ZingUtils.getAnyArray(this.count));
+            if (this.firstSeen > 0)
+                b.putMetadata( "firstSeen", ZingUtils.getAnyArray(this.firstSeen));
+            if (this.lastSeen > 0)
+                b.putMetadata( "lastSeen", ZingUtils.getAnyArray(this.lastSeen));
+            if (this.updateTime > 0)
+                b.putMetadata( "updateTime", ZingUtils.getAnyArray(this.updateTime));
             evt = b.build();
         }
         return evt;
@@ -204,6 +229,11 @@ public class ZingEvent {
         private String eventClassKey_;
         private String eventClassMappingUuid_;
         private String eventGroup_;
+        // Processed event attributes
+        private int count_;
+        private long lastSeen_;
+        private long firstSeen_;
+        private long updateTime_;
 
         private Map<String, List<String>> details_ = new HashMap<>();
 
@@ -313,6 +343,26 @@ public class ZingEvent {
         public Builder setDetail(String k, List<String> v) {
             // FIXME do we need to clone v?
             this.details_.put(k, v);
+            return this;
+        }
+
+        public Builder setCount(int value) {
+            this.count_ = value;
+            return this;
+        }
+
+        public Builder setLastSeen(long value) {
+            this.lastSeen_ = value;
+            return this;
+        }
+
+        public Builder setFirstSeen(long value) {
+            this.firstSeen_ = value;
+            return this;
+        }
+
+        public Builder setUpdateTime(long value) {
+            this.updateTime_ = value;
             return this;
         }
 
