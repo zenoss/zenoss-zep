@@ -43,6 +43,7 @@ public class ZingEvent {
     private final long lastSeen;
     private final long firstSeen;
     private final long updateTime;
+    private final String clearedByUUID;
 
     private  ZingEvent (Builder b) {
         this.tenant = b.tenant_;
@@ -80,6 +81,7 @@ public class ZingEvent {
         this.firstSeen = b.firstSeen_;
         this.lastSeen = b.lastSeen_;
         this.updateTime = b.updateTime_;
+        this.clearedByUUID = b.clearedByUUID_;
 
     }
 
@@ -115,6 +117,7 @@ public class ZingEvent {
         strBuf.append("\n firstSeen = ").append(this.firstSeen);
         strBuf.append("\n lastSeen = ").append(this.lastSeen);
         strBuf.append("\n updateTime = ").append(this.updateTime);
+        strBuf.append("\n cleared by = ").append(this.clearedByUUID);
         return strBuf.toString();
     }
 
@@ -147,59 +150,60 @@ public class ZingEvent {
             //      source
             //      fingerprint
             //      zep event uuid
-            b.putDimensions("source", ZingUtils.getAnyValueFromObject(this.source));
-            b.putDimensions("fingerprint", ZingUtils.getAnyValueFromObject(this.fingerprint));
-            b.putDimensions("uuid", ZingUtils.getAnyValueFromObject(this.uuid));
+            b.putDimensions(ZingUtils.SOURCE_KEY, ZingUtils.getAnyValueFromObject(this.source));
+            b.putDimensions(ZingUtils.FINGERPRINT_KEY, ZingUtils.getAnyValueFromObject(this.fingerprint));
+            b.putDimensions(ZingUtils.UUID_KEY, ZingUtils.getAnyValueFromObject(this.uuid));
 
             //-----------
             //  Metadata
             //-----------
             if (!ZingUtils.isNullOrEmpty(this.severity))
-                b.putMetadata( "severity", ZingUtils.getAnyArray(this.severity));
+                b.putMetadata( ZingUtils.SEVERITY_KEY, ZingUtils.getAnyArray(this.severity));
             if (!ZingUtils.isNullOrEmpty(this.parentContextUUID))
-                b.putMetadata( "parentContextUUID", ZingUtils.getAnyArray(this.parentContextUUID));
+                b.putMetadata( ZingUtils.PARENT_CONTEXT_UUID_KEY, ZingUtils.getAnyArray(this.parentContextUUID));
             if (!ZingUtils.isNullOrEmpty(this.parentContextIdentifier))
-                b.putMetadata( "parentContextIdentifier", ZingUtils.getAnyArray(this.parentContextIdentifier));
+                b.putMetadata( ZingUtils.PARENT_CONTEXT_ID_KEY, ZingUtils.getAnyArray(this.parentContextIdentifier));
             if (!ZingUtils.isNullOrEmpty(this.parentContextTitle))
-                b.putMetadata( "parentContextTitle", ZingUtils.getAnyArray(this.parentContextTitle));
+                b.putMetadata( ZingUtils.PARENT_CONTEXT_TITLE_KEY, ZingUtils.getAnyArray(this.parentContextTitle));
             if (!ZingUtils.isNullOrEmpty(this.parentContextType))
-                b.putMetadata( "parentContextType", ZingUtils.getAnyArray(this.parentContextType));
+                b.putMetadata( ZingUtils.PARENT_CONTEXT_TYPE_KEY, ZingUtils.getAnyArray(this.parentContextType));
             if (!ZingUtils.isNullOrEmpty(this.contextUUID))
-                b.putMetadata( "contextUUID", ZingUtils.getAnyArray(this.contextUUID));
+                b.putMetadata( ZingUtils.CONTEXT_UUID_KEY, ZingUtils.getAnyArray(this.contextUUID));
             if (!ZingUtils.isNullOrEmpty(this.contextIdentifier))
-                b.putMetadata( "contextIdentifier", ZingUtils.getAnyArray(this.contextIdentifier));
+                b.putMetadata( ZingUtils.CONTEXT_ID_KEY, ZingUtils.getAnyArray(this.contextIdentifier));
             if (!ZingUtils.isNullOrEmpty(this.contextTitle))
-                b.putMetadata( "contextTitle", ZingUtils.getAnyArray(this.contextTitle));
+                b.putMetadata( ZingUtils.CONTEXT_TITLE_KEY, ZingUtils.getAnyArray(this.contextTitle));
             if (!ZingUtils.isNullOrEmpty(this.contextType))
-                b.putMetadata( "contextType", ZingUtils.getAnyArray(this.contextType));
+                b.putMetadata( ZingUtils.CONTEXT_TYPE_KEY, ZingUtils.getAnyArray(this.contextType));
             if (!ZingUtils.isNullOrEmpty(this.message))
-                b.putMetadata( "message", ZingUtils.getAnyArray(this.message));
+                b.putMetadata( ZingUtils.MESSAGE_KEY, ZingUtils.getAnyArray(this.message));
             if (!ZingUtils.isNullOrEmpty(this.summary))
-                b.putMetadata( "summary", ZingUtils.getAnyArray(this.summary));
-            if (!ZingUtils.isNullOrEmpty(this.uuid))
-                b.putMetadata( "uuid", ZingUtils.getAnyArray(this.uuid));
+                b.putMetadata( ZingUtils.SUMMARY_KEY, ZingUtils.getAnyArray(this.summary));
             if (!ZingUtils.isNullOrEmpty(this.monitor))
-                b.putMetadata( "monitor", ZingUtils.getAnyArray(this.monitor));
+                b.putMetadata( ZingUtils.MONITOR_KEY, ZingUtils.getAnyArray(this.monitor));
             if (!ZingUtils.isNullOrEmpty(this.agent))
-                b.putMetadata( "agent", ZingUtils.getAnyArray(this.agent));
+                b.putMetadata( ZingUtils.AGENT_KEY, ZingUtils.getAnyArray(this.agent));
             if (!ZingUtils.isNullOrEmpty(this.eventKey))
-                b.putMetadata( "eventKey", ZingUtils.getAnyArray(this.eventKey));
+                b.putMetadata( ZingUtils.EVENT_KEY_KEY, ZingUtils.getAnyArray(this.eventKey));
             if (!ZingUtils.isNullOrEmpty(this.eventClass))
-                b.putMetadata( "eventClass", ZingUtils.getAnyArray(this.eventClass));
+                b.putMetadata( ZingUtils.EVENT_CLASS_KEY, ZingUtils.getAnyArray(this.eventClass));
             if (!ZingUtils.isNullOrEmpty(this.eventClassKey))
-                b.putMetadata( "eventClassKey", ZingUtils.getAnyArray(this.eventClassKey));
+                b.putMetadata( ZingUtils.EVENT_CLASS_KEY_KEY, ZingUtils.getAnyArray(this.eventClassKey));
             if (!ZingUtils.isNullOrEmpty(this.eventClassMappingUuid))
-                b.putMetadata( "eventClassMappingUuid", ZingUtils.getAnyArray(this.eventClassMappingUuid));
+                b.putMetadata( ZingUtils.EVENT_CLASS_MAPPING_KEY, ZingUtils.getAnyArray(this.eventClassMappingUuid));
             if (!ZingUtils.isNullOrEmpty(this.eventGroup))
-                b.putMetadata( "eventGroup", ZingUtils.getAnyArray(this.eventGroup));
+                b.putMetadata( ZingUtils.EVENT_GROUP_KEY, ZingUtils.getAnyArray(this.eventGroup));
             if (this.count > 0)
-                b.putMetadata( "count", ZingUtils.getAnyArray(this.count));
+                b.putMetadata( ZingUtils.COUNT_KEY, ZingUtils.getAnyArray(this.count));
             if (this.firstSeen > 0)
-                b.putMetadata( "firstSeen", ZingUtils.getAnyArray(this.firstSeen));
+                b.putMetadata( ZingUtils.FIRST_SEEN_KEY, ZingUtils.getAnyArray(this.firstSeen));
             if (this.lastSeen > 0)
-                b.putMetadata( "lastSeen", ZingUtils.getAnyArray(this.lastSeen));
+                b.putMetadata( ZingUtils.LAST_SEEN_KEY, ZingUtils.getAnyArray(this.lastSeen));
             if (this.updateTime > 0)
-                b.putMetadata( "updateTime", ZingUtils.getAnyArray(this.updateTime));
+                b.putMetadata( ZingUtils.UPDATE_TIME_KEY, ZingUtils.getAnyArray(this.updateTime));
+            if (!ZingUtils.isNullOrEmpty(this.clearedByUUID)) {
+                b.putMetadata( ZingUtils.CLEARED_BY_KEY, ZingUtils.getAnyArray(this.clearedByUUID));
+            }
             evt = b.build();
         }
         return evt;
@@ -234,6 +238,7 @@ public class ZingEvent {
         private long lastSeen_;
         private long firstSeen_;
         private long updateTime_;
+        private String clearedByUUID_;
 
         private Map<String, List<String>> details_ = new HashMap<>();
 
@@ -363,6 +368,11 @@ public class ZingEvent {
 
         public Builder setUpdateTime(long value) {
             this.updateTime_ = value;
+            return this;
+        }
+
+        public Builder setClearedByUUID(String value) {
+            this.clearedByUUID_ = value;
             return this;
         }
 
