@@ -208,6 +208,10 @@ public class ZingEvent {
                 final String key = ZingUtils.DETAILS_KEY_PREFIX + entry.getKey();
                 b.putMetadata( key, ZingUtils.getAnyArray(entry.getValue()));
             }
+            // Source id
+            b.putMetadata(ZingUtils.SOURCE_TYPE_KEY, ZingUtils.getAnyArray(ZingUtils.SOURCE_TYPE));
+            b.putMetadata(ZingUtils.SOURCE_VENDOR_KEY, ZingUtils.getAnyArray(ZingUtils.SOURCE_VENDOR));
+
             evt = b.build();
         }
         return evt;

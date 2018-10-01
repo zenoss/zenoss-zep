@@ -14,6 +14,8 @@ public class ZingUtils {
 
     public static final String DETAILS_KEY_PREFIX = "CZ_EVENT_DETAIL-";
     public static final String SOURCE_KEY = "source";
+    public static final String SOURCE_TYPE_KEY = "source-type";
+    public static final String SOURCE_VENDOR_KEY = "source-vendor";
     public static final String FINGERPRINT_KEY = "fingerprint";
     public static final String UUID_KEY = "uuid";
     public static final String SEVERITY_KEY = "severity";
@@ -40,6 +42,8 @@ public class ZingUtils {
     public static final String UPDATE_TIME_KEY = "updateTime";
     public static final String CLEARED_BY_KEY = "clearedBy";
 
+    public static final String SOURCE_TYPE = "zeneventserver";
+    public static final String SOURCE_VENDOR = "Zenoss";
 
     /**
      * Convert a Java Object into a protobufs Any value.  Only supports the scalar types; returns null if the

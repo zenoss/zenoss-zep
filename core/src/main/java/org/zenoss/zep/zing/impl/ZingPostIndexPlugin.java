@@ -23,16 +23,20 @@ public class ZingPostIndexPlugin extends EventPostIndexPlugin {
         this.zingEventProcessor = zingEventProcessor;
     }
 
+    private boolean forwardEvents(EventPostIndexContext context) {
+        return this.zingEventProcessor.enabled() && !context.isArchive()
+    }
+
     @Override
     public void startBatch(EventPostIndexContext context) throws Exception {
-        if (this.zingEventProcessor.enabled()) {
+        if (this.forwardEvents(context)) {
             context.setPluginState(this, new ArrayList<EventSummary>(context.getIndexLimit()));
         }
     }
 
     @Override
     public void processEvent(EventSummary eventSummary, EventPostIndexContext context) throws ZepException {
-        if (this.zingEventProcessor.enabled()) {
+        if (this.forwardEvents(context)) {
             List<EventSummary> events = (List<EventSummary>) context.getPluginState(this);
             events.add(eventSummary);
         }
@@ -40,7 +44,7 @@ public class ZingPostIndexPlugin extends EventPostIndexPlugin {
 
     @Override
     public void endBatch(EventPostIndexContext context) throws Exception {
-        if (this.zingEventProcessor.enabled()) {
+        if (this.forwardEvents(context)) {
             List<EventSummary> events = (List<EventSummary>) context.getPluginState(this);
             for (EventSummary eventSummary : events) {
                 try {
