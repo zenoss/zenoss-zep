@@ -62,10 +62,16 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             ZingEvent.Builder builder = new ZingEvent.Builder(this.config.tenant,
                                                               this.config.source,
                                                               event.getCreatedTime());
-            if (summary.hasUuid()) builder.setUuid(summary.getUuid());
+            String uuid = "";
+            if (summary != null && summary.hasUuid()) {
+                uuid = summary.getUuid();
+            } else if (event.hasUuid()) {
+                uuid = event.getUuid();
+            }
+            builder.setUuid(uuid);
             if (event.hasFingerprint()) builder.setFingerprint(event.getFingerprint());
             if (event.hasSeverity()) builder.setSeverity(event.getSeverity().name());
-            if (event.hasStatus()) builder.setStatus(event.getStatus().name());
+
             EventActor actor = event.getActor();
             if (actor != null) {
                 if (actor.hasElementUuid()) builder.setParentContextUUID(actor.getElementUuid());
@@ -96,6 +102,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
                 if (summary.hasFirstSeenTime()) builder.setFirstSeen(summary.getFirstSeenTime());
                 if (summary.hasLastSeenTime()) builder.setLastSeen(summary.getLastSeenTime());
                 if (summary.hasUpdateTime()) builder.setUpdateTime(summary.getUpdateTime());
+                if (summary.hasStatus()) builder.setStatus(summary.getStatus().name());
             }
             ZingEvent zingEvent = builder.build();
             logger.info("publishing event {}", zingEvent);
