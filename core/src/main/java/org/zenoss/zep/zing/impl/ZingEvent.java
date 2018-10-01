@@ -82,7 +82,6 @@ public class ZingEvent {
         this.lastSeen = b.lastSeen_;
         this.updateTime = b.updateTime_;
         this.clearedByUUID = b.clearedByUUID_;
-
     }
 
     public String toString() {
@@ -203,6 +202,11 @@ public class ZingEvent {
                 b.putMetadata( ZingUtils.UPDATE_TIME_KEY, ZingUtils.getAnyArray(this.updateTime));
             if (!ZingUtils.isNullOrEmpty(this.clearedByUUID)) {
                 b.putMetadata( ZingUtils.CLEARED_BY_KEY, ZingUtils.getAnyArray(this.clearedByUUID));
+            }
+            // details
+            for (Map.Entry<String,List<String>> entry : this.details.entrySet()) {
+                final String key = ZingUtils.DETAILS_KEY_PREFIX + entry.getKey();
+                b.putMetadata( key, ZingUtils.getAnyArray(entry.getValue()));
             }
             evt = b.build();
         }

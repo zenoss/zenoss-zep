@@ -12,6 +12,7 @@ import java.util.List;
 public class ZingUtils {
     private static final Logger logger = LoggerFactory.getLogger(ZingUtils.class);
 
+    public static final String DETAILS_KEY_PREFIX = "CZ_EVENT_DETAIL-";
     public static final String SOURCE_KEY = "source";
     public static final String FINGERPRINT_KEY = "fingerprint";
     public static final String UUID_KEY = "uuid";

@@ -1,5 +1,6 @@
 package org.zenoss.zep.zing.impl;
 
+import com.google.common.util.concurrent.MoreExecutors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -10,7 +11,6 @@ import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 
 import org.zenoss.zep.zing.ZingConfig;
-import org.zenoss.protobufs.zep.Zep.EventSummary;
 
 import java.io.IOException;
 import java.io.FileInputStream;
@@ -27,10 +27,11 @@ import com.google.cloud.pubsub.v1.TopicAdminSettings;
 import com.google.api.gax.rpc.AlreadyExistsException;
 
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.protobuf.ByteString;
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
+
+import org.zenoss.zing.proto.event.Event;
 
 public class ZingMessagePublisher {
 
@@ -131,22 +132,22 @@ public class ZingMessagePublisher {
 
     public void publishEvent(ZingEvent event) {
         if (this.publisher != null) {
-            String msg = event.toString();
-            ByteString data = ByteString.copyFromUtf8(msg);
-            PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(data).build();
+            final Event zingEvent = event.toZingEvent();
+            //String msg = event.toString();
+            //ByteString data = ByteString.copyFromUtf8(msg);
+            PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(zingEvent.toByteString()).build();
 
             ApiFuture<String> messageIdFuture = publisher.publish(pubsubMessage);
             ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
+                // TODO put more thought into this
                 public void onSuccess(String messageId) {
                     logger.info("published with message id: " + messageId);
                 }
-
                 public void onFailure(Throwable t) {
                     logger.info("failed to publish: " + t);
                 }
-            });
+            }, MoreExecutors.directExecutor());
         }
-        logger.info("PACOO send msg");
     }
 }
 
