@@ -24,7 +24,7 @@ public class ZingPostIndexPlugin extends EventPostIndexPlugin {
     }
 
     private boolean forwardEvents(EventPostIndexContext context) {
-        return this.zingEventProcessor.enabled() && !context.isArchive()
+        return this.zingEventProcessor.enabled() && !context.isArchive();
     }
 
     @Override

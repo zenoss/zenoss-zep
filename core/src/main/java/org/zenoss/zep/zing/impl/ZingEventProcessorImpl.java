@@ -65,6 +65,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             if (summary.hasUuid()) builder.setUuid(summary.getUuid());
             if (event.hasFingerprint()) builder.setFingerprint(event.getFingerprint());
             if (event.hasSeverity()) builder.setSeverity(event.getSeverity().name());
+            if (event.hasStatus()) builder.setStatus(event.getStatus().name());
             EventActor actor = event.getActor();
             if (actor != null) {
                 if (actor.hasElementUuid()) builder.setParentContextUUID(actor.getElementUuid());

@@ -44,6 +44,7 @@ public class ZingEvent {
     private final long firstSeen;
     private final long updateTime;
     private final String clearedByUUID;
+    private final String status;
 
     private  ZingEvent (Builder b) {
         this.tenant = b.tenant_;
@@ -82,6 +83,7 @@ public class ZingEvent {
         this.lastSeen = b.lastSeen_;
         this.updateTime = b.updateTime_;
         this.clearedByUUID = b.clearedByUUID_;
+        this.status = b.status_;
     }
 
     public String toString() {
@@ -117,6 +119,7 @@ public class ZingEvent {
         strBuf.append("\n lastSeen = ").append(this.lastSeen);
         strBuf.append("\n updateTime = ").append(this.updateTime);
         strBuf.append("\n cleared by = ").append(this.clearedByUUID);
+        strBuf.append("\n status = ").append(this.status);
         return strBuf.toString();
     }
 
@@ -158,6 +161,8 @@ public class ZingEvent {
             //-----------
             if (!ZingUtils.isNullOrEmpty(this.severity))
                 b.putMetadata( ZingUtils.SEVERITY_KEY, ZingUtils.getAnyArray(this.severity));
+            if (!ZingUtils.isNullOrEmpty(this.status))
+                b.putMetadata( ZingUtils.STATUS_KEY, ZingUtils.getAnyArray(this.status));
             if (!ZingUtils.isNullOrEmpty(this.parentContextUUID))
                 b.putMetadata( ZingUtils.PARENT_CONTEXT_UUID_KEY, ZingUtils.getAnyArray(this.parentContextUUID));
             if (!ZingUtils.isNullOrEmpty(this.parentContextIdentifier))
@@ -247,6 +252,7 @@ public class ZingEvent {
         private long firstSeen_;
         private long updateTime_;
         private String clearedByUUID_;
+        private String status_;
 
         private Map<String, List<String>> details_ = new HashMap<>();
 
@@ -381,6 +387,11 @@ public class ZingEvent {
 
         public Builder setClearedByUUID(String value) {
             this.clearedByUUID_ = value;
+            return this;
+        }
+
+        public Builder setStatus(String value) {
+            this.status_ = value;
             return this;
         }
 
