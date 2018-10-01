@@ -62,7 +62,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             ZingEvent.Builder builder = new ZingEvent.Builder(this.config.tenant,
                                                               this.config.source,
                                                               event.getCreatedTime());
-            if (event.hasUuid()) builder.setUuid(event.getUuid());
+            if (summary.hasUuid()) builder.setUuid(summary.getUuid());
             if (event.hasFingerprint()) builder.setFingerprint(event.getFingerprint());
             if (event.hasSeverity()) builder.setSeverity(event.getSeverity().name());
             EventActor actor = event.getActor();
