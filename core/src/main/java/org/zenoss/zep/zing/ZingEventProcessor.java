@@ -1,25 +1,22 @@
 
 package org.zenoss.zep.zing;
 
-import org.zenoss.protobufs.zep.Zep.EventSummary;
-import org.zenoss.protobufs.zep.Zep.Event;
 
-import java.util.List;
+import org.zenoss.protobufs.zep.Zep.EventSummary;
+
 
 public interface ZingEventProcessor {
 
     /**
-     * Called every time a new occurrence of an event happens
-     * @param eventOccurrence
-     * @param eventSummary
+     *
+     * @return boolean indicating if events are forwarded to Zenoss cloud
      */
-    void processEvent(Event eventOccurrence, EventSummary eventSummary);
+    boolean enabled();
 
     /**
-     * Called when the event metadata has changed. This will only update the
-     * event's metadata in Zenoss Cloud and not the event's time series
-     * @param uuids
+     *
+     * @param eventSummary event to forward to Zenoss Cloud
      */
-    void processUpdatedEvents(List<String> uuids);
+    void processEvent(EventSummary eventSummary);
 
 }

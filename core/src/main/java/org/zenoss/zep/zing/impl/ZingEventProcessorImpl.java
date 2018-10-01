@@ -49,8 +49,13 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         logger.info("initializing zing event processor...DONE");
     }
 
-    public void processEvent(Event event, EventSummary summary) {
+    public boolean enabled() {
+        return this.enabled;
+    }
+
+    public void processEvent(EventSummary summary) {
         if (this.enabled) {
+            final Event event = summary.getOccurrence(0);
             // convert event to zing protobuf and send
             if (!event.hasCreatedTime())
                 return;
@@ -100,11 +105,6 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
                 logger.info("DROPPING BAD EVENT!!!!!!");
             }
         }
-    }
-
-    public void processUpdatedEvents(List<String> uuids) {
-        // get events and send them to Zenoss Cloud
-        logger.info("GOT EVENT UPDATE for {}. Implement me!", uuids);
     }
 
     public void shutdown() {

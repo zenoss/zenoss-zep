@@ -196,11 +196,7 @@
         <constructor-arg index="0" ref="zingConfig"/>
     </bean>
 
-    <bean id="zingPostCreatePlugin" class="org.zenoss.zep.zing.impl.ZingPostCreatePlugin">
-        <constructor-arg index="0" ref="zingEventProcessor"/>
-    </bean>
-
-    <bean id="zingUpdatePlugin" class="org.zenoss.zep.zing.impl.ZingUpdatePlugin">
+    <bean id="ZingPostIndexPlugin" class="org.zenoss.zep.zing.impl.ZingPostIndexPlugin">
         <constructor-arg index="0" ref="zingEventProcessor"/>
     </bean>
 
