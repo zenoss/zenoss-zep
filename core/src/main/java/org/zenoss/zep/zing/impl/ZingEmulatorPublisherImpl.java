@@ -10,31 +10,34 @@ import com.google.cloud.pubsub.v1.Publisher;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.cloud.pubsub.v1.TopicAdminSettings;
 import com.google.pubsub.v1.ProjectTopicName;
+import io.grpc.ConnectivityState;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.zep.zing.ZingConfig;
+import org.zenoss.zep.zing.ZingEvent;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ZingEmulatorPublisherImpl extends ZingPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingEmulatorPublisherImpl.class);
 
+    private AtomicBoolean everConnected;
+
     public ZingEmulatorPublisherImpl(ZingConfig config) {
         this.topicName = ProjectTopicName.of(config.project, config.topic);
         this.config = config;
+        this.everConnected = new AtomicBoolean(false);
         this.publisher = this.buildPublisher(config);
     }
 
-    private Publisher buildPublisher(ZingConfig config) {
-        String hostport = config.emulatorHostAndPort;
-        ManagedChannel channel = ManagedChannelBuilder.forTarget(hostport).usePlaintext().build();
-        TransportChannelProvider channelProvider =
-                FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel));
+    private void createTopic(TransportChannelProvider channelProvider) {
+        // Make sure topic exists. We only create it once we know we have a working
+        // connection
         CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
-        // Make sure topic exists
         try {
             TopicAdminClient topicAdminClient = TopicAdminClient.create(
                     TopicAdminSettings.newBuilder()
@@ -48,7 +51,33 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
         } catch(IOException e) {
             logger.error("Exception creating pubsub topic on emulator", e);
         }
-        // Create publisher
+    }
+
+    private TransportChannelProvider buildChannelProvider() {
+        String hostport = config.emulatorHostAndPort;
+        final ManagedChannel channel = ManagedChannelBuilder.forTarget(hostport).usePlaintext().build();
+        final TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel));
+        final ZingEmulatorPublisherImpl emulatorPublisher = this;
+        Runnable notif = new Runnable() {
+            @Override public void run() {
+                ConnectivityState state = channel.getState(false);
+                logger.info("STATE CHANGED!! {}", state);
+                if (state != ConnectivityState.READY) {
+                    channel.notifyWhenStateChanged(state, this);
+                } else {
+                    everConnected.set(true);
+                    emulatorPublisher.createTopic(channelProvider);
+                }
+            }
+        };
+        notif.run();
+        channel.getState(true); // Force using the channel to ensure we have a working connection
+        return channelProvider;
+    }
+
+    private Publisher buildPublisher(ZingConfig config) {
+        TransportChannelProvider channelProvider = this.buildChannelProvider();
+        CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
         Publisher publisher = null;
         try {
             publisher = Publisher.newBuilder(this.topicName)
@@ -60,5 +89,13 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
             logger.error("Exception creating pubsub emulator publisher", e);
         }
         return publisher;
+    }
+
+    public void publishEvent(ZingEvent event) {
+        if (this.everConnected.get()) {
+            super.publishEvent(event);
+        } else {
+            logger.warn("Connection to emulator FAILED");
+        }
     }
 }
