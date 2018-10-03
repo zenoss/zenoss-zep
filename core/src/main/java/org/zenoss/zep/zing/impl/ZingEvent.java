@@ -1,6 +1,8 @@
 
 package org.zenoss.zep.zing.impl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
@@ -8,6 +10,8 @@ import java.util.HashMap;
 import org.zenoss.zing.proto.event.Event;
 
 public class ZingEvent {
+
+    private static final Logger logger = LoggerFactory.getLogger(ZingEvent.class);
 
     private final String tenant;
     private final String source;
@@ -123,10 +127,6 @@ public class ZingEvent {
         return strBuf.toString();
     }
 
-    private boolean isNullOrEmpty(String str) {
-        return str == null || str.trim().isEmpty();
-    }
-
     public boolean isValid() {
         boolean badEvent = this.occurrenceTime == 0 ||
                             ZingUtils.isNullOrEmpty(this.tenant) ||
@@ -211,7 +211,8 @@ public class ZingEvent {
             // details
             for (Map.Entry<String,List<String>> entry : this.details.entrySet()) {
                 final String key = ZingUtils.DETAILS_KEY_PREFIX + entry.getKey();
-                b.putMetadata( key, ZingUtils.getAnyArray(entry.getValue()));
+                final List<Object> objectList = (List)entry.getValue();
+                b.putMetadata( key, ZingUtils.getAnyArrayFromList(objectList));
             }
             // Source id
             b.putMetadata(ZingUtils.SOURCE_TYPE_KEY, ZingUtils.getAnyArray(ZingUtils.SOURCE_TYPE));
