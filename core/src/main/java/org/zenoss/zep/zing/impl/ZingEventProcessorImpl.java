@@ -8,10 +8,9 @@ import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 
+import org.zenoss.zep.zing.ZingEvent;
 import org.zenoss.zep.zing.ZingEventProcessor;
 import org.zenoss.zep.zing.ZingConfig;
-
-import java.util.List;
 
 
 public class ZingEventProcessorImpl implements ZingEventProcessor {
@@ -22,7 +21,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
 
     private final ZingConfig config;
 
-    private ZingMessagePublisher publisher = null;
+    private ZingPublisher publisher = null;
 
     public ZingEventProcessorImpl(ZingConfig cfg) {
         this.config = cfg;
@@ -40,7 +39,11 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         // FIXME THIS TAKES FOREVER IF IT CANT ACCESS PUBSUB
         logger.info("initializing zing event processor...");
         if (this.enabled) {
-            this.publisher = new ZingMessagePublisher(this.config);
+            if (this.config.useEmulator) {
+                this.publisher = new ZingEmulatorPublisherImpl(this.config);
+            } else {
+                this.publisher = new ZingPublisherImpl(this.config);
+            }
         }
         if(this.publisher==null) {
             this.enabled = false;

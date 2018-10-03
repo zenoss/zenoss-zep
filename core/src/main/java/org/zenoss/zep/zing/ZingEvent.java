@@ -1,5 +1,5 @@
 
-package org.zenoss.zep.zing.impl;
+package org.zenoss.zep.zing;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

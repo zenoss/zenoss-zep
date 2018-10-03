@@ -1,4 +1,4 @@
-package org.zenoss.zep.zing.impl;
+package org.zenoss.zep.zing;
 
 import com.google.protobuf.*;
 import org.slf4j.Logger;
