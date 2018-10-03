@@ -525,5 +525,9 @@
                 <updatePolicy>never</updatePolicy>
             </snapshots>
         </repository>
+        <repository>
+            <id>Snapshots</id>
+            <url>http://nexus.zenoss.eng:8081/nexus/content/repositories/snapshots/</url>
+        </repository>
     </repositories>
 </project>
