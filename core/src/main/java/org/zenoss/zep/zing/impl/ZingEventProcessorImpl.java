@@ -97,13 +97,14 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             for (EventDetail d : event.getDetailsList()) {
                 builder.setDetail(d.getName(), d.getValueList());
             }
-            if (summary != null ){
-                if (summary.hasCount()) builder.setCount(summary.getCount());
-                if (summary.hasFirstSeenTime()) builder.setFirstSeen(summary.getFirstSeenTime());
-                if (summary.hasLastSeenTime()) builder.setLastSeen(summary.getLastSeenTime());
-                if (summary.hasUpdateTime()) builder.setUpdateTime(summary.getUpdateTime());
-                if (summary.hasStatus()) builder.setStatus(summary.getStatus().name());
-            }
+
+            if (summary.hasCount()) builder.setCount(summary.getCount());
+            if (summary.hasFirstSeenTime()) builder.setFirstSeen(summary.getFirstSeenTime());
+            if (summary.hasLastSeenTime()) builder.setLastSeen(summary.getLastSeenTime());
+            if (summary.hasUpdateTime()) builder.setUpdateTime(summary.getUpdateTime());
+            if (summary.hasStatus()) builder.setStatus(summary.getStatus().name());
+            if (summary.hasClearedByEventUuid()) builder.setClearedByUUID(summary.getClearedByEventUuid());
+
             ZingEvent zingEvent = builder.build();
             logger.info("publishing event {}", zingEvent);
             if (zingEvent.isValid()) {

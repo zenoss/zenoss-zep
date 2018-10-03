@@ -74,7 +74,7 @@ public class ZingMessagePublisher {
 
     Publisher buildEmulatorPublisher(ZingConfig config) {
         String hostport = config.emulatorHostAndPort;
-        ManagedChannel channel = ManagedChannelBuilder.forTarget(hostport).usePlaintext(true).build();
+        ManagedChannel channel = ManagedChannelBuilder.forTarget(hostport).usePlaintext().build();
         TransportChannelProvider channelProvider =
           FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel));
         CredentialsProvider credentialsProvider = NoCredentialsProvider.create();

@@ -17,7 +17,15 @@ public class ZingEvent {
     private final String source;
 
     private final long occurrenceTime;
+    private final String uuid;
     private final String fingerprint;
+
+    private final int count;
+    private final long lastSeen;
+    private final long firstSeen;
+    private final long updateTime;
+    private final String clearedByUUID;
+    private final String status;
     private final String severity;
     private final String parentContextUUID;
     private final String parentContextIdentifier;
@@ -29,26 +37,15 @@ public class ZingEvent {
     private final String contextType;
     private final String message;
     private final String summary;
-    private final String uuid;
-
     private final String monitor;
     private final String agent;
-
     private final String eventKey;
     private final String eventClass;
     private final String eventClassKey;
     private final String eventClassMappingUuid;
     private final String eventGroup;
-
     private final Map<String, List<String>> details;
 
-    // Processed event attributes
-    private final int count;
-    private final long lastSeen;
-    private final long firstSeen;
-    private final long updateTime;
-    private final String clearedByUUID;
-    private final String status;
 
     private  ZingEvent (Builder b) {
         this.tenant = b.tenant_;
@@ -247,7 +244,6 @@ public class ZingEvent {
         private String eventClassKey_;
         private String eventClassMappingUuid_;
         private String eventGroup_;
-        // Processed event attributes
         private int count_;
         private long lastSeen_;
         private long firstSeen_;
