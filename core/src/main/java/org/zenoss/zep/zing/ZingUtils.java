@@ -43,7 +43,7 @@ public class ZingUtils {
     public static final String CLEARED_BY_KEY = "clearedBy";
     public static final String STATUS_KEY = "eventStatus";
 
-    public static final String SOURCE_TYPE = "zeneventserver";
+    public static final String SOURCE_TYPE = "CZ";
     public static final String SOURCE_VENDOR = "Zenoss";
 
     /**

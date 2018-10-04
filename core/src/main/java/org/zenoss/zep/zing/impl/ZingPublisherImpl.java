@@ -21,6 +21,7 @@ public class ZingPublisherImpl extends ZingPublisher {
     private static final Logger logger = LoggerFactory.getLogger(ZingPublisherImpl.class);
 
     public ZingPublisherImpl(ZingConfig config) {
+        logger.info("Creating Publisher to GCP PubSub");
         this.topicName = ProjectTopicName.of(config.project, config.topic);
         this.config = config;
         this.publisher = this.buildPublisher(config);

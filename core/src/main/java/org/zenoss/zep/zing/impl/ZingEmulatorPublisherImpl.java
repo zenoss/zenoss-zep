@@ -28,6 +28,7 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
     private AtomicBoolean everConnected;
 
     public ZingEmulatorPublisherImpl(ZingConfig config) {
+        logger.info("Creating Publisher to PubSub emulator");
         this.topicName = ProjectTopicName.of(config.project, config.topic);
         this.config = config;
         this.everConnected = new AtomicBoolean(false);
