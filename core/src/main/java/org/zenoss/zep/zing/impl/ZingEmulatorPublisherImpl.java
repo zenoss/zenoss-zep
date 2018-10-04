@@ -35,8 +35,7 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
     }
 
     private void createTopic(TransportChannelProvider channelProvider) {
-        // Make sure topic exists. We only create it once we know we have a working
-        // connection
+        // Make sure topic exists. This is called once the undelying channel is connected
         CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
         try {
             TopicAdminClient topicAdminClient = TopicAdminClient.create(
@@ -53,16 +52,17 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
         }
     }
 
-    private TransportChannelProvider buildChannelProvider() {
-        String hostport = config.emulatorHostAndPort;
-        final ManagedChannel channel = ManagedChannelBuilder.forTarget(hostport).usePlaintext().build();
-        final TransportChannelProvider channelProvider = FixedTransportChannelProvider.create(GrpcTransportChannel.create(channel));
+    // When starting zep, if we can't connect to the emulator, calling create topic
+    // blocks and zep does not start properly. This method waits until the connection
+    // is ready to create the topic.
+    private void waitUntilConnectionReadyToCreateTopic(final ManagedChannel channel, final TransportChannelProvider channelProvider) {
         final ZingEmulatorPublisherImpl emulatorPublisher = this;
         Runnable notif = new Runnable() {
             @Override public void run() {
                 ConnectivityState state = channel.getState(false);
-                logger.info("STATE CHANGED!! {}", state);
+                logger.info("Connection state to emulator changed: {}", state);
                 if (state != ConnectivityState.READY) {
+                    // Keep waiting until connection is ready
                     channel.notifyWhenStateChanged(state, this);
                 } else {
                     everConnected.set(true);
@@ -72,17 +72,22 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
         };
         notif.run();
         channel.getState(true); // Force using the channel to ensure we have a working connection
-        return channelProvider;
     }
 
     private Publisher buildPublisher(ZingConfig config) {
-        TransportChannelProvider channelProvider = this.buildChannelProvider();
-        CredentialsProvider credentialsProvider = NoCredentialsProvider.create();
+        final ManagedChannel channel = ManagedChannelBuilder
+                .forTarget(config.emulatorHostAndPort)
+                .usePlaintext()
+                .build();
+        final TransportChannelProvider channelProvider = FixedTransportChannelProvider
+                .create(GrpcTransportChannel.create(channel));
+        // waitUntilConnectionReadyToCreateTopic does not block
+        this.waitUntilConnectionReadyToCreateTopic(channel, channelProvider);
         Publisher publisher = null;
         try {
             publisher = Publisher.newBuilder(this.topicName)
                     .setChannelProvider(channelProvider)
-                    .setCredentialsProvider(credentialsProvider)
+                    .setCredentialsProvider(NoCredentialsProvider.create())
                     .build();
             logger.info("emulator publisher created");
         } catch(IOException e) {
@@ -95,7 +100,7 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
         if (this.everConnected.get()) {
             super.publishEvent(event);
         } else {
-            logger.warn("Connection to emulator FAILED");
+            logger.warn("Have not been able to connect to emulator yet. Dropping event.");
         }
     }
 }
