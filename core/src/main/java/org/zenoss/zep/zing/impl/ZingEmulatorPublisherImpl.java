@@ -57,7 +57,6 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
     // blocks and zep does not start properly. This method waits until the connection
     // is ready to create the topic.
     private void waitUntilConnectionReadyToCreateTopic(final ManagedChannel channel, final TransportChannelProvider channelProvider) {
-        final ZingEmulatorPublisherImpl emulatorPublisher = this;
         Runnable notif = new Runnable() {
             @Override public void run() {
                 ConnectivityState state = channel.getState(false);
@@ -67,7 +66,7 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
                     channel.notifyWhenStateChanged(state, this);
                 } else {
                     everConnected.set(true);
-                    emulatorPublisher.createTopic(channelProvider);
+                    ZingEmulatorPublisherImpl.this.createTopic(channelProvider);
                 }
             }
         };
@@ -95,6 +94,11 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
             logger.error("Exception creating pubsub emulator publisher", e);
         }
         return publisher;
+    }
+
+    protected void onFailure(Throwable t)
+    {
+        logger.info("failed to publish to pubsub emulator: " + t);
     }
 
     public void publishEvent(ZingEvent event) {

@@ -34,6 +34,13 @@ public abstract class ZingPublisher {
         }
     }
 
+    protected void onSuccess(String messageId) {
+        // FIXME set this to debug
+        logger.info("published with message id: " + messageId);
+    }
+
+    protected abstract void onFailure(Throwable t);
+
     public void publishEvent(ZingEvent event) {
         if (this.publisher != null) {
             final Event zingEvent = event.toZingEvent();
@@ -41,12 +48,11 @@ public abstract class ZingPublisher {
 
             ApiFuture<String> messageIdFuture = publisher.publish(pubsubMessage);
             ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
-                // TODO put more thought into this
                 public void onSuccess(String messageId) {
-                    logger.info("published with message id: " + messageId);
+                    ZingPublisher.this.onSuccess(messageId);
                 }
                 public void onFailure(Throwable t) {
-                    logger.info("failed to publish: " + t);
+                    ZingPublisher.this.onFailure(t);
                 }
             }, MoreExecutors.directExecutor());
         }

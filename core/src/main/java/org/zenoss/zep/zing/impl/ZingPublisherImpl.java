@@ -57,5 +57,11 @@ public class ZingPublisherImpl extends ZingPublisher {
         }
         return credentialsProvider;
     }
+
+    protected void onFailure(Throwable t)
+    {
+        // FIXME we need to store data somewhere to ensure zero data loss
+        logger.info("failed to publish to pubsub in GCP: " + t);
+    }
 }
 
