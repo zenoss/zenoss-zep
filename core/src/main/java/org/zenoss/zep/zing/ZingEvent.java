@@ -17,6 +17,10 @@ import java.util.HashMap;
 
 import org.zenoss.zing.proto.event.Event;
 
+/**
+ * ZingEvent represents an event that will be forwarded to Zenoss Cloud. It contains
+ * the logic to convert a ZingEvent pojo to Zing protobuf.
+ */
 public class ZingEvent {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingEvent.class);
@@ -35,10 +39,12 @@ public class ZingEvent {
     private final String clearedByUUID;
     private final String status;
     private final String severity;
+    // parentContext attrs represent the device the event is about
     private final String parentContextUUID;
     private final String parentContextIdentifier;
     private final String parentContextTitle;
     private final String parentContextType;
+    // context attrs represent the component the event is about
     private final String contextUUID;
     private final String contextIdentifier;
     private final String contextTitle;
@@ -65,7 +71,9 @@ public class ZingEvent {
         this.parentContextIdentifier = b.parentContextIdentifier_;
         this.parentContextTitle = b.parentContextTitle_;
         this.parentContextType = b.parentContextType_;
-        if (ZingUtils.isNullOrEmpty(b.contextUUID_)) { // event on the device. no component.
+        if (ZingUtils.isNullOrEmpty(b.contextUUID_)) {
+            // event on the device. no component. Populate context attrs from
+            // the values in parent attrs
             this.contextUUID = this.parentContextUUID;
             this.contextIdentifier = this.parentContextIdentifier;
             this.contextTitle = this.parentContextTitle;
@@ -152,8 +160,13 @@ public class ZingEvent {
         if (this.isValid()) {
             Event.Builder b = Event.newBuilder();
             b.setTenant(this.tenant);
+            // The timestamp is set to the event's lastSeen (raw event occurenceTime) which
+            // can be confusing when sending event updates (state change, detail/log update, etc)
+            //      - lastSeen will always contain the event's last occurence time
+            //      - updateTime will always contain the last time the event was updated
+            //        (new occurence or event updates)
             b.setTimestamp(this.occurrenceTime);
-            // Dimensions - for zep events we trust the fingerprint as unique
+            // Dimensions
             //      source
             //      fingerprint
             //      zep event uuid

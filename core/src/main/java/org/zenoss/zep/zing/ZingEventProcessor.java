@@ -17,7 +17,7 @@ public interface ZingEventProcessor {
 
     /**
      *
-     * @return boolean indicating if events are forwarded to Zenoss cloud
+     * @return boolean indicating if events are forwarded to Zenoss Cloud
      */
     boolean enabled();
 

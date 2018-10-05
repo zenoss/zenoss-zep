@@ -38,15 +38,15 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         if (this.enabled) {
             if (!this.config.validate()) {
                 logger.error("Zing configuration is not valid. Events will not be forwarded to Zenoss Cloud");
+                // FIXME stop zep if not running with emulator
                 this.enabled = false;
             }
         }
     }
 
     public void init() {
-        // FIXME THIS TAKES FOREVER IF IT CANT ACCESS PUBSUB
-        logger.info("initializing zing event processor...");
         if (this.enabled) {
+            logger.info("initializing zing event processor...");
             if (this.config.useEmulator) {
                 this.publisher = new ZingEmulatorPublisherImpl(this.config);
             } else {
@@ -54,10 +54,10 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             }
         }
         if(this.publisher==null) {
+            // FIXME stop zep if not running with emulator
             this.enabled = false;
             logger.error("Could not create publisher. Events will not be forwarded to Zenoss Cloud");
         }
-        logger.info("initializing zing event processor...DONE");
     }
 
     public boolean enabled() {
@@ -66,8 +66,8 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
 
     public void processEvent(EventSummary summary) {
         if (this.enabled) {
+            // build ZingEvent, convert it to protobuf and send it
             final Event event = summary.getOccurrence(0);
-            // convert event to zing protobuf and send
             if (!event.hasCreatedTime())
                 return;
             ZingEvent.Builder builder = new ZingEvent.Builder(this.config.tenant,
@@ -82,7 +82,6 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             builder.setUuid(uuid);
             if (event.hasFingerprint()) builder.setFingerprint(event.getFingerprint());
             if (event.hasSeverity()) builder.setSeverity(event.getSeverity().name());
-
             EventActor actor = event.getActor();
             if (actor != null) {
                 if (actor.hasElementUuid()) builder.setParentContextUUID(actor.getElementUuid());
@@ -98,23 +97,20 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             if (event.hasSummary()) builder.setSummary(event.getSummary());
             if (event.hasMonitor()) builder.setMonitor(event.getMonitor());
             if (event.hasAgent()) builder.setAgent(event.getAgent());
-
             if (event.hasEventKey()) builder.setEventKey(event.getEventKey());
             if (event.hasEventClass()) builder.setEventClass(event.getEventClass());
             if (event.hasEventClassKey()) builder.setEventClassKey(event.getEventClassKey());
             if (event.hasEventClassMappingUuid()) builder.setEventClassMappingUuid(event.getEventClassMappingUuid());
             if (event.hasEventGroup()) builder.setEventGroup(event.getEventGroup());
-
-            for (EventDetail d : event.getDetailsList()) {
-                builder.setDetail(d.getName(), d.getValueList());
-            }
-
             if (summary.hasCount()) builder.setCount(summary.getCount());
             if (summary.hasFirstSeenTime()) builder.setFirstSeen(summary.getFirstSeenTime());
             if (summary.hasLastSeenTime()) builder.setLastSeen(summary.getLastSeenTime());
             if (summary.hasUpdateTime()) builder.setUpdateTime(summary.getUpdateTime());
             if (summary.hasStatus()) builder.setStatus(summary.getStatus().name());
             if (summary.hasClearedByEventUuid()) builder.setClearedByUUID(summary.getClearedByEventUuid());
+            for (EventDetail d : event.getDetailsList()) {
+                builder.setDetail(d.getName(), d.getValueList());
+            }
 
             ZingEvent zingEvent = builder.build();
             logger.info("publishing event {}", zingEvent);
@@ -128,7 +124,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
     }
 
     public void shutdown() {
-        logger.info("SHUTTING DOWN ZING EVENT PROCESSOR");
+        logger.info("Shutting down Zing Event Processor");
         if (this.enabled) {
             this.publisher.shutdown();
         }

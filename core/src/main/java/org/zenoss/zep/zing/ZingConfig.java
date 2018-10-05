@@ -11,6 +11,8 @@ package org.zenoss.zep.zing;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.io.File;
+
 
 public class ZingConfig {
     
@@ -101,13 +103,15 @@ public class ZingConfig {
              this.project.isEmpty() || this.topic.isEmpty() ) {
             valid = false;
         }
-
         if (valid && this.useEmulator && this.emulatorHostAndPort.isEmpty()) {
             valid = false;
         }
-        // FIXME when do we need creds??
-        //this.credentialsPath = credentialsPath;
-
+        if (valid && !this.credentialsPath.isEmpty()) {
+            File f = new File(this.credentialsPath);
+            if ( !(f.isFile() && f.canRead()) ) {
+                valid = false;
+            }
+        }
         return valid;
     }
 }

@@ -48,6 +48,7 @@ public class ZingPublisherImpl extends ZingPublisher {
         try {
             psPublisher = builder.build();    
         } catch(IOException e) {
+            psPublisher = null;
             logger.error("Exception creating pubsub publisher", e);
         }
         return psPublisher;
