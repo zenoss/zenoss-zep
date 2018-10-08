@@ -21,7 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.zing.proto.event.Event;
 
-public class ZingPublisher {
+public abstract class ZingPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingPublisher.class);
 
@@ -69,9 +69,7 @@ public class ZingPublisher {
         logger.info("published with message id: " + messageId);
     }
 
-    protected void onFailure(Throwable t) {
-        logger.warn("failed to publish to pubsub: " + t);
-    }
+    protected abstract void onFailure(Throwable t);
 
     public void publishEvent(ZingEvent event) {
         if (this.publisher != null) {

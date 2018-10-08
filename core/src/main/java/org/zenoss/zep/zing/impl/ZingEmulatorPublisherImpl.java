@@ -104,6 +104,11 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
         return publisher;
     }
 
+    protected void onFailure(Throwable t)
+    {
+        logger.info("failed to publish to pubsub emulator: " + t);
+    }
+
     public void publishEvent(ZingEvent event) {
         if (this.everConnected.get()) {
             super.publishEvent(event);
