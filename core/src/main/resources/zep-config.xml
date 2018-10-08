@@ -179,6 +179,27 @@
     <bean id="uuidGenerator" class="org.zenoss.zep.impl.UUIDGeneratorImpl">
     </bean>
 
+    <!-- ZING! -->
+    <bean id="zingConfig" class="org.zenoss.zep.zing.ZingConfig">
+        <property name="enabled" value="${zep.zing.enabled:false}"/>
+        <property name="useEmulator" value="${zep.zing.use_emulator:false}"/>
+        <property name="tenant" value="${zep.zing.tenant:#{''}}"/>
+        <property name="source" value="${zep.zing.source:#{''}}"/>
+        <property name="project" value="${zep.zing.project:#{''}}"/>
+        <property name="topic" value="${zep.zing.topic:#{''}}"/>
+        <property name="emulatorHostAndPort" value="${zep.zing.emulator_url:#{''}}"/>
+        <property name="credentialsPath" value="${zep.zing.credentials:#{''}}"/>
+    </bean>
+
+    <bean id="zingEventProcessor" class="org.zenoss.zep.zing.impl.ZingEventProcessorImpl" 
+          destroy-method="shutdown" init-method="init">
+        <constructor-arg index="0" ref="zingConfig"/>
+    </bean>
+
+    <bean id="ZingPostIndexPlugin" class="org.zenoss.zep.zing.impl.ZingPostIndexPlugin">
+        <constructor-arg index="0" ref="zingEventProcessor"/>
+    </bean>
+
     <!-- Framework for MBeans support -->
     <bean id="mbeanServer" class="org.springframework.jmx.support.MBeanServerFactoryBean">
         <property name="locateExistingServerIfPossible" value="true"/>
