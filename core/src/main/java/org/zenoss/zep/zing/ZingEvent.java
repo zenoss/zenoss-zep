@@ -170,71 +170,71 @@ public class ZingEvent {
             //      source
             //      fingerprint
             //      zep event uuid
-            b.putDimensions(ZingUtils.SOURCE_KEY, ZingUtils.getAnyValueFromObject(this.source));
-            b.putDimensions(ZingUtils.FINGERPRINT_KEY, ZingUtils.getAnyValueFromObject(this.fingerprint));
-            b.putDimensions(ZingUtils.UUID_KEY, ZingUtils.getAnyValueFromObject(this.uuid));
+            b.putDimensions(ZingConstants.SOURCE_KEY, ZingUtils.getAnyValueFromObject(this.source));
+            b.putDimensions(ZingConstants.FINGERPRINT_KEY, ZingUtils.getAnyValueFromObject(this.fingerprint));
+            b.putDimensions(ZingConstants.UUID_KEY, ZingUtils.getAnyValueFromObject(this.uuid));
 
             //-----------
             //  Metadata
             //-----------
             if (!ZingUtils.isNullOrEmpty(this.severity))
-                b.putMetadata( ZingUtils.SEVERITY_KEY, ZingUtils.getAnyArray(this.severity));
+                b.putMetadata( ZingConstants.SEVERITY_KEY, ZingUtils.getAnyArray(this.severity));
             if (!ZingUtils.isNullOrEmpty(this.status))
-                b.putMetadata( ZingUtils.STATUS_KEY, ZingUtils.getAnyArray(this.status));
+                b.putMetadata( ZingConstants.STATUS_KEY, ZingUtils.getAnyArray(this.status));
             if (!ZingUtils.isNullOrEmpty(this.parentContextUUID))
-                b.putMetadata( ZingUtils.PARENT_CONTEXT_UUID_KEY, ZingUtils.getAnyArray(this.parentContextUUID));
+                b.putMetadata( ZingConstants.PARENT_CONTEXT_UUID_KEY, ZingUtils.getAnyArray(this.parentContextUUID));
             if (!ZingUtils.isNullOrEmpty(this.parentContextIdentifier))
-                b.putMetadata( ZingUtils.PARENT_CONTEXT_ID_KEY, ZingUtils.getAnyArray(this.parentContextIdentifier));
+                b.putMetadata( ZingConstants.PARENT_CONTEXT_ID_KEY, ZingUtils.getAnyArray(this.parentContextIdentifier));
             if (!ZingUtils.isNullOrEmpty(this.parentContextTitle))
-                b.putMetadata( ZingUtils.PARENT_CONTEXT_TITLE_KEY, ZingUtils.getAnyArray(this.parentContextTitle));
+                b.putMetadata( ZingConstants.PARENT_CONTEXT_TITLE_KEY, ZingUtils.getAnyArray(this.parentContextTitle));
             if (!ZingUtils.isNullOrEmpty(this.parentContextType))
-                b.putMetadata( ZingUtils.PARENT_CONTEXT_TYPE_KEY, ZingUtils.getAnyArray(this.parentContextType));
+                b.putMetadata( ZingConstants.PARENT_CONTEXT_TYPE_KEY, ZingUtils.getAnyArray(this.parentContextType));
             if (!ZingUtils.isNullOrEmpty(this.contextUUID))
-                b.putMetadata( ZingUtils.CONTEXT_UUID_KEY, ZingUtils.getAnyArray(this.contextUUID));
+                b.putMetadata( ZingConstants.CONTEXT_UUID_KEY, ZingUtils.getAnyArray(this.contextUUID));
             if (!ZingUtils.isNullOrEmpty(this.contextIdentifier))
-                b.putMetadata( ZingUtils.CONTEXT_ID_KEY, ZingUtils.getAnyArray(this.contextIdentifier));
+                b.putMetadata( ZingConstants.CONTEXT_ID_KEY, ZingUtils.getAnyArray(this.contextIdentifier));
             if (!ZingUtils.isNullOrEmpty(this.contextTitle))
-                b.putMetadata( ZingUtils.CONTEXT_TITLE_KEY, ZingUtils.getAnyArray(this.contextTitle));
+                b.putMetadata( ZingConstants.CONTEXT_TITLE_KEY, ZingUtils.getAnyArray(this.contextTitle));
             if (!ZingUtils.isNullOrEmpty(this.contextType))
-                b.putMetadata( ZingUtils.CONTEXT_TYPE_KEY, ZingUtils.getAnyArray(this.contextType));
+                b.putMetadata( ZingConstants.CONTEXT_TYPE_KEY, ZingUtils.getAnyArray(this.contextType));
             if (!ZingUtils.isNullOrEmpty(this.message))
-                b.putMetadata( ZingUtils.MESSAGE_KEY, ZingUtils.getAnyArray(this.message));
+                b.putMetadata( ZingConstants.MESSAGE_KEY, ZingUtils.getAnyArray(this.message));
             if (!ZingUtils.isNullOrEmpty(this.summary))
-                b.putMetadata( ZingUtils.SUMMARY_KEY, ZingUtils.getAnyArray(this.summary));
+                b.putMetadata( ZingConstants.SUMMARY_KEY, ZingUtils.getAnyArray(this.summary));
             if (!ZingUtils.isNullOrEmpty(this.monitor))
-                b.putMetadata( ZingUtils.MONITOR_KEY, ZingUtils.getAnyArray(this.monitor));
+                b.putMetadata( ZingConstants.MONITOR_KEY, ZingUtils.getAnyArray(this.monitor));
             if (!ZingUtils.isNullOrEmpty(this.agent))
-                b.putMetadata( ZingUtils.AGENT_KEY, ZingUtils.getAnyArray(this.agent));
+                b.putMetadata( ZingConstants.AGENT_KEY, ZingUtils.getAnyArray(this.agent));
             if (!ZingUtils.isNullOrEmpty(this.eventKey))
-                b.putMetadata( ZingUtils.EVENT_KEY_KEY, ZingUtils.getAnyArray(this.eventKey));
+                b.putMetadata( ZingConstants.EVENT_KEY_KEY, ZingUtils.getAnyArray(this.eventKey));
             if (!ZingUtils.isNullOrEmpty(this.eventClass))
-                b.putMetadata( ZingUtils.EVENT_CLASS_KEY, ZingUtils.getAnyArray(this.eventClass));
+                b.putMetadata( ZingConstants.EVENT_CLASS_KEY, ZingUtils.getAnyArray(this.eventClass));
             if (!ZingUtils.isNullOrEmpty(this.eventClassKey))
-                b.putMetadata( ZingUtils.EVENT_CLASS_KEY_KEY, ZingUtils.getAnyArray(this.eventClassKey));
+                b.putMetadata( ZingConstants.EVENT_CLASS_KEY_KEY, ZingUtils.getAnyArray(this.eventClassKey));
             if (!ZingUtils.isNullOrEmpty(this.eventClassMappingUuid))
-                b.putMetadata( ZingUtils.EVENT_CLASS_MAPPING_KEY, ZingUtils.getAnyArray(this.eventClassMappingUuid));
+                b.putMetadata( ZingConstants.EVENT_CLASS_MAPPING_KEY, ZingUtils.getAnyArray(this.eventClassMappingUuid));
             if (!ZingUtils.isNullOrEmpty(this.eventGroup))
-                b.putMetadata( ZingUtils.EVENT_GROUP_KEY, ZingUtils.getAnyArray(this.eventGroup));
+                b.putMetadata( ZingConstants.EVENT_GROUP_KEY, ZingUtils.getAnyArray(this.eventGroup));
             if (this.count > 0)
-                b.putMetadata( ZingUtils.COUNT_KEY, ZingUtils.getAnyArray(this.count));
+                b.putMetadata( ZingConstants.COUNT_KEY, ZingUtils.getAnyArray(this.count));
             if (this.firstSeen > 0)
-                b.putMetadata( ZingUtils.FIRST_SEEN_KEY, ZingUtils.getAnyArray(this.firstSeen));
+                b.putMetadata( ZingConstants.FIRST_SEEN_KEY, ZingUtils.getAnyArray(this.firstSeen));
             if (this.lastSeen > 0)
-                b.putMetadata( ZingUtils.LAST_SEEN_KEY, ZingUtils.getAnyArray(this.lastSeen));
+                b.putMetadata( ZingConstants.LAST_SEEN_KEY, ZingUtils.getAnyArray(this.lastSeen));
             if (this.updateTime > 0)
-                b.putMetadata( ZingUtils.UPDATE_TIME_KEY, ZingUtils.getAnyArray(this.updateTime));
+                b.putMetadata( ZingConstants.UPDATE_TIME_KEY, ZingUtils.getAnyArray(this.updateTime));
             if (!ZingUtils.isNullOrEmpty(this.clearedByUUID)) {
-                b.putMetadata( ZingUtils.CLEARED_BY_KEY, ZingUtils.getAnyArray(this.clearedByUUID));
+                b.putMetadata( ZingConstants.CLEARED_BY_KEY, ZingUtils.getAnyArray(this.clearedByUUID));
             }
             // details
             for (Map.Entry<String,List<String>> entry : this.details.entrySet()) {
-                final String key = ZingUtils.DETAILS_KEY_PREFIX + entry.getKey();
+                final String key = ZingConstants.DETAILS_KEY_PREFIX + entry.getKey();
                 final List<Object> objectList = (List)entry.getValue();
                 b.putMetadata( key, ZingUtils.getAnyArrayFromList(objectList));
             }
             // Source id
-            b.putMetadata(ZingUtils.SOURCE_TYPE_KEY, ZingUtils.getAnyArray(ZingUtils.SOURCE_TYPE));
-            b.putMetadata(ZingUtils.SOURCE_VENDOR_KEY, ZingUtils.getAnyArray(ZingUtils.SOURCE_VENDOR));
+            b.putMetadata(ZingConstants.SOURCE_TYPE_KEY, ZingUtils.getAnyArray(ZingConstants.SOURCE_TYPE));
+            b.putMetadata(ZingConstants.SOURCE_VENDOR_KEY, ZingUtils.getAnyArray(ZingConstants.SOURCE_VENDOR));
 
             evt = b.build();
         }

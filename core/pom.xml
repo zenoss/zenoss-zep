@@ -17,14 +17,14 @@
         <dependency>
            <groupId>com.google.protobuf</groupId>
            <artifactId>protobuf-java</artifactId>
-           <version>3.4.0</version>
+           <version>${protobuf.version}</version>
            <type>jar</type>
            <scope>compile</scope>
        </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>21.0</version>
+            <version>${guava.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
@@ -337,7 +337,7 @@
         <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-pubsub</artifactId>
-            <version>1.40.0</version>
+            <version>${pubsub.version}</version>
         </dependency>
         <dependency>
             <groupId>org.zenoss.zing.proto</groupId>
