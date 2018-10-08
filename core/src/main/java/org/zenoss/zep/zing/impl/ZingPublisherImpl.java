@@ -12,13 +12,13 @@ package org.zenoss.zep.zing.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.pubsub.v1.ProjectTopicName;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.api.gax.core.CredentialsProvider;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.auth.oauth2.ServiceAccountCredentials;
 
 import org.zenoss.zep.zing.ZingConfig;
+import org.zenoss.zep.zing.ZingPublisher;
 
 import java.io.IOException;
 import java.io.FileInputStream;
@@ -30,15 +30,14 @@ public class ZingPublisherImpl extends ZingPublisher {
     private static final Logger logger = LoggerFactory.getLogger(ZingPublisherImpl.class);
 
     public ZingPublisherImpl(ZingConfig config) {
+        super(config);
         logger.info("Creating Publisher to GCP PubSub");
-        this.topicName = ProjectTopicName.of(config.project, config.topic);
-        this.config = config;
-        this.publisher = this.buildPublisher(config);
+        this.setPublisher(this.buildPublisher(config));
     }
 
     private Publisher buildPublisher(ZingConfig config) {
         Publisher psPublisher = null;
-        Publisher.Builder builder = Publisher.newBuilder(topicName);
+        Publisher.Builder builder = Publisher.newBuilder(this.getTopicName());
         if (!config.credentialsPath.isEmpty()){
             CredentialsProvider credentialsProvider = this.buildCredentials(config.credentialsPath);
             if (credentialsProvider!=null) {

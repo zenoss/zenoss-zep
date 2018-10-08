@@ -19,6 +19,7 @@ import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.zep.zing.ZingEvent;
 import org.zenoss.zep.zing.ZingEventProcessor;
 import org.zenoss.zep.zing.ZingConfig;
+import org.zenoss.zep.zing.ZingPublisher;
 
 
 public class ZingEventProcessorImpl implements ZingEventProcessor {

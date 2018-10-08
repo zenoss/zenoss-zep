@@ -7,7 +7,7 @@
  *
  ****************************************************************************/
 
-package org.zenoss.zep.zing.impl;
+package org.zenoss.zep.zing;
 
 
 import com.google.api.core.ApiFuture;
@@ -19,19 +19,40 @@ import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zenoss.zep.zing.ZingConfig;
-import org.zenoss.zep.zing.ZingEvent;
 import org.zenoss.zing.proto.event.Event;
 
-public abstract class ZingPublisher {
+public class ZingPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingPublisher.class);
 
-    Publisher publisher = null;
+    private Publisher publisher = null;
 
-    ProjectTopicName topicName;
+    private ProjectTopicName topicName;
 
-    ZingConfig config;
+    private ZingConfig config;
+
+    public ZingPublisher(ZingConfig config) {
+        this.topicName = ProjectTopicName.of(config.project, config.topic);
+        this.config = config;
+    }
+
+
+    public void setPublisher(Publisher p) {
+        this.publisher = p;
+    }
+
+    public ZingConfig getConfig() {
+        return config;
+    }
+
+    public void setConfig(ZingConfig config) {
+        this.config = config;
+    }
+
+    public ProjectTopicName getTopicName() {
+        return this.topicName;
+    }
+
 
     public void shutdown() {
         if (this.publisher != null) {
@@ -48,7 +69,9 @@ public abstract class ZingPublisher {
         logger.info("published with message id: " + messageId);
     }
 
-    protected abstract void onFailure(Throwable t);
+    protected void onFailure(Throwable t) {
+        logger.warn("failed to publish to pubsub: " + t);
+    }
 
     public void publishEvent(ZingEvent event) {
         if (this.publisher != null) {
