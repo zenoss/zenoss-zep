@@ -24,9 +24,7 @@ import org.zenoss.zing.proto.event.Event;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Counter;
-import com.codahale.metrics.Gauge;
 
-import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class ZingPublisher {
 
@@ -44,9 +42,7 @@ public abstract class ZingPublisher {
 
     private Counter failedEventsCounter;
 
-    private Gauge<Long> eventBytesGauge;
-
-    private AtomicLong eventBytes;
+    private Counter bytesSentCounter;
 
     public ZingPublisher(MetricRegistry metrics, ZingConfig config) {
         this.topicName = ProjectTopicName.of(config.project, config.topic);
@@ -54,13 +50,7 @@ public abstract class ZingPublisher {
         this.metricRegistry = metrics;
         this.sentEventsCounter = this.metricRegistry.counter("zing.sentEvents");
         this.failedEventsCounter = this.metricRegistry.counter("zing.failedEvents");
-        this.eventBytes = new AtomicLong();
-        this.eventBytesGauge = this.metricRegistry.register("zing.bytesSent", new Gauge<Long>(){
-            @Override
-            public Long getValue() {
-                return ZingPublisher.this.eventBytes.longValue();
-            }
-        });
+        this.bytesSentCounter = this.metricRegistry.counter("zing.bytesSent");
     }
 
     public void setPublisher(Publisher p) {
@@ -104,7 +94,7 @@ public abstract class ZingPublisher {
         if (this.publisher != null) {
             final Event zingEvent = event.toZingEvent();
             final ByteString bytes = zingEvent.toByteString();
-            this.eventBytes.getAndAdd(bytes.size());
+            this.bytesSentCounter.inc(bytes.size());
             PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(bytes).build();
             ApiFuture<String> messageIdFuture = publisher.publish(pubsubMessage);
             ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
