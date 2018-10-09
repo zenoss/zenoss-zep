@@ -21,6 +21,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.zing.proto.event.Event;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.annotation.Timed;
+
+
 public abstract class ZingPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingPublisher.class);
@@ -31,11 +36,19 @@ public abstract class ZingPublisher {
 
     private ZingConfig config;
 
-    public ZingPublisher(ZingConfig config) {
+    protected MetricRegistry metricRegistry;
+
+    protected Counter sentEventsCounter;
+
+    protected Counter failedEventsCounter;
+
+    public ZingPublisher(MetricRegistry metrics, ZingConfig config) {
         this.topicName = ProjectTopicName.of(config.project, config.topic);
         this.config = config;
+        this.metricRegistry = metrics;
+        this.sentEventsCounter = this.metricRegistry.counter("zing.sentEvents");
+        this.failedEventsCounter = this.metricRegistry.counter("zing.failedEvents");
     }
-
 
     public void setPublisher(Publisher p) {
         this.publisher = p;
@@ -53,7 +66,6 @@ public abstract class ZingPublisher {
         return this.topicName;
     }
 
-
     public void shutdown() {
         if (this.publisher != null) {
             try {
@@ -67,10 +79,15 @@ public abstract class ZingPublisher {
     protected void onSuccess(String messageId) {
         // FIXME set this to debug or remove
         logger.info("published with message id: " + messageId);
+        this.sentEventsCounter.inc();
     }
 
-    protected abstract void onFailure(Throwable t);
+    protected void onFailure(Throwable t) {
+        logger.warn("failed to publish event to pubsub: " + t);
+        this.failedEventsCounter.inc();
+    }
 
+    @Timed(absolute = true, name = "zing.publishEvent")
     public void publishEvent(ZingEvent event) {
         if (this.publisher != null) {
             final Event zingEvent = event.toZingEvent();

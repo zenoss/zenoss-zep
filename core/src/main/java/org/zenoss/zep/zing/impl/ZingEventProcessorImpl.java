@@ -9,6 +9,7 @@
 
 package org.zenoss.zep.zing.impl;
 
+import com.codahale.metrics.Counter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -21,10 +22,18 @@ import org.zenoss.zep.zing.ZingEventProcessor;
 import org.zenoss.zep.zing.ZingConfig;
 import org.zenoss.zep.zing.ZingPublisher;
 
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.annotation.Timed;
+import org.springframework.beans.factory.annotation.Autowired;
 
 public class ZingEventProcessorImpl implements ZingEventProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingEventProcessorImpl.class);
+
+    @Autowired
+    protected MetricRegistry metricRegistry;
+
+    protected Counter invalidEventsCounter;
 
     private boolean enabled;
 
@@ -46,12 +55,13 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
     }
 
     public void init() {
+        this.invalidEventsCounter = metricRegistry.counter("zing.invalidEvents");
         if (this.enabled) {
             logger.info("initializing zing event processor...");
             if (this.config.useEmulator) {
-                this.publisher = new ZingEmulatorPublisherImpl(this.config);
+                this.publisher = new ZingEmulatorPublisherImpl(this.metricRegistry, this.config);
             } else {
-                this.publisher = new ZingPublisherImpl(this.config);
+                this.publisher = new ZingPublisherImpl(this.metricRegistry, this.config);
             }
         }
         if(this.publisher==null) {
@@ -65,6 +75,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         return this.enabled;
     }
 
+    @Timed(absolute=true, name="zing.processEvent")
     public void processEvent(EventSummary summary) {
         if (this.enabled) {
             // build ZingEvent, convert it to protobuf and send it
@@ -114,12 +125,11 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             }
 
             ZingEvent zingEvent = builder.build();
-            logger.info("publishing event {}", zingEvent);
+            logger.debug("publishing event {}", zingEvent);
             if (zingEvent.isValid()) {
                 this.publisher.publishEvent(zingEvent);
             } else {
-                // FIXME remove logging and replace it with instrumentation
-                logger.info("DROPPING BAD EVENT!!!!!!");
+                this.invalidEventsCounter.inc();
             }
         }
     }
