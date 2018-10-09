@@ -15,6 +15,7 @@ import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import org.slf4j.Logger;
@@ -23,8 +24,9 @@ import org.zenoss.zing.proto.event.Event;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Counter;
-import com.codahale.metrics.annotation.Timed;
+import com.codahale.metrics.Gauge;
 
+import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class ZingPublisher {
 
@@ -36,11 +38,15 @@ public abstract class ZingPublisher {
 
     private ZingConfig config;
 
-    protected MetricRegistry metricRegistry;
+    private MetricRegistry metricRegistry;
 
-    protected Counter sentEventsCounter;
+    private Counter sentEventsCounter;
 
-    protected Counter failedEventsCounter;
+    private Counter failedEventsCounter;
+
+    private Gauge<Long> eventBytesGauge;
+
+    private AtomicLong eventBytes;
 
     public ZingPublisher(MetricRegistry metrics, ZingConfig config) {
         this.topicName = ProjectTopicName.of(config.project, config.topic);
@@ -48,6 +54,13 @@ public abstract class ZingPublisher {
         this.metricRegistry = metrics;
         this.sentEventsCounter = this.metricRegistry.counter("zing.sentEvents");
         this.failedEventsCounter = this.metricRegistry.counter("zing.failedEvents");
+        this.eventBytes = new AtomicLong();
+        this.eventBytesGauge = this.metricRegistry.register("zing.bytesSent", new Gauge<Long>(){
+            @Override
+            public Long getValue() {
+                return ZingPublisher.this.eventBytes.longValue();
+            }
+        });
     }
 
     public void setPublisher(Publisher p) {
@@ -87,12 +100,12 @@ public abstract class ZingPublisher {
         this.failedEventsCounter.inc();
     }
 
-    @Timed(absolute = true, name = "zing.publishEvent")
     public void publishEvent(ZingEvent event) {
         if (this.publisher != null) {
             final Event zingEvent = event.toZingEvent();
-            PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(zingEvent.toByteString()).build();
-
+            final ByteString bytes = zingEvent.toByteString();
+            this.eventBytes.getAndAdd(bytes.size());
+            PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(bytes).build();
             ApiFuture<String> messageIdFuture = publisher.publish(pubsubMessage);
             ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
                 public void onSuccess(String messageId) {
