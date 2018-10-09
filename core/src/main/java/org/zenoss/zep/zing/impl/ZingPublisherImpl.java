@@ -24,13 +24,14 @@ import java.io.IOException;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 
+import com.codahale.metrics.MetricRegistry;
 
 public class ZingPublisherImpl extends ZingPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingPublisherImpl.class);
 
-    public ZingPublisherImpl(ZingConfig config) {
-        super(config);
+    public ZingPublisherImpl(MetricRegistry metrics, ZingConfig config) {
+        super(metrics, config);
         logger.info("Creating Publisher to GCP PubSub");
         this.setPublisher(this.buildPublisher(config));
     }
@@ -69,8 +70,8 @@ public class ZingPublisherImpl extends ZingPublisher {
 
     protected void onFailure(Throwable t)
     {
+        super.onFailure(t);
         // FIXME we need to store data somewhere to ensure zero data loss
-        logger.info("failed to publish to pubsub in GCP: " + t);
     }
 }
 

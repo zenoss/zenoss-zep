@@ -9,6 +9,7 @@
 
 package org.zenoss.zep.zing.impl;
 
+import com.codahale.metrics.MetricRegistry;
 import com.google.api.gax.core.CredentialsProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
@@ -36,8 +37,8 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
 
     private AtomicBoolean everConnected;
 
-    public ZingEmulatorPublisherImpl(ZingConfig config) {
-        super(config);
+    public ZingEmulatorPublisherImpl(MetricRegistry metrics, ZingConfig config) {
+        super(metrics, config);
         logger.info("Creating Publisher to PubSub emulator");
         this.everConnected = new AtomicBoolean(false);
         this.setPublisher(this.buildPublisher(config));
@@ -102,11 +103,6 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
             logger.error("Exception creating pubsub emulator publisher", e);
         }
         return publisher;
-    }
-
-    protected void onFailure(Throwable t)
-    {
-        logger.info("failed to publish to pubsub emulator: " + t);
     }
 
     public void publishEvent(ZingEvent event) {
