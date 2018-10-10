@@ -172,7 +172,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             logger.debug("publishing event {}", zingEvent);
             this.publisher.publishEvent(zingEvent);
         } else {
-            logger.debug("dropping invalid event: {}", zingEvent.toString());
+            logger.debug("dropping invalid event: {} / {}", zingEvent.getFingerprint(), zingEvent.getUuid());
             this.invalidEventsCounter.inc();
         }
     }

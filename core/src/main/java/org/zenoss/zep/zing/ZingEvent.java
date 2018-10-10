@@ -103,6 +103,14 @@ public class ZingEvent {
         this.status = b.status_;
     }
 
+    public String getFingerprint() {
+        return this.fingerprint;
+    }
+
+    public String getUuid() {
+        return this.uuid;
+    }
+
     public String toString() {
         final StringBuffer strBuf = new StringBuffer();
         strBuf.append("\n tenant = ").append(this.tenant);
