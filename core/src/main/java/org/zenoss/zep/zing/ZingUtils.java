@@ -141,6 +141,14 @@ public class ZingUtils {
         return str == null || str.trim().isEmpty();
     }
 
+    public static String sanitizeToken(String token) {
+        String sanitizedToken = token;
+
+        if (!ZingUtils.isNullOrEmpty(token)) {
+            sanitizedToken = sanitizedToken.trim().toUpperCase();
+        }
+        return sanitizedToken;
+    }
 }
 
 

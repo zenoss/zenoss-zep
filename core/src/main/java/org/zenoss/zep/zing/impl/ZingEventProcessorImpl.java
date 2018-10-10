@@ -18,7 +18,11 @@ import org.zenoss.protobufs.zep.Zep.EventDetail;
 import org.zenoss.protobufs.zep.Zep.EventActor;
 import org.zenoss.protobufs.zep.Zep.EventSeverity;
 
-import org.zenoss.zep.zing.*;
+import org.zenoss.zep.zing.ZingEventProcessor;
+import org.zenoss.zep.zing.ZingConfig;
+import org.zenoss.zep.zing.ZingPublisher;
+import org.zenoss.zep.zing.ZingUtils;
+import org.zenoss.zep.zing.ZingEvent;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.annotation.Timed;
@@ -32,6 +36,8 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
     protected MetricRegistry metricRegistry;
 
     protected Counter invalidEventsCounter;
+
+    protected Counter irrelevantSeverityCounter;
 
     private boolean enabled;
 
@@ -66,7 +72,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         if (ZingUtils.isNullOrEmpty(input)) {
             return sev;
         }
-        switch (input.toUpperCase()) {
+        switch (ZingUtils.sanitizeToken(input)) {
             case "CLEAR":
                 sev = EventSeverity.SEVERITY_CLEAR;
                 break;
@@ -93,6 +99,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
 
     public void init() {
         this.invalidEventsCounter = metricRegistry.counter("zing.invalidEvents");
+        this.irrelevantSeverityCounter = metricRegistry.counter("zing.irrelevantSeverityEvents");
         if (this.enabled) {
             logger.info("initializing zing event processor...");
             if (this.config.useEmulator) {
@@ -161,19 +168,22 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         }
 
         ZingEvent zingEvent = builder.build();
-        logger.debug("publishing event {}", zingEvent);
         if (zingEvent.isValid()) {
+            logger.debug("publishing event {}", zingEvent);
             this.publisher.publishEvent(zingEvent);
         } else {
+            logger.debug("dropping invalid event: {}", zingEvent.toString());
             this.invalidEventsCounter.inc();
         }
     }
 
     public void processEvent(EventSummary summary) {
         if (this.enabled) {
-            int eventSev = summary.getOccurrence(0).getSeverity().getNumber();
-            if( eventSev >= this.minSeverity.getNumber()) {
+            EventSeverity sev = summary.getOccurrence(0).getSeverity();
+            if (sev.compareTo(this.minSeverity) >= 0 ) {
                 this.processEventSummary(summary);
+            } else {
+                this.irrelevantSeverityCounter.inc();
             }
         }
     }
