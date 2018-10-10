@@ -34,11 +34,13 @@ public class ZingConfig {
 
     public String credentialsPath = "";
 
+    public String minimumSeverity = "";
+
     public ZingConfig() {}
 
     public ZingConfig(boolean enabled, boolean useEmulator,
                       String tenant, String source, String project, String topic,
-                      String emulatorHostAndPort, String credentialsPath) {
+                      String emulatorHostAndPort, String credentialsPath, String minimumSeverity) {
         this.enabled = enabled;
         this.useEmulator = useEmulator;
         this.tenant = tenant;
@@ -47,6 +49,7 @@ public class ZingConfig {
         this.topic = topic;
         this.emulatorHostAndPort = emulatorHostAndPort;
         this.credentialsPath = credentialsPath;
+        this.minimumSeverity = minimumSeverity;
     }
 
     public void setEnabled(boolean enabled) {
@@ -85,6 +88,8 @@ public class ZingConfig {
         this.credentialsPath = creds;
     }
 
+    public void setMinimumSeverity(String severity) { this.minimumSeverity = severity; }
+
     public String toString() {
         final StringBuffer strBuf = new StringBuffer();
         strBuf.append(" / enabled = ").append(this.enabled);
@@ -94,6 +99,7 @@ public class ZingConfig {
         strBuf.append(" / source = ").append(this.source);
         strBuf.append(" / topic = ").append(this.topic);
         strBuf.append(" / credentials path = ").append(this.credentialsPath);
+        strBuf.append(" / min severity = ").append(this.minimumSeverity);
         return strBuf.toString();
     }
 

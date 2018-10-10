@@ -189,6 +189,7 @@
         <property name="topic" value="${zep.zing.topic:#{''}}"/>
         <property name="emulatorHostAndPort" value="${zep.zing.emulator_url:#{''}}"/>
         <property name="credentialsPath" value="${zep.zing.credentials:#{''}}"/>
+        <property name="minimumSeverity" value="${zep.zing.minimum_severity:#{''}}"/>
     </bean>
 
     <bean id="zingEventProcessor" class="org.zenoss.zep.zing.impl.ZingEventProcessorImpl" 
