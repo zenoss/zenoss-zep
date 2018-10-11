@@ -119,7 +119,6 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         return this.enabled;
     }
 
-    @Timed(absolute=true, name="zing.processEvent")
     private void processEventSummary(EventSummary summary) {
         // build ZingEvent, convert it to protobuf and send it
         final Event event = summary.getOccurrence(0);
@@ -177,6 +176,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         }
     }
 
+    @Timed(absolute=true, name="zing.processEvent")
     public void processEvent(EventSummary summary) {
         if (this.enabled) {
             EventSeverity sev = summary.getOccurrence(0).getSeverity();
