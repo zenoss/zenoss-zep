@@ -105,7 +105,7 @@ public abstract class AbstractQueueListener extends QueueListener {
                                 rejectMessage(consumer, message, true);
                             } else {
                         /* TODO: Dead letter queue or other safety net? */
-                                logger.warn("Failed processing message: " + message, e);
+                                logger.debug("Failed processing message: " + message, e);
                                 rejectMessage(consumer, message, false);
                             }
                         }
