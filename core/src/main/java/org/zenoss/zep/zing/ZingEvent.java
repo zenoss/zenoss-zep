@@ -163,7 +163,7 @@ public class ZingEvent {
         DEFAULT_FINGERPRINT_FIELDS = ('device', 'component', 'eventClass', 'eventKey', 'severity')
         NO_EVENT_KEY_FINGERPRINT_FIELDS = ('device', 'component', 'eventClass', 'severity', 'summary')
      */
-    public Event toZingEvent() {
+    public Event toZingEventProto() {
         Event evt = null;
         if (this.isValid()) {
             Event.Builder b = Event.newBuilder();

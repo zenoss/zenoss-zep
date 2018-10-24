@@ -92,7 +92,7 @@ public abstract class ZingPublisher {
 
     public void publishEvent(ZingEvent event) {
         if (this.publisher != null) {
-            final Event zingEvent = event.toZingEvent();
+            final Event zingEvent = event.toZingEventProto();
             final ByteString bytes = zingEvent.toByteString();
             this.bytesSentCounter.inc(bytes.size());
             PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(bytes).build();
