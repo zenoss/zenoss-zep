@@ -80,8 +80,7 @@ public abstract class ZingPublisher {
     }
 
     protected void onSuccess(String messageId) {
-        // FIXME set this to debug or remove
-        logger.info("published with message id: " + messageId);
+        logger.debug("published with message id: " + messageId);
         this.sentEventsCounter.inc();
     }
 
