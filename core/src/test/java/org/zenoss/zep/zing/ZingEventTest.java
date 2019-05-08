@@ -9,7 +9,6 @@
 
 package org.zenoss.zep.zing;
 
-import com.google.protobuf.Any;
 import org.junit.Test;
 import org.zenoss.zing.proto.event.Event;
 import java.util.Arrays;
@@ -19,7 +18,8 @@ import static org.junit.Assert.*;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.zenoss.zing.proto.model.AnyArray;
+import org.zenoss.zing.proto.cloud.common.Scalar;
+import org.zenoss.zing.proto.cloud.common.ScalarArray;
 
 public class ZingEventTest {
 
@@ -97,40 +97,40 @@ public class ZingEventTest {
         assertTrue(protoEvent.getTimestamp() == ts);
 
         assertTrue(protoEvent.containsDimensions(ZingConstants.SOURCE_KEY));
-        Any anyValue = protoEvent.getDimensionsOrDefault(ZingConstants.SOURCE_KEY, null);
-        assertEquals((String) ZingUtils.getObjectFromAnyValue(anyValue), src);
+        Scalar scalarValue = protoEvent.getDimensionsOrDefault(ZingConstants.SOURCE_KEY, null);
+        assertEquals((String) ZingUtils.getObjectFromScalarValue(scalarValue), src);
         assertTrue(protoEvent.containsDimensions(ZingConstants.FINGERPRINT_KEY));
-        anyValue = protoEvent.getDimensionsOrDefault(ZingConstants.FINGERPRINT_KEY, null);
-        assertEquals((String) ZingUtils.getObjectFromAnyValue(anyValue), fingerprint);
+        scalarValue = protoEvent.getDimensionsOrDefault(ZingConstants.FINGERPRINT_KEY, null);
+        assertEquals((String) ZingUtils.getObjectFromScalarValue(scalarValue), fingerprint);
         assertTrue(protoEvent.containsDimensions(ZingConstants.UUID_KEY));
-        anyValue = protoEvent.getDimensionsOrDefault(ZingConstants.UUID_KEY, null);
-        assertEquals((String) ZingUtils.getObjectFromAnyValue(anyValue), eventUUID);
+        scalarValue = protoEvent.getDimensionsOrDefault(ZingConstants.UUID_KEY, null);
+        assertEquals((String) ZingUtils.getObjectFromScalarValue(scalarValue), eventUUID);
 
         List<Object> mdValues;
-        AnyArray anyArr;
+        ScalarArray scalarArr;
         // severity
         protoEvent.containsMetadata(ZingConstants.SEVERITY_KEY);
-        anyArr = protoEvent.getMetadataOrDefault(ZingConstants.SEVERITY_KEY, null);
-        mdValues = ZingUtils.getListFromAnyArray(ZingConstants.SEVERITY_KEY, anyArr);
+        scalarArr = protoEvent.getMetadataOrDefault(ZingConstants.SEVERITY_KEY, null);
+        mdValues = ZingUtils.getListFromScalarArray(ZingConstants.SEVERITY_KEY, scalarArr);
         assertTrue(mdValues.size()==1);
         assertEquals((String)mdValues.get(0), severity);
         // contextUUID
         protoEvent.containsMetadata(ZingConstants.CONTEXT_UUID_KEY);
-        anyArr = protoEvent.getMetadataOrDefault(ZingConstants.CONTEXT_UUID_KEY, null);
-        mdValues = ZingUtils.getListFromAnyArray(ZingConstants.CONTEXT_UUID_KEY, anyArr);
+        scalarArr = protoEvent.getMetadataOrDefault(ZingConstants.CONTEXT_UUID_KEY, null);
+        mdValues = ZingUtils.getListFromScalarArray(ZingConstants.CONTEXT_UUID_KEY, scalarArr);
         assertTrue(mdValues.size()==1);
         assertEquals((String)mdValues.get(0), contextUUID);
         // parentContextUUID
         protoEvent.containsMetadata(ZingConstants.PARENT_CONTEXT_UUID_KEY);
-        anyArr = protoEvent.getMetadataOrDefault(ZingConstants.PARENT_CONTEXT_UUID_KEY, null);
-        mdValues = ZingUtils.getListFromAnyArray(ZingConstants.PARENT_CONTEXT_UUID_KEY, anyArr);
+        scalarArr = protoEvent.getMetadataOrDefault(ZingConstants.PARENT_CONTEXT_UUID_KEY, null);
+        mdValues = ZingUtils.getListFromScalarArray(ZingConstants.PARENT_CONTEXT_UUID_KEY, scalarArr);
         assertTrue(mdValues.size()==1);
         assertEquals((String)mdValues.get(0), parentContextUUID);
         // detail
         String mdDetailKey = ZingConstants.DETAILS_KEY_PREFIX + detailKey;
         protoEvent.containsMetadata(mdDetailKey);
-        anyArr = protoEvent.getMetadataOrDefault(mdDetailKey, null);
-        mdValues = ZingUtils.getListFromAnyArray(mdDetailKey, anyArr);
+        scalarArr = protoEvent.getMetadataOrDefault(mdDetailKey, null);
+        mdValues = ZingUtils.getListFromScalarArray(mdDetailKey, scalarArr);
         assertTrue(mdValues.size()==1);
         assertEquals((String)mdValues.get(0), detailValue);
     }
