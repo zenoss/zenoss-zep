@@ -89,12 +89,20 @@ public abstract class ZingPublisher {
         this.failedEventsCounter.inc();
     }
 
+    public void incFailedEventsCounter() {
+        this.failedEventsCounter.inc();
+    }
+
+    public PubsubMessage getPubSubMessage(ZingEvent event) {
+        final Event zingEvent = event.toZingEventProto();
+        final ByteString bytes = zingEvent.toByteString();
+        return PubsubMessage.newBuilder().setData(bytes).build();
+    }
+
     public void publishEvent(ZingEvent event) {
         if (this.publisher != null) {
-            final Event zingEvent = event.toZingEventProto();
-            final ByteString bytes = zingEvent.toByteString();
-            this.bytesSentCounter.inc(bytes.size());
-            PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(bytes).build();
+            PubsubMessage pubsubMessage = getPubSubMessage(event);
+            this.bytesSentCounter.inc(pubsubMessage.getData().size());
             ApiFuture<String> messageIdFuture = publisher.publish(pubsubMessage);
             ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
                 public void onSuccess(String messageId) {

@@ -190,6 +190,7 @@
         <property name="emulatorHostAndPort" value="${zep.zing.emulator_url:#{''}}"/>
         <property name="credentialsPath" value="${zep.zing.credentials:#{''}}"/>
         <property name="minimumSeverity" value="${zep.zing.minimum_severity:#{''}}"/>
+        <property name="maxPubsubMessageSize" value="${zep.zing.max_pubsub_message_size:#{''}}"/>
     </bean>
 
     <bean id="zingEventProcessor" class="org.zenoss.zep.zing.impl.ZingEventProcessorImpl" 

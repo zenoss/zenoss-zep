@@ -10,6 +10,7 @@
 package org.zenoss.zep.zing.impl;
 
 import com.codahale.metrics.Counter;
+import com.google.pubsub.v1.PubsubMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -47,9 +48,14 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
 
     private EventSeverity minSeverity = EventSeverity.SEVERITY_CLEAR;
 
+    private Integer maxPubsubMessageSize = 7*1024*1024;
+
     public ZingEventProcessorImpl(ZingConfig cfg) {
         this.config = cfg;
         logger.info("Zing Event Processor created with config: {}", cfg.toString());
+        if (cfg.maxPubsubMessageSize != null) {
+            this.maxPubsubMessageSize = cfg.maxPubsubMessageSize;
+        }
         this.enabled = this.config.forwardEvents();
         if (this.enabled) {
             if (!this.config.validate()) {
@@ -167,9 +173,18 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         }
 
         ZingEvent zingEvent = builder.build();
+
+        PubsubMessage pubsubMessage = this.publisher.getPubSubMessage(zingEvent);
+        int pubsubMessageSize = pubsubMessage.getData().size();
+
         if (zingEvent.isValid()) {
-            logger.debug("publishing event {}", zingEvent);
-            this.publisher.publishEvent(zingEvent);
+            if (pubsubMessageSize >= this.maxPubsubMessageSize) {
+                logger.debug("event {} is too large, dropping", zingEvent.getUuid());
+                this.publisher.incFailedEventsCounter();
+            } else {
+                logger.debug("publishing event {}", zingEvent);
+                this.publisher.publishEvent(zingEvent);
+            }
         } else {
             logger.debug("dropping invalid event: {} / {}", zingEvent.getFingerprint(), zingEvent.getUuid());
             this.invalidEventsCounter.inc();

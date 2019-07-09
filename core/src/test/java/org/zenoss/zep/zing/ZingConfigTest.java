@@ -23,10 +23,11 @@ public class ZingConfigTest {
         String emulator = "1.1.1.1:8085";
         String credsPath = "";
         String minSev = "";
+        Integer maxPubsubMessSize = 0;
         boolean enabled = true;
         boolean useEmulator = true;
 
-        ZingConfig cfg = new ZingConfig(enabled, useEmulator, tnt, src, prj, topic, emulator, credsPath, minSev);
+        ZingConfig cfg = new ZingConfig(enabled, useEmulator, tnt, src, prj, topic, emulator, credsPath, minSev, maxPubsubMessSize);
 
         // config without tenant, source, project or topic is invalid
         assertTrue(cfg.validate());
