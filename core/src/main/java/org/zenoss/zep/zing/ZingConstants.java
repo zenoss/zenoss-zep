@@ -44,4 +44,6 @@ public class ZingConstants {
     public static final String SOURCE_TYPE = "CZ";
     public static final String SOURCE_VENDOR = "Zenoss";
 
+    public static final String PUBSUB_ID_ATTRIBUTE = "msg-id";
+
 }
