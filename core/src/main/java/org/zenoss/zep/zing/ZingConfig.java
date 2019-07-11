@@ -38,12 +38,14 @@ public class ZingConfig {
 
     public Integer maxPubsubMessageSize = 0;
 
+    public Integer maxEventFieldLength = 0;
+
     public ZingConfig() {}
 
     public ZingConfig(boolean enabled, boolean useEmulator,
                       String tenant, String source, String project, String topic,
                       String emulatorHostAndPort, String credentialsPath, String minimumSeverity,
-                      Integer maxPubsubMessageSize) {
+                      Integer maxPubsubMessageSize, Integer maxEventFieldLength) {
         this.enabled = enabled;
         this.useEmulator = useEmulator;
         this.tenant = tenant;
@@ -54,6 +56,7 @@ public class ZingConfig {
         this.credentialsPath = credentialsPath;
         this.minimumSeverity = minimumSeverity;
         this.maxPubsubMessageSize = maxPubsubMessageSize;
+        this.maxEventFieldLength = maxEventFieldLength;
     }
 
     public void setEnabled(boolean enabled) {
@@ -98,6 +101,10 @@ public class ZingConfig {
         this.maxPubsubMessageSize = size;
     }
 
+    public void setMaxEventFieldLength(Integer lgth) {
+        this.maxEventFieldLength = lgth;
+    }
+
     public String toString() {
         final StringBuffer strBuf = new StringBuffer();
         strBuf.append(" / enabled = ").append(this.enabled);
@@ -109,6 +116,7 @@ public class ZingConfig {
         strBuf.append(" / credentials path = ").append(this.credentialsPath);
         strBuf.append(" / min severity = ").append(this.minimumSeverity);
         strBuf.append(" / max pubsub message size = ").append(this.maxPubsubMessageSize);
+         strBuf.append(" / max event field length = ").append(this.maxEventFieldLength);
         return strBuf.toString();
     }
 
