@@ -91,9 +91,8 @@ public abstract class ZingPublisher {
 
     private String getMessageId(Event zingEvent) {
         return zingEvent.getTenant() + "-" +
-                zingEvent.getName() + "-" +
-                zingEvent.getId() + "-" +
-                zingEvent.hashCode() + "-" +
+                zingEvent.getDimensionsMap().hashCode() + "-" +
+                zingEvent.getMetadataMap().hashCode() + "-" +
                 zingEvent.getTimestamp();
     }
 
