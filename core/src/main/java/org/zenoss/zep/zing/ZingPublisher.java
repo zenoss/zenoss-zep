@@ -89,17 +89,31 @@ public abstract class ZingPublisher {
         this.failedEventsCounter.inc();
     }
 
+    private String getMessageId(Event zingEvent) {
+        return zingEvent.getTenant() + "-" +
+                zingEvent.getName() + "-" +
+                zingEvent.getId() + "-" +
+                zingEvent.hashCode() + "-" +
+                zingEvent.getTimestamp();
+    }
+
     public void publishEvent(ZingEvent event) {
         if (this.publisher != null) {
             final Event zingEvent = event.toZingEventProto();
             final ByteString bytes = zingEvent.toByteString();
             this.bytesSentCounter.inc(bytes.size());
-            PubsubMessage pubsubMessage = PubsubMessage.newBuilder().setData(bytes).build();
+            PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
+                    .setData(bytes)
+                    .putAttributes(ZingConstants.PUBSUB_ID_ATTRIBUTE, getMessageId(zingEvent))
+                    .build();
             ApiFuture<String> messageIdFuture = publisher.publish(pubsubMessage);
             ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
+                @Override
                 public void onSuccess(String messageId) {
                     ZingPublisher.this.onSuccess(messageId);
                 }
+
+                @Override
                 public void onFailure(Throwable t) {
                     ZingPublisher.this.onFailure(t);
                 }
