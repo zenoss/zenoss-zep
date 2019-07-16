@@ -10,6 +10,7 @@
 package org.zenoss.zep.zing.impl;
 
 import com.codahale.metrics.Counter;
+import com.google.pubsub.v1.PubsubMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
@@ -27,6 +28,8 @@ import org.zenoss.zep.zing.ZingEvent;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.annotation.Timed;
 import org.springframework.beans.factory.annotation.Autowired;
+
+import java.util.*;
 
 public class ZingEventProcessorImpl implements ZingEventProcessor {
 
@@ -47,9 +50,18 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
 
     private EventSeverity minSeverity = EventSeverity.SEVERITY_CLEAR;
 
+    private Integer maxPubsubMessageSize = 7*1024*1024;
+    private Integer maxEventFieldLength = 50*1024;
+
     public ZingEventProcessorImpl(ZingConfig cfg) {
         this.config = cfg;
         logger.info("Zing Event Processor created with config: {}", cfg.toString());
+        if (cfg.maxPubsubMessageSize != null) {
+            this.maxPubsubMessageSize = cfg.maxPubsubMessageSize;
+        }
+        if (cfg.maxEventFieldLength != null) {
+            this.maxEventFieldLength = cfg.maxEventFieldLength;
+        }
         this.enabled = this.config.forwardEvents();
         if (this.enabled) {
             if (!this.config.validate()) {
@@ -140,15 +152,47 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         if (actor != null) {
             if (actor.hasElementUuid()) builder.setParentContextUUID(actor.getElementUuid());
             if (actor.hasElementIdentifier()) builder.setParentContextIdentifier(actor.getElementIdentifier());
-            if (actor.hasElementTitle()) builder.setParentContextTitle(actor.getElementTitle());
+            if (actor.hasElementTitle()) {
+                String parentContextTitle = actor.getElementTitle();
+                Integer parentContextTitleSize = parentContextTitle.getBytes().length;
+                if (parentContextTitleSize > this.maxEventFieldLength) {
+                    logger.warn("event: {}; parentContextTitle is too large, trimming", uuid);
+                    parentContextTitle = parentContextTitle.substring(0, this.maxEventFieldLength);
+                }
+                builder.setParentContextTitle(parentContextTitle);
+            }
             if (actor.hasElementTypeId()) builder.setParentContextType(actor.getElementTypeId().name());
             if (actor.hasElementSubUuid()) builder.setContextUUID(actor.getElementSubUuid());
             if (actor.hasElementSubIdentifier()) builder.setContextIdentifier(actor.getElementSubIdentifier());
-            if (actor.hasElementSubTitle()) builder.setContextTitle(actor.getElementSubTitle());
+            if (actor.hasElementSubTitle()) {
+                String contextTitle = actor.getElementSubTitle();
+                Integer contextTitleSize = contextTitle.getBytes().length;
+                if (contextTitleSize > this.maxEventFieldLength) {
+                    logger.warn("event: {}; contextTitleSize is too large, trimming", uuid);
+                    contextTitle = contextTitle.substring(0, this.maxEventFieldLength);
+                }
+                builder.setContextTitle(contextTitle);
+            }
             if (actor.hasElementSubTypeId()) builder.setContextType(actor.getElementSubTypeId().name());
         }
-        if (event.hasMessage()) builder.setMessage(event.getMessage());
-        if (event.hasSummary()) builder.setSummary(event.getSummary());
+        if (event.hasMessage()) {
+            String message = event.getMessage();
+            Integer messageSize = message.getBytes().length;
+            if (messageSize > this.maxEventFieldLength) {
+                logger.warn("event: {}; message is too large, trimming", uuid);
+                message = message.substring(0, this.maxEventFieldLength);
+            }
+            builder.setMessage(message);
+        }
+        if (event.hasSummary()) {
+            String summ = event.getSummary();
+            Integer summarySize = summ.getBytes().length;
+            if (summarySize > this.maxEventFieldLength) {
+                summ = summ.substring(0, this.maxEventFieldLength);
+                logger.warn("event: {}; summary is too large, trimming", uuid);
+            }
+            builder.setSummary(summ);
+        }
         if (event.hasMonitor()) builder.setMonitor(event.getMonitor());
         if (event.hasAgent()) builder.setAgent(event.getAgent());
         if (event.hasEventKey()) builder.setEventKey(event.getEventKey());
@@ -163,15 +207,33 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         if (summary.hasStatus()) builder.setStatus(summary.getStatus().name());
         if (summary.hasClearedByEventUuid()) builder.setClearedByUUID(summary.getClearedByEventUuid());
         for (EventDetail d : event.getDetailsList()) {
-            builder.setDetail(d.getName(), d.getValueList());
+            List<String> valueList = d.getValueList();
+            String detailString = valueList.get(0);
+            Integer detailStringSize = detailString.getBytes().length;
+            if (detailStringSize > this.maxEventFieldLength) {
+                logger.warn("event: {}; detail string {} is too large, trimming", uuid, d.getName());
+                List<String> newValueList = new ArrayList<String>();
+                newValueList.add(detailString.substring(0, this.maxEventFieldLength));
+                builder.setDetail(d.getName(), newValueList);
+            } else {
+                builder.setDetail(d.getName(), valueList);
+            }
         }
 
         ZingEvent zingEvent = builder.build();
+
         if (zingEvent.isValid()) {
-            logger.debug("publishing event {}", zingEvent);
-            this.publisher.publishEvent(zingEvent);
+            PubsubMessage pubsubMessage = this.publisher.getPubSubMessage(zingEvent);
+            int pubsubMessageSize = pubsubMessage.getData().size();
+            if (pubsubMessageSize >= this.maxPubsubMessageSize) {
+                logger.warn("event {} is too large, dropping", zingEvent.getUuid());
+                this.publisher.incFailedEventsCounter();
+            } else {
+                logger.debug("publishing event {}", zingEvent);
+                this.publisher.publishEvent(zingEvent);
+            }
         } else {
-            logger.debug("dropping invalid event: {} / {}", zingEvent.getFingerprint(), zingEvent.getUuid());
+            logger.warn("dropping invalid event: {} / {}", zingEvent.getFingerprint(), zingEvent.getUuid());
             this.invalidEventsCounter.inc();
         }
     }
