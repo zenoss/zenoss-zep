@@ -4,7 +4,7 @@
     <groupId>org.zenoss.zep</groupId>
     <artifactId>zep-parent</artifactId>
     <packaging>pom</packaging>
-    <version>2.7.1</version>
+    <version>2.7.2</version>
     <name>Zenoss Event Processor Parent</name>
     <url>http://www.zenoss.com</url>
     <modules>
@@ -37,7 +37,7 @@
         <zenoss-utils.version>2.1.0</zenoss-utils.version>
         <zenoss-protocols.version>2.1.4</zenoss-protocols.version>
         <metric-consumer.version>0.0.16</metric-consumer.version>
-        <zing-proto.version>1.3.10</zing-proto.version>
+        <zing-proto.version>5.0.0</zing-proto.version>
         <protobuf.version>3.4.0</protobuf.version>
         <guava.version>21.0</guava.version>
         <pubsub.version>1.40.0</pubsub.version>
