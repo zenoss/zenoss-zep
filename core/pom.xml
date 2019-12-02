@@ -9,7 +9,7 @@
     <parent>
         <groupId>org.zenoss.zep</groupId>
         <artifactId>zep-parent</artifactId>
-        <version>2.7.2</version>
+        <version>2.7.3</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <dependencies>
@@ -372,52 +372,11 @@
                         </goals>
                     </execution>
                 </executions>
-                <configuration>
-                    <archive>
-                        <manifestEntries>
-                            <SVN-Url>${svn.url}</SVN-Url>
-                            <SVN-Revision>${svn.revision}</SVN-Revision>
-                        </manifestEntries>
-                    </archive>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
                 <executions>
-                    <!-- Run `svnversion -n` and store output in svn.revision property. -->
-                    <!-- Run `svn info` and store URL in output in svn.url property. -->
-                    <execution>
-                        <id>get-svn-version</id>
-                        <phase>validate</phase>
-                        <goals>
-                            <goal>run</goal>
-                        </goals>
-                        <configuration>
-                            <exportAntProperties>true</exportAntProperties>
-                            <target>
-                                <exec executable="svnversion" outputproperty="svn.revision" logError="true"
-                                      failonerror="false" failifexecutionfails="false">
-                                    <arg value="-n" />
-                                </exec>
-                                <exec executable="svn" failonerror="false" failifexecutionfails="false" logError="true">
-                                    <arg value="info" />
-                                    <redirector outputproperty="svn.url">
-                                        <outputfilterchain>
-                                            <linecontainsregexp>
-                                                <regexp pattern="^URL:" />
-                                            </linecontainsregexp>
-                                            <tokenfilter>
-                                                <replaceregex pattern="^URL:\s*(.*)"
-                                                              replace="\1" />
-                                            </tokenfilter>
-                                            <striplinebreaks/>
-                                        </outputfilterchain>
-                                    </redirector>
-                                </exec>
-                            </target>
-                        </configuration>
-                    </execution>
                     <execution>
                         <id>create-test-schema</id>
                         <phase>pre-integration-test</phase>
