@@ -8,7 +8,7 @@
         class="org.springframework.beans.factory.config.PropertiesFactoryBean">
         <property name="locations">
             <array>
-                <value>file:etc/global.conf</value>
+                <value>file:/opt/zenoss/etc/global.conf</value>
             </array>
         </property>
         <property name="ignoreResourceNotFound" value="true" />
@@ -18,7 +18,7 @@
         <property name="locations">
             <array>
                 <value>classpath:zeneventserver.conf</value>
-                <value>file:etc/zeneventserver.conf</value>
+                <value>file:/opt/zenoss/etc/zeneventserver.conf</value>
             </array>
         </property>
         <property name="ignoreResourceNotFound" value="true" />
