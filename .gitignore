@@ -22,3 +22,6 @@ zep.log
 .checkedenv
 .checkedtools
 .checkedtools_version_brand
+
+core/.factorypath
+webapp/.factorypath

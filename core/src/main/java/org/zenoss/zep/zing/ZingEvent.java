@@ -16,6 +16,10 @@ import java.util.Map;
 import java.util.HashMap;
 
 import org.zenoss.zing.proto.event.Event;
+import org.zenoss.zing.proto.event.Status;
+import org.zenoss.zing.proto.event.Severity;
+import com.google.protobuf.BoolValue;
+
 
 /**
  * ZingEvent represents an event that will be forwarded to Zenoss Cloud. It contains
@@ -24,6 +28,27 @@ import org.zenoss.zing.proto.event.Event;
 public class ZingEvent {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingEvent.class);
+
+    private static final BoolValue boolValueTrue = BoolValue.newBuilder().setValue(true).build();
+    private static final BoolValue boolValueFalse = BoolValue.newBuilder().setValue(false).build();
+    private static final Map<String, Status> statusMap = new HashMap<String, Status>();
+    private static final Map<String, Severity> severityMap = new HashMap<String, Severity>();
+    static {
+        statusMap.put("NEW", Status.STATUS_OPEN);                  // Also: Ensure Events.setAcknowledged("False") ?
+        statusMap.put("ACKNOWLEDGED", Status.STATUS_OPEN);         // Also: Ensure Events.setAcknowledged("True") ?
+        statusMap.put("SUPPRESSED", Status.STATUS_SUPPRESSED);
+        statusMap.put("CLOSED", Status.STATUS_CLOSED);
+        statusMap.put("CLEARED", Status.STATUS_CLOSED);
+        statusMap.put("DROPPED", Status.STATUS_CLOSED);
+        statusMap.put("AGED", Status.STATUS_CLOSED);
+
+        severityMap.put("CLEAR", Severity.SEVERITY_DEFAULT);       // Also: Ensure Event.Status is Status.STATUS_CLOSED also.
+        severityMap.put("DEBUG", Severity.SEVERITY_DEBUG);
+        severityMap.put("INFO", Severity.SEVERITY_INFO);
+        severityMap.put("WARNING", Severity.SEVERITY_WARNING);
+        severityMap.put("ERROR", Severity.SEVERITY_ERROR);
+        severityMap.put("CRITICAL", Severity.SEVERITY_CRITICAL);
+    }
 
     private final String tenant;
     private final String source;
@@ -182,13 +207,33 @@ public class ZingEvent {
             b.putDimensions(ZingConstants.FINGERPRINT_KEY, ZingUtils.getScalarValueFromObject(this.fingerprint));
             b.putDimensions(ZingConstants.UUID_KEY, ZingUtils.getScalarValueFromObject(this.uuid));
 
-            //-----------
-            //  Metadata
-            //-----------
-            if (!ZingUtils.isNullOrEmpty(this.severity))
-                b.putMetadata( ZingConstants.SEVERITY_KEY, ZingUtils.getScalarArray(this.severity));
-            if (!ZingUtils.isNullOrEmpty(this.status))
+            //--------------------------------------------
+            //  Combined Metadata and Property Settings
+            //--------------------------------------------
+
+            // Status
+            if (!ZingUtils.isNullOrEmpty(this.status)){
+                // default: Status.STATUS_DEFAULT;
                 b.putMetadata( ZingConstants.STATUS_KEY, ZingUtils.getScalarArray(this.status));
+                b.setStatus(statusMap.get(this.status));
+
+                if (this.status == "ACKNOWLEDGED") {
+                    b.setAcknowledged(boolValueTrue);
+                } else if (this.status == "NEW") {
+                    b.setAcknowledged(boolValueFalse);
+                }
+            }
+
+            // Severity
+            if (!ZingUtils.isNullOrEmpty(this.severity)) {
+                // default:  Severity.SEVERITY_DEFAULT;
+                b.putMetadata( ZingConstants.SEVERITY_KEY, ZingUtils.getScalarArray(this.severity));
+                b.setSeverity(severityMap.get(this.severity));
+
+                if (this.severity == "CLEAR")
+                    b.setStatus(Status.STATUS_CLOSED);
+            }
+
             if (!ZingUtils.isNullOrEmpty(this.parentContextUUID))
                 b.putMetadata( ZingConstants.PARENT_CONTEXT_UUID_KEY, ZingUtils.getScalarArray(this.parentContextUUID));
             if (!ZingUtils.isNullOrEmpty(this.parentContextIdentifier))
@@ -205,10 +250,14 @@ public class ZingEvent {
                 b.putMetadata( ZingConstants.CONTEXT_TITLE_KEY, ZingUtils.getScalarArray(this.contextTitle));
             if (!ZingUtils.isNullOrEmpty(this.contextType))
                 b.putMetadata( ZingConstants.CONTEXT_TYPE_KEY, ZingUtils.getScalarArray(this.contextType));
-            if (!ZingUtils.isNullOrEmpty(this.message))
+            if (!ZingUtils.isNullOrEmpty(this.message)) {
                 b.putMetadata( ZingConstants.MESSAGE_KEY, ZingUtils.getScalarArray(this.message));
-            if (!ZingUtils.isNullOrEmpty(this.summary))
+                b.setBody(this.message);
+            }
+            if (!ZingUtils.isNullOrEmpty(this.summary)) {
                 b.putMetadata( ZingConstants.SUMMARY_KEY, ZingUtils.getScalarArray(this.summary));
+                b.setSummary(this.summary);
+            }
             if (!ZingUtils.isNullOrEmpty(this.monitor))
                 b.putMetadata( ZingConstants.MONITOR_KEY, ZingUtils.getScalarArray(this.monitor));
             if (!ZingUtils.isNullOrEmpty(this.agent))
@@ -217,8 +266,10 @@ public class ZingEvent {
                 b.putMetadata( ZingConstants.EVENT_KEY_KEY, ZingUtils.getScalarArray(this.eventKey));
             if (!ZingUtils.isNullOrEmpty(this.eventClass))
                 b.putMetadata( ZingConstants.EVENT_CLASS_KEY, ZingUtils.getScalarArray(this.eventClass));
-            if (!ZingUtils.isNullOrEmpty(this.eventClassKey))
+            if (!ZingUtils.isNullOrEmpty(this.eventClassKey)) {
                 b.putMetadata( ZingConstants.EVENT_CLASS_KEY_KEY, ZingUtils.getScalarArray(this.eventClassKey));
+                b.setType(this.eventClassKey);
+            }
             if (!ZingUtils.isNullOrEmpty(this.eventClassMappingUuid))
                 b.putMetadata( ZingConstants.EVENT_CLASS_MAPPING_KEY, ZingUtils.getScalarArray(this.eventClassMappingUuid));
             if (!ZingUtils.isNullOrEmpty(this.eventGroup))
@@ -337,7 +388,7 @@ public class ZingEvent {
             this.contextUUID_ = value;
             return this;
         }
-        
+
         public Builder setContextIdentifier(String value){
             this.contextIdentifier_ = value;
             return this;

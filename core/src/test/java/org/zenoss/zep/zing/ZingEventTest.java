@@ -10,7 +10,6 @@
 package org.zenoss.zep.zing;
 
 import org.junit.Test;
-import org.zenoss.zing.proto.event.Event;
 import java.util.Arrays;
 import java.util.List;
 
@@ -20,6 +19,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.zing.proto.cloud.common.Scalar;
 import org.zenoss.zing.proto.cloud.common.ScalarArray;
+
+import org.zenoss.zing.proto.event.Event;
+import org.zenoss.zing.proto.event.Status;
+import org.zenoss.zing.proto.event.Severity;
+
+import com.google.protobuf.BoolValue;
 
 public class ZingEventTest {
 
@@ -133,5 +138,164 @@ public class ZingEventTest {
         mdValues = ZingUtils.getListFromScalarArray(mdDetailKey, scalarArr);
         assertTrue(mdValues.size()==1);
         assertEquals((String)mdValues.get(0), detailValue);
+    }
+
+    @Test
+    public void testZingEventToZingProtoStatus() {
+        String tnt = "acme";
+        String src = "austin_tx";
+        String parentContextUUID = "parent_context_uuid";
+        String contextUUID = "context_uuid";
+        String eventUUID = "event_uuid";
+        String fingerprint = "event_fingerprint_123";
+        String severity = "INFO";
+        String detailKey = "bla";
+        String detailValue = "blabla";
+
+        long ts = System.currentTimeMillis();
+        ZingEvent.Builder builder = new ZingEvent.Builder(tnt, src, ts);
+        builder.setUuid(eventUUID);
+        builder.setFingerprint(fingerprint);
+        builder.setContextUUID(contextUUID);
+        builder.setSeverity(severity);
+        builder.setParentContextUUID(parentContextUUID);
+        builder.setDetail(detailKey, Arrays.asList(detailValue));
+
+        String status = "NEW";
+        builder.setStatus(status);
+        Event protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getStatus(), Status.STATUS_OPEN);
+        // Status of ACKNOWLEDGED implies falsey Event.getAcknowledged()
+        assertTrue(protoEvent.hasAcknowledged());
+        assertFalse(protoEvent.getAcknowledged().getValue());
+
+        status = "ACKNOWLEDGED";
+        builder.setStatus(status);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getStatus(), Status.STATUS_OPEN);
+        // Status of ACKNOWLEDGED implies Event.getAcknowledged()
+        assertTrue(protoEvent.hasAcknowledged());
+        assertTrue(protoEvent.getAcknowledged().getValue());
+
+
+        status = "SUPPRESSED";
+        builder.setStatus(status);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getStatus(), Status.STATUS_SUPPRESSED);
+
+        status = "CLOSED";
+        builder.setStatus(status);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getStatus(), Status.STATUS_CLOSED);
+
+        status = "CLEARED";
+        builder.setStatus(status);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getStatus(), Status.STATUS_CLOSED);
+
+        status = "DROPPED";
+        builder.setStatus(status);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getStatus(), Status.STATUS_CLOSED);
+
+        status = "AGED";
+        builder.setStatus(status);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getStatus(), Status.STATUS_CLOSED);
+
+    }
+
+    @Test
+    public void testZingEventToZingProtoSeverity() {
+        String tnt = "acme";
+        String src = "austin_tx";
+        String parentContextUUID = "parent_context_uuid";
+        String contextUUID = "context_uuid";
+        String eventUUID = "event_uuid";
+        String fingerprint = "event_fingerprint_123";
+        String status = "ACKNOWLEDGED";
+        String detailKey = "bla";
+        String detailValue = "blabla";
+
+        long ts = System.currentTimeMillis();
+        ZingEvent.Builder builder = new ZingEvent.Builder(tnt, src, ts);
+        builder.setUuid(eventUUID);
+        builder.setFingerprint(fingerprint);
+        builder.setContextUUID(contextUUID);
+        builder.setStatus(status);
+        builder.setParentContextUUID(parentContextUUID);
+        builder.setDetail(detailKey, Arrays.asList(detailValue));
+
+        // Severity of CLEAR implies Severity.SEVERITY_DEFAULT
+        // It also implese Status.STATUS_CLOSED
+        String severity = "CLEAR";
+        builder.setSeverity(severity);
+        Event protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getSeverity(), Severity.SEVERITY_DEFAULT);
+        assertEquals(protoEvent.getStatus(), Status.STATUS_CLOSED);
+
+        // Severity of CLEAR implies Severity.SEVERITY_DEFAULT
+        severity = "DEBUG";
+        builder.setSeverity(severity);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getSeverity(), Severity.SEVERITY_DEBUG);
+
+        // Severity of CLEAR implies Severity.SEVERITY_DEFAULT
+        severity = "INFO";
+        builder.setSeverity(severity);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getSeverity(), Severity.SEVERITY_INFO);
+
+        // Severity of CLEAR implies Severity.SEVERITY_DEFAULT
+        severity = "WARNING";
+        builder.setSeverity(severity);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getSeverity(), Severity.SEVERITY_WARNING);
+
+        // Severity of CLEAR implies Severity.SEVERITY_DEFAULT
+        severity = "ERROR";
+        builder.setSeverity(severity);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getSeverity(), Severity.SEVERITY_ERROR);
+
+        // Severity of CLEAR implies Severity.SEVERITY_DEFAULT
+        severity = "CRITICAL";
+        builder.setSeverity(severity);
+        protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getSeverity(), Severity.SEVERITY_CRITICAL);
+    }
+
+    @Test
+    public void testZingEventToZingProtoMisc() {
+        // Test (setSummary, setBody, setType) setters for zing.proto.event
+        String tnt = "acme";
+        String src = "austin_tx";
+        String contextUUID = "context_uuid";
+        String eventUUID = "event_uuid";
+        String fingerprint = "event_fingerprint_123";
+        String severity = "INFO";
+        String status = "NEW";
+        String summary = "This is a sample summary!";
+        String message = "This is a sample message!";
+        String eventClassKey = "TheSampleEventClassKey";
+
+        long ts = System.currentTimeMillis();
+        ZingEvent.Builder builder = new ZingEvent.Builder(tnt, src, ts);
+        builder.setUuid(eventUUID);
+        builder.setFingerprint(fingerprint);
+        builder.setContextUUID(contextUUID);
+
+        // Set miscellaneous properties on EventBuilder
+        builder.setSeverity(severity);
+        builder.setMessage(message);
+        builder.setSummary(summary);
+        builder.setEventClassKey(eventClassKey);
+
+        // Test miscellaneous properties on EventBuilder
+        Event protoEvent = builder.build().toZingEventProto();
+        assertEquals(protoEvent.getSummary(), summary);
+        assertEquals(protoEvent.getBody(), message);
+        assertEquals(protoEvent.getType(), eventClassKey);
+        assertFalse(protoEvent.hasAcknowledged());
     }
 }
