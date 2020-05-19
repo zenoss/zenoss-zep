@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.HashMap;
 
-// import org.zenoss.zing.proto.cloud.eventSearch.EventSearch;
 import org.zenoss.zing.proto.event.Event;
 import org.zenoss.zing.proto.event.Status;
 import org.zenoss.zing.proto.event.Severity;
@@ -231,10 +230,10 @@ public class ZingEvent {
                 }
 
                 // For Acknowledged status, set the corresponding property
-                if (this.status == "STATUS_ACKNOWLEDGED") {
+                if ("STATUS_ACKNOWLEDGED".equals(this.status)) {
                     logger.debug("Setting ACKNOWLEDGED true for status: {}", this.status);
                     b.setAcknowledged(boolValueTrue);
-                } else if (this.status == "STATUS_NEW") {
+                } else if ("STATUS_NEW".equals(this.status)) {
                     logger.debug("Setting ACKNOWLEDGED false for status: {}", this.status);
                     b.setAcknowledged(boolValueFalse);
                 }
@@ -256,7 +255,7 @@ public class ZingEvent {
                 }
 
                 // Ensure all cleared severities get status STATUS_CLOSED.
-                if (this.severity == "SEVERITY_CLEAR")
+                if ("SEVERITY_CLEAR".equals(this.severity))
                     b.setStatus(Status.STATUS_CLOSED);
             }
 

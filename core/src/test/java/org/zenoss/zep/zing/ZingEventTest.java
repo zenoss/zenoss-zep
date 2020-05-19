@@ -93,8 +93,8 @@ public class ZingEventTest {
         builder.setDetail(detailKey, Arrays.asList(detailValue));
 
         Event protoEvent = builder.build().toZingEventProto();
-        assertTrue(protoEvent.getTenant() == tnt);
-        assertTrue(protoEvent.getName() == "");
+        assertEquals(protoEvent.getTenant(), tnt);
+        assertEquals(protoEvent.getName(), "");
         assertTrue(protoEvent.getTimestamp() == ts);
 
         assertTrue(protoEvent.containsDimensions(ZingConstants.SOURCE_KEY));
