@@ -9,7 +9,6 @@
 
 package org.zenoss.zep.zing;
 
-import com.google.protobuf.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.zing.proto.cloud.common.Scalar;
@@ -24,7 +23,6 @@ public class ZingUtils {
 
     // The methods below have been brought from the dataflow-common.utils
     // Any issues found should be ported to dataflow-common and vice-versa
-
 
     public static boolean isNullOrEmpty(String str) {
         return str == null || str.trim().isEmpty();

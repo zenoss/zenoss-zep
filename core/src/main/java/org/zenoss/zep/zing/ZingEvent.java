@@ -19,7 +19,8 @@ import org.zenoss.zing.proto.event.Event;
 import org.zenoss.zing.proto.event.Status;
 import org.zenoss.zing.proto.event.Severity;
 import com.google.protobuf.BoolValue;
-
+import org.zenoss.protobufs.zep.Zep.EventSeverity;
+import org.zenoss.protobufs.zep.Zep.EventStatus;
 
 /**
  * ZingEvent represents an event that will be forwarded to Zenoss Cloud. It contains
@@ -34,20 +35,23 @@ public class ZingEvent {
     private static final Map<String, Status> statusMap = new HashMap<String, Status>();
     private static final Map<String, Severity> severityMap = new HashMap<String, Severity>();
     static {
-        statusMap.put("NEW", Status.STATUS_OPEN);                  // Also: Ensure Events.setAcknowledged("False") ?
-        statusMap.put("ACKNOWLEDGED", Status.STATUS_OPEN);         // Also: Ensure Events.setAcknowledged("True") ?
-        statusMap.put("SUPPRESSED", Status.STATUS_SUPPRESSED);
-        statusMap.put("CLOSED", Status.STATUS_CLOSED);
-        statusMap.put("CLEARED", Status.STATUS_CLOSED);
-        statusMap.put("DROPPED", Status.STATUS_CLOSED);
-        statusMap.put("AGED", Status.STATUS_CLOSED);
+        // STATUS_NEW: Ensure Events.setAcknowledged("False")
+        // STATUS_ACKNOWLEDGED: Ensure Events.setAcknowledged("True")
+        statusMap.put(EventStatus.STATUS_NEW.toString(), Status.STATUS_OPEN);
+        statusMap.put(EventStatus.STATUS_ACKNOWLEDGED.toString(), Status.STATUS_OPEN);
+        statusMap.put(EventStatus.STATUS_SUPPRESSED.toString(), Status.STATUS_SUPPRESSED);
+        statusMap.put(EventStatus.STATUS_CLOSED.toString(), Status.STATUS_CLOSED);
+        statusMap.put(EventStatus.STATUS_CLEARED.toString(), Status.STATUS_CLOSED);
+        statusMap.put(EventStatus.STATUS_DROPPED.toString(), Status.STATUS_CLOSED);
+        statusMap.put(EventStatus.STATUS_AGED.toString(), Status.STATUS_CLOSED);
 
-        severityMap.put("CLEAR", Severity.SEVERITY_DEFAULT);       // Also: Ensure Event.Status is Status.STATUS_CLOSED also.
-        severityMap.put("DEBUG", Severity.SEVERITY_DEBUG);
-        severityMap.put("INFO", Severity.SEVERITY_INFO);
-        severityMap.put("WARNING", Severity.SEVERITY_WARNING);
-        severityMap.put("ERROR", Severity.SEVERITY_ERROR);
-        severityMap.put("CRITICAL", Severity.SEVERITY_CRITICAL);
+        // Ensure for CLEAR: Event.Status => Status.STATUS_CLOSED also.
+        severityMap.put(EventSeverity.SEVERITY_CLEAR.toString(), Severity.SEVERITY_DEFAULT);
+        severityMap.put(EventSeverity.SEVERITY_DEBUG.toString(), Severity.SEVERITY_DEBUG);
+        severityMap.put(EventSeverity.SEVERITY_INFO.toString(), Severity.SEVERITY_INFO);
+        severityMap.put(EventSeverity.SEVERITY_WARNING.toString(), Severity.SEVERITY_WARNING);
+        severityMap.put(EventSeverity.SEVERITY_ERROR.toString(), Severity.SEVERITY_ERROR);
+        severityMap.put(EventSeverity.SEVERITY_CRITICAL.toString(), Severity.SEVERITY_CRITICAL);
     }
 
     private final String tenant;
@@ -212,25 +216,46 @@ public class ZingEvent {
             //--------------------------------------------
 
             // Status
-            if (!ZingUtils.isNullOrEmpty(this.status)){
+            if (!ZingUtils.isNullOrEmpty(this.status)) {
                 // default: Status.STATUS_DEFAULT;
                 b.putMetadata( ZingConstants.STATUS_KEY, ZingUtils.getScalarArray(this.status));
-                b.setStatus(statusMap.get(this.status));
 
-                if (this.status == "ACKNOWLEDGED") {
+                // Ensure status gets mapped faithfully, else log:
+                if (!statusMap.containsKey(this.status)) {
+                    logger.debug("Setting default status for missing status key: {}", this.status);
+                    b.setStatus(Status.STATUS_DEFAULT);
+                } else {
+                    logger.debug("Mapping default status for status key: {}", this.status);
+                    b.setStatus(statusMap.get(this.status));
+                }
+
+                // For Acknowledged status, set the corresponding property
+                if ("STATUS_ACKNOWLEDGED".equals(this.status)) {
+                    logger.debug("Setting ACKNOWLEDGED true for status: {}", this.status);
                     b.setAcknowledged(boolValueTrue);
-                } else if (this.status == "NEW") {
+                } else if ("STATUS_NEW".equals(this.status)) {
+                    logger.debug("Setting ACKNOWLEDGED false for status: {}", this.status);
                     b.setAcknowledged(boolValueFalse);
                 }
+            } else {
+                logger.debug("Null or missing status for event summary: {}", this.summary);
             }
 
-            // Severity
+            // Severity Mapping
             if (!ZingUtils.isNullOrEmpty(this.severity)) {
                 // default:  Severity.SEVERITY_DEFAULT;
                 b.putMetadata( ZingConstants.SEVERITY_KEY, ZingUtils.getScalarArray(this.severity));
-                b.setSeverity(severityMap.get(this.severity));
 
-                if (this.severity == "CLEAR")
+                // Ensure severity gets mapped faithfully, else log:
+                if (!severityMap.containsKey(this.severity)) {
+                    logger.warn("No key in severityMap for severity: {}", this.severity);
+                    b.setSeverity(Severity.SEVERITY_DEFAULT);
+                } else {
+                    b.setSeverity(severityMap.get(this.severity));
+                }
+
+                // Ensure all cleared severities get status STATUS_CLOSED.
+                if ("SEVERITY_CLEAR".equals(this.severity))
                     b.setStatus(Status.STATUS_CLOSED);
             }
 
@@ -296,6 +321,9 @@ public class ZingEvent {
             b.putMetadata(ZingConstants.SOURCE_VENDOR_KEY, ZingUtils.getScalarArray(ZingConstants.SOURCE_VENDOR));
 
             evt = b.build();
+        }
+        if (evt != null) {
+            logger.debug("Returning event: {}", evt.toString());
         }
         return evt;
     }
