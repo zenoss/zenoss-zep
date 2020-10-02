@@ -250,7 +250,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                         while (!queued) {
                             List<Event> events = deduping.get(hashAsString);
                             if (events == null) {
-                                deduping.putIfAbsent(hashAsString, Collections.EMPTY_LIST);
+                                deduping.putIfAbsent(hashAsString, Collections.emptyList());
                                 continue;
                             }
                             List<Event> newEvents = Lists.newArrayList(events);
@@ -273,7 +273,7 @@ public class EventSummaryDaoImpl implements EventSummaryDao {
                         synchronized (hashAsString) {
                             List<Event> events = deduping.remove(hashAsString);
                             if (events == null)
-                                events = Collections.EMPTY_LIST;
+                                events = Collections.emptyList();
                             return saveEventByFingerprint(fingerprintHash, events, context, createClearHash);
                         }
                     }
