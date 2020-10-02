@@ -67,6 +67,7 @@
             <scope>provided</scope>
         </dependency>
     </dependencies>
+
     <build>
         <plugins>
             <plugin>
@@ -79,9 +80,13 @@
                         <configuration>
                             <!-- Generates a default configuration file with all options commented out -->
                             <target>
-                                <delete dir="${genconf.dir}" quiet="true" includeemptydirs="true" defaultexcludes="false" />
-                                <unzip src="${org.zenoss.zep:zep-webapp:war}"
-                                       dest="${genconf.dir}">
+                                <delete
+                                    dir="${genconf.dir}"
+                                    quiet="true"
+                                    includeemptydirs="true"
+                                    defaultexcludes="false"
+                                    />
+                                <unzip src="${org.zenoss.zep:zep-webapp:war}" dest="${genconf.dir}">
                                     <patternset>
                                         <include name="**/zep-core-*.jar" />
                                     </patternset>
@@ -100,12 +105,16 @@
                                         <include name="zep-core-*.jar" />
                                     </fileset>
                                 </delete>
-                                <replaceregexp file="${genconf.dir}/zeneventserver.conf"
-                                               match="^([a-zA-Z0-9].+)"
-                                               replace="#\1"
-                                               byline="true" />
-                                <move file="${genconf.dir}/zeneventserver.conf"
-                                      tofile="${genconf.dir}/zeneventserver.conf.example" />
+                                <replaceregexp
+                                    file="${genconf.dir}/zeneventserver.conf"
+                                    match="^([a-zA-Z0-9].+)"
+                                    replace="#\1"
+                                    byline="true"
+                                    />
+                                <move
+                                    file="${genconf.dir}/zeneventserver.conf"
+                                    tofile="${genconf.dir}/zeneventserver.conf.example"
+                                    />
                             </target>
                         </configuration>
                         <goals>
