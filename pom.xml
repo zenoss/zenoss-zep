@@ -20,6 +20,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
         <!-- This database is used for integration tests (dropped/added each time). -->
         <zep.test.jdbc.dbname>zenoss_zep_test</zep.test.jdbc.dbname>
         <zep.test.index.dir>${project.build.directory}/index</zep.test.index.dir>
@@ -107,6 +108,7 @@
             </properties>
         </profile>
     </profiles>
+
     <dependencies>
         <dependency>
             <groupId>junit</groupId>
@@ -123,6 +125,7 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
     <build>
         <pluginManagement>
             <plugins>
