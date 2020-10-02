@@ -1,5 +1,8 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project
+    xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.zenoss.zep</groupId>
     <artifactId>zep-parent</artifactId>
@@ -7,11 +10,13 @@
     <version>2.7.5-SNAPSHOT</version>
     <name>Zenoss Event Processor Parent</name>
     <url>http://www.zenoss.com</url>
+
     <modules>
         <module>core</module>
         <module>webapp</module>
         <module>dist</module>
     </modules>
+
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -19,30 +24,39 @@
         <zep.test.jdbc.dbname>zenoss_zep_test</zep.test.jdbc.dbname>
         <zep.test.index.dir>${project.build.directory}/index</zep.test.index.dir>
         <zep.test.amqp.uri>amqp://zenoss:zenoss@localhost:5672/zenoss-test</zep.test.amqp.uri>
-        <!-- Dependency Versions -->
+
+        <!--
+        Changing the Lucene version here could negatively affect customers using 4.x -> 5.x migrations.
+        That migration path copies the index from a 4.x system to a 5.x system.
+        Please make sure you do NOT make a backwards-incompatible change here without serious consideration.
+        -->
+        <version.lucene>4.7.2</version.lucene>
+
+        <!--
+        Last version compiled for Java 6. Client *is* compatible with later servers.
+        -->
+        <version.solrj>4.7.2</version.solrj>
+
         <version.jackson>1.9.2</version.jackson>
         <version.jetty>7.5.3.v20111011</version.jetty>
         <version.logback>0.9.26</version.logback>
-        <version.lucene>4.7.2</version.lucene> <!-- Changing the Lucene version here could negatively affect customers using 4.x -> 5.x migrations.
-                                                    That migration path copies the index from a 4.x system to a 5.x system.
-                                                    Please make sure you do NOT make a backwards-incompatible change here without serious consideration. -->
         <version.metrics>3.0.1</version.metrics>
         <version.mysql>5.1.15</version.mysql>
         <version.postgresql>9.0-801.jdbc4</version.postgresql>
         <version.resteasy>2.0.1.GA</version.resteasy>
         <version.slf4j>1.7.5</version.slf4j>
-        <version.solrj>4.7.2</version.solrj> <!-- Last version compiled for Java 6. Client *is* compatible with later servers. -->
         <version.spring>3.0.5.RELEASE</version.spring>
         <version.tomcat-jdbc>7.0.27</version.tomcat-jdbc>
-        <zenoss-utils.version>2.1.0</zenoss-utils.version>
-        <zenoss-protocols.version>2.1.4</zenoss-protocols.version>
-        <metric-consumer.version>0.0.16</metric-consumer.version>
-        <zing-proto.version>11.1.2</zing-proto.version>
-        <protobuf.version>3.4.0</protobuf.version>
-        <guava.version>21.0</guava.version>
-        <pubsub.version>1.40.0</pubsub.version>
 
+        <guava.version>21.0</guava.version>
+        <metric-consumer.version>0.0.16</metric-consumer.version>
+        <protobuf.version>3.4.0</protobuf.version>
+        <pubsub.version>1.40.0</pubsub.version>
+        <zenoss-protocols.version>2.1.4</zenoss-protocols.version>
+        <zenoss-utils.version>2.1.0</zenoss-utils.version>
+        <zing-proto.version>11.1.2</zing-proto.version>
     </properties>
+
     <profiles>
         <!-- Disable the integration tests if we haven't specified a database type -->
         <profile>
