@@ -14,7 +14,7 @@ JETTYSTART_JAR=`ls -1 ${JETTY_HOME}/lib/jetty-start*.jar`
 PS="ps"
 
 # Add --add-opens args to open modules to pre-module code.
-OPEN_PACKAGES="java.base/java.lang java.base/java.nio"
+OPEN_PACKAGES="java.base/java.lang java.base/java.nio java.base/java.io"
 for pkg in ${OPEN_PACKAGES}; do
 	JVM_ARGS="${JVM_ARGS} --add-opens ${pkg}=ALL-UNNAMED"
 done
