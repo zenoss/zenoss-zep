@@ -16,6 +16,11 @@ import java.util.Map;
 import java.util.HashMap;
 
 import org.zenoss.zing.proto.event.Event;
+import org.zenoss.zing.proto.event.Status;
+import org.zenoss.zing.proto.event.Severity;
+import com.google.protobuf.BoolValue;
+import org.zenoss.protobufs.zep.Zep.EventSeverity;
+import org.zenoss.protobufs.zep.Zep.EventStatus;
 
 /**
  * ZingEvent represents an event that will be forwarded to Zenoss Cloud. It contains
@@ -24,6 +29,30 @@ import org.zenoss.zing.proto.event.Event;
 public class ZingEvent {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingEvent.class);
+
+    private static final BoolValue boolValueTrue = BoolValue.newBuilder().setValue(true).build();
+    private static final BoolValue boolValueFalse = BoolValue.newBuilder().setValue(false).build();
+    private static final Map<String, Status> statusMap = new HashMap<String, Status>();
+    private static final Map<String, Severity> severityMap = new HashMap<String, Severity>();
+    static {
+        // STATUS_NEW: Ensure Events.setAcknowledged("False")
+        // STATUS_ACKNOWLEDGED: Ensure Events.setAcknowledged("True")
+        statusMap.put(EventStatus.STATUS_NEW.toString(), Status.STATUS_OPEN);
+        statusMap.put(EventStatus.STATUS_ACKNOWLEDGED.toString(), Status.STATUS_OPEN);
+        statusMap.put(EventStatus.STATUS_SUPPRESSED.toString(), Status.STATUS_SUPPRESSED);
+        statusMap.put(EventStatus.STATUS_CLOSED.toString(), Status.STATUS_CLOSED);
+        statusMap.put(EventStatus.STATUS_CLEARED.toString(), Status.STATUS_CLOSED);
+        statusMap.put(EventStatus.STATUS_DROPPED.toString(), Status.STATUS_CLOSED);
+        statusMap.put(EventStatus.STATUS_AGED.toString(), Status.STATUS_CLOSED);
+
+        // Ensure for CLEAR: Event.Status => Status.STATUS_CLOSED also.
+        severityMap.put(EventSeverity.SEVERITY_CLEAR.toString(), Severity.SEVERITY_DEFAULT);
+        severityMap.put(EventSeverity.SEVERITY_DEBUG.toString(), Severity.SEVERITY_DEBUG);
+        severityMap.put(EventSeverity.SEVERITY_INFO.toString(), Severity.SEVERITY_INFO);
+        severityMap.put(EventSeverity.SEVERITY_WARNING.toString(), Severity.SEVERITY_WARNING);
+        severityMap.put(EventSeverity.SEVERITY_ERROR.toString(), Severity.SEVERITY_ERROR);
+        severityMap.put(EventSeverity.SEVERITY_CRITICAL.toString(), Severity.SEVERITY_CRITICAL);
+    }
 
     private final String tenant;
     private final String source;
@@ -182,13 +211,54 @@ public class ZingEvent {
             b.putDimensions(ZingConstants.FINGERPRINT_KEY, ZingUtils.getScalarValueFromObject(this.fingerprint));
             b.putDimensions(ZingConstants.UUID_KEY, ZingUtils.getScalarValueFromObject(this.uuid));
 
-            //-----------
-            //  Metadata
-            //-----------
-            if (!ZingUtils.isNullOrEmpty(this.severity))
-                b.putMetadata( ZingConstants.SEVERITY_KEY, ZingUtils.getScalarArray(this.severity));
-            if (!ZingUtils.isNullOrEmpty(this.status))
+            //--------------------------------------------
+            //  Combined Metadata and Property Settings
+            //--------------------------------------------
+
+            // Status
+            if (!ZingUtils.isNullOrEmpty(this.status)) {
+                // default: Status.STATUS_DEFAULT;
                 b.putMetadata( ZingConstants.STATUS_KEY, ZingUtils.getScalarArray(this.status));
+
+                // Ensure status gets mapped faithfully, else log:
+                if (!statusMap.containsKey(this.status)) {
+                    logger.debug("Setting default status for missing status key: {}", this.status);
+                    b.setStatus(Status.STATUS_DEFAULT);
+                } else {
+                    logger.debug("Mapping default status for status key: {}", this.status);
+                    b.setStatus(statusMap.get(this.status));
+                }
+
+                // For Acknowledged status, set the corresponding property
+                if ("STATUS_ACKNOWLEDGED".equals(this.status)) {
+                    logger.debug("Setting ACKNOWLEDGED true for status: {}", this.status);
+                    b.setAcknowledged(boolValueTrue);
+                } else if ("STATUS_NEW".equals(this.status)) {
+                    logger.debug("Setting ACKNOWLEDGED false for status: {}", this.status);
+                    b.setAcknowledged(boolValueFalse);
+                }
+            } else {
+                logger.debug("Null or missing status for event summary: {}", this.summary);
+            }
+
+            // Severity Mapping
+            if (!ZingUtils.isNullOrEmpty(this.severity)) {
+                // default:  Severity.SEVERITY_DEFAULT;
+                b.putMetadata( ZingConstants.SEVERITY_KEY, ZingUtils.getScalarArray(this.severity));
+
+                // Ensure severity gets mapped faithfully, else log:
+                if (!severityMap.containsKey(this.severity)) {
+                    logger.warn("No key in severityMap for severity: {}", this.severity);
+                    b.setSeverity(Severity.SEVERITY_DEFAULT);
+                } else {
+                    b.setSeverity(severityMap.get(this.severity));
+                }
+
+                // Ensure all cleared severities get status STATUS_CLOSED.
+                if ("SEVERITY_CLEAR".equals(this.severity))
+                    b.setStatus(Status.STATUS_CLOSED);
+            }
+
             if (!ZingUtils.isNullOrEmpty(this.parentContextUUID))
                 b.putMetadata( ZingConstants.PARENT_CONTEXT_UUID_KEY, ZingUtils.getScalarArray(this.parentContextUUID));
             if (!ZingUtils.isNullOrEmpty(this.parentContextIdentifier))
@@ -205,10 +275,14 @@ public class ZingEvent {
                 b.putMetadata( ZingConstants.CONTEXT_TITLE_KEY, ZingUtils.getScalarArray(this.contextTitle));
             if (!ZingUtils.isNullOrEmpty(this.contextType))
                 b.putMetadata( ZingConstants.CONTEXT_TYPE_KEY, ZingUtils.getScalarArray(this.contextType));
-            if (!ZingUtils.isNullOrEmpty(this.message))
+            if (!ZingUtils.isNullOrEmpty(this.message)) {
                 b.putMetadata( ZingConstants.MESSAGE_KEY, ZingUtils.getScalarArray(this.message));
-            if (!ZingUtils.isNullOrEmpty(this.summary))
+                b.setBody(this.message);
+            }
+            if (!ZingUtils.isNullOrEmpty(this.summary)) {
                 b.putMetadata( ZingConstants.SUMMARY_KEY, ZingUtils.getScalarArray(this.summary));
+                b.setSummary(this.summary);
+            }
             if (!ZingUtils.isNullOrEmpty(this.monitor))
                 b.putMetadata( ZingConstants.MONITOR_KEY, ZingUtils.getScalarArray(this.monitor));
             if (!ZingUtils.isNullOrEmpty(this.agent))
@@ -217,8 +291,10 @@ public class ZingEvent {
                 b.putMetadata( ZingConstants.EVENT_KEY_KEY, ZingUtils.getScalarArray(this.eventKey));
             if (!ZingUtils.isNullOrEmpty(this.eventClass))
                 b.putMetadata( ZingConstants.EVENT_CLASS_KEY, ZingUtils.getScalarArray(this.eventClass));
-            if (!ZingUtils.isNullOrEmpty(this.eventClassKey))
+            if (!ZingUtils.isNullOrEmpty(this.eventClassKey)) {
                 b.putMetadata( ZingConstants.EVENT_CLASS_KEY_KEY, ZingUtils.getScalarArray(this.eventClassKey));
+                b.setType(this.eventClassKey);
+            }
             if (!ZingUtils.isNullOrEmpty(this.eventClassMappingUuid))
                 b.putMetadata( ZingConstants.EVENT_CLASS_MAPPING_KEY, ZingUtils.getScalarArray(this.eventClassMappingUuid));
             if (!ZingUtils.isNullOrEmpty(this.eventGroup))
@@ -245,6 +321,9 @@ public class ZingEvent {
             b.putMetadata(ZingConstants.SOURCE_VENDOR_KEY, ZingUtils.getScalarArray(ZingConstants.SOURCE_VENDOR));
 
             evt = b.build();
+        }
+        if (evt != null) {
+            logger.debug("Returning event: {}", evt.toString());
         }
         return evt;
     }
@@ -337,7 +416,7 @@ public class ZingEvent {
             this.contextUUID_ = value;
             return this;
         }
-        
+
         public Builder setContextIdentifier(String value){
             this.contextIdentifier_ = value;
             return this;

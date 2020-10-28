@@ -13,6 +13,12 @@
 JETTYSTART_JAR=`ls -1 ${JETTY_HOME}/lib/jetty-start*.jar`
 PS="ps"
 
+# Add --add-opens args to open modules to pre-module code.
+OPEN_PACKAGES="java.base/java.lang java.base/java.nio java.base/java.io"
+for pkg in ${OPEN_PACKAGES}; do
+	JVM_ARGS="${JVM_ARGS} --add-opens ${pkg}=ALL-UNNAMED"
+done
+
 get_pid() {
     if [ -f $PIDFILE ]; then
         local pid=`cat $PIDFILE 2>/dev/null`
@@ -28,6 +34,7 @@ run() {
     PID=$$
     rm -f $PIDFILE
     echo $PID > $PIDFILE
+    JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
     exec java ${JVM_ARGS} -XX:OnOutOfMemoryError="kill -9 %p" -jar ${JETTYSTART_JAR} ${JETTY_ARGS} ${RUN_ARGS}
 }
 

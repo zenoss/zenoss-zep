@@ -13,8 +13,13 @@
 ZEPDIR=${ZENHOME}/webapps/zeneventserver
 ZEP_WEB_XML=${ZEPDIR}/WEB-INF/web.xml
 
+dev_run() {
+	local options="-DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index"
+	local opts="--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED"
+	MAVEN_OPTS="${opts}" mvn ${options} clean jetty:run
+}
+
 if [ ! -f ${ZEP_WEB_XML} ]; then
-   DEV_MVN_RUN="mvn -DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index clean jetty:run"
    # if web.xml doesn't exists we might be in dev mode
    # cd into zep directory and try to run via maven
    set -e
@@ -22,15 +27,15 @@ if [ ! -f ${ZEP_WEB_XML} ]; then
    CMD=$1
    case "$CMD" in
       run)
-         ${DEV_MVN_RUN}
+         dev_run
          exit
          ;;
       run_quiet)
-         ${DEV_MVN_RUN} >${ZENHOME}/log/zeneventserver.log 2>&1
+         dev_run >${ZENHOME}/log/zeneventserver.log 2>&1
          exit
          ;;
       start)
-         ${DEV_MVN_RUN} >${ZENHOME}/log/zeneventserver.log 2>&1 &
+         dev_run >${ZENHOME}/log/zeneventserver.log 2>&1 &
 	      n=0
 	      while [ $n -lt 150 ]
 	      do
@@ -121,13 +126,10 @@ JAVAEXE="java"
 
 # Check for java
 JVERSION=`LC_ALL=C $JAVAEXE -version 2>&1 | grep "java version\|openjdk version" | awk '{print $3}' | cut -d'"' -f2`
-case "$JVERSION" in
-    1.[6789].*)
-        ;;
-    *)
-        echo "Java >= 1.6 is required."
-        exit 1
-esac
+if echo "$JVERSION" | grep -Evq "(11\.[0-9]+\.[0-9]+|1\.[78]\.[0-9]+)"; then
+	echo "Java >= 1.7 is required."
+	exit 1
+fi
 
 # RUN the command
 generic "$@"
