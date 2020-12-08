@@ -19,6 +19,7 @@
 
     <properties>
         <genconf.dir>${project.build.directory}/generated-sources/conf</genconf.dir>
+        <version.metrics>3.2.6</version.metrics>
     </properties>
 
     <dependencies>
@@ -55,13 +56,13 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.codahale.metrics</groupId>
+            <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-core</artifactId>
             <version>${version.metrics}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.codahale.metrics</groupId>
+            <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-jetty8</artifactId>
             <version>${version.metrics}</version>
             <scope>provided</scope>

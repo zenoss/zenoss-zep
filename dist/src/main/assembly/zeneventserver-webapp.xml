@@ -30,8 +30,8 @@
             <useTransitiveFiltering>true</useTransitiveFiltering>
             <useStrictFiltering>true</useStrictFiltering>
             <includes>
-                <include>com.codahale.metrics:metrics-core</include>
-                <include>com.codahale.metrics:metrics-jetty8</include>
+                <include>io.dropwizard.metrics:metrics-core</include>
+                <include>io.dropwizard.metrics:metrics-jetty8</include>
             </includes>
         </dependencySet>
     </dependencySets>
