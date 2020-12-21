@@ -7,7 +7,7 @@
     <groupId>org.zenoss.zep</groupId>
     <artifactId>zep-parent</artifactId>
     <packaging>pom</packaging>
-    <version>2.7.6</version>
+    <version>2.7.7</version>
     <name>Zenoss Event Processor Parent</name>
     <url>http://www.zenoss.com</url>
 
@@ -41,7 +41,7 @@
         <version.jackson>1.9.2</version.jackson>
         <version.jetty>7.5.3.v20111011</version.jetty>
         <version.logback>0.9.26</version.logback>
-        <version.metrics>3.0.1</version.metrics>
+        <version.metrics>4.1.2</version.metrics>
         <version.mysql>5.1.15</version.mysql>
         <version.postgresql>9.0-801.jdbc4</version.postgresql>
         <version.resteasy>2.0.1.GA</version.resteasy>
@@ -50,7 +50,7 @@
         <version.tomcat-jdbc>7.0.27</version.tomcat-jdbc>
 
         <guava.version>21.0</guava.version>
-        <metric-consumer.version>0.0.16</metric-consumer.version>
+        <metric-consumer.version>0.1.14</metric-consumer.version>
         <protobuf.version>3.4.0</protobuf.version>
         <pubsub.version>1.40.0</pubsub.version>
         <zenoss-protocols.version>2.1.4</zenoss-protocols.version>
