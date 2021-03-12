@@ -202,7 +202,8 @@ public class ZingEvent {
             //      - lastSeen will always contain the event's last occurence time
             //      - updateTime will always contain the last time the event was updated
             //        (new occurence or event updates)
-            b.setTimestamp(this.occurrenceTime);
+            // Therefore, it is now changed to updateTime
+            b.setTimestamp(this.updateTime);
             // Dimensions
             //      source
             //      fingerprint
