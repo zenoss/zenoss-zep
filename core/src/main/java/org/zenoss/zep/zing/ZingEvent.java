@@ -197,13 +197,13 @@ public class ZingEvent {
         if (this.isValid()) {
             Event.Builder b = Event.newBuilder();
             b.setTenant(this.tenant);
-            // The timestamp is set to the event's lastSeen (raw event occurenceTime) which
+            // The timestamp is set to the event's lastSeen (raw event occurrenceTime) which
             // can be confusing when sending event updates (state change, detail/log update, etc)
-            //      - lastSeen will always contain the event's last occurence time
+            //      - lastSeen will always contain the event's last occurrence time
             //      - updateTime will always contain the last time the event was updated
-            //        (new occurence or event updates)
-            // Therefore, it is now changed to updateTime
-            b.setTimestamp(this.updateTime);
+            //        (new occurrence or event updates)
+            // Therefore, it is now changed to updateTime when available
+            b.setTimestamp(this.updateTime == 0L ? this.occurrenceTime : this.updateTime);
             // Dimensions
             //      source
             //      fingerprint
