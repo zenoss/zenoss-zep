@@ -218,6 +218,9 @@ public class ZingEvent {
 
             // Status
             if (!ZingUtils.isNullOrEmpty(this.status)) {
+                // default: Status.STATUS_DEFAULT
+                b.putMetadata( ZingConstants.STATUS_KEY, ZingUtils.getScalarArray(this.status));
+
                 // Ensure status gets mapped faithfully, else log:
                 if (!statusMap.containsKey(this.status)) {
                     logger.debug("Setting default status for missing status key: {}", this.status);
@@ -270,14 +273,13 @@ public class ZingEvent {
                 b.putMetadata( ZingConstants.CONTEXT_TITLE_KEY, ZingUtils.getScalarArray(this.contextTitle));
             if (!ZingUtils.isNullOrEmpty(this.contextType))
                 b.putMetadata( ZingConstants.CONTEXT_TYPE_KEY, ZingUtils.getScalarArray(this.contextType));
-
             if (!ZingUtils.isNullOrEmpty(this.message)) {
+                b.putMetadata( ZingConstants.MESSAGE_KEY, ZingUtils.getScalarArray(this.message));
                 b.setBody(this.message);
             }
             if (!ZingUtils.isNullOrEmpty(this.summary)) {
                 b.setSummary(this.summary);
             }
-
             if (!ZingUtils.isNullOrEmpty(this.monitor))
                 b.putMetadata( ZingConstants.MONITOR_KEY, ZingUtils.getScalarArray(this.monitor));
             if (!ZingUtils.isNullOrEmpty(this.agent))
@@ -286,11 +288,10 @@ public class ZingEvent {
                 b.putMetadata( ZingConstants.EVENT_KEY_KEY, ZingUtils.getScalarArray(this.eventKey));
             if (!ZingUtils.isNullOrEmpty(this.eventClass))
                 b.putMetadata( ZingConstants.EVENT_CLASS_KEY, ZingUtils.getScalarArray(this.eventClass));
-
             if (!ZingUtils.isNullOrEmpty(this.eventClassKey)) {
+                b.putMetadata( ZingConstants.EVENT_CLASS_KEY_KEY, ZingUtils.getScalarArray(this.eventClassKey));
                 b.setType(this.eventClassKey);
             }
-
             if (!ZingUtils.isNullOrEmpty(this.eventClassMappingUuid))
                 b.putMetadata( ZingConstants.EVENT_CLASS_MAPPING_KEY, ZingUtils.getScalarArray(this.eventClassMappingUuid));
             if (!ZingUtils.isNullOrEmpty(this.eventGroup))
