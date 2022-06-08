@@ -1,0 +1,32 @@
+<settings>
+    <mirrors>
+        <mirror>
+            <id>snapshots-http-unblocker</id>
+            <mirrorOf>Snapshots</mirrorOf>
+            <name></name>
+            <url>http://nexus.zenoss.eng:8081/nexus/content/repositories/snapshots/</url>
+            <blocked>false</blocked>
+        </mirror>
+        <mirror>
+            <id>releases-http-unblocker</id>
+            <mirrorOf>Releases</mirrorOf>
+            <name></name>
+            <url>http://nexus.zenoss.eng:8081/nexus/content/repositories/releases/</url>
+            <blocked>false</blocked>
+        </mirror>
+        <mirror>
+            <id>central-http-unblocker</id>
+            <mirrorOf>Central</mirrorOf>
+            <name></name>
+            <url>http://nexus.zenoss.eng:8081/nexus/content/repositories/central/</url>
+            <blocked>false</blocked>
+        </mirror>
+        <mirror>
+            <id>jboss-http-unblocker</id>
+            <mirrorOf>jboss</mirrorOf>
+            <name></name>
+            <url>http://repository.jboss.org/nexus/content/groups/public/</url>
+            <blocked>false</blocked>
+        </mirror>
+    </mirrors>
+</settings>

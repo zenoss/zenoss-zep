@@ -13,7 +13,7 @@
     <parent>
         <groupId>org.zenoss.zep</groupId>
         <artifactId>zep-parent</artifactId>
-        <version>2.7.8</version>
+        <version>2.7.9</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 

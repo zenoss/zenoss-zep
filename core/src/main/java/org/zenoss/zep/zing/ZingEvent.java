@@ -218,7 +218,7 @@ public class ZingEvent {
 
             // Status
             if (!ZingUtils.isNullOrEmpty(this.status)) {
-                // default: Status.STATUS_DEFAULT;
+                // default: Status.STATUS_DEFAULT
                 b.putMetadata( ZingConstants.STATUS_KEY, ZingUtils.getScalarArray(this.status));
 
                 // Ensure status gets mapped faithfully, else log:
@@ -244,9 +244,6 @@ public class ZingEvent {
 
             // Severity Mapping
             if (!ZingUtils.isNullOrEmpty(this.severity)) {
-                // default:  Severity.SEVERITY_DEFAULT;
-                b.putMetadata( ZingConstants.SEVERITY_KEY, ZingUtils.getScalarArray(this.severity));
-
                 // Ensure severity gets mapped faithfully, else log:
                 if (!severityMap.containsKey(this.severity)) {
                     logger.warn("No key in severityMap for severity: {}", this.severity);
@@ -281,7 +278,6 @@ public class ZingEvent {
                 b.setBody(this.message);
             }
             if (!ZingUtils.isNullOrEmpty(this.summary)) {
-                b.putMetadata( ZingConstants.SUMMARY_KEY, ZingUtils.getScalarArray(this.summary));
                 b.setSummary(this.summary);
             }
             if (!ZingUtils.isNullOrEmpty(this.monitor))

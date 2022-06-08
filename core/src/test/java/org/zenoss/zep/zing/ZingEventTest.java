@@ -109,12 +109,13 @@ public class ZingEventTest {
 
         List<Object> mdValues;
         ScalarArray scalarArr;
-        // severity
+
+        // severity -- test that metadata does not contain severity data.
         protoEvent.containsMetadata(ZingConstants.SEVERITY_KEY);
         scalarArr = protoEvent.getMetadataOrDefault(ZingConstants.SEVERITY_KEY, null);
         mdValues = ZingUtils.getListFromScalarArray(ZingConstants.SEVERITY_KEY, scalarArr);
-        assertTrue(mdValues.size()==1);
-        assertEquals((String)mdValues.get(0), severity);
+        assertTrue(mdValues.size()==0);
+
         // contextUUID
         protoEvent.containsMetadata(ZingConstants.CONTEXT_UUID_KEY);
         scalarArr = protoEvent.getMetadataOrDefault(ZingConstants.CONTEXT_UUID_KEY, null);
