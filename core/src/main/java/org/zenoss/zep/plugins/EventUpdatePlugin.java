@@ -10,7 +10,6 @@
 
 package org.zenoss.zep.plugins;
 
-import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.protobufs.zep.Zep.EventNote;
 import org.zenoss.protobufs.zep.Zep.EventSummaryUpdate;
 import org.zenoss.zep.ZepException;

@@ -9,6 +9,15 @@
 
 package org.zenoss.zep.zing.impl;
 
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.zenoss.zep.zing.ZingConfig;
+import org.zenoss.zep.zing.ZingEvent;
+import org.zenoss.zep.zing.ZingPublisher;
+
 import com.codahale.metrics.MetricRegistry;
 import com.google.api.gax.core.CredentialsProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
@@ -19,17 +28,10 @@ import com.google.api.gax.rpc.TransportChannelProvider;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.cloud.pubsub.v1.TopicAdminSettings;
+
 import io.grpc.ConnectivityState;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.zenoss.zep.zing.ZingConfig;
-import org.zenoss.zep.zing.ZingEvent;
-import org.zenoss.zep.zing.ZingPublisher;
-
-import java.io.IOException;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public class ZingEmulatorPublisherImpl extends ZingPublisher {
 

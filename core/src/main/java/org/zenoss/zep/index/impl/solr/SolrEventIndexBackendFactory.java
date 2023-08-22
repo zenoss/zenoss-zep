@@ -1,6 +1,5 @@
 package org.zenoss.zep.index.impl.solr;
 
-import com.google.common.base.Strings;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -8,10 +7,10 @@ import org.springframework.beans.factory.FactoryBean;
 import org.springframework.scheduling.TaskScheduler;
 import org.zenoss.zep.Messages;
 import org.zenoss.zep.UUIDGenerator;
-import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.EventArchiveDao;
-import org.zenoss.zep.dao.EventSummaryBaseDao;
 import org.zenoss.zep.index.IndexedDetailsConfiguration;
+
+import com.google.common.base.Strings;
 
 public class SolrEventIndexBackendFactory implements FactoryBean<SolrEventIndexBackend>, DisposableBean {
 

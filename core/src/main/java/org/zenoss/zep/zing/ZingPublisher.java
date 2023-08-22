@@ -10,6 +10,12 @@
 package org.zenoss.zep.zing;
 
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.zenoss.zing.proto.event.Event;
+
+import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
@@ -18,12 +24,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.zenoss.zing.proto.event.Event;
-
-import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.Counter;
 
 
 public abstract class ZingPublisher {

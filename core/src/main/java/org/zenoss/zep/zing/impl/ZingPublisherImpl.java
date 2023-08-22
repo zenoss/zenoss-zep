@@ -9,22 +9,21 @@
 
 package org.zenoss.zep.zing.impl;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.cloud.pubsub.v1.Publisher;
-import com.google.api.gax.core.CredentialsProvider;
-import com.google.api.gax.core.FixedCredentialsProvider;
-import com.google.auth.oauth2.ServiceAccountCredentials;
-
 import org.zenoss.zep.zing.ZingConfig;
 import org.zenoss.zep.zing.ZingPublisher;
 
-import java.io.IOException;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-
 import com.codahale.metrics.MetricRegistry;
+import com.google.api.gax.core.CredentialsProvider;
+import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.pubsub.v1.Publisher;
+import com.google.cloud.pubsub.v1.PublisherInterface;
 
 public class ZingPublisherImpl extends ZingPublisher {
 
