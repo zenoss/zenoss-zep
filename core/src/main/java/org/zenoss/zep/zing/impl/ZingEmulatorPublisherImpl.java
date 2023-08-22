@@ -26,6 +26,7 @@ import com.google.api.gax.rpc.AlreadyExistsException;
 import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.api.gax.rpc.TransportChannelProvider;
 import com.google.cloud.pubsub.v1.Publisher;
+import com.google.cloud.pubsub.v1.PublisherInterface;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.cloud.pubsub.v1.TopicAdminSettings;
 
@@ -37,6 +38,8 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingEmulatorPublisherImpl.class);
 
+    private Publisher publisher = null;
+
     private AtomicBoolean everConnected;
 
     public ZingEmulatorPublisherImpl(MetricRegistry metrics, ZingConfig config) {
@@ -45,6 +48,15 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
         this.everConnected = new AtomicBoolean(false);
         this.setPublisher(this.buildPublisher(config));
     }
+
+    public PublisherInterface getPublisher() {
+        return this.publisher;
+    }
+
+    public void setPublisher(Publisher p) {
+        this.publisher = p;
+    }
+
 
     private void createTopic(TransportChannelProvider channelProvider) {
         // Make sure topic exists. This is called once the undelying channel is connected
@@ -112,6 +124,16 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
             super.publishEvent(event);
         } else {
             logger.warn("Have not been able to connect to emulator yet. Dropping event.");
+        }
+    }
+
+    public void shutdown() {
+        if (this.publisher != null) {
+            try {
+                this.publisher.shutdown();
+            } catch (Exception e) {
+                logger.warn("Exception shutting down pubsub publisher", e);
+            }
         }
     }
 }

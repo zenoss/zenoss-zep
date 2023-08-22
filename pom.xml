@@ -51,8 +51,13 @@
         <guava.version>31.1-jre</guava.version>
 
         <metric-consumer.version>0.1.14</metric-consumer.version>
-        <protobuf.version>3.4.0</protobuf.version>
-        <pubsub.version>1.40.0</pubsub.version>
+
+        <!-- chosen based upon the version used in zing-proto -->
+        <protobuf.version>3.21.7</protobuf.version>
+
+        <gax-grpc.version>2.24.0</gax-grpc.version>
+        <pubsub.version>1.115.2</pubsub.version>
+        <pubsublite.version>1.12.3</pubsublite.version>
         <zenoss-protocols.version>2.1.4</zenoss-protocols.version>
         <zenoss-utils.version>2.1.0</zenoss-utils.version>
         <zing-proto.version>11.1.2</zing-proto.version>
