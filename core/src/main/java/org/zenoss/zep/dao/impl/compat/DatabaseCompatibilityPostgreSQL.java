@@ -10,7 +10,6 @@
 
 package org.zenoss.zep.dao.impl.compat;
 
-import org.springframework.jdbc.core.SqlParameterValue;
 import org.zenoss.utils.dao.RangePartitioner;
 import org.zenoss.utils.dao.impl.PostgreSqlRangePartitioner;
 
@@ -18,9 +17,6 @@ import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.sql.Types;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 

@@ -12,7 +12,6 @@ package org.zenoss.zep.index.impl.lucene;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Sort;
-import org.zenoss.zep.ZepException;
 import org.zenoss.zep.index.impl.SavedSearch;
 
 import java.io.IOException;

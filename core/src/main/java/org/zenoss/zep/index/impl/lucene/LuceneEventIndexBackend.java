@@ -81,7 +81,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
 
     private MetricRegistry metrics;
     private int indexResultsCount = -1;
-    private int luceneSearchTimeout = 0;
+    private long luceneSearchTimeout = 0;
     private TimeLimiter timeLimiter = null;
 
     public LuceneEventIndexBackend(String name, IndexWriter writer, EventSummaryBaseDao eventSummaryBaseDao,
@@ -214,7 +214,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
     public void setLuceneSearchTimeout(int luceneSearchTimeout) {
         if (luceneSearchTimeout > 0) {
             this.luceneSearchTimeout = luceneSearchTimeout;
-            this.timeLimiter = new SimpleTimeLimiter(Executors.newCachedThreadPool());
+            this.timeLimiter = SimpleTimeLimiter.create(Executors.newCachedThreadPool());
             logger.info("Lucene search timeout set to " + this.luceneSearchTimeout + " seconds.");
         }
     }
@@ -421,7 +421,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
 
         try {
             if (this.luceneSearchTimeout > 0) {
-                docs = (TopDocs)this.timeLimiter.callWithTimeout(search_call, this.luceneSearchTimeout, TimeUnit.SECONDS, true);
+                docs = (TopDocs)this.timeLimiter.callWithTimeout(search_call, this.luceneSearchTimeout, TimeUnit.SECONDS);
             }
             else
                 docs = (TopDocs)search_call.call();

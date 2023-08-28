@@ -10,27 +10,32 @@
 package org.zenoss.zep.zing;
 
 
-import com.google.api.core.ApiFuture;
-import com.google.api.core.ApiFutureCallback;
-import com.google.api.core.ApiFutures;
-import com.google.cloud.pubsub.v1.Publisher;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.google.protobuf.ByteString;
-import com.google.pubsub.v1.ProjectTopicName;
-import com.google.pubsub.v1.PubsubMessage;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.zenoss.zing.proto.event.Event;
 
-import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Counter;
+import com.codahale.metrics.MetricRegistry;
+import com.google.api.core.ApiFuture;
+import com.google.api.core.ApiFutureCallback;
+import com.google.api.core.ApiFutures;
+import com.google.api.gax.core.CredentialsProvider;
+import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.auth.oauth2.ServiceAccountCredentials;
+import com.google.cloud.pubsub.v1.PublisherInterface;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.protobuf.ByteString;
+import com.google.pubsub.v1.ProjectTopicName;
+import com.google.pubsub.v1.PubsubMessage;
 
 
 public abstract class ZingPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingPublisher.class);
-
-    private Publisher publisher = null;
 
     private ProjectTopicName topicName;
 
@@ -53,10 +58,6 @@ public abstract class ZingPublisher {
         this.bytesSentCounter = this.metricRegistry.counter("zing.bytesSent");
     }
 
-    public void setPublisher(Publisher p) {
-        this.publisher = p;
-    }
-
     public ZingConfig getConfig() {
         return config;
     }
@@ -69,15 +70,7 @@ public abstract class ZingPublisher {
         return this.topicName;
     }
 
-    public void shutdown() {
-        if (this.publisher != null) {
-            try {
-                this.publisher.shutdown();
-            } catch (Exception e) {
-                logger.warn("Exception shutting down pubsub publisher", e);
-            }
-        }
-    }
+    public abstract void shutdown();
 
     protected void onSuccess(String messageId) {
         logger.debug("published with message id: " + messageId);
@@ -109,8 +102,12 @@ public abstract class ZingPublisher {
             .build();
     }    
 
+    public abstract PublisherInterface getPublisher();
+
     public void publishEvent(ZingEvent event) {
-        if (this.publisher != null) {
+        PublisherInterface publisher = this.getPublisher();
+
+        if (publisher != null) {
             PubsubMessage pubsubMessage = getPubSubMessage(event);
             this.bytesSentCounter.inc(pubsubMessage.getData().size());
             ApiFuture<String> messageIdFuture = publisher.publish(pubsubMessage);
@@ -126,5 +123,19 @@ public abstract class ZingPublisher {
                 }
             }, MoreExecutors.directExecutor());
         }
+    }
+
+    protected CredentialsProvider buildCredentials(String filepath) {
+        CredentialsProvider credentialsProvider = null;
+        try {
+            credentialsProvider =
+                FixedCredentialsProvider.create(
+                    ServiceAccountCredentials.fromStream(new FileInputStream(filepath)));
+        } catch (FileNotFoundException fe) {
+            logger.error("Could not open credentials file {}", filepath);
+        } catch (IOException e) {
+            logger.error("Exception creating pubsub credentials from file {} / {}", filepath, e);
+        }
+        return credentialsProvider;
     }
 }

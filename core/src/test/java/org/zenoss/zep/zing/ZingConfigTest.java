@@ -27,8 +27,12 @@ public class ZingConfigTest {
         Integer maxEventFieldLength = 0;
         boolean enabled = true;
         boolean useEmulator = true;
+        boolean usePubsubLite = true;
+        long pubsubLiteProjectNumber = 123456;
+        String pubsubLiteLocation = "australia-southeast1-a";
 
-        ZingConfig cfg = new ZingConfig(enabled, useEmulator, tnt, src, prj, topic, emulator, credsPath, minSev, maxPubsubMessSize, maxEventFieldLength);
+
+        ZingConfig cfg = new ZingConfig(enabled, useEmulator, usePubsubLite, tnt, src, prj, topic, pubsubLiteProjectNumber, pubsubLiteLocation, emulator, credsPath, minSev, maxPubsubMessSize, maxEventFieldLength);
 
         // config without tenant, source, project or topic is invalid
         assertTrue(cfg.validate());
@@ -53,8 +57,53 @@ public class ZingConfigTest {
         cfg.setEmulatorHostAndPort(emulator);
         assertTrue(cfg.validate());
 
+        // Test pubsub lite options
+        cfg.setUsePubsubLite(true);
+        assertTrue(cfg.validate());
+        cfg.setPubsubLiteProjectNumber(0);
+        assertFalse(cfg.validate());
+        cfg.setPubsubLiteProjectNumber(12345);
+        assertTrue(cfg.validate());
+        cfg.setPubsubLiteLocation("");
+        assertFalse(cfg.validate());
+        cfg.setPubsubLiteLocation("australia-southweat1-a");
+
         // If a creds path exists, it must point to a readable file
         cfg.setCredentialsPath("/a/b/c");
         assertFalse(cfg.validate());
     }
+
+    @Test
+    public void testPubsubLiteDefaultConfig() {
+        String tnt = "acme";
+        String src = "aus";
+        String prj = "zing-zing";
+        String topic = "events";
+        String emulator = "1.1.1.1:8085";
+        String credsPath = "";
+        String minSev = "";
+        Integer maxPubsubMessSize = 0;
+        Integer maxEventFieldLength = 0;
+        boolean enabled = true;
+        boolean useEmulator = false;
+        boolean usePubsubLite = false;
+        long pubsubLiteProjectNumber = 0;
+        String pubsubLiteLocation = "";
+
+        ZingConfig cfg = new ZingConfig(enabled, useEmulator, usePubsubLite, tnt, src, prj, topic, pubsubLiteProjectNumber, pubsubLiteLocation, emulator, credsPath, minSev, maxPubsubMessSize, maxEventFieldLength);
+
+        assertTrue(cfg.validate());
+
+        // will fail, because we don't recognize this project and can't provide proper defaults
+        cfg.setUsePubsubLite(true);
+        cfg.setProject("zing-zing");
+        assertFalse(cfg.validate());
+
+        // changing it to a proper project should make it succeed.
+        cfg.setProject("zing-dev-197522");
+        cfg.setDefaults();
+        assertTrue(cfg.validate());
+    }
+
+
 }
