@@ -54,6 +54,8 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
     private Integer maxEventFieldLength = 50*1024;
 
     public ZingEventProcessorImpl(ZingConfig cfg) {
+        cfg.setDefaults();
+
         this.config = cfg;
         logger.info("Zing Event Processor created with config: {}", cfg.toString());
         if (cfg.maxPubsubMessageSize != null) {
@@ -116,6 +118,8 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             logger.info("initializing zing event processor...");
             if (this.config.useEmulator) {
                 this.publisher = new ZingEmulatorPublisherImpl(this.metricRegistry, this.config);
+            } else if (this.config.usePubsubLite) {
+                this.publisher = new ZingPubSubLitePublisherImpl(this.metricRegistry, this.config);
             } else {
                 this.publisher = new ZingPublisherImpl(this.metricRegistry, this.config);
             }

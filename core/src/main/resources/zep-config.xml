@@ -183,10 +183,13 @@
     <bean id="zingConfig" class="org.zenoss.zep.zing.ZingConfig">
         <property name="enabled" value="${zep.zing.enabled:false}"/>
         <property name="useEmulator" value="${zep.zing.use_emulator:false}"/>
+        <property name="usePubsubLite" value="${zep.zing.use_pubsublite:false}"/>
         <property name="tenant" value="${zep.zing.tenant:#{''}}"/>
         <property name="source" value="${zep.zing.source:#{''}}"/>
         <property name="project" value="${zep.zing.project:#{''}}"/>
         <property name="topic" value="${zep.zing.topic:#{''}}"/>
+        <property name="pubsubLiteProjectNumber" value="${zep.zing.pubsublite_project_number:0}"/>
+        <property name="pubsubLiteLocation" value="${zep.zing.pubsublite_location:#{''}}"/>
         <property name="emulatorHostAndPort" value="${zep.zing.emulator_url:#{''}}"/>
         <property name="credentialsPath" value="${zep.zing.credentials:#{''}}"/>
         <property name="minimumSeverity" value="${zep.zing.minimum_severity:#{''}}"/>

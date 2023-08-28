@@ -26,7 +26,6 @@ import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.EventTriggerDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
-import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
 
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;

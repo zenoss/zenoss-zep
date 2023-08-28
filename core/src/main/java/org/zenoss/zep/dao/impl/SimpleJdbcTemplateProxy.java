@@ -42,7 +42,7 @@ public class SimpleJdbcTemplateProxy implements InvocationHandler
 	// of the percona tool.
 	private boolean shouldIRetry(Exception e)
 	{
-		return (e.getCause()!=null && e.getCause().toString().contains(this.exceptionText));
+		return (e.getCause()!=null && e.getCause().toString().contains(SimpleJdbcTemplateProxy.exceptionText));
 	}
 	
 	public Object invoke(Object proxy, Method method, Object[] args) throws Throwable

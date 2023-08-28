@@ -31,8 +31,6 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
-import org.zenoss.zep.dao.impl.SimpleJdbcTemplateProxy;
-
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.io.IOException;
