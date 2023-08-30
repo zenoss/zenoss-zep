@@ -11,7 +11,7 @@
 package org.zenoss.zep.dao.impl.compat;
 
 import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,17 +22,12 @@ import javax.sql.DataSource;
  */
 public class NestedTransactionServiceImpl implements NestedTransactionService {
 
-    private final SimpleJdbcTemplate template;
+    private final NamedParameterJdbcTemplate template;
     private final NestedTransactionContext context;
 
     public NestedTransactionServiceImpl(DataSource dataSource) {
-        this.template = new SimpleJdbcTemplate(dataSource);
-        this.context = new NestedTransactionContext() {
-            @Override
-            public SimpleJdbcTemplate getSimpleJdbcTemplate() {
-                return template;
-            }
-        };
+        this.template = new NamedParameterJdbcTemplate(dataSource);
+        this.context = () -> template;
     }
 
     @Override

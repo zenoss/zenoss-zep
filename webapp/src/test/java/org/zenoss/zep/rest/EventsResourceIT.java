@@ -10,12 +10,12 @@
 
 package org.zenoss.zep.rest;
 
-import org.apache.commons.httpclient.HttpStatus;
+import org.apache.http.HttpStatus;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractJUnit4SpringContextTests;
 import org.zenoss.protobufs.util.Util.TimestampRange;
@@ -95,7 +95,7 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
 
     @After
     public void shutdown() throws IOException, ZepException {
-        SimpleJdbcTemplate template = new SimpleJdbcTemplate(ds);
+        JdbcTemplate template = new JdbcTemplate(ds);
         template.update("DELETE FROM event_summary");
         template.update("DELETE FROM event_archive");
         client.close();

@@ -25,7 +25,7 @@ public interface IndexMetadataDao {
      * @return The IndexMetadata for the index, or null if not found.
      * @throws ZepException If an exception occurs querying the database.
      */
-    public IndexMetadata findIndexMetadata(String indexName) throws ZepException;
+    IndexMetadata findIndexMetadata(String indexName) throws ZepException;
 
     /**
      * Updates the version information for the specified index name.
@@ -35,5 +35,5 @@ public interface IndexMetadataDao {
      * @param indexHash The hash of the index configuration.
      * @throws ZepException If an exception occurs updating the database.
      */
-    public void updateIndexVersion(String indexName, int indexVersion, byte[] indexHash) throws ZepException;
+    void updateIndexVersion(String indexName, int indexVersion, byte[] indexHash) throws ZepException;
 }

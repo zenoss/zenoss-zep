@@ -16,5 +16,5 @@ public interface SavedSearchProcessor<SS extends SavedSearch> {
      * @return The result of the search.
      * @throws ZepException If an exception occurs performing the saved query.
      */
-    public EventSummaryResult result(SS search, int offset, int limit) throws ZepException;
+    EventSummaryResult result(SS search, int offset, int limit) throws ZepException;
 }

@@ -38,8 +38,8 @@ public abstract class BaseQueryBuilder<B extends BaseQueryBuilder<B>> {
 
     protected static final Logger logger = LoggerFactory.getLogger(BaseQueryBuilder.class);
 
-    public static enum Occur {MUST, SHOULD, MUST_NOT}
-    public static enum FieldType {
+    public enum Occur {MUST, SHOULD, MUST_NOT}
+    public enum FieldType {
         DATE_RANGE,
         ENUM_NUMBER,
         FULL_TEXT,

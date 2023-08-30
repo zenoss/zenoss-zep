@@ -117,7 +117,7 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
     private static final Logger logger = LoggerFactory.getLogger(DBMaintenanceServiceImpl.class);
     
     // These are the most active tables in the database
-    private List<String> tablesToOptimize = new ArrayList<String>();
+    private final List<String> tablesToOptimize = new ArrayList<String>();
 
     public DBMaintenanceServiceImpl(DataSource ds, Properties globalConf, ZepInstance zepInstance) {
         this.template = new JdbcTemplate(ds);
@@ -207,11 +207,11 @@ public class DBMaintenanceServiceImpl implements DBMaintenanceService {
 
         fingerprint = "ZEP ALERT:" + fingerprintSuffix;
         if (toolName.length() <= 0 && elapsedTimeMillis >= (this.elapsedWarnThresholdSeconds * 1000)) {
-            summary += " exceeded threshold of " + String.valueOf(elapsedWarnThresholdSeconds) + " seconds";
+            summary += " exceeded threshold of " + elapsedWarnThresholdSeconds + " seconds";
             logger.warn(summary);
 
             message = summary + ".  This exceeds the warn threshold of "
-                + String.valueOf(elapsedWarnThresholdSeconds) + " seconds "
+                + elapsedWarnThresholdSeconds + " seconds "
                 + "(configurable in etc/zeneventserver.conf with the setting " + ELAPSED_WARN + ")."
                 + "  This may be indicative of a performance issue with the zenoss_zep database server."
                 + "  " // wish we could insert newlines into message here to separate into paragraphs

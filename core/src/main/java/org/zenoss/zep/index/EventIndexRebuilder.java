@@ -17,12 +17,12 @@ public interface EventIndexRebuilder {
     /**
      * Initializes the EventIndexRebuilder.
      */
-    public void init();
+    void init();
 
     /**
      * Shuts down the index rebuilder.
      *
      * @throws InterruptedException If the rebuilder is interrupted while shutting down.
      */
-    public void shutdown() throws InterruptedException;
+    void shutdown() throws InterruptedException;
 }

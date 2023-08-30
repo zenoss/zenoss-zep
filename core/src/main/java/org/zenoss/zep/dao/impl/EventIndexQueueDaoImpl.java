@@ -61,12 +61,12 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
         String baseName = "EventIndexQueueDaoImpl";
         this.indexedCounter = metrics.counter(MetricRegistry.name(baseName, indexDaoDelegate.getQueueName(), "indexed"));
         metricName = MetricRegistry.name(baseName, indexDaoDelegate.getQueueName(), "size");
-        this.metrics.register(metricName, new Gauge<Long>() {
-            @Override
-            public Long getValue() {
-                return lastQueueSize;
-            }
-        });
+        try {
+            this.metrics.register(metricName, (Gauge<Long>) () -> lastQueueSize);
+        } catch (IllegalArgumentException ex) {
+            // skipping if metrics already exists
+        }
+
     }
 
     @Override
@@ -130,7 +130,7 @@ public class EventIndexQueueDaoImpl implements EventIndexQueueDao, ApplicationEv
         indexDaoDelegate.deleteIndexQueueIds(queueIds);
     }
 
-    public static interface PollEvents {
+    public interface PollEvents {
         List<IndexQueueID> getIndexQueueIds();
 
         List<EventSummary> getIndexed();

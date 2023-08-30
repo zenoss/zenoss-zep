@@ -320,7 +320,7 @@ public class ZingEvent {
             evt = b.build();
         }
         if (evt != null) {
-            logger.debug("Returning event: {}", evt.toString());
+            logger.debug("Returning event: {}", evt);
         }
         return evt;
     }
@@ -356,7 +356,7 @@ public class ZingEvent {
         private String clearedByUUID_;
         private String status_;
 
-        private Map<String, List<String>> details_ = new HashMap<>();
+        private final Map<String, List<String>> details_ = new HashMap<>();
 
         public Builder(String tnt, String src, long ts) {
             this.tenant_ = tnt;

@@ -1,8 +1,8 @@
 package org.zenoss.zep.index.impl;
 
 import com.google.common.collect.Maps;
-import org.codehaus.jackson.map.ObjectMapper;
-import org.codehaus.jackson.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.python.google.common.base.Strings;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.index.EventIndexBackend;

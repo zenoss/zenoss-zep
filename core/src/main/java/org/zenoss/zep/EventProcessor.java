@@ -27,5 +27,5 @@ public interface EventProcessor {
      * @throws ZepException
      *             If an error occurs processing the event.
      */
-    public void processEvent(ZepRawEvent event) throws ZepException;
+    void processEvent(ZepRawEvent event) throws ZepException;
 }

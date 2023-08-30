@@ -27,13 +27,13 @@ public interface EventTimeDao extends Partitionable {
      * @param limit  limit the amount of results
      * @return List of EventTime ordered by processed time ascending
      */
-    public List<Zep.EventTime> findProcessedSince(Date startDate, int limit);
+    List<Zep.EventTime> findProcessedSince(Date startDate, int limit);
 
     /**
      * save an event time instances
      *
      * @param eventTime
      */
-    public void save(Zep.EventTime eventTime);
+    void save(Zep.EventTime eventTime);
 
 }

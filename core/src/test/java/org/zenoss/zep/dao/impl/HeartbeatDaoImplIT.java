@@ -47,7 +47,7 @@ public class HeartbeatDaoImplIT extends AbstractTransactionalJUnit4SpringContext
 
     @Before
     public void init() {
-        this.simpleJdbcTemplate.update("DELETE FROM daemon_heartbeat");
+        this.jdbcTemplate.update("DELETE FROM daemon_heartbeat");
     }
 
     private static DaemonHeartbeat createHeartbeat(String monitor, String daemon, int timeoutSeconds) {

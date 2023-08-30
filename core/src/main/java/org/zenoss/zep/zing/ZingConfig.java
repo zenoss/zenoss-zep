@@ -179,11 +179,8 @@ public class ZingConfig {
     }
 
     public boolean validate() {
-        boolean valid = true;
-        if ( this.tenant.isEmpty() || this.source.isEmpty() ||
-             this.project.isEmpty() || this.topic.isEmpty() ) {
-            valid = false;
-        }
+        boolean valid = !this.tenant.isEmpty() && !this.source.isEmpty() &&
+                !this.project.isEmpty() && !this.topic.isEmpty();
         if (valid && this.useEmulator && this.emulatorHostAndPort.isEmpty()) {
             valid = false;
         }

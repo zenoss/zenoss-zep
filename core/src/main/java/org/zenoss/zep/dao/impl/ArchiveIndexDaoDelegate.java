@@ -2,7 +2,7 @@ package org.zenoss.zep.dao.impl;
 
 import com.google.common.collect.Lists;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.transaction.annotation.Transactional;
 import org.zenoss.protobufs.zep.Zep.EventSummary;
 import org.zenoss.zep.ZepException;
@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 public class ArchiveIndexDaoDelegate implements IndexDaoDelegate {
-    private final SimpleJdbcOperations template;
+    private final NamedParameterJdbcOperations template;
     private final String queueTableName;
     private final String tableName;
     private final EventSummaryRowMapper rowMapper;
@@ -35,8 +35,8 @@ public class ArchiveIndexDaoDelegate implements IndexDaoDelegate {
 
     public ArchiveIndexDaoDelegate(DataSource ds, EventDaoHelper daoHelper,
                                    DatabaseCompatibility databaseCompatibility) {
-        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(),
-                new Class<?>[]{SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
+        this.template = (NamedParameterJdbcOperations) Proxy.newProxyInstance(NamedParameterJdbcOperations.class.getClassLoader(),
+                new Class<?>[]{NamedParameterJdbcOperations.class}, new JdbcTemplateProxy(ds));
         this.tableName = EventConstants.TABLE_EVENT_ARCHIVE;
         this.queueTableName = EventConstants.TABLE_EVENT_ARCHIVE + "_index_queue";
         this.uuidConverter = databaseCompatibility.getUUIDConverter();
@@ -53,7 +53,7 @@ public class ArchiveIndexDaoDelegate implements IndexDaoDelegate {
     @Transactional(readOnly = true)
     public long getQueueLength() {
         String sql = String.format("SELECT COUNT(*) FROM %s", queueTableName);
-        return template.queryForLong(sql);
+        return template.queryForObject(sql, Collections.emptyMap(), Long.class);
     }
 
     @Override
@@ -79,8 +79,8 @@ public class ArchiveIndexDaoDelegate implements IndexDaoDelegate {
 
 
     private class PollArchiveIndexEvents implements PollEvents {
-        private int limit;
-        private long maxUpdateTime;
+        private final int limit;
+        private final long maxUpdateTime;
         private List<EventSummary> indexed;
         private Set<String> deleted;
         private List<Long> indexQueueIds;
@@ -132,23 +132,20 @@ public class ArchiveIndexDaoDelegate implements IndexDaoDelegate {
             final Set<String> eventUuids = new HashSet<String>();
             indexed = new ArrayList<EventSummary>();
             deleted = new HashSet<String>();
-            indexQueueIds = template.query(sql, new RowMapper<Long>() {
-                @Override
-                public Long mapRow(ResultSet rs, int rowNum) throws SQLException {
-                    final long iqId = rs.getLong("iq_id");
-                    final String iqUuid = uuidConverter.fromDatabaseType(rs, "iq_uuid");
-                    // Don't process the same event multiple times.
-                    if (eventUuids.add(iqUuid)) {
-                        final Object uuid = rs.getObject("uuid");
-                        if (uuid != null) {
-                            indexed.add(rowMapper.mapRow(rs, rowNum));
-                        } else {
-                            deleted.add(iqUuid);
-                        }
+            indexQueueIds = template.query(sql, selectFields, (rs, rowNum) -> {
+                final long iqId = rs.getLong("iq_id");
+                final String iqUuid = uuidConverter.fromDatabaseType(rs, "iq_uuid");
+                // Don't process the same event multiple times.
+                if (eventUuids.add(iqUuid)) {
+                    final Object uuid = rs.getObject("uuid");
+                    if (uuid != null) {
+                        indexed.add(rowMapper.mapRow(rs, rowNum));
+                    } else {
+                        deleted.add(iqUuid);
                     }
-                    return iqId;
                 }
-            }, selectFields);
+                return iqId;
+            });
             return this;
         }
     }

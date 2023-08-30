@@ -57,7 +57,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         cfg.setDefaults();
 
         this.config = cfg;
-        logger.info("Zing Event Processor created with config: {}", cfg.toString());
+        logger.info("Zing Event Processor created with config: {}", cfg);
         if (cfg.maxPubsubMessageSize != null) {
             this.maxPubsubMessageSize = cfg.maxPubsubMessageSize;
         }

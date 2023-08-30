@@ -83,12 +83,12 @@ public class EventProcessorImplTest {
         expect(eventSummaryDao.create(capture(transformedEvent), capture(transformedContext))).andReturn(uuid);
         expect(pluginService.getPluginsByType(EventPreCreatePlugin.class))
                 .andReturn(
-                        Arrays.<EventPreCreatePlugin>asList(
+                        Arrays.asList(
                                 new SampleIdentifyPlugin(),
                                 new SampleTransformPlugin()));
         expectLastCall();
         expect(pluginService.getPluginsByType(EventPostCreatePlugin.class))
-                .andReturn(Arrays.<EventPostCreatePlugin> asList(postPlugin));
+                .andReturn(Arrays.asList(postPlugin));
         expectLastCall();
         expect(eventSummaryDao.findByUuid(uuid)).andReturn(summary);
         replay(pluginService, eventSummaryDao);
@@ -128,10 +128,10 @@ public class EventProcessorImplTest {
         String uuid = UUID.randomUUID().toString();
         expect(eventSummaryDao.create(capture(transformedEvent), capture(transformedContext))).andReturn(uuid);
         expect(pluginService.getPluginsByType(EventPreCreatePlugin.class))
-                .andReturn(Collections.<EventPreCreatePlugin>emptyList());
+                .andReturn(Collections.emptyList());
         expectLastCall();
         expect(pluginService.getPluginsByType(EventPostCreatePlugin.class))
-                .andReturn(Collections.<EventPostCreatePlugin> emptyList());
+                .andReturn(Collections.emptyList());
         expectLastCall();
         replay(pluginService, eventSummaryDao);
 

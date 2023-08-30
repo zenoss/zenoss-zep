@@ -34,7 +34,7 @@ public interface EventStoreDao extends Purgable {
      * @throws ZepException
      *             If an error occurs.
      */
-    public EventSummary findByUuid(String uuid) throws ZepException;
+    EventSummary findByUuid(String uuid) throws ZepException;
 
     /**
      * Updates the event with the specified UUID.
@@ -47,7 +47,7 @@ public interface EventStoreDao extends Purgable {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int update(String uuid, EventSummaryUpdate update)
+    int update(String uuid, EventSummaryUpdate update)
             throws ZepException;
 
     /**
@@ -60,7 +60,7 @@ public interface EventStoreDao extends Purgable {
      * @return The number of affected events.
      * @throws ZepException If an error occurs.
      */
-    public int update(List<String> uuids, EventSummaryUpdate update)
+    int update(List<String> uuids, EventSummaryUpdate update)
             throws ZepException;
 
     /**
@@ -73,7 +73,7 @@ public interface EventStoreDao extends Purgable {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int addNote(String uuid, EventNote note) throws ZepException;
+    int addNote(String uuid, EventNote note) throws ZepException;
 
     /**
      * Updates the event with the specified UUID, to add/merge/update
@@ -89,7 +89,7 @@ public interface EventStoreDao extends Purgable {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int updateDetails(String uuid, EventDetailSet details)
+    int updateDetails(String uuid, EventDetailSet details)
             throws ZepException;
 
     /**
@@ -111,7 +111,7 @@ public interface EventStoreDao extends Purgable {
      * @throws org.zenoss.zep.ZepException
      *             If an error occurs.
      */
-    public int ageEvents(long agingInverval, TimeUnit unit,
+    int ageEvents(long agingInverval, TimeUnit unit,
             EventSeverity maxSeverity, int limit, boolean inclusiveSeverity) throws ZepException;
 
     /**
@@ -129,6 +129,6 @@ public interface EventStoreDao extends Purgable {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int archive(long agingInverval, TimeUnit unit, int limit)
+    int archive(long agingInverval, TimeUnit unit, int limit)
             throws ZepException;
 }

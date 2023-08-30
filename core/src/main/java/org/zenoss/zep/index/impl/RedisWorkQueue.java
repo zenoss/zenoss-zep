@@ -40,7 +40,7 @@ import java.util.concurrent.TimeUnit;
  */
 public class RedisWorkQueue implements WorkQueue {
 
-    private static Logger logger = LoggerFactory.getLogger(RedisWorkQueue.class);
+    private static final Logger logger = LoggerFactory.getLogger(RedisWorkQueue.class);
 
     private long pollIntervalInNanos;
     private long inProgressDurationInMillis;
@@ -185,7 +185,7 @@ public class RedisWorkQueue implements WorkQueue {
     }
 
     private EventIndexBackendTask deserialize(String task) {
-        String s = new String(task);
+        String s = task;
         try {
             return EventIndexBackendTask.parse(s);
         } catch (NullPointerException e) {
@@ -253,7 +253,7 @@ public class RedisWorkQueue implements WorkQueue {
             return new Random();
         }
     };
-    private static char[] RANDOM_KEY_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toCharArray();
+    private static final char[] RANDOM_KEY_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toCharArray();
     private static String randomKey() {
         Random random = THREAD_LOCAL_RANDOM.get();
         StringBuilder sb = new StringBuilder();
@@ -406,7 +406,7 @@ public class RedisWorkQueue implements WorkQueue {
                     tx.sadd(queueSetKey, values);
                     tx.lpush(queueListKey, values);
                     if (tx.exec() == null)
-                        throw new RedisTransactionCollision(new String(queueSetKey));
+                        throw new RedisTransactionCollision(queueSetKey);
                     return true;
                 }
             } finally {
@@ -437,7 +437,7 @@ public class RedisWorkQueue implements WorkQueue {
                     tx.zadd(holdZsetKey, now, e);
                 }
                 if (tx.exec() == null)
-                    throw new RedisTransactionCollision(new String(queueListKey));
+                    throw new RedisTransactionCollision(queueListKey);
                 return elements;
             }
         }
@@ -471,7 +471,7 @@ public class RedisWorkQueue implements WorkQueue {
                 tx.zrem(holdZsetKey, task);
             }
             if (tx.exec() == null)
-                throw new RedisTransactionCollision(new String(holdZsetKey) + " or " + new String(queueSetKey));
+                throw new RedisTransactionCollision(holdZsetKey + " or " + queueSetKey);
             return count;
         }
     }

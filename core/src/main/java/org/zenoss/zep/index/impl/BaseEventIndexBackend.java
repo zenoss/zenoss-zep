@@ -121,7 +121,7 @@ public abstract class BaseEventIndexBackend<SS extends SavedSearch> implements E
         }
     }
 
-    public static interface EventTagSeverityCounter {
+    public interface EventTagSeverityCounter {
         /**
          * Update the counts of the event tag severities.
          * @param uuid the event tag UUID

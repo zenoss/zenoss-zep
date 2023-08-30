@@ -14,7 +14,7 @@ import com.google.common.base.Strings;
 
 public class SolrEventIndexBackendFactory implements FactoryBean<SolrEventIndexBackend>, DisposableBean {
 
-    private static Logger logger = LoggerFactory.getLogger(SolrEventIndexBackendFactory.class);
+    private static final Logger logger = LoggerFactory.getLogger(SolrEventIndexBackendFactory.class);
 
     private SolrEventIndexBackend backend;
 

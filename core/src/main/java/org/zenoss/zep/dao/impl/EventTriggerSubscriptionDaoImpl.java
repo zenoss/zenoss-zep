@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
@@ -24,6 +24,7 @@ import org.zenoss.zep.dao.EventTriggerSubscriptionDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.impl.JdbcTemplateProxy;
 
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
@@ -34,6 +35,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
 
 public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscriptionDao {
 
@@ -62,17 +64,17 @@ public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscription
     }
 
     @SuppressWarnings("unused")
-    private static Logger logger = LoggerFactory.getLogger(EventTriggerSubscriptionDaoImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventTriggerSubscriptionDaoImpl.class);
 
-    private final SimpleJdbcOperations template;
+    private final NamedParameterJdbcOperations template;
     private final SimpleJdbcInsert insert;
     private UUIDGenerator uuidGenerator;
     private TypeConverter<String> uuidConverter;
     private NestedTransactionService nestedTransactionService;
 
     public EventTriggerSubscriptionDaoImpl(DataSource dataSource) {
-    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
+    	this.template = (NamedParameterJdbcOperations) Proxy.newProxyInstance(NamedParameterJdbcOperations.class.getClassLoader(),
+    			new Class<?>[] {NamedParameterJdbcOperations.class}, new JdbcTemplateProxy(dataSource));
         this.insert = new SimpleJdbcInsert(dataSource).withTableName(TABLE_EVENT_TRIGGER_SUBSCRIPTION);
     }
 
@@ -118,8 +120,8 @@ public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscription
     @Override
     @TransactionalRollbackAllExceptions
     public int delete(String uuid) throws ZepException {
-        final String sql = "DELETE FROM event_trigger_subscription WHERE uuid=?";
-        return this.template.update(sql, uuidConverter.toDatabaseType(uuid));
+        final String sql = "DELETE FROM event_trigger_subscription WHERE uuid=:uuid";
+        return this.template.update(sql, Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuid)));
     }
 
     @Override
@@ -132,18 +134,20 @@ public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscription
     @Override
     @TransactionalReadOnly
     public EventTriggerSubscription findByUuid(String uuid) throws ZepException {
-        final String sql = "SELECT * FROM event_trigger_subscription WHERE uuid=?";
-        List<EventTriggerSubscription> subs = this.template.query(sql, new EventTriggerSubscriptionMapper(),
-                uuidConverter.toDatabaseType(uuid));
+        final String sql = "SELECT * FROM event_trigger_subscription WHERE uuid=:uuid";
+        List<EventTriggerSubscription> subs = this.template.query(sql,
+                Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuid)),
+                new EventTriggerSubscriptionMapper());
         return (subs.size() > 0) ? subs.get(0) : null;
     }
 
     @Override
     @TransactionalReadOnly
     public List<EventTriggerSubscription> findBySubscriberUuid(String subscriberUuid) throws ZepException {
-        final String sql = "SELECT * FROM event_trigger_subscription WHERE subscriber_uuid=?";
-        return this.template.query(sql, new EventTriggerSubscriptionMapper(),
-                uuidConverter.toDatabaseType(subscriberUuid));
+        final String sql = "SELECT * FROM event_trigger_subscription WHERE subscriber_uuid=:uuid";
+        return this.template.query(sql,
+                Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(subscriberUuid)),
+                new EventTriggerSubscriptionMapper());
     }
 
     @Override
@@ -153,8 +157,8 @@ public class EventTriggerSubscriptionDaoImpl implements EventTriggerSubscription
         final Object subscriberUuidBytes = uuidConverter.toDatabaseType(subscriberUuid);
         int numRows = 0;
         if (subscriptions.isEmpty()) {
-            String sql = "DELETE FROM event_trigger_subscription WHERE subscriber_uuid=?";
-            numRows += this.template.update(sql, subscriberUuidBytes);
+            String sql = "DELETE FROM event_trigger_subscription WHERE subscriber_uuid=:uuid";
+            numRows += this.template.update(sql, Collections.singletonMap(COLUMN_UUID, subscriberUuidBytes));
         } else {
             List<Map<String, Object>> subscriptionFields = new ArrayList<Map<String, Object>>(subscriptions.size());
             List<Object> eventTriggerUuids = new ArrayList<Object>(subscriptions.size());

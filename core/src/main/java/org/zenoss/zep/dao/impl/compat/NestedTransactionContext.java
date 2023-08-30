@@ -10,7 +10,7 @@
 
 package org.zenoss.zep.dao.impl.compat;
 
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 /**
  * Interface representing the context available to a nested transaction callback.
@@ -18,5 +18,5 @@ import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
  * @see NestedTransactionCallback
  */
 public interface NestedTransactionContext {
-    public SimpleJdbcTemplate getSimpleJdbcTemplate();
+    NamedParameterJdbcTemplate getNamedParameterJdbcTemplate();
 }

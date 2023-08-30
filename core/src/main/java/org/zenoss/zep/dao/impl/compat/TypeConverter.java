@@ -23,7 +23,7 @@ public interface TypeConverter<T> {
      * @param originalType Original type.
      * @return Underlying type expected by the database.
      */
-    public Object toDatabaseType(T originalType);
+    Object toDatabaseType(T originalType);
 
     /**
      * Converts the type returned by the database to the appropriate application type.
@@ -33,5 +33,5 @@ public interface TypeConverter<T> {
      * @return Application type.
      * @throws SQLException If the column can't be read.
      */
-    public T fromDatabaseType(ResultSet rs, String columnName) throws SQLException;
+    T fromDatabaseType(ResultSet rs, String columnName) throws SQLException;
 }

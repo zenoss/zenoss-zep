@@ -26,7 +26,7 @@ public interface EventIndexQueueDao {
      * @return The internal queue identifiers processed.
      * @throws ZepException If an exception occurs.
      */
-    public List<IndexQueueID> indexEvents(EventIndexHandler handler, int limit) throws ZepException;
+    List<IndexQueueID> indexEvents(EventIndexHandler handler, int limit) throws ZepException;
     
     /**
      * Indexes events. The handler is invoked for each event summary to be indexed.
@@ -37,9 +37,9 @@ public interface EventIndexQueueDao {
      * @return The internal queue identifiers processed.
      * @throws ZepException If an exception occurs.
      */
-    public List<IndexQueueID> indexEvents(EventIndexHandler handler, int limit, long maxUpdateTime) throws ZepException;
+    List<IndexQueueID> indexEvents(EventIndexHandler handler, int limit, long maxUpdateTime) throws ZepException;
 
-    public long getQueueLength();
+    long getQueueLength();
 
     /**
      * Removes items from the queue with the specified identifiers.
@@ -47,6 +47,6 @@ public interface EventIndexQueueDao {
      * @param queueIds The list of queue identifiers to delete.
      * @throws ZepException If an exception occurs.
      */
-    public void deleteIndexQueueIds(List<IndexQueueID> queueIds) throws ZepException;
+    void deleteIndexQueueIds(List<IndexQueueID> queueIds) throws ZepException;
 
 }
