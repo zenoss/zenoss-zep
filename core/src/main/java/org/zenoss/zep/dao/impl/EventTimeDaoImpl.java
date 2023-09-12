@@ -94,13 +94,13 @@ public class EventTimeDaoImpl implements EventTimeDao {
     @TransactionalReadOnly
     public List<Zep.EventTime> findProcessedSince(Date startDate, int limit) {
         long timestamp = startDate.getTime();
-        final Map<String, Object> params = Collections.singletonMap("since",
+        final Map<String, Object> fields = Collections.singletonMap("since",
                 databaseCompatibility.getTimestampConverter().toDatabaseType(timestamp));
 
         String sql = "SELECT * from %s where %s >= :since order by %s asc limit %s";
         sql = String.format(sql, TABLE_EVENT_TIME, COLUMN_PROCESSED, COLUMN_PROCESSED, limit);
 
-        return template.query(sql, params, new EventTimeRowMapper());
+        return template.query(sql, fields, new EventTimeRowMapper());
     }
 
     @Override
