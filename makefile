@@ -5,7 +5,7 @@ build:
 		-v ${PWD}:/mnt/build \
 		-v ${HOME}/.m2:/home/build/.m2 \
 		-w /mnt/build \
-		zenoss/maven:java17-1 \
+		zenoss/maven:java17-2 \
 		-Dprotoc.path=/usr/bin/protoc clean install
 
 clean:
