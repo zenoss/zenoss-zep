@@ -26,7 +26,7 @@ public interface HeartbeatDao {
      * @param heartbeat Heartbeat from daemon.
      * @throws ZepException If an exception occurs.
      */
-    public void createHeartbeat(DaemonHeartbeat heartbeat) throws ZepException;
+    void createHeartbeat(DaemonHeartbeat heartbeat) throws ZepException;
 
     /**
      * Returns all heartbeats in the ZEP database.
@@ -34,7 +34,7 @@ public interface HeartbeatDao {
      * @return List of all heartbeat records in the database.
      * @throws ZepException If an exception occurs.
      */
-    public List<DaemonHeartbeat> findAll() throws ZepException;
+    List<DaemonHeartbeat> findAll() throws ZepException;
 
     /**
      * Returns all heartbeats in the ZEP database for the specified monitor.
@@ -43,7 +43,7 @@ public interface HeartbeatDao {
      * @return List of all heartbeat records in the database for the specified monitor.
      * @throws ZepException If an exception occurs.
      */
-    public List<DaemonHeartbeat> findByMonitor(String monitor) throws ZepException;
+    List<DaemonHeartbeat> findByMonitor(String monitor) throws ZepException;
 
     /**
      * Deletes all heartbeats in the ZEP database.
@@ -51,7 +51,7 @@ public interface HeartbeatDao {
      * @return The number of affected rows.
      * @throws ZepException If an exception occurs.
      */
-    public int deleteAll() throws ZepException;
+    int deleteAll() throws ZepException;
 
     /**
      * Deletes all heartbeats in the ZEP database for the specified monitor.
@@ -60,7 +60,7 @@ public interface HeartbeatDao {
      * @return The number of affected rows.
      * @throws ZepException If an exception occurs.
      */
-    public int deleteByMonitor(String monitor) throws ZepException;
+    int deleteByMonitor(String monitor) throws ZepException;
 
     /**
      * Deletes the heartbeat record in the ZEP database for the specified monitor and daemon.
@@ -70,5 +70,5 @@ public interface HeartbeatDao {
      * @return The number of affected rows.
      * @throws ZepException If an exception occurs.
      */
-    public int deleteByMonitorAndDaemon(String monitor, String daemon) throws ZepException;
+    int deleteByMonitorAndDaemon(String monitor, String daemon) throws ZepException;
 }

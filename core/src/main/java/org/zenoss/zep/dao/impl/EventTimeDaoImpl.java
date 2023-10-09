@@ -13,7 +13,7 @@ package org.zenoss.zep.dao.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.zenoss.protobufs.zep.Zep;
 import org.zenoss.utils.dao.RangePartitioner;
 import org.zenoss.zep.ZepException;
@@ -22,6 +22,7 @@ import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventTimeDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.impl.JdbcTemplateProxy;
 
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
@@ -46,7 +47,7 @@ public class EventTimeDaoImpl implements EventTimeDao {
     @SuppressWarnings("unused")
     private static final Logger logger = LoggerFactory.getLogger(EventTimeDaoImpl.class);
 
-    private final SimpleJdbcOperations template;
+    private final NamedParameterJdbcOperations template;
     private final PartitionTableConfig partitionTableConfig;
     private final DatabaseCompatibility databaseCompatibility;
     private final RangePartitioner partitioner;
@@ -54,8 +55,8 @@ public class EventTimeDaoImpl implements EventTimeDao {
 
     public EventTimeDaoImpl(DataSource dataSource, PartitionConfig partitionConfig,
                             DatabaseCompatibility databaseCompatibility) {
-    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
+    	this.template = (NamedParameterJdbcOperations) Proxy.newProxyInstance(NamedParameterJdbcOperations.class.getClassLoader(),
+    			new Class<?>[] {NamedParameterJdbcOperations.class}, new JdbcTemplateProxy(dataSource));
         this.partitionTableConfig = partitionConfig.getConfig(TABLE_EVENT_TIME);
         this.databaseCompatibility = databaseCompatibility;
         this.partitioner = databaseCompatibility.getRangePartitioner(dataSource,
@@ -93,13 +94,13 @@ public class EventTimeDaoImpl implements EventTimeDao {
     @TransactionalReadOnly
     public List<Zep.EventTime> findProcessedSince(Date startDate, int limit) {
         long timestamp = startDate.getTime();
-        final Map<String, Object> params = Collections.singletonMap("since",
+        final Map<String, Object> fields = Collections.singletonMap("since",
                 databaseCompatibility.getTimestampConverter().toDatabaseType(timestamp));
 
         String sql = "SELECT * from %s where %s >= :since order by %s asc limit %s";
         sql = String.format(sql, TABLE_EVENT_TIME, COLUMN_PROCESSED, COLUMN_PROCESSED, limit);
 
-        return template.query(sql, new EventTimeRowMapper(), params);
+        return template.query(sql, fields, new EventTimeRowMapper());
     }
 
     @Override

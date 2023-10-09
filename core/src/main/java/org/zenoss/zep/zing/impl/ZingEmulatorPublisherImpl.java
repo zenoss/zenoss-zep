@@ -40,7 +40,7 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
 
     private Publisher publisher = null;
 
-    private AtomicBoolean everConnected;
+    private final AtomicBoolean everConnected;
 
     public ZingEmulatorPublisherImpl(MetricRegistry metrics, ZingConfig config) {
         super(metrics, config);

@@ -147,7 +147,7 @@ public class EventTriggerSubscriptionDaoImplIT extends
         assertEquals(subAfter, this.subscriptionDao.findByUuid(subBefore.getUuid()));
 
         // Now update with an empty list of subscriptions - verify that all are deleted
-        subscriptionDao.updateSubscriptions(subscriberUuid, Collections.<EventTriggerSubscription> emptyList());
+        subscriptionDao.updateSubscriptions(subscriberUuid, Collections.emptyList());
         assertEquals(0, this.subscriptionDao.findBySubscriberUuid(subscriberUuid).size());
     }
 }

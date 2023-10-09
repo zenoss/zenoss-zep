@@ -224,7 +224,7 @@ public class EventSignalSpoolDaoImplIT extends
     @Test
     public void testDeleteByEventSummaryUuids() throws ZepException {
         // Ensure deleting an empty collection doesn't trigger an error
-        assertEquals(0, dao.deleteByEventSummaryUuids(Collections.<String>emptyList()));
+        assertEquals(0, dao.deleteByEventSummaryUuids(Collections.emptyList()));
 
         EventTriggerSubscription subscription1 = createSubscription();
         EventSummary eventSummary1 = createSampleSummary();

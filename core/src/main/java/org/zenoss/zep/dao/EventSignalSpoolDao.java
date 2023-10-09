@@ -28,7 +28,7 @@ public interface EventSignalSpoolDao {
      * @throws ZepException
      *             If an error occurs creating signal spool.
      */
-    public String create(EventSignalSpool spool) throws ZepException;
+    String create(EventSignalSpool spool) throws ZepException;
 
     /**
      * Deletes the signal with the specified UUID.
@@ -39,7 +39,7 @@ public interface EventSignalSpoolDao {
      * @throws ZepException
      *             If an error occurs deleting the signal spool item.
      */
-    public int delete(String uuid) throws ZepException;
+    int delete(String uuid) throws ZepException;
 
     /**
      * Deletes the signals with the specified UUIDs.
@@ -48,7 +48,7 @@ public interface EventSignalSpoolDao {
      * @return The number of rows affected by the query.
      * @throws ZepException If an error occurs deleting the signal spool items.
      */
-    public int delete(List<String> uuids) throws ZepException;
+    int delete(List<String> uuids) throws ZepException;
 
     /**
      * Deletes the signal with the specified trigger and subscription UUIDs.
@@ -61,7 +61,7 @@ public interface EventSignalSpoolDao {
      * @throws ZepException
      *             If an error occurs deleting the signal spool item.
      */
-    public int delete(String triggerUuid, String eventSummaryUuid)
+    int delete(String triggerUuid, String eventSummaryUuid)
             throws ZepException;
 
     /**
@@ -71,7 +71,7 @@ public interface EventSignalSpoolDao {
      * @return The number of affected rows.
      * @throws ZepException If an error occurs deleting the signal spool items.
      */
-    public int deleteByEventSummaryUuid(String eventSummaryUuid) throws ZepException;
+    int deleteByEventSummaryUuid(String eventSummaryUuid) throws ZepException;
 
     /**
      * Deletes all spooled items with the specified event summary UUIDs.
@@ -80,7 +80,7 @@ public interface EventSignalSpoolDao {
      * @return The number of affected rows.
      * @throws ZepException If an error occurs deleting the signal spool items.
      */
-    public int deleteByEventSummaryUuids(Collection<String> eventSummaryUuids) throws ZepException;
+    int deleteByEventSummaryUuids(Collection<String> eventSummaryUuids) throws ZepException;
 
     /**
      * Deletes all spooled items with the specified trigger UUID.
@@ -91,7 +91,7 @@ public interface EventSignalSpoolDao {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int deleteByTriggerUuid(String triggerUuid) throws ZepException;
+    int deleteByTriggerUuid(String triggerUuid) throws ZepException;
 
     /**
      * Finds the signal with the specified UUID. Returns null if the signal is
@@ -103,7 +103,7 @@ public interface EventSignalSpoolDao {
      * @throws ZepException
      *             If an error occurs looking up the signal spool item.
      */
-    public EventSignalSpool findByUuid(String uuid) throws ZepException;
+    EventSignalSpool findByUuid(String uuid) throws ZepException;
 
     /**
      * Updates the EventSignalSpool entry in the database.
@@ -112,7 +112,7 @@ public interface EventSignalSpoolDao {
      * @return The number of affected rows.
      * @throws ZepException If an error occurs updating the signal spool.
      */
-    public int update(EventSignalSpool spool) throws ZepException;
+    int update(EventSignalSpool spool) throws ZepException;
 
     /**
      * Finds the signal spool created for a specific subscription/event summary pair.
@@ -125,7 +125,7 @@ public interface EventSignalSpoolDao {
      * @throws ZepException
      *             If an error occurs looking up the signal spool item.
      */
-    public EventSignalSpool findBySubscriptionAndEventSummaryUuids(
+    EventSignalSpool findBySubscriptionAndEventSummaryUuids(
             String subscriptionUuid, String eventSummaryUuid) throws ZepException;
 
     /**
@@ -135,7 +135,7 @@ public interface EventSignalSpoolDao {
      * @throws ZepException
      *             If an error occurs looking up the signal spool item.
      */
-    public List<EventSignalSpool> findAllDue() throws ZepException;
+    List<EventSignalSpool> findAllDue() throws ZepException;
 
     /**
      * Returns all spools for the given event summary UUID.
@@ -144,7 +144,7 @@ public interface EventSignalSpoolDao {
      * @return A list of all spools for the event summary UUID.
      * @throws ZepException If an error occurs.
      */
-    public List<EventSignalSpool> findAllByEventSummaryUuid(String eventSummaryUuid) throws ZepException;
+    List<EventSignalSpool> findAllByEventSummaryUuid(String eventSummaryUuid) throws ZepException;
 
     /**
      * Returns all spools for the given event summary UUIDs.
@@ -153,7 +153,7 @@ public interface EventSignalSpoolDao {
      * @return A list of all spools for the event summary UUIDs.
      * @throws ZepException If an error occurs.
      */
-    public List<EventSignalSpool> findAllByEventSummaryUuids(Collection<String> eventSummaryUuids) throws ZepException;
+    List<EventSignalSpool> findAllByEventSummaryUuids(Collection<String> eventSummaryUuids) throws ZepException;
 
     /**
      * Returns the next flush time in the spool.
@@ -161,5 +161,5 @@ public interface EventSignalSpoolDao {
      * @return The next flush time in the spool. If there are no spooled items, returns 0.
      * @throws ZepException If an error occurs.
      */
-    public long getNextFlushTime() throws ZepException;
+    long getNextFlushTime() throws ZepException;
 }

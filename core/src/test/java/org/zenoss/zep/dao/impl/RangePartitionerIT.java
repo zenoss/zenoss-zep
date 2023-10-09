@@ -40,17 +40,17 @@ public class RangePartitionerIT extends AbstractTransactionalJUnit4SpringContext
     @Before
     public void createSampleTable() {
         if (databaseCompatibility.getDatabaseType() == DatabaseType.MYSQL) {
-            this.simpleJdbcTemplate
+            this.jdbcTemplate
                     .update("CREATE TABLE `range_partition` (`col_ts` BIGINT NOT NULL, `message` VARCHAR(256) NOT NULL)");
         } else if (databaseCompatibility.getDatabaseType() == DatabaseType.POSTGRESQL) {
-            this.simpleJdbcTemplate
+            this.jdbcTemplate
                     .update("CREATE TABLE range_partition (col_ts timestamp without time zone, message VARCHAR(256) NOT NULL)");
         }
     }
 
     @After
     public void dropSampleTable() {
-        this.simpleJdbcTemplate.update("DROP TABLE range_partition");
+        this.jdbcTemplate.update("DROP TABLE range_partition");
     }
 
     @Test

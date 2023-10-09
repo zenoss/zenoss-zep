@@ -22,5 +22,5 @@ public interface EventPublisher {
      * @param event Event to publish.
      * @throws ZepException If an exception occurs.
      */
-    public void publishEvent(Event event) throws ZepException;
+    void publishEvent(Event event) throws ZepException;
 }

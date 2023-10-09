@@ -24,13 +24,13 @@ public interface PluginService {
      * 
      * @return A list of configured plug-ins of the specified type.
      */
-    public <T extends EventPlugin> List<T> getPluginsByType(Class<T> clazz);
+    <T extends EventPlugin> List<T> getPluginsByType(Class<T> clazz);
 
     /**
      * Shuts down the PluginService.
      */
-    public void shutdown();
+    void shutdown();
 
-    public void initializePlugins();
+    void initializePlugins();
 
 }

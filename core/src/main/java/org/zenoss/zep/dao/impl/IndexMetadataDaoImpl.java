@@ -10,8 +10,7 @@
 
 package org.zenoss.zep.dao.impl;
 
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepInstance;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
@@ -21,11 +20,10 @@ import org.zenoss.zep.dao.IndexMetadataDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.impl.JdbcTemplateProxy;
 
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +34,7 @@ import java.util.Map;
 public class IndexMetadataDaoImpl implements IndexMetadataDao {
 
     //private static final Logger logger = LoggerFactory.getLogger(IndexMetadataDaoImpl.class);
-    private final SimpleJdbcOperations template;
+    private final NamedParameterJdbcOperations template;
     private final String zepInstanceId;
 
     private static final String COLUMN_ZEP_INSTANCE = "zep_instance";
@@ -48,8 +46,8 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
     private NestedTransactionService nestedTransactionService;
 
     public IndexMetadataDaoImpl(DataSource ds, ZepInstance instance) {
-    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
+    	this.template = (NamedParameterJdbcOperations) Proxy.newProxyInstance(NamedParameterJdbcOperations.class.getClassLoader(),
+    			new Class<?>[] {NamedParameterJdbcOperations.class}, new JdbcTemplateProxy(ds));
         this.zepInstanceId = instance.getId();
     }
 
@@ -68,17 +66,14 @@ public class IndexMetadataDaoImpl implements IndexMetadataDao {
         Map<String,Object> fields = new HashMap<String,Object>();
         fields.put(COLUMN_ZEP_INSTANCE, uuidConverter.toDatabaseType(zepInstanceId));
         fields.put(COLUMN_INDEX_NAME, indexName);
-        final List<IndexMetadata> l = this.template.query(sql, new RowMapper<IndexMetadata>() {
-            @Override
-            public IndexMetadata mapRow(ResultSet rs, int rowNum) throws SQLException {
-                IndexMetadata md = new IndexMetadata();
-                md.setZepInstance(uuidConverter.fromDatabaseType(rs, COLUMN_ZEP_INSTANCE));
-                md.setIndexName(rs.getString(COLUMN_INDEX_NAME));
-                md.setIndexVersion(rs.getInt(COLUMN_INDEX_VERSION));
-                md.setIndexVersionHash(rs.getBytes(COLUMN_INDEX_VERSION_HASH));
-                return md;
-            }
-        }, fields);
+        final List<IndexMetadata> l = this.template.query(sql, fields, (rs, rowNum) -> {
+            IndexMetadata md = new IndexMetadata();
+            md.setZepInstance(uuidConverter.fromDatabaseType(rs, COLUMN_ZEP_INSTANCE));
+            md.setIndexName(rs.getString(COLUMN_INDEX_NAME));
+            md.setIndexVersion(rs.getInt(COLUMN_INDEX_VERSION));
+            md.setIndexVersionHash(rs.getBytes(COLUMN_INDEX_VERSION_HASH));
+            return md;
+        });
         return (l.isEmpty()) ? null : l.get(0);
     }
 

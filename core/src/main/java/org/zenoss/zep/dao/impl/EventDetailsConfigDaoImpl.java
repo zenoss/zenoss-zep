@@ -12,7 +12,7 @@ package org.zenoss.zep.dao.impl;
 
 
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem;
 import org.zenoss.protobufs.zep.Zep.EventDetailItem.EventDetailType;
 import org.zenoss.zep.ZepConstants;
@@ -21,6 +21,7 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.EventDetailsConfigDao;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
+import org.zenoss.zep.dao.impl.JdbcTemplateProxy;
 
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
@@ -33,14 +34,14 @@ import java.util.Map;
 
 public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
 
-    private final SimpleJdbcOperations template;
+    private final NamedParameterJdbcOperations template;
     private NestedTransactionService nestedTransactionService;
     private static final String COLUMN_DETAIL_ITEM_NAME = "detail_item_name";
     private static final String COLUMN_PROTO_JSON = "proto_json";
 
     public EventDetailsConfigDaoImpl(DataSource ds) {
-        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-                new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
+        this.template = (NamedParameterJdbcOperations) Proxy.newProxyInstance(NamedParameterJdbcOperations.class.getClassLoader(),
+                new Class<?>[] {NamedParameterJdbcOperations.class}, new JdbcTemplateProxy(ds));
     }
 
     public void setNestedTransactionService(NestedTransactionService nestedTransactionService) {
@@ -92,12 +93,8 @@ public class EventDetailsConfigDaoImpl implements EventDetailsConfigDao {
     public EventDetailItem findByName(String eventDetailName) throws ZepException {
         final Map<String,String> fields = Collections.singletonMap(COLUMN_DETAIL_ITEM_NAME, eventDetailName);
         final String sql = "SELECT proto_json FROM event_detail_index_config WHERE detail_item_name=:detail_item_name";
-        final List<EventDetailItem> items = this.template.query(sql, new RowMapper<EventDetailItem>() {
-            @Override
-            public EventDetailItem mapRow(ResultSet rs, int rowNum) throws SQLException {
-                return DaoUtils.protobufFromJson(rs.getString(COLUMN_PROTO_JSON), EventDetailItem.getDefaultInstance());
-            }
-        }, fields);
+        final List<EventDetailItem> items = this.template.query(sql, fields, (rs, rowNum) ->
+                DaoUtils.protobufFromJson(rs.getString(COLUMN_PROTO_JSON), EventDetailItem.getDefaultInstance()));
         return (items.isEmpty()) ? null : items.get(0);
     }
 

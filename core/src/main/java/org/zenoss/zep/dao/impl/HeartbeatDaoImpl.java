@@ -11,7 +11,7 @@
 package org.zenoss.zep.dao.impl;
 
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.zenoss.protobufs.zep.Zep.DaemonHeartbeat;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
@@ -20,6 +20,7 @@ import org.zenoss.zep.dao.HeartbeatDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.impl.JdbcTemplateProxy;
 
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
@@ -39,13 +40,13 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
     private static final String COLUMN_TIMEOUT_SECONDS = "timeout_seconds";
     private static final String COLUMN_LAST_TIME = "last_time";
 
-    private final SimpleJdbcOperations template;
+    private final NamedParameterJdbcOperations template;
     private DatabaseCompatibility databaseCompatibility;
     private NestedTransactionService nestedTransactionService;
 
     public HeartbeatDaoImpl(DataSource ds) {
-    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
+    	this.template = (NamedParameterJdbcOperations) Proxy.newProxyInstance(NamedParameterJdbcOperations.class.getClassLoader(),
+    			new Class<?>[] {NamedParameterJdbcOperations.class}, new JdbcTemplateProxy(ds));
     }
 
     public void setDatabaseCompatibility(DatabaseCompatibility databaseCompatibility) {
@@ -88,14 +89,14 @@ public class HeartbeatDaoImpl implements HeartbeatDao {
     public List<DaemonHeartbeat> findByMonitor(String monitor) throws ZepException {
         final Map<String,String> fields = Collections.singletonMap(COLUMN_MONITOR, monitor);
         final String sql = "SELECT * FROM daemon_heartbeat WHERE monitor=:monitor";
-        return this.template.query(sql, MAPPER, fields);
+        return this.template.query(sql, fields, MAPPER);
     }
 
     @Override
     @TransactionalRollbackAllExceptions
     public int deleteAll() throws ZepException {
         final String sql = "DELETE FROM daemon_heartbeat";
-        return this.template.update(sql);
+        return this.template.update(sql, Collections.emptyMap());
     }
 
     @Override

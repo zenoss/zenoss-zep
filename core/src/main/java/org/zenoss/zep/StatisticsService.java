@@ -14,6 +14,6 @@ import javax.management.DynamicMBean;
 public interface StatisticsService extends ZepMXBean, DynamicMBean {
 
 
-    public String getAttributeDescription(String attributeName);
+    String getAttributeDescription(String attributeName);
 
 }

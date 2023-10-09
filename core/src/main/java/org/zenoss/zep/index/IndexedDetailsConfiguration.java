@@ -28,5 +28,5 @@ public interface IndexedDetailsConfiguration {
      *         indexing).
      * @throws org.zenoss.zep.ZepException If an error occurs.
      */
-    public Map<String, EventDetailItem> getEventDetailItemsByName() throws ZepException;
+    Map<String, EventDetailItem> getEventDetailItemsByName() throws ZepException;
 }

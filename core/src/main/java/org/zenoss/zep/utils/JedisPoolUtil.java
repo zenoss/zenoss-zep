@@ -12,7 +12,7 @@ import java.io.IOException;
 
 public final class JedisPoolUtil {
 
-    private static Logger logger = LoggerFactory.getLogger(JedisPoolUtil.class);
+    private static final Logger logger = LoggerFactory.getLogger(JedisPoolUtil.class);
 
     private final JedisPool pool;
     private volatile Boolean supportsEval;

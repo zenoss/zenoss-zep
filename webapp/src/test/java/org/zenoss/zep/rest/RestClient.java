@@ -36,6 +36,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,10 +50,10 @@ public class RestClient implements Closeable {
     private static final Logger logger = LoggerFactory
             .getLogger(RestClient.class);
 
-    private HttpClient client = new DefaultHttpClient();
-    private Map<String, Message> supportedMessages = new HashMap<String, Message>();
-    private String host = System.getProperty("jetty.host", "localhost");
-    private String port = System.getProperty("jetty.port", "8084");
+    private final HttpClient client = new DefaultHttpClient();
+    private final Map<String, Message> supportedMessages = new HashMap<String, Message>();
+    private final String host = System.getProperty("jetty.host", "localhost");
+    private final String port = System.getProperty("jetty.port", "8084");
 
     public static class RestResponse {
         private final HttpResponse response;
@@ -169,7 +170,7 @@ public class RestClient implements Closeable {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             entity.writeTo(baos);
             throw new IOException(String.format("Status code: %d, Response: %s", responseCode,
-                    baos.toString("UTF-8")));
+                    baos.toString(StandardCharsets.UTF_8)));
         }
         entity.consumeContent();
         return msg;

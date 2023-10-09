@@ -259,11 +259,8 @@ public class EventFlappingPlugin extends EventPreCreatePlugin implements Applica
         EventSeverity previousSeverity = tracker.getPreviousSeverity();
 
         // if the previous severity was less than the severity threshold
-        if (previousSeverity.getNumber() < sevThreshold.getNumber() &&
-                sev.getNumber() >= sevThreshold.getNumber()) {
-            return true;
-        }
-        return false;
+        return previousSeverity.getNumber() < sevThreshold.getNumber() &&
+                sev.getNumber() >= sevThreshold.getNumber();
     }
 
     /**

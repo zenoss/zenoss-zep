@@ -21,7 +21,7 @@ public interface ZepInstance {
      * 
      * @return The unique identifier used for this instance of ZEP.
      */
-    public String getId();
+    String getId();
 
     /**
      * Returns the configuration properties loaded from the
@@ -29,5 +29,5 @@ public interface ZepInstance {
      * 
      * @return The configuration properties for this ZEP instance.
      */
-    public Map<String, String> getConfig();
+    Map<String, String> getConfig();
 }

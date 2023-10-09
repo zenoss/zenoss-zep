@@ -38,7 +38,7 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      * @throws ZepException
      *             If an exception occurred.
      */
-    public int reidentify(ModelElementType type, String id, String uuid, String title, String parentUuid)
+    int reidentify(ModelElementType type, String id, String uuid, String title, String parentUuid)
             throws ZepException;
 
     /**
@@ -49,9 +49,9 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      * @return The number of affected rows.
      * @throws ZepException If an exception occurred.
      */
-    public int deidentify(String uuid) throws ZepException;
+    int deidentify(String uuid) throws ZepException;
 
-    public long getAgeEligibleEventCount(long duration, TimeUnit unit, EventSeverity maxSeverity, boolean inclusiveSeverity);
+    long getAgeEligibleEventCount(long duration, TimeUnit unit, EventSeverity maxSeverity, boolean inclusiveSeverity);
 
     /**
      * Ages events from the summary database which are older than the specified
@@ -72,7 +72,7 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int ageEvents(long agingInterval, TimeUnit unit,
+    int ageEvents(long agingInterval, TimeUnit unit,
             EventSeverity maxSeverity, int limit, boolean inclusiveSeverity) throws ZepException;
 
     /**
@@ -89,7 +89,7 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int reopen(List<String> uuids, String userUuid, String userName) throws ZepException;
+    int reopen(List<String> uuids, String userUuid, String userName) throws ZepException;
 
     /**
      * Acknowledges the events with event status of
@@ -107,7 +107,7 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int acknowledge(List<String> uuids, String userUuid, String userName)
+    int acknowledge(List<String> uuids, String userUuid, String userName)
             throws ZepException;
 
     /**
@@ -119,7 +119,7 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int suppress(List<String> uuids) throws ZepException;
+    int suppress(List<String> uuids) throws ZepException;
 
     /**
      * Closes the events with the specified UUIDs.
@@ -134,7 +134,7 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int close(List<String> uuids, String userUuid, String userName) throws ZepException;
+    int close(List<String> uuids, String userUuid, String userName) throws ZepException;
 
     /**
      * Archives closed events with the specified UUIDs.
@@ -143,9 +143,9 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      * @return The number of archived events.
      * @throws ZepException If an error occurs.
      */
-    public int archive(List<String> uuids) throws ZepException;
+    int archive(List<String> uuids) throws ZepException;
 
-    public long getArchiveEligibleEventCount(long duration, TimeUnit unit);
+    long getArchiveEligibleEventCount(long duration, TimeUnit unit);
 
     /**
      * Moves all events with last seen time before the duration and a closed
@@ -163,7 +163,7 @@ public interface EventSummaryDao extends EventSummaryBaseDao {
      * @throws ZepException
      *             If an error occurs.
      */
-    public int archive(long duration, TimeUnit unit, int limit)
+    int archive(long duration, TimeUnit unit, int limit)
             throws ZepException;
 
     void setTxSynchronizedQueue(boolean b);

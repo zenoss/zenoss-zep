@@ -21,7 +21,7 @@ public interface DBMaintenanceService {
      *
      * @throws ZepException If the database cannot be optimized.
      */
-    public void optimizeTables() throws ZepException;
+    void optimizeTables() throws ZepException;
 
     /**
      * Validates that the event_summary table in a valid state. If it detects an bad state, it will drop the
@@ -29,5 +29,5 @@ public interface DBMaintenanceService {
      *
      * @throws ZepException
      */
-    public void validateEventSummaryState() throws ZepException;
+    void validateEventSummaryState() throws ZepException;
 }

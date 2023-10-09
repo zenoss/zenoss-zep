@@ -33,7 +33,7 @@ public class LuceneFilterCacheManager {
 
     private static final Logger logger = LoggerFactory.getLogger(LuceneFilterCacheManager.class);
 
-    public static enum FilterType {
+    public enum FilterType {
         PREFIX, TERMS, WILDCARD, NGRAM
     }
 

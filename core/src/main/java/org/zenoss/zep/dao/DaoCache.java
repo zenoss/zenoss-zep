@@ -23,9 +23,9 @@ public interface DaoCache {
      *            Event class.
      * @return Auto generated id.
      */
-    public int getEventClassId(String eventClass);
+    int getEventClassId(String eventClass);
 
-    public String getEventClassFromId(int id);
+    String getEventClassFromId(int id);
 
     /**
      * Returns the auto generated id corresponding to the event class key.
@@ -34,9 +34,9 @@ public interface DaoCache {
      *            Event class key.
      * @return Auto generated id.
      */
-    public int getEventClassKeyId(String eventClassKey);
+    int getEventClassKeyId(String eventClassKey);
 
-    public String getEventClassKeyFromId(int id);
+    String getEventClassKeyFromId(int id);
 
     /**
      * Returns the auto generated id corresponding to the monitor.
@@ -45,9 +45,9 @@ public interface DaoCache {
      *            Monitor.
      * @return Auto generated id.
      */
-    public int getMonitorId(String monitor);
+    int getMonitorId(String monitor);
 
-    public String getMonitorFromId(int id);
+    String getMonitorFromId(int id);
 
     /**
      * Returns the auto generated id corresponding to the agent.
@@ -56,9 +56,9 @@ public interface DaoCache {
      *            Agent.
      * @return Auto generated id.
      */
-    public int getAgentId(String agent);
+    int getAgentId(String agent);
 
-    public String getAgentFromId(int id);
+    String getAgentFromId(int id);
 
     /**
      * Returns the auto generated id corresponding to the event group.
@@ -67,11 +67,11 @@ public interface DaoCache {
      *            Event group.
      * @return Auto generated id.
      */
-    public int getEventGroupId(String eventGroup);
+    int getEventGroupId(String eventGroup);
 
-    public String getEventGroupFromId(int id);
+    String getEventGroupFromId(int id);
 
-    public int getEventKeyId(String eventKey);
+    int getEventKeyId(String eventKey);
 
-    public String getEventKeyFromId(int id);
+    String getEventKeyFromId(int id);
 }

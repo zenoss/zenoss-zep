@@ -13,7 +13,7 @@ package org.zenoss.zep.dao.impl;
 import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.zenoss.protobufs.zep.Zep.Event;
 import org.zenoss.protobufs.zep.Zep.EventDetailSet;
 import org.zenoss.protobufs.zep.Zep.EventNote;
@@ -42,9 +42,9 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 public class EventArchiveDaoImpl implements EventArchiveDao {
 
     @SuppressWarnings("unused")
-    private static Logger logger = LoggerFactory.getLogger(EventArchiveDaoImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventArchiveDaoImpl.class);
 
-    private final SimpleJdbcOperations template;
+    private final NamedParameterJdbcOperations template;
 
     private EventDaoHelper eventDaoHelper;
 
@@ -60,8 +60,8 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
 
     public EventArchiveDaoImpl(DataSource dataSource, PartitionConfig partitionConfig,
                                DatabaseCompatibility databaseCompatibility) {
-    	this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(), 
-    			new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
+    	this.template = (NamedParameterJdbcOperations) Proxy.newProxyInstance(NamedParameterJdbcOperations.class.getClassLoader(),
+    			new Class<?>[] {NamedParameterJdbcOperations.class}, new JdbcTemplateProxy(dataSource));
         this.partitionTableConfig = partitionConfig
                 .getConfig(TABLE_EVENT_ARCHIVE);
         this.databaseCompatibility = databaseCompatibility;
@@ -112,8 +112,8 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
     @Timed(absolute=true, name="EventArchive.findByUuid")
     public EventSummary findByUuid(String uuid) throws ZepException {
         final Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
-        List<EventSummary> summaries = this.template.query("SELECT * FROM event_archive WHERE uuid=:uuid",
-                new EventArchiveRowMapper(this.eventDaoHelper, databaseCompatibility), fields);
+        List<EventSummary> summaries = this.template.query("SELECT * FROM event_archive WHERE uuid=:uuid", fields,
+                new EventArchiveRowMapper(this.eventDaoHelper, databaseCompatibility));
         return (summaries.size() > 0) ? summaries.get(0) : null;
     }
 
@@ -127,28 +127,28 @@ public class EventArchiveDaoImpl implements EventArchiveDao {
         Map<String, List<Object>> fields = Collections.singletonMap("uuids",
                 TypeConverterUtils.batchToDatabaseType(uuidConverter, uuids));
         return this.template.query(
-                "SELECT * FROM event_archive WHERE uuid IN(:uuids)",
-                new EventArchiveRowMapper(this.eventDaoHelper, databaseCompatibility), fields);
+                "SELECT * FROM event_archive WHERE uuid IN(:uuids)", fields,
+                new EventArchiveRowMapper(this.eventDaoHelper, databaseCompatibility));
     }
 
     @Override
     @TransactionalReadOnly
     @Timed(absolute=true, name="EventArchive.findByKey")
     public List<EventSummary> findByKey(Collection<EventSummary> toLookup) throws ZepException {
-        ArrayList<Object> fields = new ArrayList<Object>(toLookup.size() * 2);
+        Map<String, Object> fields = new HashMap<>(toLookup.size() * 2);
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT * FROM event_archive WHERE (");
         int i = 0;
         for (EventSummary event : toLookup) {
             if (i++ > 0)
                 sql.append(" OR ");
-            sql.append("(uuid = ? AND last_seen = ?)");
-            fields.add(uuidConverter.toDatabaseType(event.getUuid()));
-            fields.add(event.getLastSeenTime());
+            sql.append(String.format("(uuid = :uuid_%d AND last_seen = :last_seen_%d)", i, i));
+            fields.put(String.format("uuid_%d", i), uuidConverter.toDatabaseType(event.getUuid()));
+            fields.put(String.format("last_seen_%d", i), event.getLastSeenTime());
         }
         sql.append(")");
-        return this.template.query(sql.toString(),
-                new EventArchiveRowMapper(this.eventDaoHelper, databaseCompatibility), fields.toArray());
+        return this.template.query(sql.toString(), fields,
+                new EventArchiveRowMapper(this.eventDaoHelper, databaseCompatibility));
     }
 
     @Override

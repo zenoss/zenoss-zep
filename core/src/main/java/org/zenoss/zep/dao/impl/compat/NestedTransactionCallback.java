@@ -23,5 +23,5 @@ public interface NestedTransactionCallback<T> {
      * @return Return type of operation.
      * @throws DataAccessException If an exception occurs.
      */
-    public T doInNestedTransaction(NestedTransactionContext context) throws DataAccessException;
+    T doInNestedTransaction(NestedTransactionContext context) throws DataAccessException;
 }

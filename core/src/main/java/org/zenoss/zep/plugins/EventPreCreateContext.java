@@ -24,7 +24,7 @@ public interface EventPreCreateContext {
      * 
      * @return The set of clear classes for the event.
      */
-    public Set<String> getClearClasses();
+    Set<String> getClearClasses();
 
     /**
      * Sets the clear classes for this event.
@@ -32,14 +32,14 @@ public interface EventPreCreateContext {
      * @param clearClasses Clear classes for the event.
      * @throws NullPointerException If the set of clear classes is null.
      */
-    public void setClearClasses(Set<String> clearClasses);
+    void setClearClasses(Set<String> clearClasses);
 
     /**
      * Returns the current clear fingerprint generator, or null if the default algorithm will be used.
      *
      * @return The clear fingerprint generator for the event, or null if the default algorithm will be used.
      */
-    public ClearFingerprintGenerator getClearFingerprintGenerator();
+    ClearFingerprintGenerator getClearFingerprintGenerator();
 
     /**
      * Sets the clear fingerprint generator for the event, or null if the default algorithm will be used.
@@ -47,6 +47,6 @@ public interface EventPreCreateContext {
      * @param clearFingerprintGenerator The clear fingerprint generator for the event, or null to use the
      * default algorithm.
      */
-    public void setClearFingerprintGenerator(ClearFingerprintGenerator clearFingerprintGenerator);
+    void setClearFingerprintGenerator(ClearFingerprintGenerator clearFingerprintGenerator);
 
 }

@@ -1,11 +1,12 @@
+.PHONY: build clean
 
-packages = java.base/java.util java.base/java.text java.desktop/java.awt.font
-add_opens = $(foreach pkg,$(packages),--add-opens $(pkg)=ALL-UNNAMED)
-
-.PHONY: package clean
-
-package:
-	@MAVEN_OPTS="$(add_opens)" mvn package
+build:
+	@docker run --rm \
+		-v ${PWD}:/mnt/build \
+		-v ${HOME}/.m2:/home/build/.m2 \
+		-w /mnt/build \
+		zenoss/maven:java17-2 \
+		-Dprotoc.path=/usr/bin/protoc clean install
 
 clean:
-	@mvn clean
+	@rm -rf core/target dist/target webapp/target

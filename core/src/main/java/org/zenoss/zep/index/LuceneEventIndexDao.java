@@ -10,6 +10,6 @@ public interface LuceneEventIndexDao extends EventIndexDao {
      * @param interval Interval (in seconds) to set the reader reopen interval to
      * @throws ZepException If the interval cannot be set
      */
-    public void setReaderReopenInterval(int interval) throws ZepException;
+    void setReaderReopenInterval(int interval) throws ZepException;
 
 }

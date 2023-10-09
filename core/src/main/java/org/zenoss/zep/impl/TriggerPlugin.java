@@ -85,7 +85,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
     private UUIDGenerator uuidGenerator;
 
     private AmqpConnectionManager connectionManager;
-    private ExchangeConfiguration destinationExchange;
+    private final ExchangeConfiguration destinationExchange;
 
     // The default value is specified in zep-config.xml.
     // Can be overridden by specifying plugin.TriggerPlugin.triggerRuleCacheSize
@@ -554,9 +554,9 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
     private static class BatchIndexState {
         private List<EventTrigger> triggers;
-        private Map<String, List<EventTriggerSubscription>> triggerSubscriptions =
+        private final Map<String, List<EventTriggerSubscription>> triggerSubscriptions =
                 new HashMap<String, List<EventTriggerSubscription>>();
-        private Map<String, EventSummary> eventsToDeleteFromSpool = new HashMap<String, EventSummary>();
+        private final Map<String, EventSummary> eventsToDeleteFromSpool = new HashMap<String, EventSummary>();
     }
 
     private final ThreadLocal<BatchIndexState> batchState = new ThreadLocal<BatchIndexState>();
@@ -712,7 +712,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
                 if (eventSatisfiesRule) {
                     logger.debug("subscriber: {}, delay: {}, repeat: {}, existing spool: {}",
-                            new Object[] { subscription.getSubscriberUuid(), delaySeconds, repeatSeconds, spoolExists });
+                            subscription.getSubscriberUuid(), delaySeconds, repeatSeconds, spoolExists);
                 }
 
                 boolean onlySendInitial = subscription.getSendInitialOccurrence();

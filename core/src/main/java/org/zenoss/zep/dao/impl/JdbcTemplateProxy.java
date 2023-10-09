@@ -1,7 +1,7 @@
 
 package org.zenoss.zep.dao.impl;
 
-import org.springframework.jdbc.core.simple.SimpleJdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 
 import org.zenoss.zep.ZepException;
 
@@ -10,19 +10,19 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.InvocationTargetException;
 
-public class SimpleJdbcTemplateProxy implements InvocationHandler 
+public class JdbcTemplateProxy implements InvocationHandler
 {
-	private final SimpleJdbcTemplate template;
+	private final NamedParameterJdbcTemplate template;
 	private static final int DEFAULT_MAX_RETRIES = 2;
 	private static final int DEFAULT_MILLISECONDS_BETWEEN_RETRIES = 200;
-	private static final String exceptionText = "Table \'zenoss_zep.event_summary\' doesn\'t exist";
+	private static final String exceptionText = "Table 'zenoss_zep.event_summary' doesn't exist";
 	
 	private int maxRetries;
 	private int millisecondsBetweenRetries;
 	
-	public SimpleJdbcTemplateProxy(DataSource ds)
+	public JdbcTemplateProxy(DataSource ds)
 	{
-		this.template = new SimpleJdbcTemplate(ds);
+		this.template = new NamedParameterJdbcTemplate(ds);
 		this.maxRetries = DEFAULT_MAX_RETRIES;
 		this.millisecondsBetweenRetries = DEFAULT_MILLISECONDS_BETWEEN_RETRIES;
 	}
@@ -42,7 +42,7 @@ public class SimpleJdbcTemplateProxy implements InvocationHandler
 	// of the percona tool.
 	private boolean shouldIRetry(Exception e)
 	{
-		return (e.getCause()!=null && e.getCause().toString().contains(SimpleJdbcTemplateProxy.exceptionText));
+		return (e.getCause()!=null && e.getCause().toString().contains(JdbcTemplateProxy.exceptionText));
 	}
 	
 	public Object invoke(Object proxy, Method method, Object[] args) throws Throwable

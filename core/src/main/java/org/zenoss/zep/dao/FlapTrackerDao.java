@@ -15,7 +15,7 @@ public interface FlapTrackerDao{
      * @param clearFingerprintHash
      * @return FlapTracker
      */
-    public FlapTracker getFlapTrackerByClearFingerprintHash(String clearFingerprintHash) throws ZepException;
+    FlapTracker getFlapTrackerByClearFingerprintHash(String clearFingerprintHash) throws ZepException;
 
     /**
      * After the flap tracker has been updated call this method to persist it. The next
@@ -25,5 +25,5 @@ public interface FlapTrackerDao{
      * @param tracker the flap tracker associated with the clearFingerprinthash
      * @param timeToKeep After this amount of time the entry is not guaranteed to be there.
      */
-    public void persistTracker(String clearFingerprintHash, FlapTracker tracker, long timeToKeep) throws ZepException;
+    void persistTracker(String clearFingerprintHash, FlapTracker tracker, long timeToKeep) throws ZepException;
 }

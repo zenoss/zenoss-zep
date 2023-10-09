@@ -28,6 +28,7 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -69,6 +70,7 @@ import org.zenoss.zep.index.EventIndexDao;
 import org.zenoss.zep.index.impl.lucene.LuceneEventIndexBackend;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 
+import javax.sql.DataSource;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -91,6 +93,8 @@ import static org.junit.Assert.assertTrue;
 
 @ContextConfiguration({"classpath:zep-config.xml"})
 public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
+
+    protected NamedParameterJdbcTemplate namedParameterJdbcTemplate;
     @Autowired
     public EventSummaryDao eventSummaryDao;
 
@@ -115,6 +119,11 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
     @Autowired
     public DatabaseCompatibility databaseCompatibility;
+
+    @Autowired
+    public void setDataSource(DataSource dataSource) {
+        this.namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
+    }
 
     @Before
     public void setUp() throws ZepException {
@@ -1192,7 +1201,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
             summariesToDelete.add(created.get(i).getOccurrence(0).getSummary());
         }
         Map<String, List<String>> args = Collections.singletonMap("_summaries", summariesToDelete);
-        this.simpleJdbcTemplate.update("DELETE FROM event_archive WHERE summary IN (:_summaries)", args);
+        this.namedParameterJdbcTemplate.update("DELETE FROM event_archive WHERE summary IN (:_summaries)", args);
 
         EventSort sort = EventSort.newBuilder().setField(Field.EVENT_SUMMARY).build();
         EventSummaryRequest req = EventSummaryRequest.newBuilder().addSort(sort).build();
@@ -1268,7 +1277,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
         TypeConverter<String> uuidConverter = databaseCompatibility.getUUIDConverter();
         EventSummary event = createArchiveClosed(Event.newBuilder(EventTestUtils.createSampleEvent()).build());
         this.eventArchiveIndexDao.index(event);
-        this.simpleJdbcTemplate.update("DELETE FROM event_archive WHERE uuid=:uuid",
+        this.namedParameterJdbcTemplate.update("DELETE FROM event_archive WHERE uuid=:uuid",
                 Collections.singletonMap("uuid", uuidConverter.toDatabaseType(event.getUuid())));
         assertNull(this.eventArchiveIndexDao.findByUuid(event.getUuid()));
     }
@@ -1386,7 +1395,7 @@ public class EventIndexDaoImplIT extends AbstractTransactionalJUnit4SpringContex
 
         // Create a mock of the current archive dao (override findByUuids to take longer)
         EventArchiveDao mockArchiveDao = new EventArchiveDao() {
-            private AtomicBoolean initialDelay = new AtomicBoolean();
+            private final AtomicBoolean initialDelay = new AtomicBoolean();
 
             @Override
             public String create(Event event, EventPreCreateContext context) throws ZepException {

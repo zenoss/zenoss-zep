@@ -33,7 +33,7 @@ public interface EventSummaryBaseDao {
      * @return The UUID of the created (or updated) event.
      * @throws org.zenoss.zep.ZepException If an error occurs.
      */
-    public String create(Event event, EventPreCreateContext context) throws ZepException;
+    String create(Event event, EventPreCreateContext context) throws ZepException;
     
     /**
      * Returns the event summary in the archive table with the specified UUID.
@@ -42,7 +42,7 @@ public interface EventSummaryBaseDao {
      * @return The event summary entry, or null if not found.
      * @throws ZepException If an error occurs.
      */
-    public EventSummary findByUuid(String uuid) throws ZepException;
+    EventSummary findByUuid(String uuid) throws ZepException;
 
     /**
      * Retrieves event summary entries with the specified UUIDs.
@@ -53,7 +53,7 @@ public interface EventSummaryBaseDao {
      *             If an error occurs.
      */
     @Deprecated
-    public List<EventSummary> findByUuids(List<String> uuids) throws ZepException;
+    List<EventSummary> findByUuids(List<String> uuids) throws ZepException;
 
     /**
      * Retrieves event summary entries with matching primary key (summary: UUID, or archive: UUID/last_seen)
@@ -62,7 +62,7 @@ public interface EventSummaryBaseDao {
      * @return The matching event summary entries.
      * @throws ZepException If an error occurs.
      */
-    public List<EventSummary> findByKey(Collection<EventSummary> toLookup) throws ZepException;
+    List<EventSummary> findByKey(Collection<EventSummary> toLookup) throws ZepException;
 
     /**
      * Add a note to the event.
@@ -72,7 +72,7 @@ public interface EventSummaryBaseDao {
      * @return The number of rows affected by the query.
      * @throws ZepException If an error occurs.
      */
-    public int addNote(String uuid, EventNote note) throws ZepException;
+    int addNote(String uuid, EventNote note) throws ZepException;
 
     /**
      * Updates the event with the specified UUID, to add/merge/update
@@ -85,7 +85,7 @@ public interface EventSummaryBaseDao {
      * @return The number of affected events.
      * @throws ZepException If an error occurs.
      */
-    public int updateDetails(String uuid, EventDetailSet details) throws ZepException;
+    int updateDetails(String uuid, EventDetailSet details) throws ZepException;
 
     /**
      * Used to page over all events in the database (for rebuilding database index).
@@ -98,7 +98,7 @@ public interface EventSummaryBaseDao {
      *         parameters for the next batch, if the list is empty, we're done.
      * @throws ZepException If an exception occurs.
      */
-    public EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException;
+    EventBatch listBatch(EventBatchParams batchParams, long maxUpdateTime, int limit) throws ZepException;
     /**
      * Method used to import a migrated event summary object from Zenoss 3.1.x to the new event
      * schema.
@@ -106,5 +106,5 @@ public interface EventSummaryBaseDao {
      * @param eventSummary Event summary to import.
      * @throws ZepException If an exception occurs importing the event.
      */
-    public void importEvent(EventSummary eventSummary) throws ZepException;
+    void importEvent(EventSummary eventSummary) throws ZepException;
 }

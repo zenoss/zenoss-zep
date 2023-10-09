@@ -16,6 +16,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.zenoss.zep.dao.DaoCache;
 
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Random;
 
 import static org.junit.Assert.*;
@@ -27,7 +29,7 @@ public class DaoCacheImplIT extends
     @Autowired
     public DaoCache daoCache;
 
-    private Random random = new Random();
+    private final Random random = new Random();
 
     @Test
     public void testAgentIdCache() {
@@ -35,9 +37,11 @@ public class DaoCacheImplIT extends
         String agent = "foo" + random.nextInt();
         int res = daoCache.getAgentId(agent);
         String sql = "SELECT id FROM " + tableName + " WHERE name=?";
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, agent), res);
+        int expected = jdbcTemplate.queryForObject(sql, Integer.class, agent);
+        assertEquals(expected, res);
         res = daoCache.getAgentId(agent);
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, agent), res);
+        expected = jdbcTemplate.queryForObject(sql, Integer.class, agent);
+        assertEquals(expected, res);
 
         assertEquals(agent, daoCache.getAgentFromId(res));
 
@@ -55,9 +59,11 @@ public class DaoCacheImplIT extends
         String eventClass = "foo" + random.nextInt();
         int res = daoCache.getEventClassId(eventClass);
         String sql = "SELECT id FROM " + tableName + " WHERE name=?";
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, eventClass), res);
+        int expected = jdbcTemplate.queryForObject(sql, Integer.class, eventClass);
+        assertEquals(expected, res);
         res = daoCache.getEventClassId(eventClass);
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, eventClass), res);
+        expected = jdbcTemplate.queryForObject(sql, Integer.class, eventClass);
+        assertEquals(expected, res);
 
         assertEquals(eventClass, daoCache.getEventClassFromId(res));
 
@@ -75,9 +81,11 @@ public class DaoCacheImplIT extends
         String eventClassKey = "foo" + random.nextInt();
         int res = daoCache.getEventClassKeyId(eventClassKey);
         String sql = "SELECT id FROM " + tableName + " WHERE name=?";
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, eventClassKey), res);
+        int expected = jdbcTemplate.queryForObject(sql, Integer.class, eventClassKey);
+        assertEquals(expected, res);
         res = daoCache.getEventClassKeyId(eventClassKey);
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, eventClassKey), res);
+        expected = jdbcTemplate.queryForObject(sql, Integer.class, eventClassKey);
+        assertEquals(expected, res);
 
         assertEquals(eventClassKey, daoCache.getEventClassKeyFromId(res));
 
@@ -95,9 +103,11 @@ public class DaoCacheImplIT extends
         String eventGroup = "foo" + random.nextInt();
         int res = daoCache.getEventGroupId(eventGroup);
         String sql = "SELECT id FROM " + tableName + " WHERE name=?";
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, eventGroup), res);
+        int expected = jdbcTemplate.queryForObject(sql, Integer.class, eventGroup);
+        assertEquals(expected, res);
         res = daoCache.getEventGroupId(eventGroup);
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, eventGroup), res);
+        expected = jdbcTemplate.queryForObject(sql, Integer.class, eventGroup);
+        assertEquals(expected, res);
 
         assertEquals(eventGroup, daoCache.getEventGroupFromId(res));
 
@@ -115,9 +125,11 @@ public class DaoCacheImplIT extends
         String monitor = "foo" + random.nextInt();
         int res = daoCache.getMonitorId(monitor);
         String sql = "SELECT id FROM " + tableName + " WHERE name=?";
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, monitor), res);
+        int expected = jdbcTemplate.queryForObject(sql, Integer.class, monitor);
+        assertEquals(expected, res);
         res = daoCache.getMonitorId(monitor);
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, monitor), res);
+        expected = jdbcTemplate.queryForObject(sql, Integer.class, monitor);
+        assertEquals(expected, res);
 
         assertEquals(monitor, daoCache.getMonitorFromId(res));
 
@@ -135,9 +147,11 @@ public class DaoCacheImplIT extends
         String eventKey = "foo" + random.nextInt();
         int res = daoCache.getEventKeyId(eventKey);
         String sql = "SELECT id FROM " + tableName + " WHERE name=?";
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, eventKey), res);
+        int expected = jdbcTemplate.queryForObject(sql, Integer.class, eventKey);
+        assertEquals(expected, res);
         res = daoCache.getEventKeyId(eventKey);
-        assertEquals(simpleJdbcTemplate.queryForInt(sql, eventKey), res);
+        expected = jdbcTemplate.queryForObject(sql, Integer.class, eventKey);
+        assertEquals(expected, res);
 
         assertEquals(eventKey, daoCache.getEventKeyFromId(res));
 

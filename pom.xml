@@ -21,6 +21,9 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+
         <!-- This database is used for integration tests (dropped/added each time). -->
         <zep.test.jdbc.dbname>zenoss_zep_test</zep.test.jdbc.dbname>
         <zep.test.index.dir>${project.build.directory}/index</zep.test.index.dir>
@@ -38,28 +41,28 @@
         -->
         <version.solrj>4.7.2</version.solrj>
 
-        <version.jackson>1.9.2</version.jackson>
-        <version.jetty>7.5.3.v20111011</version.jetty>
-        <version.logback>0.9.26</version.logback>
-        <version.metrics>4.1.2</version.metrics>
+        <version.jackson>2.15.2</version.jackson>
+        <version.jetty>9.4.52.v20230823</version.jetty>
+        <version.logback>1.4.1</version.logback>
+        <version.metrics>4.2.19</version.metrics>
         <version.mysql>5.1.15</version.mysql>
         <version.postgresql>9.0-801.jdbc4</version.postgresql>
-        <version.resteasy>2.0.1.GA</version.resteasy>
-        <version.slf4j>1.7.5</version.slf4j>
-        <version.spring>3.0.5.RELEASE</version.spring>
+        <version.resteasy>4.7.9.Final</version.resteasy>
+        <version.slf4j>2.0.1</version.slf4j>
+        <version.spring>5.3.23</version.spring>
         <version.tomcat-jdbc>7.0.27</version.tomcat-jdbc>
-        <guava.version>31.1-jre</guava.version>
+        <guava.version>32.1.2-jre</guava.version>
 
         <metric-consumer.version>0.1.14</metric-consumer.version>
 
         <!-- chosen based upon the version used in zing-proto -->
-        <protobuf.version>3.21.7</protobuf.version>
+        <protobuf.version>3.24.2</protobuf.version>
 
-        <gax-grpc.version>2.24.0</gax-grpc.version>
+        <gax-grpc.version>2.32.0</gax-grpc.version>
         <pubsub.version>1.115.2</pubsub.version>
         <pubsublite.version>1.12.3</pubsublite.version>
-        <zenoss-protocols.version>2.1.4</zenoss-protocols.version>
-        <zenoss-utils.version>2.1.0</zenoss-utils.version>
+        <zenoss-protocols.version>2.1.9-SNAPSHOT</zenoss-protocols.version>
+        <zenoss-utils.version>2.1.1-SNAPSHOT</zenoss-utils.version>
         <zing-proto.version>11.1.2</zing-proto.version>
     </properties>
 
@@ -118,7 +121,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.1</version>
+            <version>4.13.2</version>
             <type>jar</type>
             <scope>test</scope>
         </dependency>
@@ -137,7 +140,7 @@
                 <plugin>
                     <groupId>org.codehaus.mojo</groupId>
                     <artifactId>findbugs-maven-plugin</artifactId>
-                    <version>2.5.2</version>
+                    <version>3.0.5</version>
                     <configuration>
                         <xmlOutput>true</xmlOutput>
                     </configuration>
@@ -145,7 +148,7 @@
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-antrun-plugin</artifactId>
-                    <version>1.7</version>
+                    <version>3.1.0</version>
                 </plugin>
             </plugins>
         </pluginManagement>
@@ -153,10 +156,10 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
+                <version>3.11.0</version>
                 <configuration>
-                    <source>1.8</source>
-                    <target>1.8</target>
+                    <source>17</source>
+                    <target>17</target>
                 <compilerArgs>
                   <arg>-Xlint:all</arg>
                 </compilerArgs>
@@ -164,8 +167,16 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-war-plugin</artifactId>
+                <version>3.3.2</version>
+                <configuration>
+                    <failOnMissingWebXml>false</failOnMissingWebXml>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
-                <version>2.7</version>
+                <version>3.5.0</version>
                 <configuration>
                     <detectJavaApiLink>true</detectJavaApiLink>
                     <excludePackageNames>*.impl.*,*.rest.*</excludePackageNames>
@@ -174,17 +185,20 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>versions-maven-plugin</artifactId>
-                <version>2.8.1</version>
+                <version>2.16.0</version>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.22.2</version>
+                <version>3.1.2</version>
+                <configuration>
+                    <argLine>--add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
-                <version>3.2.1</version>
+                <version>3.3.0</version>
                 <executions>
                     <execution>
                         <id>attach-sources</id>

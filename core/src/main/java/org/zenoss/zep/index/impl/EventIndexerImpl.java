@@ -65,7 +65,7 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     private volatile long intervalMilliseconds;
 
     private MetricRegistry metrics;
-    private AtomicLong indexedDocs;
+    private final AtomicLong indexedDocs;
     private Timer pluginsTimer;
 
     public EventIndexerImpl(EventIndexDao indexDao) {
@@ -110,12 +110,11 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
             metricName = MetricRegistry.name("EventIndexer", "archiveIndexedDocs");
             pluginsTimerName = MetricRegistry.name("EventIndexer", "archivePlugins");
         }
-        this.metrics.register(metricName, new Gauge<Long>() {
-            @Override
-            public Long getValue() {
-                return indexedDocs.get();
-            }
-        });
+        try {
+            this.metrics.register(metricName, (Gauge<Long>) indexedDocs::get);
+        } catch (IllegalArgumentException ex) {
+            // skipping if metrics already exists
+        }
         // Set up timer for plugins
         pluginsTimer = metrics.timer(pluginsTimerName);
     }

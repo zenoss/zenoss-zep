@@ -21,5 +21,5 @@ public interface UUIDGenerator {
      *
      * @return Generated UUID.
      */
-    public UUID generate();
+    UUID generate();
 }
