@@ -47,6 +47,8 @@
             <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-start</artifactId>
             <version>${version.jetty}</version>
+            <classifier>shaded</classifier>
+            <type>jar</type>
             <scope>provided</scope>
         </dependency>
         <dependency>
