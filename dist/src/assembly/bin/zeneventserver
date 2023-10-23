@@ -93,9 +93,6 @@ JVM_ARGS="$JVM_ARGS -Djetty.logs=${JETTY_HOME}/log"
 JVM_ARGS="$JVM_ARGS -Dlogback.configurationFile=${JETTY_HOME}/etc/zeneventserver/logback.xml"
 ZENOSS_STARTUP_TIMEOUT=${ZENOSS_STARTUP_TIMEOUT:-"180"}
 
-JETTY_ARGS="--config=$JETTY_HOME/etc/zeneventserver/jetty/start.config"
-JETTY_ARGS="$JETTY_ARGS --ini=$JETTY_HOME/etc/zeneventserver/jetty/jetty.ini"
-
 VAR=${JETTY_HOME}/var
 mkdir -p ${VAR}/run
 

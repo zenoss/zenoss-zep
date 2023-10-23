@@ -11,6 +11,7 @@
 
 
 JETTYSTART_JAR=`ls -1 ${JETTY_HOME}/lib/jetty-start*.jar`
+JETTY_ARGS="--module=centralized-webapp-logging,http,ext"
 PS="ps"
 
 # Add --add-opens args to open modules to pre-module code.
@@ -98,7 +99,6 @@ start() {
         update_schema
         JVM_ARGS="$JVM_ARGS -DZENOSS_DAEMON=y"
         # Redirect stdout/stderr to separate log file
-        JETTY_ARGS="$JETTY_ARGS --pre=etc/zeneventserver/jetty/jetty-logging.xml"
         java ${JVM_ARGS} -XX:OnOutOfMemoryError="kill -9 %p" -jar ${JETTYSTART_JAR} ${JETTY_ARGS} \
         ${START_ARGS} > /dev/null 2>&1 &
         PID=$!
