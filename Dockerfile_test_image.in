@@ -1,0 +1,112 @@
+# syntax=docker/dockerfile:1
+FROM zenoss/maven:java17-2
+
+RUN <<EOT
+set -eux
+# Refresh the package catalog
+apt-get -q update
+
+# Install updates since the last base image update.
+DEBIAN_FRONTEND=noninteractive apt-get -q upgrade --yes
+
+# Install the packages (this is a 'manual' install)
+DEBIAN_FRONTEND=noninteractive apt-get -q install --yes --no-install-recommends python2 vim curl less redis \
+    rabbitmq-server netcat net-tools nmap lsof dnsutils wget lsb-release gnupg debconf-utils
+
+wget https://dev.mysql.com/get/mysql-apt-config_0.8.12-1_all.deb
+echo mysql-apt-config mysql-apt-config/repo-distro select ubuntu | debconf-set-selections
+echo mysql-apt-config mysql-apt-config/repo-codename select	bionic | debconf-set-selections
+echo mysql-apt-config mysql-apt-config/unsupported-platform	select ubuntu bionic | debconf-set-selections
+echo mysql-apt-config mysql-apt-config/repo-url	string http://repo.mysql.com/apt | debconf-set-selections
+echo mysql-apt-config mysql-apt-config/select-tools	select Enabled | debconf-set-selections
+echo mysql-apt-config mysql-apt-config/select-server select	mysql-5.7 | debconf-set-selections
+echo mysql-apt-config mysql-apt-config/tools-component string mysql-tools | debconf-set-selections
+DEBIAN_FRONTEND=noninteractive dpkg -i mysql-apt-config_0.8.12-1_all.deb
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 467B942D3A79BD29
+apt-get update
+apt-get install -y mysql-client=5.7.*
+
+update-alternatives --install /usr/bin/python python /usr/bin/python3 1
+update-alternatives --install /usr/bin/python python /usr/bin/python2 2
+mkdir -p /opt/zenoss
+EOT
+
+ADD dist/target/zep-dist-2.8.1-SNAPSHOT.tar.gz /opt/zenoss
+
+ENV TERM=xterm ZENHOME=/opt/zenoss PATH="/opt/zenoss/bin:${PATH}"
+
+RUN <<EOT
+set -eux
+cd /opt/zenoss/bin/
+sed -i 's/$(${zengc} -p zep-db)/zenoss_zep/' zeneventserver-functions.sh
+sed -i 's/$(${zengc} -p zep-db-type)/mysql/' zeneventserver-functions.sh
+sed -i 's/$(${zengc} -p zep-host)/mysql/' zeneventserver-functions.sh
+sed -i 's/$(${zengc} -p zep-port)/3306/' zeneventserver-functions.sh
+sed -i 's/$(${zengc} -p zep-user)/zenoss/' zeneventserver-functions.sh
+sed -i 's/$(${zengc} -p zep-password)/zenoss/' zeneventserver-functions.sh
+EOT
+
+RUN cat <<EOF > /opt/zenoss/etc/zeneventserver.conf
+zep.amqp.uri=amqp://zenoss:zenoss@rabbitmq:5672/zenoss
+zep.archive.max_requests=0
+zep.amqp.retry=60000
+zep.query.limit=1000
+zep.max_event_archive_interval_minutes=43200
+zep.jdbc.protocol=mysql
+zep.jdbc.hostname=mysql
+zep.jdbc.port=3306
+zep.jdbc.dbname=zenoss_zep
+zep.jdbc.username=zenoss
+zep.jdbc.password=zenoss
+zep.jdbc.pool.default_auto_commit=false
+zep.jdbc.pool.default_read_only=false
+zep.jdbc.pool.default_transaction_isolation=2
+zep.jdbc.pool.max_active=50
+zep.jdbc.pool.max_idle=25
+zep.jdbc.pool.min_idle=3
+zep.jdbc.pool.initial_size=3
+zep.jdbc.pool.max_wait=-1
+zep.jdbc.pool.test_on_borrow=true
+zep.jdbc.pool.test_on_return=false
+zep.jdbc.pool.test_while_idle=false
+zep.jdbc.pool.time_between_eviction_runs_millis=5000
+zep.jdbc.pool.min_evictable_idle_time_millis=60000
+zep.jdbc.pool.jdbc_interceptors=ConnectionState
+zep.jdbc.pool.validation_interval=30000
+zep.jdbc.pool.jmx_enabled=true
+zep.jdbc.pool.fair_queue=true
+zep.jdbc.pool.abandon_when_percentage_full=0
+zep.jdbc.pool.max_age=0
+zep.jdbc.pool.use_equals=true
+zep.jdbc.pool.remove_abandoned=false
+zep.jdbc.pool.remove_abandoned_timeout=60
+zep.jdbc.pool.log_abandoned=false
+zep.jdbc.pool.suspect_timeout=0
+zep.jdbc.deadlock_retries=5
+zep.executor.queue_capacity=2147483647
+zep.queue.$ZepHeartbeats.prefetch_count=100
+zep.queue.$ZepMigratedEventSummary.prefetch_count=100
+zep.queue.$ZepMigratedEventArchive.prefetch_count=100
+zep.queue.$ZepModelChange.prefetch_count=1
+zep.queue.$ZepZenEvents.prefetch_count=100
+zep.index.dir=var/zeneventserver/index
+zep.index.ram_buffer_size_mb=16.0
+zep.heartbeat.interval_seconds=60
+zep.database.optimize_minutes=720
+zep.database.optimize_use_external_tool=true
+zep.database.optimize_external_tool_path=/var/zenoss/percona/bin
+zep.database.optimize_external_tool_options=
+zep.database.optimize_elapsed_warn_threshold_seconds=120
+zep.plugins.external.disabled=false
+partition.event_archive.unit=DAYS
+partition.event_archive.duration=1
+partition.event_archive.initial_past_partitions=90
+partition.event_archive.future_partitions=3
+partition.event_time.unit=HOURS
+partition.event_time.duration=1
+partition.event_time.initial_past_partitions=0
+partition.event_time.future_partitions=2
+zep.redis.host=redis
+zep.redis.port=6379
+zep.zing.enabled=false
+EOF

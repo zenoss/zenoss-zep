@@ -8,5 +8,8 @@ build:
 		zenoss/maven:java17-2 \
 		-Dprotoc.path=/usr/bin/protoc clean install
 
+build-test-img:
+	@docker build -t zenoss/zep-test-image -f Dockerfile_test_image.in .
+
 clean:
 	@rm -rf core/target dist/target webapp/target

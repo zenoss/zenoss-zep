@@ -140,13 +140,10 @@
                 <artifactId>jetty-maven-plugin</artifactId>
                 <version>${version.jetty}</version>
                 <configuration>
-                    <connectors>
-                        <connector implementation="org.eclipse.jetty.server.nio.SelectChannelConnector">
-                            <port>${jetty.port}</port>
-                            <maxIdleTime>60000</maxIdleTime>
-                            <requestHeaderSize>65536</requestHeaderSize>
-                        </connector>
-                    </connectors>
+                    <httpConnector>
+                        <port>${jetty.port}</port>
+                        <idleTimeout>60000</idleTimeout>
+                    </httpConnector>
                     <webAppConfig>
                         <contextPath>/zeneventserver</contextPath>
                         <throwUnavailableOnStartupException>true</throwUnavailableOnStartupException>
@@ -164,7 +161,6 @@
                             <goal>run</goal>
                         </goals>
                         <configuration>
-                            <daemon>true</daemon>
                             <scanIntervalSeconds>0</scanIntervalSeconds>
                             <systemProperties>
                                 <systemProperty>
