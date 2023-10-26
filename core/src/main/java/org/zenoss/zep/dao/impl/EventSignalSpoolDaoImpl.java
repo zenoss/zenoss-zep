@@ -260,6 +260,12 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     @TransactionalReadOnly
     public long getNextFlushTime() throws ZepException {
         final String sql = "SELECT MIN(flush_time) FROM event_trigger_signal_spool";
-        return this.template.getJdbcOperations().queryForObject(sql, Long.class);
+        long flushTime;
+        try {
+            flushTime = this.template.getJdbcOperations().queryForObject(sql, Long.class);
+        } catch (NullPointerException ex) {
+            flushTime = 0L;
+        }
+        return flushTime;
     }
 }

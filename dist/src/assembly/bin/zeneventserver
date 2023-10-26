@@ -14,7 +14,7 @@ ZEPDIR=${ZENHOME}/webapps/zeneventserver
 ZEP_WEB_XML=${ZEPDIR}/WEB-INF/web.xml
 
 dev_run() {
-	local options="-DskipTests=true -Djetty.port=8084 -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index"
+	local options="-DskipTests=true -Dzep.index.dir=/opt/zenoss/var/zeneventserver/index"
 	local opts="--add-opens java.base/java.lang=ALL-UNNAMED --add-opens java.base/java.nio=ALL-UNNAMED --add-opens java.base/java.io=ALL-UNNAMED"
 	MAVEN_OPTS="${opts}" mvn ${options} clean jetty:run
 }

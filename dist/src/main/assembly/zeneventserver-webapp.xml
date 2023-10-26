@@ -35,7 +35,7 @@
                 <include>ch.qos.logback:logback-core</include>
                 <include>ch.qos.logback:logback-classic</include>
                 <include>org.codehaus.janino:janino</include>
-                <include>javax.servlet:servlet-api</include>
+                <include>javax.servlet:javax.servlet-api</include>
             </includes>
         </dependencySet>
         <dependencySet>
