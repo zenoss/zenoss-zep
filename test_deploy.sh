@@ -46,6 +46,7 @@ echo "Creating zep-test container"
 docker run --rm -it \
     --name zep-test \
     --network zep-network \
+    -p 8084:8084 \
       -w /opt/zenoss \
       --entrypoint /bin/bash \
       zenoss/zep-test-image
