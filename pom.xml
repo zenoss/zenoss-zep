@@ -49,7 +49,7 @@
         <version.postgresql>9.0-801.jdbc4</version.postgresql>
         <version.resteasy>4.7.9.Final</version.resteasy>
         <version.slf4j>2.0.1</version.slf4j>
-        <version.spring>5.3.30</version.spring>
+        <version.spring>5.3.23</version.spring>
         <version.tomcat-jdbc>7.0.27</version.tomcat-jdbc>
         <guava.version>32.1.2-jre</guava.version>
 
