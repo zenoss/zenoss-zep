@@ -85,3 +85,10 @@ $ mvn clean verify -Ddbtype=mysql
 You can override any of the default settings for connecting to the database by
 specifying the property above either in a Maven profile in
 $HOME/.m2/settings.xml or on the command line with the -D option to mvn.
+
+For local testing zenventserver in production mode execute these steps:
+
+* `make build-test-img`
+* `./test_deploy.sh`
+* `zeneventserver-create-db --dbtype mysql --dbhost mysql --dbadminuser root --dbadminpass root`
+* `zeneventserver start or zeneventserver run`

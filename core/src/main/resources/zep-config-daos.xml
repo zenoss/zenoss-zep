@@ -410,8 +410,8 @@
 
     <bean id="jedisPool" class="redis.clients.jedis.JedisPool">
         <constructor-arg index="0" ref="jedisPoolConfig"/>
-        <constructor-arg index="1" value="${zep.redis.host:127.0.0.1}"/>
-        <constructor-arg index="2" value="${zep.redis.port:6379}"/>
+        <constructor-arg index="1" type="java.lang.String" value="${zep.redis.host:127.0.0.1}"/>
+        <constructor-arg index="2" type="int" value="${zep.redis.port:6379}"/>
     </bean>
 
     <bean id="jedisPoolUtil" class="org.zenoss.zep.utils.JedisPoolUtil">
