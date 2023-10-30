@@ -301,6 +301,8 @@ if __name__ == '__main__':
         if not (options.dbtype == 'mysql' and options.update_schema_only):
             if options.force:
                 print 'Dropping database: %s' % options.dbname
+                print '--dbhost: %s; --dbport: %s; --dbadminuser: %s;  --dbadminpass: %s' % (
+                    options.dbhost, options.dbport, options.dbadminuser, options.dbadminpass)
                 migrator.dropDatabase()
             print 'Creating database: %s' % options.dbname
             migrator.createDatabase()

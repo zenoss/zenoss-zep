@@ -389,7 +389,6 @@
                         ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-http.xml,
                         ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-jul-to-slf4j.xml,
                         ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-mdc-handler.xml,
-                        ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-threadpool.xml,
                         ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-webapp.xml,
                         ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-webapp-logging.xml
                     </jettyXml>
@@ -423,6 +422,11 @@
                         <artifactId>jetty-start</artifactId>
                         <version>${version.jetty}</version>
                         <classifier>shaded</classifier>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-continuation</artifactId>
+                        <version>${version.jetty}</version>
                     </dependency>
                     <dependency>
                         <groupId>org.eclipse.jetty</groupId>
@@ -476,7 +480,7 @@
                     </dependency>
                     <dependency>
                         <groupId>io.dropwizard.metrics</groupId>
-                        <artifactId>metrics-jetty8</artifactId>
+                        <artifactId>metrics-jetty9</artifactId>
                         <version>3.2.6</version>
                     </dependency>
                 </dependencies>

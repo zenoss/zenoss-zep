@@ -24,39 +24,19 @@
 <!-- configuration that may be set here.                             -->
 <!-- =============================================================== -->
 <Configure id="Server" class="org.eclipse.jetty.server.Server">
+
     <Arg name="threadpool">
-        <Ref refid="threadPool"/>
+        <New id="threadPool" class="com.codahale.metrics.jetty9.InstrumentedQueuedThreadPool">
+            <Arg>
+                <Call class="com.codahale.metrics.SharedMetricRegistries" name="getOrCreate" id="metrics">
+                    <!-- Uses this name in spring context -->
+                    <Arg>zep</Arg>
+                </Call>
+            </Arg>
+            <Set name="minThreads">10</Set>
+            <Set name="maxThreads">200</Set>
+        </New>
     </Arg>
-
-    <Call name="addBean">
-        <Arg>
-            <Ref refid="byteBufferPool"/>
-        </Arg>
-    </Call>
-
-    <!-- =========================================================== -->
-    <!-- Add shared Scheduler instance                               -->
-    <!-- =========================================================== -->
-    <Call name="addBean">
-        <Arg>
-            <New class="org.eclipse.jetty.util.thread.ScheduledExecutorScheduler">
-                <Arg name="name">
-                    <Property name="jetty.scheduler.name"/>
-                </Arg>
-                <Arg name="daemon" type="boolean">
-                    <Property name="jetty.scheduler.daemon" default="false"/>
-                </Arg>
-                <Arg name="threads" type="int">
-                    <Property name="jetty.scheduler.threads" default="-1"/>
-                </Arg>
-            </New>
-        </Arg>
-    </Call>
-
-    <Call class="com.codahale.metrics.SharedMetricRegistries" name="getOrCreate" id="metrics">
-        <!-- Uses this name in spring context -->
-        <Arg>zep</Arg>
-    </Call>
 
     <!-- =========================================================== -->
     <!-- Http Configuration.                                         -->
@@ -112,7 +92,12 @@
                         <New id="Contexts" class="org.eclipse.jetty.server.handler.ContextHandlerCollection"/>
                     </Item>
                     <Item>
-                        <New id="DefaultHandler" class="org.eclipse.jetty.server.handler.DefaultHandler"/>
+                        <New id="instrumentedHandler" class="com.codahale.metrics.jetty9.InstrumentedHandler">
+                            <Arg><Ref refid="metrics"/></Arg>
+                            <Set name="Handler">
+                                <New id="DefaultHandler" class="org.eclipse.jetty.server.handler.DefaultHandler"/>
+                            </Set>
+                        </New>
                     </Item>
                 </Array>
             </Set>
