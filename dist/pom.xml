@@ -53,6 +53,13 @@
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-continuation</artifactId>
+            <version>${version.jetty}</version>
+            <type>jar</type>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-webapp-logging</artifactId>
             <version>9.4.27</version>
             <type>jar</type>
@@ -120,7 +127,7 @@
         </dependency>
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
-            <artifactId>metrics-jetty8</artifactId>
+            <artifactId>metrics-jetty9</artifactId>
             <version>${version.metrics}</version>
             <scope>provided</scope>
         </dependency>

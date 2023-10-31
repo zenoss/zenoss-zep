@@ -9,7 +9,6 @@ resources
 logging
 
 [depend]
-threadpool
 bytebufferpool
 
 [lib]
