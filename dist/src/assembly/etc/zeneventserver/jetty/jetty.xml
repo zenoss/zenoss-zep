@@ -27,14 +27,14 @@
 
     <Arg name="threadpool">
         <New id="threadPool" class="io.dropwizard.metrics.jetty12.InstrumentedQueuedThreadPool">
-            <Arg>
+            <Arg name="registry">
                 <Call class="com.codahale.metrics.SharedMetricRegistries" name="getOrCreate" id="metrics">
                     <!-- Uses this name in spring context -->
                     <Arg>zep</Arg>
                 </Call>
             </Arg>
-            <Set name="minThreads">10</Set>
-            <Set name="maxThreads">200</Set>
+            <Arg name="minThreads">10</Arg>
+            <Arg name="maxThreads">200</Arg>
         </New>
     </Arg>
 
@@ -90,7 +90,7 @@
                         <New id="Contexts" class="org.eclipse.jetty.server.handler.ContextHandlerCollection"/>
                     </Item>
                     <Item>
-                        <New id="instrumentedHandler" class="io.dropwizard.metrics.jetty12.InstrumentedHandler">
+                        <New id="instrumentedHandler" class="org.zenoss.zep.ZepInstrumentedHandler">
                             <Arg><Ref refid="metrics"/></Arg>
                             <Set name="Handler">
                                 <New id="DefaultHandler" class="org.eclipse.jetty.server.handler.DefaultHandler"/>

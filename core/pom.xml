@@ -332,11 +332,6 @@
         <!-- coda hale stuff -->
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
-            <artifactId>metrics-jakarta-servlets</artifactId>
-            <version>${version.metrics}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-jersey2</artifactId>
             <version>${version.metrics}</version>
             <exclusions>
@@ -349,6 +344,11 @@
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-jakarta-servlets</artifactId>
+            <version>${version.metrics}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.dropwizard.metrics</groupId>
+            <artifactId>metrics-jetty12</artifactId>
             <version>${version.metrics}</version>
         </dependency>
         <!-- end of coda hale stuff -->
