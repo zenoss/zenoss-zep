@@ -151,10 +151,13 @@
     </bean>
 
     <!-- Indexing DAO -->
-    <bean id="luceneSummaryDir" class="org.apache.lucene.store.MMapDirectory"
-            factory-method="open" destroy-method="close">
-        <qualifier value="summary" />
+    <bean id="zepIndexDirSummary" class="java.io.File">
         <constructor-arg value="${zep.index.dir}/summary" />
+    </bean>
+
+    <bean id="luceneSummaryDir" class="org.apache.lucene.store.MMapDirectory">
+        <qualifier value="summary" />
+        <constructor-arg type="java.io.File" ref="zepIndexDirSummary" />
     </bean>
 
     <bean id="luceneAnalyzer" class="org.zenoss.zep.index.impl.lucene.LuceneEventIndexMapper"
@@ -191,10 +194,13 @@
         <property name="luceneSearchTimeout" value="${zep.query.lucene_search_timeout:0}" />
     </bean>
 
-    <bean id="luceneArchiveDir" class="org.apache.lucene.store.MMapDirectory"
-            factory-method="open" destroy-method="close">
-        <qualifier value="archive" />
+    <bean id="zepIndexDirArchive" class="java.io.File">
         <constructor-arg value="${zep.index.dir}/archive" />
+    </bean>
+
+    <bean id="luceneArchiveDir" class="org.apache.lucene.store.MMapDirectory">
+        <qualifier value="archive" />
+        <constructor-arg type="java.io.File" ref="zepIndexDirArchive" />
     </bean>
 
     <bean id="luceneArchiveIndexWriter" class="org.apache.lucene.index.IndexWriter" destroy-method="close">

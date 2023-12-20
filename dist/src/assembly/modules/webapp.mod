@@ -11,6 +11,7 @@ etc/zeneventserver/jetty/jetty-webapp.xml
 
 [lib]
 lib/jetty-webapp-${jetty.version}.jar
+lib/jetty-session-${jetty.version}.jar
 
 
 [ini-template]

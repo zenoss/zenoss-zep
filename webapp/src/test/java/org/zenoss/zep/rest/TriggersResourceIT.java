@@ -10,6 +10,7 @@
 
 package org.zenoss.zep.rest;
 
+import org.apache.http.util.EntityUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -58,18 +59,20 @@ public class TriggersResourceIT {
 
         final EventTrigger trigger = triggerBuilder.build();
 
-        assertEquals(
-                HttpURLConnection.HTTP_CREATED,
-                client.putProtobuf(TRIGGERS_URI + "/" + trigger.getUuid(),
-                        trigger).getResponseCode());
+        RestClient.RestResponse response = client.putProtobuf(TRIGGERS_URI + "/" + trigger.getUuid(), trigger);
+        assertEquals(HttpURLConnection.HTTP_CREATED, response.getResponseCode());
+        EntityUtils.consumeQuietly(response.getResponse().getEntity());
 
         return trigger;
     }
 
     @Test
     public void testRest() throws IOException {
-        client.getProtobuf(TRIGGERS_URI);
-        client.getJson(TRIGGERS_URI);
+        RestClient.RestResponse restResponse = client.getProtobuf(TRIGGERS_URI);
+        EntityUtils.consumeQuietly(restResponse.getResponse().getEntity());
+
+        restResponse = client.getJson(TRIGGERS_URI);
+        EntityUtils.consumeQuietly(restResponse.getResponse().getEntity());
 
         EventTrigger trigger = createTrigger();
         String triggerUri = TRIGGERS_URI + "/" + trigger.getUuid();

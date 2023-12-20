@@ -12,7 +12,7 @@ package org.zenoss.zep;
 
 import org.jboss.resteasy.plugins.spring.SpringContextLoaderListener;
 
-import javax.servlet.ServletContextEvent;
+import jakarta.servlet.ServletContextEvent;
 import java.lang.Runtime;
 
 import org.slf4j.Logger;

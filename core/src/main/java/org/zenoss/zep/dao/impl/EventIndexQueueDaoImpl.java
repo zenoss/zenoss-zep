@@ -23,7 +23,7 @@ import org.zenoss.zep.dao.EventIndexQueueDao;
 import org.zenoss.zep.dao.IndexQueueID;
 import org.zenoss.zep.events.EventIndexQueueSizeEvent;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.util.List;
 import java.util.Set;
 

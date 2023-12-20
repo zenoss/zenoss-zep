@@ -30,7 +30,7 @@ import org.zenoss.zep.plugins.EventPostCreatePlugin;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 import org.zenoss.zep.plugins.EventPreCreatePlugin;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 
 
 /**

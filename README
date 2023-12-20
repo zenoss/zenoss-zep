@@ -74,13 +74,9 @@ To specify a system property from the Maven command-line, run:
 
 $ mvn -D<propname>=<propval> [...]
 
-To run the integration tests against PostgreSQL, run:
-
-$ mvn clean verify -Ddbtype=postgresql
-
 To run the integration tests against MySQL, run:
 
-$ mvn clean verify -Ddbtype=mysql
+`./mysql_integration_tests.sh`
 
 You can override any of the default settings for connecting to the database by
 specifying the property above either in a Maven profile in

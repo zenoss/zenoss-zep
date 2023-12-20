@@ -34,12 +34,20 @@
 
   <Call name="addBean">
     <Arg>
+      <New id="connectionLimit" class="org.eclipse.jetty.server.ConnectionLimit">
+        <Arg name="maxConnections" type="int">10000</Arg>
+        <Arg name="server"><Ref refid='Server'/></Arg>
+      </New>
+    </Arg>
+  </Call>
+
+  <Call name="addBean">
+    <Arg>
       <New id="lowResourceMonitor" class="org.eclipse.jetty.server.LowResourceMonitor">
         <Arg name="server"><Ref refid='Server'/></Arg>
         <Set name="period"><Property name="jetty.lowresources.period" deprecated="lowresources.period" default="1000"/></Set>
         <Set name="lowResourcesIdleTimeout"><Property name="jetty.lowresources.idleTimeout" deprecated="lowresources.lowResourcesIdleTimeout" default="1000"/>45000</Set>
         <Set name="monitorThreads"><Property name="jetty.lowresources.monitorThreads" deprecated="lowresources.monitorThreads" default="true"/></Set>
-        <Set name="maxConnections"><Property name="jetty.lowresources.maxConnections" deprecated="lowresources.maxConnections" default="0"/>10000</Set>
         <Set name="maxMemory"><Property name="jetty.lowresources.maxMemory" deprecated="lowresources.maxMemory" default="0"/></Set>
         <Set name="maxLowResourcesTime"><Property name="jetty.lowresources.maxLowResourcesTime" deprecated="lowresources.maxLowResourcesTime" default="5000"/></Set>
         <Set name="acceptingInLowResources"><Property name="jetty.lowresources.accepting" default="true"/></Set>
@@ -58,7 +66,6 @@
             <Item>
               <New class="org.eclipse.jetty.server.HttpConnectionFactory">
                 <Arg name="config"><Ref refid="httpConfig" /></Arg>
-                <Arg name="compliance"><Call class="org.eclipse.jetty.http.HttpCompliance" name="valueOf"><Arg><Property name="jetty.http.compliance" default="RFC7230_LEGACY"/></Arg></Call></Arg>
               </New>
             </Item>
           </Array>
