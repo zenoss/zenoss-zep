@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM zenoss/maven:java17-2
+FROM zenoss/maven:java21-1
 
 RUN <<EOT
 set -eux
@@ -11,7 +11,7 @@ DEBIAN_FRONTEND=noninteractive apt-get -q upgrade --yes
 
 # Install the packages (this is a 'manual' install)
 DEBIAN_FRONTEND=noninteractive apt-get -q install --yes --no-install-recommends python2 vim curl less redis \
-    rabbitmq-server netcat net-tools nmap lsof dnsutils wget lsb-release gnupg debconf-utils openjdk-21-jdk
+    rabbitmq-server netcat net-tools nmap lsof dnsutils wget lsb-release gnupg debconf-utils
 
 wget https://dev.mysql.com/get/mysql-apt-config_0.8.12-1_all.deb
 echo mysql-apt-config mysql-apt-config/repo-distro select ubuntu | debconf-set-selections
