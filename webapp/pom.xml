@@ -28,12 +28,6 @@
             <groupId>org.zenoss.zep</groupId>
             <artifactId>zep-core</artifactId>
             <version>${project.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.dropwizard.metrics</groupId>
-                    <artifactId>metrics-core</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.zenoss.zep</groupId>
@@ -136,8 +130,8 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.eclipse.jetty</groupId>
-                <artifactId>jetty-maven-plugin</artifactId>
+                <groupId>org.eclipse.jetty.ee10</groupId>
+                <artifactId>jetty-ee10-maven-plugin</artifactId>
                 <version>${version.jetty}</version>
                 <configuration>
                     <jettyXml>
@@ -181,13 +175,13 @@
                     </dependency>
                     <dependency>
                         <groupId>org.eclipse.jetty</groupId>
-                        <artifactId>jetty-continuation</artifactId>
+                        <artifactId>jetty-util-ajax</artifactId>
                         <version>${version.jetty}</version>
                     </dependency>
                     <dependency>
-                        <groupId>org.eclipse.jetty</groupId>
-                        <artifactId>jetty-webapp-logging</artifactId>
-                        <version>9.4.27</version>
+                        <groupId>jakarta.servlet</groupId>
+                        <artifactId>jakarta.servlet-api</artifactId>
+                        <version>6.0.0</version>
                     </dependency>
                     <dependency>
                         <groupId>ch.qos.logback</groupId>
@@ -231,13 +225,13 @@
                     </dependency>
                     <dependency>
                         <groupId>io.dropwizard.metrics</groupId>
-                        <artifactId>metrics-core</artifactId>
-                        <version>3.2.6</version>
+                        <artifactId>metrics-jakarta-servlets</artifactId>
+                        <version>4.2.23</version>
                     </dependency>
                     <dependency>
                         <groupId>io.dropwizard.metrics</groupId>
-                        <artifactId>metrics-jetty9</artifactId>
-                        <version>3.2.6</version>
+                        <artifactId>metrics-jetty12</artifactId>
+                        <version>4.2.23</version>
                     </dependency>
                 </dependencies>
                 <executions>

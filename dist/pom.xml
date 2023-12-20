@@ -19,7 +19,7 @@
 
     <properties>
         <genconf.dir>${project.build.directory}/generated-sources/conf</genconf.dir>
-        <version.metrics>3.2.6</version.metrics>
+        <version.metrics>4.2.23</version.metrics>
     </properties>
 
     <dependencies>
@@ -31,9 +31,16 @@
         </dependency>
         <!--needed for assembly deployment-->
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <version>3.1.0</version>
+            <groupId>org.zenoss.zep</groupId>
+            <artifactId>zep-core</artifactId>
+            <version>${project.version}</version>
+            <type>jar</type>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.servlet</groupId>
+            <artifactId>jakarta.servlet-api</artifactId>
+            <version>6.0.0</version>
             <type>jar</type>
             <scope>provided</scope>
         </dependency>
@@ -53,15 +60,8 @@
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-continuation</artifactId>
+            <artifactId>jetty-util-ajax</artifactId>
             <version>${version.jetty}</version>
-            <type>jar</type>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.eclipse.jetty</groupId>
-            <artifactId>jetty-webapp-logging</artifactId>
-            <version>9.4.27</version>
             <type>jar</type>
             <scope>provided</scope>
         </dependency>
@@ -121,13 +121,13 @@
         </dependency>
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
-            <artifactId>metrics-core</artifactId>
+            <artifactId>metrics-jakarta-servlets</artifactId>
             <version>${version.metrics}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
-            <artifactId>metrics-jetty9</artifactId>
+            <artifactId>metrics-jetty12</artifactId>
             <version>${version.metrics}</version>
             <scope>provided</scope>
         </dependency>

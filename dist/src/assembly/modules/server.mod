@@ -12,7 +12,7 @@ logging
 bytebufferpool
 
 [lib]
-lib/javax.servlet-api-3.1.0.jar
+lib/jakarta.servlet-api-6.0.0.jar
 lib/jetty-http-${jetty.version}.jar
 lib/jetty-server-${jetty.version}.jar
 lib/jetty-xml-${jetty.version}.jar

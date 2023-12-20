@@ -55,6 +55,7 @@ import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -232,24 +233,21 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         if (spoolFuture != null) {
             spoolFuture.cancel(false);
         }
-        Trigger trigger = new Trigger() {
-            @Override
-            public Date nextExecutionTime(TriggerContext triggerContext) {
-                Date nextExecution = null;
-                try {
-                    long nextFlushTime = signalSpoolDao.getNextFlushTime();
-                    if (nextFlushTime > 0) {
-                        nextExecution = new Date(nextFlushTime);
-                        logger.debug("Next flush time: {}", nextExecution);
-                    }
-                } catch (Exception e) {
-                    logger.warn("Exception getting next flush time", e);
+        Trigger trigger = triggerContext -> {
+            Instant nextExecution = null;
+            try {
+                long nextFlushTime = signalSpoolDao.getNextFlushTime();
+                if (nextFlushTime > 0) {
+                    nextExecution = Instant.ofEpochMilli(nextFlushTime);
+                    logger.debug("Next flush time: {}", nextExecution);
                 }
-                if (nextExecution == null) {
-                    nextExecution = new Date(System.currentTimeMillis() + MAXIMUM_DELAY_MS);
-                }
-                return nextExecution;
+            } catch (Exception e) {
+                logger.warn("Exception getting next flush time", e);
             }
+            if (nextExecution == null) {
+                nextExecution = Instant.ofEpochMilli(System.currentTimeMillis() + MAXIMUM_DELAY_MS);
+            }
+            return nextExecution;
         };
         Runnable runnable = new ThreadRenamingRunnable(new Runnable() {
             @Override

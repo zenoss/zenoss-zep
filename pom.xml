@@ -21,8 +21,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-        <maven.compiler.source>17</maven.compiler.source>
-        <maven.compiler.target>17</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
 
         <!-- This database is used for integration tests (dropped/added each time). -->
         <zep.test.jdbc.dbname>zenoss_zep_test</zep.test.jdbc.dbname>
@@ -42,18 +42,18 @@
         <version.solrj>4.7.2</version.solrj>
 
         <version.jackson>2.15.2</version.jackson>
-        <version.jetty>9.4.52.v20230823</version.jetty>
+        <version.jetty>12.0.4</version.jetty>
         <version.logback>1.4.1</version.logback>
-        <version.metrics>4.2.19</version.metrics>
+        <version.metrics>4.2.23</version.metrics>
         <version.mysql>5.1.15</version.mysql>
         <version.postgresql>9.0-801.jdbc4</version.postgresql>
-        <version.resteasy>4.7.9.Final</version.resteasy>
+        <version.resteasy>6.2.6.Final</version.resteasy>
         <version.slf4j>2.0.1</version.slf4j>
-        <version.spring>5.3.30</version.spring>
+        <version.spring>6.0.6</version.spring>
         <version.tomcat-jdbc>7.0.27</version.tomcat-jdbc>
         <guava.version>32.1.2-jre</guava.version>
 
-        <metric-consumer.version>0.1.14</metric-consumer.version>
+        <metric-consumer.version>0.1.18-SNAPSHOT</metric-consumer.version>
 
         <!-- chosen based upon the version used in zing-proto -->
         <protobuf.version>3.24.2</protobuf.version>
@@ -158,8 +158,8 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.11.0</version>
                 <configuration>
-                    <source>17</source>
-                    <target>17</target>
+                    <source>21</source>
+                    <target>21</target>
                 <compilerArgs>
                   <arg>-Xlint:all</arg>
                 </compilerArgs>
@@ -190,7 +190,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.1.2</version>
+                <version>3.2.3</version>
                 <configuration>
                     <argLine>--add-opens java.base/java.lang=ALL-UNNAMED</argLine>
                 </configuration>

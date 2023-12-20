@@ -15,10 +15,10 @@ log4j-over-slf4j
 logging-logback
 
 [ini]
-jetty-webapp-logging.version?=9.4.27
+zenoss-zep-core.version?=2.8.1-SNAPSHOT
 
 [lib]
-lib/jetty-webapp-logging-${jetty-webapp-logging.version}.jar
+lib/zep-core-${zenoss-zep-core.version}.jar
 
 [xml]
 etc/zeneventserver/jetty/jetty-jul-to-slf4j.xml

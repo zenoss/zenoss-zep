@@ -26,7 +26,7 @@
 <Configure id="Server" class="org.eclipse.jetty.server.Server">
 
     <Arg name="threadpool">
-        <New id="threadPool" class="com.codahale.metrics.jetty9.InstrumentedQueuedThreadPool">
+        <New id="threadPool" class="io.dropwizard.metrics.jetty12.InstrumentedQueuedThreadPool">
             <Arg>
                 <Call class="com.codahale.metrics.SharedMetricRegistries" name="getOrCreate" id="metrics">
                     <!-- Uses this name in spring context -->
@@ -65,11 +65,9 @@
         <Set name="headerCacheSize"><Property name="jetty.httpConfig.headerCacheSize" default="1024" /></Set>
         <Set name="delayDispatchUntilContent"><Property name="jetty.httpConfig.delayDispatchUntilContent" deprecated="jetty.delayDispatchUntilContent" default="true"/></Set>
         <Set name="maxErrorDispatches"><Property name="jetty.httpConfig.maxErrorDispatches" default="10"/></Set>
-        <Set name="blockingTimeout"><Property deprecated="jetty.httpConfig.blockingTimeout" name="jetty.httpConfig.blockingTimeout.DEPRECATED" default="-1"/></Set>
         <Set name="persistentConnectionsEnabled"><Property name="jetty.httpConfig.persistentConnectionsEnabled" default="true"/></Set>
         <Set name="requestCookieCompliance"><Call class="org.eclipse.jetty.http.CookieCompliance" name="valueOf"><Arg><Property name="jetty.httpConfig.requestCookieCompliance" deprecated="jetty.httpConfig.cookieCompliance" default="RFC6265"/></Arg></Call></Set>
         <Set name="responseCookieCompliance"><Call class="org.eclipse.jetty.http.CookieCompliance" name="valueOf"><Arg><Property name="jetty.httpConfig.responseCookieCompliance" default="RFC6265"/></Arg></Call></Set>
-        <Set name="multiPartFormDataCompliance"><Call class="org.eclipse.jetty.server.MultiPartFormDataCompliance" name="valueOf"><Arg><Property name="jetty.httpConfig.multiPartFormDataCompliance" default="RFC7578"/></Arg></Call></Set>
         <Set name="relativeRedirectAllowed"><Property name="jetty.httpConfig.relativeRedirectAllowed" default="false"/></Set>
     </New>
 
@@ -92,7 +90,7 @@
                         <New id="Contexts" class="org.eclipse.jetty.server.handler.ContextHandlerCollection"/>
                     </Item>
                     <Item>
-                        <New id="instrumentedHandler" class="com.codahale.metrics.jetty9.InstrumentedHandler">
+                        <New id="instrumentedHandler" class="io.dropwizard.metrics.jetty12.InstrumentedHandler">
                             <Arg><Ref refid="metrics"/></Arg>
                             <Set name="Handler">
                                 <New id="DefaultHandler" class="org.eclipse.jetty.server.handler.DefaultHandler"/>
