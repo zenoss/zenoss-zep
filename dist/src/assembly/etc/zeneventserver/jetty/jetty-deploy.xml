@@ -18,6 +18,13 @@
     </Arg>
   </Call>
 
+  <Ref refid="Environment">
+    <Call name="setAttribute">
+      <Arg>contextHandlerClass</Arg>
+      <Arg><Property name="contextHandlerClass"/></Arg>
+    </Call>
+  </Ref>
+
   <Ref refid="DeploymentManager">
     <Call name="addAppProvider">
       <Arg>
