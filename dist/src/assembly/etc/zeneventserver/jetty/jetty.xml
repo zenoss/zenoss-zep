@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "http://www.eclipse.org/jetty/configure_9_3.dtd">
+<!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "https://www.eclipse.org/jetty/configure_10_0.dtd">
 
 <!-- =============================================================== -->
 <!-- Documentation of this file format can be found at:              -->
@@ -33,8 +33,25 @@
                     <Arg>zep</Arg>
                 </Call>
             </Arg>
-            <Arg name="minThreads">10</Arg>
-            <Arg name="maxThreads">200</Arg>
+            <Set name="minThreads">10</Set>
+            <Set name="maxThreads">200</Set>
+        </New>
+    </Arg>
+    <Arg>
+        <New class="org.eclipse.jetty.util.thread.ScheduledExecutorScheduler">
+            <Arg name="name"><Property name="jetty.scheduler.name"/></Arg>
+            <Arg name="daemon" type="boolean"><Property name="jetty.scheduler.daemon" default="false" /></Arg>
+            <Arg name="threads" type="int"><Property name="jetty.scheduler.threads" default="-1" /></Arg>
+        </New>
+    </Arg>
+    <Arg>
+        <New id="byteBufferPool" class="org.eclipse.jetty.io.ArrayByteBufferPool">
+            <Arg type="int"><Property name="jetty.byteBufferPool.minCapacity" default="0"/></Arg>
+            <Arg type="int"><Property name="jetty.byteBufferPool.factor" default="4096"/></Arg>
+            <Arg type="int"><Property name="jetty.byteBufferPool.maxCapacity" default="65536"/></Arg>
+            <Arg type="int"><Property name="jetty.byteBufferPool.maxBucketSize" default="-1"/></Arg>
+            <Arg type="long"><Property name="jetty.byteBufferPool.maxHeapMemory" default="0"/></Arg>
+            <Arg type="long"><Property name="jetty.byteBufferPool.maxDirectMemory" default="0"/></Arg>
         </New>
     </Arg>
 

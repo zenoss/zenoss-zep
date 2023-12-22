@@ -1,4 +1,4 @@
-<?xml version="1.0"?><!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "http://www.eclipse.org/jetty/configure_9_3.dtd">
+<?xml version="1.0"?><!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "https://www.eclipse.org/jetty/configure_10_0.dtd">
 
 <!-- =============================================================== -->
 <!-- Create the deployment manager                                   -->
@@ -8,53 +8,67 @@
 <!-- AppProvider interface.                                          -->
 <!-- =============================================================== -->
 <Configure id="Server" class="org.eclipse.jetty.server.Server">
-
   <Call name="addBean">
     <Arg>
       <New id="DeploymentManager" class="org.eclipse.jetty.deploy.DeploymentManager">
         <Set name="contexts">
           <Ref refid="Contexts" />
         </Set>
-        <Call name="setContextAttribute">
-          <Arg>org.eclipse.jetty.server.webapp.ContainerIncludeJarPattern</Arg>
-          <Arg>.*/[^/]*servlet-api-[^/]*\.jar$|.*/jakarta.servlet.jsp.jstl-.*\.jar$|.*/org.apache.taglibs.taglibs-standard-impl-.*\.jar$</Arg>
-        </Call>
-
-        <!-- Add a customize step to the deployment lifecycle -->
-        <!-- uncomment and replace DebugBinding with your extended AppLifeCycle.Binding class
-        <Call name="insertLifeCycleNode">
-          <Arg>deployed</Arg>
-          <Arg>starting</Arg>
-          <Arg>customise</Arg>
-        </Call>
-        <Call name="addLifeCycleBinding">
-          <Arg>
-            <New class="org.eclipse.jetty.deploy.bindings.DebugBinding">
-              <Arg>customise</Arg>
-            </New>
-          </Arg>
-        </Call> -->
-
-        <Call id="webappprovider" name="addAppProvider">
-          <Arg>
-            <New class="org.eclipse.jetty.deploy.providers.WebAppProvider">
-              <Set name="monitoredDirName"><Property name="jetty.home" default="." />/webapps</Set>
-              <Set name="defaultsDescriptor">
-                <Property name="jetty.home" default="."/>/etc/zeneventserver/jetty/webdefault.xml
-              </Set>
-              <Set name="scanInterval">0</Set>
-              <Set name="extractWars">false</Set>
-              <!-- Override configuration classes to disable classpath scanning (takes long to startup) -->
-              <Set name="configurationClasses">
-                <Array type="java.lang.String">
-                  <Item>org.eclipse.jetty.webapp.WebInfConfiguration</Item>
-                  <Item>org.eclipse.jetty.webapp.WebXmlConfiguration</Item>
-                </Array>
-              </Set>
-            </New>
-          </Arg>
-        </Call>
       </New>
     </Arg>
   </Call>
+
+  <Ref refid="DeploymentManager">
+    <Call name="addAppProvider">
+      <Arg>
+        <New id="WebAppProvider" class="org.eclipse.jetty.deploy.providers.ContextProvider">
+          <Set name="environmentName">ee10</Set>
+          <Set name="monitoredDirName">
+            <Call name="resolvePath" class="org.eclipse.jetty.xml.XmlConfiguration">
+              <Arg>
+                <Property name="jetty.base" />
+              </Arg>
+              <Arg>
+                <Property name="jetty.deploy.monitoredDir" default="webapps" />
+              </Arg>
+            </Call>
+          </Set>
+          <Set name="defaultsDescriptor">
+            <Property>
+              <Name>jetty.deploy.defaultsDescriptorPath</Name>
+              <Default>
+                <Property name="jetty.home" default="." />/etc/zeneventserver/jetty/webdefault.xml
+              </Default>
+            </Property>
+          </Set>
+          <Set name="scanInterval" property="jetty.deploy.scanInterval">0</Set>
+          <Set name="defaultsDescriptor" property="jetty.deploy.defaultsDescriptor"/>
+          <Set name="extractWars" property="jetty.deploy.extractWars">false</Set>
+          <Set name="parentLoaderPriority" property="jetty.deploy.parentLoaderPriority" />
+          <Set name="configurationClasses" property="jetty.deploy.configurationClasses">
+            <Array type="java.lang.String">
+              <Item>org.eclipse.jetty.webapp.WebInfConfiguration</Item>
+              <Item>org.eclipse.jetty.webapp.WebXmlConfiguration</Item>
+            </Array>
+          </Set>
+          <Get name="properties">
+            <Put name="jetty.deploy.containerScanJarPattern">
+              <Property name="jetty.deploy.containerScanJarPattern">
+                <Default>.*/jakarta.servlet-api-[^/]*\.jar$|.*jakarta.servlet.jsp.jstl-.*\.jar$</Default>
+              </Property>
+            </Put>
+            <Put name="jetty.deploy.webInfScanJarPattern">
+              <Property name="jetty.deploy.webInfScanJarPattern"/>
+            </Put>
+            <Put name="jetty.deploy.servletContainerInitializerExclusionPattern">
+              <Property name="jetty.deploy.servletContainerInitializerExclusionPattern"/>
+            </Put>
+            <Put name="jetty.deploy.servletContainerInitializerOrder">
+              <Property name="jetty.deploy.servletContainerInitializerOrder"/>
+            </Put>
+          </Get>
+        </New>
+      </Arg>
+    </Call>
+  </Ref>
 </Configure>

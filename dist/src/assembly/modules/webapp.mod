@@ -10,7 +10,8 @@ security
 etc/zeneventserver/jetty/jetty-webapp.xml
 
 [lib]
-lib/etty-ee10-webapp-${jetty.version}.jar
+lib/jetty-ee10-webapp-${jetty.version}.jar
+lib/jetty-session-${jetty.version}.jar
 
 
 [ini-template]

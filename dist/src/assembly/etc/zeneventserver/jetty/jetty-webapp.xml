@@ -1,7 +1,7 @@
 <?xml version="1.0"?><!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "http://www.eclipse.org/jetty/configure_9_3.dtd">
 
 <Configure id="Server" class="org.eclipse.jetty.server.Server">
-    <Call class="org.eclipse.jetty.webapp.WebAppContext" name="addSystemClasses">
+    <Call class="org.eclipse.jetty.ee10.webapp.WebAppContext" name="addSystemClasses">
         <Arg><Ref refid="Server"/></Arg>
         <Arg>
             <Call class="org.eclipse.jetty.util.StringUtil" name="csvSplit">
@@ -10,7 +10,7 @@
         </Arg>
     </Call>
 
-    <Call class="org.eclipse.jetty.webapp.WebAppContext" name="addServerClasses">
+    <Call class="org.eclipse.jetty.ee10.webapp.WebAppContext" name="addServerClasses">
         <Arg><Ref refid="Server"/></Arg>
         <Arg>
             <Call class="org.eclipse.jetty.util.StringUtil" name="csvSplit">
