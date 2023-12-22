@@ -388,9 +388,7 @@
                         ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-deploy.xml,
                         ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-http.xml,
                         ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-jul-to-slf4j.xml,
-                        ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-mdc-handler.xml,
                         ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-webapp.xml,
-                        ${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-webapp-logging.xml
                     </jettyXml>
                     <supportedPackagings>
                         <supportedPackaging>jar</supportedPackaging>
