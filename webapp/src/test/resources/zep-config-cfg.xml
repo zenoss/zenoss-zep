@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans
+                        http://www.springframework.org/schema/beans/spring-beans-3.0.xsd">
+
+    <bean id="globalConf"
+        class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="locations">
+            <array>
+                <value>file:/opt/zenoss/etc/global.conf</value>
+            </array>
+        </property>
+        <property name="ignoreResourceNotFound" value="true" />
+    </bean>
+    
+    <bean id="zepConfig" class="org.springframework.beans.factory.config.PropertiesFactoryBean">
+        <property name="locations">
+            <array>
+                <value>classpath:intergation-tests-zeneventserver.conf</value>
+            </array>
+        </property>
+        <property name="ignoreResourceNotFound" value="true" />
+    </bean>
+
+    <bean id="zepConfigWithOverrides" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+        <property name="propertiesArray">
+            <array>
+                <ref bean="globalConf"/>
+                <ref bean="zepConfig"/>
+            </array>
+        </property>
+        <property name="systemPropertiesModeName" value="SYSTEM_PROPERTIES_MODE_OVERRIDE"/>
+    </bean>
+    
+    <bean id="zepInstance" class="org.zenoss.zep.impl.ZepInstanceImpl">
+        <constructor-arg index="0" ref="zepConfig"/>
+        <constructor-arg index="1" ref="uuidGenerator"/>
+    </bean>
+
+</beans>

@@ -75,8 +75,8 @@ public class EventProcessorImplTest {
         Counters counters = createMock(Counters.class);
         SamplePostPlugin postPlugin = new SamplePostPlugin();
 
-        Capture<Event> transformedEvent = new Capture<Event>();
-        Capture<EventPreCreateContext> transformedContext = new Capture<EventPreCreateContext>();
+        Capture<Event> transformedEvent = Capture.newInstance();
+        Capture<EventPreCreateContext> transformedContext = Capture.newInstance();
 
         String uuid = UUID.randomUUID().toString();
         EventSummary summary = EventSummary.newBuilder().setUuid(UUID.randomUUID().toString()).build();
@@ -122,8 +122,8 @@ public class EventProcessorImplTest {
         EventSummaryDao eventSummaryDao = createMock(EventSummaryDao.class);
         Counters counters = createMock(Counters.class);
 
-        Capture<Event> transformedEvent = new Capture<Event>();
-        Capture<EventPreCreateContext> transformedContext = new Capture<EventPreCreateContext>();
+        Capture<Event> transformedEvent = Capture.newInstance();
+        Capture<EventPreCreateContext> transformedContext = Capture.newInstance();
 
         String uuid = UUID.randomUUID().toString();
         expect(eventSummaryDao.create(capture(transformedEvent), capture(transformedContext))).andReturn(uuid);

@@ -15,11 +15,12 @@ logging
 [lib]
 lib/logback-classic-${logback.version}.jar
 lib/logback-core-${logback.version}.jar
-lib/janino-3.1.8.jar
-lib/commons-compiler-3.1.8.jar
+lib/janino-${janino.version}.jar
+lib/commons-compiler-${janino.version}.jar
 
 [ini]
-logback.version?=1.4.1
+logback.version?=1.4.14
+janino.version?=3.1.11
 jetty.webapp.addServerClasses+=,ch.qos.logback.
 
 [license]

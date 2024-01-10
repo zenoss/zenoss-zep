@@ -28,8 +28,8 @@ import org.slf4j.LoggerFactory;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.ProtobufConstants;
 
-import javax.ws.rs.core.HttpHeaders;
-import javax.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.Closeable;
@@ -172,7 +172,6 @@ public class RestClient implements Closeable {
             throw new IOException(String.format("Status code: %d, Response: %s", responseCode,
                     baos.toString(StandardCharsets.UTF_8)));
         }
-        entity.consumeContent();
         return msg;
 
     }

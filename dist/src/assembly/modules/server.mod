@@ -11,13 +11,16 @@ logging
 [depend]
 bytebufferpool
 
+[ini]
+zenoss-zep-core.version?=2.8.1-SNAPSHOT
+
 [lib]
-lib/javax.servlet-api-3.1.0.jar
 lib/jetty-http-${jetty.version}.jar
 lib/jetty-server-${jetty.version}.jar
 lib/jetty-xml-${jetty.version}.jar
 lib/jetty-util-${jetty.version}.jar
 lib/jetty-io-${jetty.version}.jar
+lib/zep-core-${zenoss-zep-core.version}.jar
 
 [xml]
 etc/zeneventserver/jetty/jetty.xml

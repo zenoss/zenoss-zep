@@ -50,7 +50,7 @@ import org.zenoss.zep.index.IndexedDetailsConfiguration;
 import org.zenoss.zep.index.SavedSearchProcessor;
 import org.zenoss.zep.index.impl.BaseEventIndexBackend;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Callable;

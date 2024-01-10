@@ -21,7 +21,7 @@ import org.zenoss.amqp.Channel;
 import org.zenoss.protobufs.zep.Zep.ZepRawEvent;
 import org.zenoss.zep.EventProcessor;
 import org.zenoss.zep.events.EventIndexQueueSizeEvent;
-import javax.annotation.PostConstruct;
+import jakarta.annotation.PostConstruct;
 
 public class RawEventQueueListener extends AbstractQueueListener
     implements ApplicationListener<EventIndexQueueSizeEvent>, ApplicationEventPublisherAware {

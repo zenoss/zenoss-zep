@@ -11,6 +11,7 @@
 package org.zenoss.zep.rest;
 
 import org.apache.http.HttpStatus;
+import org.apache.http.util.EntityUtils;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -122,13 +123,16 @@ public class EventsResourceIT extends AbstractJUnit4SpringContextTests {
         EventNote note = EventNote.newBuilder().setMessage("My Message")
                 .setUserName("pkw").setUserUuid(UUID.randomUUID().toString())
                 .build();
-        client.postJson(EVENTS_URI + "/" + summaryEvent.getUuid() + "/notes",
+        RestResponse response = client.postJson(EVENTS_URI + "/" + summaryEvent.getUuid() + "/notes",
                 note);
+        EntityUtils.consumeQuietly(response.getResponse().getEntity());
         note = EventNote.newBuilder().setMessage("My Message 2")
                 .setUserName("pkw").setUserUuid(UUID.randomUUID().toString())
                 .build();
-        client.postProtobuf(EVENTS_URI + "/" + summaryEvent.getUuid()
+        response = client.postProtobuf(EVENTS_URI + "/" + summaryEvent.getUuid()
                 + "/notes", note);
+        EntityUtils.consumeQuietly(response.getResponse().getEntity());
+
         EventSummary summary = (EventSummary) client.getJson(
                 EVENTS_URI + "/" + summaryEvent.getUuid()).getMessage();
         assertEquals(2, summary.getNotesCount());

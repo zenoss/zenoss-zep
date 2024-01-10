@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM zenoss/maven:java17-2
+FROM zenoss/maven:java21-2
 
 RUN <<EOT
 set -eux
@@ -22,7 +22,7 @@ echo mysql-apt-config mysql-apt-config/select-tools	select Enabled | debconf-set
 echo mysql-apt-config mysql-apt-config/select-server select	mysql-5.7 | debconf-set-selections
 echo mysql-apt-config mysql-apt-config/tools-component string mysql-tools | debconf-set-selections
 DEBIAN_FRONTEND=noninteractive dpkg -i mysql-apt-config_0.8.12-1_all.deb
-apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 467B942D3A79BD29
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys B7B3B788A8D3785C
 apt-get update
 apt-get install -y mysql-client=5.7.*
 

@@ -27,7 +27,7 @@
     </listener>
 
     <listener>
-        <listener-class>com.ryantenney.metrics.spring.servlets.MetricsServletsContextListener</listener-class>
+        <listener-class>org.zenoss.zep.ZepMetricsServletContextListener</listener-class>
     </listener>
 
     <servlet>
@@ -43,7 +43,7 @@
     <!-- Metrics servlet-->
     <servlet>
         <servlet-name>Metrics</servlet-name>
-        <servlet-class>com.codahale.metrics.servlets.AdminServlet</servlet-class>
+        <servlet-class>io.dropwizard.metrics.servlets.AdminServlet</servlet-class>
     </servlet>
 
     <servlet-mapping>
