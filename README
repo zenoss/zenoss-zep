@@ -88,3 +88,9 @@ For local testing zenventserver in production mode execute these steps:
 * `./test_deploy.sh`
 * `zeneventserver-create-db --dbtype mysql --dbhost mysql --dbadminuser root --dbadminpass root`
 * `zeneventserver start or zeneventserver run`
+* `curl http://localhost:8084/zeneventserver/api/1.0/heartbeats/`
+* `curl http://localhost:8084/zeneventserver/api/1.0/config/`
+* `curl http://localhost:8084/zeneventserver/api/1.0/triggers/`
+* `curl http://localhost:8084/zeneventserver/api/1.0/stats/`
+* `curl http://localhost:8084/zeneventserver/api/1.0/diagnostics/threads/`
+* `curl http://localhost:8084/zeneventserver/api/1.0/events/`
