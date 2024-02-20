@@ -267,7 +267,7 @@
 
     <bean id="controlCenterReporter" factory-bean="controlCenterReporterFactoryBean" factory-method="createInstance"/>
 
-    <task:scheduled-tasks>
+    <task:scheduled-tasks scheduler="scheduler">
         <task:scheduled ref="zenossReporter" method="run" fixed-rate="#{zenossReporterFactoryBean.getPeriod()}"/>
         <task:scheduled ref="controlCenterReporter" method="run" fixed-rate="#{controlCenterReporterFactoryBean.getPeriod()}"/>
     </task:scheduled-tasks>

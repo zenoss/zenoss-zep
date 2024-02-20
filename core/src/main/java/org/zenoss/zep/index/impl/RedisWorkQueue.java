@@ -86,15 +86,12 @@ public class RedisWorkQueue implements WorkQueue {
     }
 
     public void clearAll() {
-        pool.useJedis(new JedisUser<Object>() {
-            @Override
-		public Object use(Jedis jedis) throws RedisTransactionCollision {
-                jedis.del(queueListKey);
-                jedis.del(queueSetKey);
-                jedis.del(holdZsetKey);
-                return null;
-            }
-	    });
+        pool.useJedis(jedis -> {
+            jedis.del(queueListKey);
+            jedis.del(queueSetKey);
+            jedis.del(holdZsetKey);
+            return null;
+        });
     }
 
     @Override
@@ -202,12 +199,7 @@ public class RedisWorkQueue implements WorkQueue {
     }
 
     private void complete(final String... tasks) {
-        pool.useJedis(new JedisUser<Boolean>() {
-            @Override
-            public Boolean use(Jedis jedis) throws RedisTransactionCollision {
-                return jedis.zrem(holdZsetKey, tasks) > 0;
-            }
-        });
+        pool.useJedis(jedis -> jedis.zrem(holdZsetKey, tasks) > 0);
     }
 
     @Override
@@ -247,12 +239,7 @@ public class RedisWorkQueue implements WorkQueue {
         }
     }
 
-    private static final ThreadLocal<Random> THREAD_LOCAL_RANDOM = new ThreadLocal<Random>(){
-        @Override
-        protected Random initialValue() {
-            return new Random();
-        }
-    };
+    private static final ThreadLocal<Random> THREAD_LOCAL_RANDOM = ThreadLocal.withInitial(Random::new);
     private static final char[] RANDOM_KEY_CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".toCharArray();
     private static String randomKey() {
         Random random = THREAD_LOCAL_RANDOM.get();
