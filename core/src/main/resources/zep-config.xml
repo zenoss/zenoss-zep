@@ -244,7 +244,7 @@
                 <entry key="period" value="${zep.metrics.post.period:30s}"/>
                 <entry key="username" value="${zauth-username:#{null}}"/>
                 <entry key="password" value="${zauth-password:#{null}}"/>
-                <entry key="tag" value="zenoss_daemon:zeneventserver"/>
+                <entry key="tags" value="zenoss_daemon:zeneventserver"/>
                 <entry key="prefix" value="zeneventserver"/>
             </map>
         </property>
@@ -258,7 +258,7 @@
             <map>
                 <entry key="period" value="${zep.metrics.post.period:30s}"/>
                 <entry key="post-url" value="${CONTROLPLANE_CONSUMER_URL:http://localhost:22350/api/metrics/store}"/>
-                <entry key="tag" value="zenoss_daemon:zeneventserver"/>
+                <entry key="tags" value="zenoss_daemon:zeneventserver"/>
                 <entry key="prefix" value="zeneventserver"/>
             </map>
         </property>
