@@ -10,7 +10,6 @@
 
 package org.zenoss.zep.index.impl;
 
-import com.codahale.metrics.annotation.Timed;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationListener;
@@ -185,24 +184,26 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
     }
 
     @Override
-    @Timed(absolute=true, name="EventIndexer.index")
     public synchronized int index() throws ZepException {
-        return doIndex(-1L);
+        try (Timer.Context ignored = metrics.timer("EventIndexer.index").time()) {
+            return doIndex(-1L);
+        }
     }
 
     @Override
-    @Timed(absolute=true, name="EventIndexer.indexFully")
     public int indexFully() throws ZepException {
-        int totalIndexed = 0;
-        final long now = System.currentTimeMillis();
-        int numIndexed;
-        synchronized (this) {
-            do {
-                numIndexed = doIndex(now);
-                totalIndexed += numIndexed;
-            } while (numIndexed > 0);
+        try (Timer.Context ignored = metrics.timer("EventIndexer.indexFully").time()) {
+            int totalIndexed = 0;
+            final long now = System.currentTimeMillis();
+            int numIndexed;
+            synchronized (this) {
+                do {
+                    numIndexed = doIndex(now);
+                    totalIndexed += numIndexed;
+                } while (numIndexed > 0);
+            }
+            return totalIndexed;
         }
-        return totalIndexed;
     }
 
     /**
@@ -288,19 +289,19 @@ public class EventIndexerImpl implements EventIndexer, ApplicationListener<ZepCo
                 indexDao.stage(event);
                 if (shouldRunPostprocessing(event)) {
                     boolean shouldStartBatch = calledStartBatch.compareAndSet(false, true);
-                    final Timer.Context timerContext = pluginsTimer.time();
-                    for (EventPostIndexPlugin plugin : plugins) {
-                        try {
-                            if (shouldStartBatch) {
-                                plugin.startBatch(context);
+                    try (Timer.Context ignored = pluginsTimer.time()) {
+                        for (EventPostIndexPlugin plugin : plugins) {
+                            try {
+                                if (shouldStartBatch) {
+                                    plugin.startBatch(context);
+                                }
+                                plugin.processEvent(event, context);
+                            } catch (Exception e) {
+                                // Post-processing plug-in failures are not fatal errors.
+                                logger.warn("Failed to run post-processing plug-in on event: " + event, e);
                             }
-                            plugin.processEvent(event, context);
-                        } catch (Exception e) {
-                            // Post-processing plug-in failures are not fatal errors.
-                            logger.warn("Failed to run post-processing plug-in on event: " + event, e);
                         }
                     }
-                    timerContext.stop();
                 }
             }
 

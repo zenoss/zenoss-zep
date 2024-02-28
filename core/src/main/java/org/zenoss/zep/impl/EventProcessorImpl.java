@@ -12,7 +12,7 @@ package org.zenoss.zep.impl;
 
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
-import com.codahale.metrics.annotation.Timed;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
@@ -41,6 +41,9 @@ public class EventProcessorImpl implements EventProcessor {
 
     private static final Logger logger = LoggerFactory.getLogger(EventProcessorImpl.class);
 
+    @Autowired
+    private MetricRegistry metricRegistry;
+
     private static final String EVENT_CLASS_UNKNOWN = "/Unknown";
 
     private PluginService pluginService;
@@ -48,10 +51,6 @@ public class EventProcessorImpl implements EventProcessor {
     private EventSummaryDao eventSummaryDao;
 
     private Counters counters;
-
-    private MetricRegistry metrics = new MetricRegistry();
-    private Timer preCreatePluginsTimer = metrics.timer("preCreateForUnitTest");
-    private Timer postCreatePluginsTimer= metrics.timer("postCreateForUnitTest");
 
     public void setEventSummaryDao(EventSummaryDao eventSummaryDao) {
         this.eventSummaryDao = eventSummaryDao;
@@ -71,6 +70,10 @@ public class EventProcessorImpl implements EventProcessor {
         this.counters = counters;
     }
 
+    public void setMetricRegistry(MetricRegistry metricRegistry) {
+        this.metricRegistry = metricRegistry;
+    }
+
     private static Event eventFromRawEvent(ZepRawEvent zepRawEvent) {
         Event event = zepRawEvent.getEvent();
         // Default to event class unknown.
@@ -81,88 +84,77 @@ public class EventProcessorImpl implements EventProcessor {
     }
 
     @Override
-    @Timed(absolute=true, name="EventProcessor.processEvent")
     public void processEvent(ZepRawEvent zepRawEvent) throws ZepException {
-        logger.debug("processEvent: event={}", zepRawEvent);
-        counters.addToProcessedEventCount(1);
+        try (Timer.Context ignored = metricRegistry.timer("EventProcessor.processEvent").time()) {
 
-        if (zepRawEvent.getEvent().getStatus() == EventStatus.STATUS_DROPPED) {
-            logger.debug("Event dropped: {}", zepRawEvent);
-            counters.addToDroppedEventCount(1);
-            return;
-        } else if (zepRawEvent.getEvent().getUuid().isEmpty()) {
-            logger.error("Could not process event, has no uuid: {}",
-                    zepRawEvent);
-            counters.addToDroppedEventCount(1);
-            return;
-        } else if (!zepRawEvent.getEvent().hasCreatedTime()) {
-            logger.error("Could not process event, has no created_time: {}",
-                    zepRawEvent);
-            counters.addToDroppedEventCount(1);
-            return;
-        }
+            logger.debug("processEvent: event={}", zepRawEvent);
+            counters.addToProcessedEventCount(1);
 
-        EventPreCreateContext ctx = new EventPreCreateContextImpl(zepRawEvent);
-        Event event = eventFromRawEvent(zepRawEvent);
-
-        for (EventPreCreatePlugin plugin : pluginService.getPluginsByType(EventPreCreatePlugin.class)) {
-            final Timer.Context timerContext = preCreatePluginsTimer.time();
-            Event modified = plugin.processEvent(event, ctx);
-            timerContext.stop();
-            if (modified != null && modified.getStatus() == EventStatus.STATUS_DROPPED) {
-                logger.debug("Event dropped by {}", plugin.getId());
+            if (zepRawEvent.getEvent().getStatus() == EventStatus.STATUS_DROPPED) {
+                logger.debug("Event dropped: {}", zepRawEvent);
+                counters.addToDroppedEventCount(1);
+                return;
+            } else if (zepRawEvent.getEvent().getUuid().isEmpty()) {
+                logger.error("Could not process event, has no uuid: {}",
+                        zepRawEvent);
+                counters.addToDroppedEventCount(1);
+                return;
+            } else if (!zepRawEvent.getEvent().hasCreatedTime()) {
+                logger.error("Could not process event, has no created_time: {}",
+                        zepRawEvent);
                 counters.addToDroppedEventCount(1);
                 return;
             }
 
-            if (modified != null && !modified.equals(event)) {
-                logger.debug("Event modified by {} as {}", plugin.getId(), modified);
-                event = modified;
-            }
-        }
+            EventPreCreateContext ctx = new EventPreCreateContextImpl(zepRawEvent);
+            Event event = eventFromRawEvent(zepRawEvent);
 
-        String uuid;
-        try {
-            uuid = this.eventSummaryDao.create(event, ctx);
-        } catch (DuplicateKeyException e) {
-            // Catch DuplicateKeyException and retry creating the event. Otherwise, the failure
-            // will propagate to the AMQP consumer, the message will be rejected (and re-queued),
-            // leading to unnecessary load on the AMQP server re-queueing/re-delivering the event.
-            if (logger.isDebugEnabled()) {
-                logger.info("DuplicateKeyException - retrying event: {}", event);
-            } else {
-                logger.info("DuplicateKeyException - retrying event: {}", event.getUuid());
-            }
-            uuid = this.eventSummaryDao.create(event, ctx);
-        }
+            for (EventPreCreatePlugin plugin : pluginService.getPluginsByType(EventPreCreatePlugin.class)) {
+                Event modified;
+                try (Timer.Context ignored1 = metricRegistry.timer("EventProcessorImpl.preCreatePlugins").time()){
+                    modified = plugin.processEvent(event, ctx);
+                }
+                if (modified != null && modified.getStatus() == EventStatus.STATUS_DROPPED) {
+                    logger.debug("Event dropped by {}", plugin.getId());
+                    counters.addToDroppedEventCount(1);
+                    return;
+                }
 
-        EventSummary summary = null;
-        EventPostCreateContext context = new EventPostCreateContext() {
-        };
-        for (EventPostCreatePlugin plugin : pluginService.getPluginsByType(EventPostCreatePlugin.class)) {
-            if (summary == null && uuid != null) {
-                summary = this.eventSummaryDao.findByUuid(uuid);
+                if (modified != null && !modified.equals(event)) {
+                    logger.debug("Event modified by {} as {}", plugin.getId(), modified);
+                    event = modified;
+                }
             }
-            final Timer.Context timerContext = postCreatePluginsTimer.time();
+
+            String uuid;
             try {
-                plugin.processEvent(event, summary, context);
-            } catch (Exception e) {
-                logger.warn("Failed to run post-create plugin: {} on event: {}, summary: {}",
-                        new Object[] { plugin.getId(), event, summary }, e);
-            } finally {
-                timerContext.stop();
+                uuid = this.eventSummaryDao.create(event, ctx);
+            } catch (DuplicateKeyException e) {
+                // Catch DuplicateKeyException and retry creating the event. Otherwise, the failure
+                // will propagate to the AMQP consumer, the message will be rejected (and re-queued),
+                // leading to unnecessary load on the AMQP server re-queueing/re-delivering the event.
+                if (logger.isDebugEnabled()) {
+                    logger.info("DuplicateKeyException - retrying event: {}", event);
+                } else {
+                    logger.info("DuplicateKeyException - retrying event: {}", event.getUuid());
+                }
+                uuid = this.eventSummaryDao.create(event, ctx);
+            }
+
+            EventSummary summary = null;
+            EventPostCreateContext context = new EventPostCreateContext() {
+            };
+            for (EventPostCreatePlugin plugin : pluginService.getPluginsByType(EventPostCreatePlugin.class)) {
+                if (summary == null && uuid != null) {
+                    summary = this.eventSummaryDao.findByUuid(uuid);
+                }
+                try (Timer.Context ignored1 = metricRegistry.timer("EventProcessorImpl.postCreatePlugins").time()){
+                    plugin.processEvent(event, summary, context);
+                } catch (Exception e) {
+                    logger.warn("Failed to run post-create plugin: {} on event: {}, summary: {}",
+                            new Object[] { plugin.getId(), event, summary }, e);
+                }
             }
         }
     }
-
-    @Resource(name="metrics")
-    public void setBean( MetricRegistry metrics ) {
-        this.metrics = metrics;
-        String preCreatePluginsTimerName = MetricRegistry.name("EventProcessorImpl", "preCreatePlugins");
-        String postCreatePluginsTimerName = MetricRegistry.name("EventProcessorImpl", "postCreatePlugins");
-        // Set up timers for plugins
-        preCreatePluginsTimer = metrics.timer(preCreatePluginsTimerName);
-        postCreatePluginsTimer = metrics.timer(postCreatePluginsTimerName);
-    }
-
 }
