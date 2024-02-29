@@ -10,7 +10,9 @@
 
 package org.zenoss.zep.impl;
 
-import com.codahale.metrics.annotation.Timed;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.zenoss.amqp.AmqpConnectionManager;
 import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.ExchangeConfiguration;
@@ -26,6 +28,9 @@ import java.io.IOException;
  */
 public class EventPublisherImpl implements EventPublisher {
 
+    @Autowired
+    protected MetricRegistry metricRegistry;
+
     private final ExchangeConfiguration exchangeConfiguration;
     private AmqpConnectionManager connectionManager;
 
@@ -38,9 +43,8 @@ public class EventPublisherImpl implements EventPublisher {
     }
 
     @Override
-    @Timed(absolute=true, name="EventPublisher.publishEvent")
     public void publishEvent(Event rawEvent) throws ZepException {
-        try {
+        try (Timer.Context ignored = metricRegistry.timer("EventPublisher.publishEvent").time()){
             this.connectionManager.publish(exchangeConfiguration, createRoutingKey(rawEvent), rawEvent);
         } catch (AmqpException e) {
             throw new ZepException(e.getLocalizedMessage(), e);

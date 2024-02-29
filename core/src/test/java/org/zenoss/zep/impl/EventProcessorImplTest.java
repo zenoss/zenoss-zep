@@ -10,6 +10,7 @@
 
 package org.zenoss.zep.impl;
 
+import com.codahale.metrics.MetricRegistry;
 import org.easymock.Capture;
 import org.junit.Test;
 import org.zenoss.amqp.AmqpException;
@@ -97,6 +98,7 @@ public class EventProcessorImplTest {
         eventProcessor.setPluginService(pluginService);
         eventProcessor.setEventSummaryDao(eventSummaryDao);
         eventProcessor.setCounters(counters);
+        eventProcessor.setMetricRegistry(new MetricRegistry());
 
         Event.Builder eventBuilder = Event.newBuilder();
         eventBuilder.setUuid(UUID.randomUUID().toString());
@@ -139,6 +141,7 @@ public class EventProcessorImplTest {
         eventProcessor.setPluginService(pluginService);
         eventProcessor.setEventSummaryDao(eventSummaryDao);
         eventProcessor.setCounters(counters);
+        eventProcessor.setMetricRegistry(new MetricRegistry());
 
         Event.Builder eventBuilder = Event.newBuilder();
         eventBuilder.setUuid(UUID.randomUUID().toString());

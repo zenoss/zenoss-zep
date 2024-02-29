@@ -10,7 +10,8 @@
 
 package org.zenoss.zep.impl;
 
-import com.codahale.metrics.annotation.Timed;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.google.common.base.Splitter;
 import org.python.core.Py;
 import org.python.core.PyDictionary;
@@ -28,7 +29,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
-import org.springframework.scheduling.TriggerContext;
 import org.zenoss.amqp.AmqpConnectionManager;
 import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.ExchangeConfiguration;
@@ -77,6 +77,9 @@ import static org.zenoss.zep.ZepConstants.*;
 public class TriggerPlugin extends EventPostIndexPlugin {
 
     private static final Logger logger = LoggerFactory.getLogger(TriggerPlugin.class);
+
+    @Autowired
+    private MetricRegistry metricRegistry;
 
     private EventTriggerDao triggerDao;
     private EventSignalSpoolDao signalSpoolDao;
@@ -799,32 +802,33 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         }
     }
 
-    @Timed(absolute=true, name="Trigger.publishSignal")
     protected void publishSignal(EventSummary eventSummary, EventTriggerSubscription subscription) throws ZepException {
-        Event occurrence = eventSummary.getOccurrence(0);
-        Signal.Builder signalBuilder = Signal.newBuilder();
-        signalBuilder.setUuid(uuidGenerator.generate().toString());
-        signalBuilder.setCreatedTime(System.currentTimeMillis());
-        signalBuilder.setEvent(eventSummary);
-        signalBuilder.setSubscriberUuid(subscription.getSubscriberUuid());
-        signalBuilder.setTriggerUuid(subscription.getTriggerUuid());
-        signalBuilder.setMessage(occurrence.getMessage());
-        signalBuilder.setClear(CLOSED_STATUSES.contains(eventSummary.getStatus()));
-        if (EventStatus.STATUS_CLEARED == eventSummary.getStatus()) {
-            // Look up event which cleared this one
-            EventSummary clearEventSummary = this.eventStoreDao.findByUuid(eventSummary.getClearedByEventUuid());
-            if (clearEventSummary != null) {
-                signalBuilder.setClearEvent(clearEventSummary);
-            } else {
-                logger.warn("Unable to look up clear event with UUID: {}", eventSummary.getClearedByEventUuid());
+        try (Timer.Context ignored = metricRegistry.timer("Trigger.publishSignal").time()) {
+            Event occurrence = eventSummary.getOccurrence(0);
+            Signal.Builder signalBuilder = Signal.newBuilder();
+            signalBuilder.setUuid(uuidGenerator.generate().toString());
+            signalBuilder.setCreatedTime(System.currentTimeMillis());
+            signalBuilder.setEvent(eventSummary);
+            signalBuilder.setSubscriberUuid(subscription.getSubscriberUuid());
+            signalBuilder.setTriggerUuid(subscription.getTriggerUuid());
+            signalBuilder.setMessage(occurrence.getMessage());
+            signalBuilder.setClear(CLOSED_STATUSES.contains(eventSummary.getStatus()));
+            if (EventStatus.STATUS_CLEARED == eventSummary.getStatus()) {
+                // Look up event which cleared this one
+                EventSummary clearEventSummary = this.eventStoreDao.findByUuid(eventSummary.getClearedByEventUuid());
+                if (clearEventSummary != null) {
+                    signalBuilder.setClearEvent(clearEventSummary);
+                } else {
+                    logger.warn("Unable to look up clear event with UUID: {}", eventSummary.getClearedByEventUuid());
+                }
             }
-        }
-        Signal signal = signalBuilder.build();
-        logger.debug("Publishing signal: {}", signal);
-        try {
-            this.connectionManager.publish(destinationExchange, "zenoss.signal", signal);
-        } catch (AmqpException e) {
-            throw new ZepException(e);
+            Signal signal = signalBuilder.build();
+            logger.debug("Publishing signal: {}", signal);
+            try {
+                this.connectionManager.publish(destinationExchange, "zenoss.signal", signal);
+            } catch (AmqpException e) {
+                throw new ZepException(e);
+            }
         }
     }
 
