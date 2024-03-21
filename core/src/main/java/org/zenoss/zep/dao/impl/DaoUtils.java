@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DeadlockLoserDataAccessException;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.jdbc.support.DatabaseMetaDataCallback;
 import org.springframework.jdbc.support.JdbcUtils;
 import org.springframework.jdbc.support.MetaDataAccessException;
@@ -40,6 +40,7 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.sql.DatabaseMetaData;
@@ -68,8 +69,8 @@ public final class DaoUtils {
      */
     private static class StreamingStreamReaderToLog implements Runnable {
 
-        private InputStream is;
-        private Logger logger;
+        private final InputStream is;
+        private final Logger logger;
 
         public StreamingStreamReaderToLog(InputStream is, Logger logger) {
             this.is = is;
@@ -80,7 +81,7 @@ public final class DaoUtils {
         public void run() {
             BufferedReader reader = null;
             try {
-                reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
                 if (is != null) {
                     while (true) {
                         doRead(reader);
@@ -219,7 +220,7 @@ public final class DaoUtils {
             Writer writer = new StringWriter();
             char[] buffer = new char[1024];
             try {
-                Reader reader = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+                Reader reader = new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8));
                 int n;
                 while ((n = reader.read(buffer, 0, 1024)) != -1) {
                     writer.write(buffer, 0, n);
@@ -300,7 +301,7 @@ public final class DaoUtils {
     public static byte[] sha1(String str) {
         try {
             MessageDigest sha1 = MessageDigest.getInstance("SHA-1");
-            return sha1.digest(str.getBytes(Charset.forName("UTF-8")));
+            return sha1.digest(str.getBytes(StandardCharsets.UTF_8));
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException("Must support SHA-1", e);
         }
@@ -471,7 +472,7 @@ public final class DaoUtils {
      *
      * @param transactionService NestedTransactionService used to safely perform an insert which may lead to
      * DuplicateKeyErrors.
-     * @param jdbcOperations A SimpleJdbcOperations interface which is used to perform the update (if needed).
+     * @param jdbcOperations A NamedParameterJdbcOperations interface which is used to perform the update (if needed).
      * @param insertSql The SQL to execute to perform an insert of the specified row.
      * @param updateSql The SQL to execute to perform an update of the specified row.
      * @param fields The fields used as parameters in the insert/update SQL statements.
@@ -479,14 +480,14 @@ public final class DaoUtils {
      * @throws DataAccessException If an exception occurs (other than a DuplicateKeyException).
      */
     public static int insertOrUpdate(NestedTransactionService transactionService,
-                                     SimpleJdbcOperations jdbcOperations, final String insertSql,
+                                     NamedParameterJdbcOperations jdbcOperations, final String insertSql,
                                      String updateSql, final Map<String,?> fields) throws DataAccessException {
         int numRows;
         try {
             numRows = transactionService.executeInNestedTransaction(new NestedTransactionCallback<Integer>() {
                 @Override
                 public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
-                    return context.getSimpleJdbcTemplate().update(insertSql, fields);
+                    return context.getNamedParameterJdbcTemplate().update(insertSql, fields);
                 }
             });
         } catch (DuplicateKeyException e) {
@@ -502,7 +503,7 @@ public final class DaoUtils {
      *
      * @param transactionService NestedTransactionService used to safely perform an insert which may lead to
      * DuplicateKeyErrors.
-     * @param jdbcOperations A SimpleJdbcOperations interface which is used to perform the update (if needed).
+     * @param jdbcOperations A NamedParameterJdbcOperations interface which is used to perform the update (if needed).
      * @param insertSql The SQL to execute to perform an insert of the specified row.
      * @param updateSql The SQL to execute to perform an update of the specified row.
      * @param fields The fields used as parameters in the insert/update SQL statements.
@@ -510,7 +511,7 @@ public final class DaoUtils {
      * @throws DataAccessException If an exception occurs (other than a DuplicateKeyException).
      */
     public static int updateOrInsert(NestedTransactionService transactionService,
-                                     SimpleJdbcOperations jdbcOperations, String insertSql, String updateSql,
+                                     NamedParameterJdbcOperations jdbcOperations, String insertSql, String updateSql,
                                      Map<String,?> fields) throws DataAccessException {
         int numRows = jdbcOperations.update(updateSql, fields);
         if (numRows == 0) {

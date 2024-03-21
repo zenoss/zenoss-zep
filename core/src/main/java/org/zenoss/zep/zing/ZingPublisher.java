@@ -37,17 +37,17 @@ public abstract class ZingPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(ZingPublisher.class);
 
-    private ProjectTopicName topicName;
+    private final ProjectTopicName topicName;
 
     private ZingConfig config;
 
-    private MetricRegistry metricRegistry;
+    private final MetricRegistry metricRegistry;
 
-    private Counter sentEventsCounter;
+    private final Counter sentEventsCounter;
 
-    private Counter failedEventsCounter;
+    private final Counter failedEventsCounter;
 
-    private Counter bytesSentCounter;
+    private final Counter bytesSentCounter;
 
     public ZingPublisher(MetricRegistry metrics, ZingConfig config) {
         this.topicName = ProjectTopicName.of(config.project, config.topic);

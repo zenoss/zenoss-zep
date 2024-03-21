@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<web-app id="WebApp_ID" version="2.5"
-    xmlns="http://java.sun.com/xml/ns/javaee" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:schemaLocation="http://java.sun.com/xml/ns/javaee http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd"
-    metadata-complete="true">
+<web-app
+        xmlns="http://xmlns.jcp.org/xml/ns/javaee"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/javaee http://xmlns.jcp.org/xml/ns/javaee/web-app_3_1.xsd"
+        metadata-complete="false"
+        version="3.1">
 
     <display-name>Zenoss ZEP Web Application</display-name>
 
@@ -25,7 +27,7 @@
     </listener>
 
     <listener>
-        <listener-class>com.ryantenney.metrics.spring.servlets.MetricsServletsContextListener</listener-class>
+        <listener-class>org.zenoss.zep.ZepMetricsServletContextListener</listener-class>
     </listener>
 
     <servlet>
@@ -41,7 +43,7 @@
     <!-- Metrics servlet-->
     <servlet>
         <servlet-name>Metrics</servlet-name>
-        <servlet-class>com.codahale.metrics.servlets.AdminServlet</servlet-class>
+        <servlet-class>io.dropwizard.metrics.servlets.AdminServlet</servlet-class>
     </servlet>
 
     <servlet-mapping>

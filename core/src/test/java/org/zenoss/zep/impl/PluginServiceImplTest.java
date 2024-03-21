@@ -131,7 +131,7 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         plugins.put(plugin3.getId(), plugin3);
         try {
             PluginServiceImpl.detectCycles(plugins,
-                    Collections.<String> emptySet());
+                    Collections.emptySet());
             fail("Expected to fail with a cycle exception");
         } catch (DependencyCycleException e) {
             /* Expected */
@@ -160,9 +160,9 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
         };
         try {
             PluginServiceImpl.detectCycles(Collections
-                    .<String, EventPreCreatePlugin> singletonMap(
+                    .singletonMap(
                             plugin1.getId(), plugin1), Collections
-                    .<String> emptySet());
+                    .emptySet());
             fail("Expected MissingDependencyException");
         } catch (MissingDependencyException e) {
             assertEquals(plugin1.getId(), e.getPluginId());
@@ -174,9 +174,9 @@ public class PluginServiceImplTest extends AbstractJUnit4SpringContextTests {
          * is thrown.
          */
         PluginServiceImpl.detectCycles(Collections
-                .<String, EventPreCreatePlugin> singletonMap(
+                .singletonMap(
                         plugin1.getId(), plugin1),
-                Collections.<String> singleton(plugin1.getDependencies()
+                Collections.singleton(plugin1.getDependencies()
                         .iterator().next()));
     }
 

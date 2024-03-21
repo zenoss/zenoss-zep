@@ -28,7 +28,7 @@ public interface EventIndexDao extends Purgable {
     /**
      * @return String name of the index
      */
-    public String getName();
+    String getName();
 
     /**
      * Returns the number of indexed documents in this index.
@@ -36,7 +36,7 @@ public interface EventIndexDao extends Purgable {
      * @return The number of indexed documents in the index.
      * @throws ZepException If the number of documents can't be retrieved.
      */
-    public int getNumDocs() throws ZepException;
+    int getNumDocs() throws ZepException;
 
     /**
      * Add an event to the index, replaces existing event with the same UUID.
@@ -45,7 +45,7 @@ public interface EventIndexDao extends Purgable {
      * @throws org.zenoss.zep.ZepException
      *             If the event could not be indexed.
      */
-    public void index(EventSummary event) throws ZepException;
+    void index(EventSummary event) throws ZepException;
 
     /**
      * Stage an event to be indexed with a batch index. Must call commit() to
@@ -53,7 +53,7 @@ public interface EventIndexDao extends Purgable {
      * @param event EventSummary to index
      * @throws ZepException If an error occurs.
      */
-    public void stage(EventSummary event) throws ZepException;
+    void stage(EventSummary event) throws ZepException;
 
     /**
      * Stage an event to be deleted with a batch index. Must call commit() to
@@ -62,13 +62,13 @@ public interface EventIndexDao extends Purgable {
      * @param eventUuid UUID of event to delete from index.
      * @throws ZepException If an error occurs.
      */
-    public void stageDelete(String eventUuid) throws ZepException;
+    void stageDelete(String eventUuid) throws ZepException;
 
     /**
      * Commit any staged changes to the index.
      * @throws ZepException If an error occurs.
      */
-    public void commit() throws ZepException;
+    void commit() throws ZepException;
 
     /**
      * Commits any staged changes to the index and optionally optimizes the index.
@@ -79,7 +79,7 @@ public interface EventIndexDao extends Purgable {
      *             {@link #commit()} instead.
      */
     @Deprecated
-    public void commit(boolean forceOptimize) throws ZepException;
+    void commit(boolean forceOptimize) throws ZepException;
 
     /**
      * Add many events to the index, replaces existing events with the same UUID.
@@ -88,7 +88,7 @@ public interface EventIndexDao extends Purgable {
      * @throws org.zenoss.zep.ZepException
      *             If an event could not be indexed.
      */
-    public void indexMany(List<EventSummary> events) throws ZepException;
+    void indexMany(List<EventSummary> events) throws ZepException;
 
     /**
      * Retrieves event summary entries matching the specified query.
@@ -99,7 +99,7 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException
      *             If an error occurs.
      */
-    public EventSummaryResult list(EventSummaryRequest request)
+    EventSummaryResult list(EventSummaryRequest request)
             throws ZepException;
 
     /**
@@ -112,7 +112,7 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException
      *             If an error occurs.
      */
-    public EventSummaryResult listUuids(EventSummaryRequest request)
+    EventSummaryResult listUuids(EventSummaryRequest request)
             throws ZepException;
 
     /**
@@ -123,7 +123,7 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException
      *             If the event could not be deleted.
      */
-    public void delete(String uuid) throws ZepException;
+    void delete(String uuid) throws ZepException;
 
     /**
      * Deletes the event with the specified UUIDs from the index.
@@ -133,7 +133,7 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException
      *             If the event could not be deleted.
      */
-    public void delete(List<String> uuids) throws ZepException;
+    void delete(List<String> uuids) throws ZepException;
 
     /**
      * Returns the event with the matching UUID, or null if not found.
@@ -144,7 +144,7 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException
      *             If the event database cannot be queried.
      */
-    public EventSummary findByUuid(String uuid) throws ZepException;
+    EventSummary findByUuid(String uuid) throws ZepException;
 
     /**
      * Removes all documents from the index.
@@ -152,7 +152,7 @@ public interface EventIndexDao extends Purgable {
      * @throws ZepException
      *             If the event database cannot be queried.
      */
-    public void clear() throws ZepException;
+    void clear() throws ZepException;
 
     /**
      * Returns event tag severities for the specified filter. If the filter specifies
@@ -165,7 +165,7 @@ public interface EventIndexDao extends Purgable {
      * @return The tag severities summary for each tag.
      * @throws ZepException If an error occurs.
      */
-    public EventTagSeveritiesSet getEventTagSeverities(EventFilter filter) throws ZepException;
+    EventTagSeveritiesSet getEventTagSeverities(EventFilter filter) throws ZepException;
 
     /**
      * Creates a saved search with the given event query.
@@ -174,7 +174,7 @@ public interface EventIndexDao extends Purgable {
      * @return A UUID of the saved search.
      * @throws ZepException If an exception occurs creating the saved query.
      */
-    public String createSavedSearch(EventQuery query) throws ZepException;
+    String createSavedSearch(EventQuery query) throws ZepException;
 
     /**
      * Execute a saved search and return limit results at the specified offset.
@@ -185,7 +185,7 @@ public interface EventIndexDao extends Purgable {
      * @return The result of the search.
      * @throws ZepException If an exception occurs performing the saved query.
      */
-    public EventSummaryResult savedSearch(String uuid, int offset, int limit) throws ZepException;
+    EventSummaryResult savedSearch(String uuid, int offset, int limit) throws ZepException;
 
     /**
      * Executes a saved search and returns <code>limit</code> results at the specified <code>offset</code>.
@@ -197,7 +197,7 @@ public interface EventIndexDao extends Purgable {
      * @return The result of the search.
      * @throws ZepException If an exception occurs performing the saved query.
      */
-    public EventSummaryResult savedSearchUuids(String uuid, int offset, int limit) throws ZepException;
+    EventSummaryResult savedSearchUuids(String uuid, int offset, int limit) throws ZepException;
 
     /**
      * Removes the saved search with the specified UUID.
@@ -206,10 +206,10 @@ public interface EventIndexDao extends Purgable {
      * @return The UUID of the saved search (if it was removed), or null if it was not found.
      * @throws ZepException If the saved search could not be deleted.
      */
-    public String deleteSavedSearch(String uuid) throws ZepException;
+    String deleteSavedSearch(String uuid) throws ZepException;
 
     /**
      * @return the sum of the file sizes in the index directory.
      */
-    public long getSize();
+    long getSize();
 }

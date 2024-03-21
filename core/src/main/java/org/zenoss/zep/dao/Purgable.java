@@ -28,6 +28,6 @@ public interface Purgable {
      * @throws org.zenoss.zep.ZepException
      *             If an exception occurs purging
      */
-    public void purge(int duration, TimeUnit unit)
+    void purge(int duration, TimeUnit unit)
             throws ZepException;
 }

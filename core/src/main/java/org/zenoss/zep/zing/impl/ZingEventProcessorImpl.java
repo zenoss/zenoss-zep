@@ -26,7 +26,6 @@ import org.zenoss.zep.zing.ZingUtils;
 import org.zenoss.zep.zing.ZingEvent;
 
 import com.codahale.metrics.MetricRegistry;
-import com.codahale.metrics.annotation.Timed;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.*;
@@ -57,7 +56,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         cfg.setDefaults();
 
         this.config = cfg;
-        logger.info("Zing Event Processor created with config: {}", cfg.toString());
+        logger.info("Zing Event Processor created with config: {}", cfg);
         if (cfg.maxPubsubMessageSize != null) {
             this.maxPubsubMessageSize = cfg.maxPubsubMessageSize;
         }
@@ -129,6 +128,10 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
             this.enabled = false;
             logger.error("Could not create publisher. Events will not be forwarded to Zenoss Cloud");
         }
+    }
+
+    public void setMetricRegistry(MetricRegistry metricRegistry) {
+        this.metricRegistry = metricRegistry;
     }
 
     public boolean enabled() {
@@ -242,15 +245,16 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         }
     }
 
-    @Timed(absolute=true, name="zing.processEvent")
     public void processEvent(EventSummary summary) {
         if (this.enabled) {
-            EventSeverity sev = summary.getOccurrence(0).getSeverity();
-            if (sev.compareTo(this.minSeverity) >= 0 ) {
-                this.processEventSummary(summary);
-            } else {
-                this.irrelevantSeverityCounter.inc();
-            }
+            metricRegistry.timer("zing.processEvent").time(()->{
+                EventSeverity sev = summary.getOccurrence(0).getSeverity();
+                if (sev.compareTo(this.minSeverity) >= 0 ) {
+                    this.processEventSummary(summary);
+                } else {
+                    this.irrelevantSeverityCounter.inc();
+                }
+            });
         }
     }
 

@@ -59,7 +59,7 @@ public interface ClearFingerprintGenerator {
      * @return A clear fingerprint for the event, or null to disable event clearing (not
      * recommended).
      */
-    public String generateClearFingerprint(Event event);
+    String generateClearFingerprint(Event event);
 
     /**
      * Generates clear fingerprint(s) for the specified
@@ -72,6 +72,6 @@ public interface ClearFingerprintGenerator {
      * @param clearClasses Set of clear classes used to generate fingerprints.
      * @return A list of clear fingerprint(s) for the specified event and clear classes.
      */
-    public List<String> generateClearFingerprints(Event event, Set<String> clearClasses);
+    List<String> generateClearFingerprints(Event event, Set<String> clearClasses);
     
 }

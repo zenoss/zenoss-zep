@@ -25,7 +25,7 @@ public interface EventDetailsConfigDao {
      *
      * @throws ZepException If an exception occurs.
      */
-    public void init() throws ZepException;
+    void init() throws ZepException;
 
     /**
      * Creates the event detail item in the database (adds the specified event
@@ -35,7 +35,7 @@ public interface EventDetailsConfigDao {
      * @param item The item to add.
      * @throws ZepException If an exception occurs.
      */
-    public void create(EventDetailItem item) throws ZepException;
+    void create(EventDetailItem item) throws ZepException;
 
     /**
      * Deletes the event detail item in the database with the specified event
@@ -45,7 +45,7 @@ public interface EventDetailsConfigDao {
      * @return The number of affected rows.
      * @throws ZepException If an exception occurs.
      */
-    public int delete(String eventDetailName) throws ZepException;
+    int delete(String eventDetailName) throws ZepException;
 
     /**
      * Returns the EventDetailItem matching the specified name.
@@ -54,7 +54,7 @@ public interface EventDetailsConfigDao {
      * @return The EventDetailItem, or null if not found.
      * @throws ZepException If an exception occurs.
      */
-    public EventDetailItem findByName(String eventDetailName) throws ZepException;
+    EventDetailItem findByName(String eventDetailName) throws ZepException;
 
     /**
      * Retrieves configuration information for indexing items added on
@@ -66,5 +66,5 @@ public interface EventDetailsConfigDao {
      *         indexing).
      * @throws org.zenoss.zep.ZepException If an error occurs.
      */
-    public Map<String, EventDetailItem> getEventDetailItemsByName() throws ZepException;
+    Map<String, EventDetailItem> getEventDetailItemsByName() throws ZepException;
 }

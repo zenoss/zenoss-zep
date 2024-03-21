@@ -13,7 +13,7 @@
     <parent>
         <groupId>org.zenoss.zep</groupId>
         <artifactId>zep-parent</artifactId>
-        <version>2.8.0</version>
+        <version>2.8.1</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -28,12 +28,6 @@
             <groupId>org.zenoss.zep</groupId>
             <artifactId>zep-core</artifactId>
             <version>${project.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.dropwizard.metrics</groupId>
-                    <artifactId>metrics-core</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.zenoss.zep</groupId>
@@ -45,9 +39,20 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <version>${version.spring}</version>
+            <version>${spring.version}</version>
             <type>jar</type>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <artifactId>spring-jcl</artifactId>
+                    <groupId>org.springframework</groupId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-reload4j</artifactId>
+            <version>${slf4j.version}</version>
         </dependency>
     </dependencies>
 
@@ -56,7 +61,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>2.4</version>
+                <version>${maven-jar-plugin.version}</version>
                 <executions>
                     <execution>
                         <goals>
@@ -68,6 +73,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
+                <version>${maven-antrun-plugin.version}</version>
                 <executions>
                     <execution>
                         <id>create-test-schema</id>
@@ -136,36 +142,110 @@
                 </executions>
             </plugin>
             <plugin>
-                <groupId>org.mortbay.jetty</groupId>
+                <groupId>org.eclipse.jetty</groupId>
                 <artifactId>jetty-maven-plugin</artifactId>
-                <version>${version.jetty}</version>
+                <version>${jetty.version}</version>
                 <configuration>
-                    <connectors>
-                        <connector implementation="org.eclipse.jetty.server.nio.SelectChannelConnector">
-                            <port>${jetty.port}</port>
-                            <maxIdleTime>60000</maxIdleTime>
-                            <requestHeaderSize>65536</requestHeaderSize>
-                        </connector>
-                    </connectors>
-                    <webAppConfig>
+                    <jettyXmls>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-bytebufferpool.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-deploy.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-http.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-webapp.xml</jettyXml>
+                    </jettyXmls>
+                    <webApp>
                         <contextPath>/zeneventserver</contextPath>
                         <throwUnavailableOnStartupException>true</throwUnavailableOnStartupException>
-                    </webAppConfig>
-                    <scanIntervalSeconds>0</scanIntervalSeconds>
+                        <resourceBase>${project.basedir}/../webapp/src/main/webapp</resourceBase>
+                        <descriptor>src/main/webapp/WEB-INF/web.xml</descriptor>
+                        <defaultsDescriptor>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/webdefault.xml</defaultsDescriptor>
+                    </webApp>
+                    <useTestScope>true</useTestScope>
+                    <scan>0</scan>
+                    <scanTargetPatterns>
+                        <scanTargetPattern>
+                            <directory>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty</directory>
+                            <includes>
+                                <include>**/*.properties</include>
+                            </includes>
+                        </scanTargetPattern>
+                    </scanTargetPatterns>
                     <skip>${skipITs}</skip>
                     <stopKey>STOP</stopKey>
                     <stopPort>${jetty.stop.port}</stopPort>
                 </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-deploy</artifactId>
+                        <version>${jetty.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-start</artifactId>
+                        <version>${jetty.version}</version>
+                        <classifier>shaded</classifier>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-util-ajax</artifactId>
+                        <version>${jetty.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty.toolchain</groupId>
+                        <artifactId>jetty-jakarta-servlet-api</artifactId>
+                        <version>${jetty-jakarta-servlet-api.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
+                        <version>${logback.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-classic</artifactId>
+                        <version>${logback.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                        <version>${slf4j.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.codehaus.janino</groupId>
+                        <artifactId>janino</artifactId>
+                        <version>${janino.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-server</artifactId>
+                        <version>${jetty.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>io.dropwizard.metrics</groupId>
+                        <artifactId>metrics-jakarta-servlets</artifactId>
+                        <version>${metrics-core.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>io.dropwizard.metrics</groupId>
+                        <artifactId>metrics-jetty11</artifactId>
+                        <version>${metrics-core.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.zenoss.zep</groupId>
+                        <artifactId>zep-core</artifactId>
+                        <version>${project.version}</version>
+                    </dependency>
+                </dependencies>
                 <executions>
                     <execution>
                         <id>start-jetty</id>
                         <phase>pre-integration-test</phase>
                         <goals>
-                            <goal>run</goal>
+                            <goal>start</goal>
                         </goals>
                         <configuration>
-                            <daemon>true</daemon>
-                            <scanIntervalSeconds>0</scanIntervalSeconds>
+                            <scan>0</scan>
                             <systemProperties>
                                 <systemProperty>
                                     <name>zep.jdbc.protocol</name>
@@ -219,7 +299,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>2.10</version>
+                <version>${maven-failsafe-plugin.version}</version>
                 <executions>
                     <execution>
                         <goals>

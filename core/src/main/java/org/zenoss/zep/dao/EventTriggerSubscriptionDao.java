@@ -28,7 +28,7 @@ public interface EventTriggerSubscriptionDao {
      * @throws ZepException
      *             If the EventTriggerSubscription could not be created.
      */
-    public String create(EventTriggerSubscription evtTriggerSubscription)
+    String create(EventTriggerSubscription evtTriggerSubscription)
             throws ZepException;
 
     /**
@@ -41,7 +41,7 @@ public interface EventTriggerSubscriptionDao {
      * @throws ZepException
      *             If the EventTriggerSubscription could not be deleted.
      */
-    public int delete(String uuid) throws ZepException;
+    int delete(String uuid) throws ZepException;
 
     /**
      * Returns all configured subscriptions.
@@ -52,7 +52,7 @@ public interface EventTriggerSubscriptionDao {
      *             If the list of subscriptions couldn't be queried from the
      *             database.
      */
-    public List<EventTriggerSubscription> findAll() throws ZepException;
+    List<EventTriggerSubscription> findAll() throws ZepException;
 
     /**
      * Returns the subscription with the matching UUID, or null if not found.
@@ -63,7 +63,7 @@ public interface EventTriggerSubscriptionDao {
      * @throws ZepException
      *             If the database cannot be queried.
      */
-    public EventTriggerSubscription findByUuid(String uuid) throws ZepException;
+    EventTriggerSubscription findByUuid(String uuid) throws ZepException;
 
     /**
      * Returns the {@link EventTriggerSubscription} objects for the specified
@@ -75,7 +75,7 @@ public interface EventTriggerSubscriptionDao {
      * @throws ZepException
      *             If a database error occurs.
      */
-    public List<EventTriggerSubscription> findBySubscriberUuid(
+    List<EventTriggerSubscription> findBySubscriberUuid(
             String subscriberUuid) throws ZepException;
 
     /**
@@ -94,7 +94,7 @@ public interface EventTriggerSubscriptionDao {
      * @throws ZepException
      *             If the database operation failed.
      */
-    public int updateSubscriptions(String subscriberUuid,
+    int updateSubscriptions(String subscriberUuid,
             List<EventTriggerSubscription> subscriptions) throws ZepException;
 
 }

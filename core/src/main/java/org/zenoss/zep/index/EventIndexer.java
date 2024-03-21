@@ -23,7 +23,7 @@ public interface EventIndexer {
      * @return The number of indexed events.
      * @throws ZepException If an exception occurs.
      */
-    public int index() throws ZepException;
+    int index() throws ZepException;
 
     /**
      * Performs a full index through the current timestamp.
@@ -31,7 +31,7 @@ public interface EventIndexer {
      * @return The number of indexed events.
      * @throws ZepException If an exception occurs.
      */
-    public int indexFully() throws ZepException;
+    int indexFully() throws ZepException;
 
     /**
      * Starts the event indexer (starts the background indexing thread and starts processing the index
@@ -39,19 +39,19 @@ public interface EventIndexer {
      *
      * @throws InterruptedException If the indexer is running and is interrupted while stopping.
      */
-    public void start(ZepConfig config) throws InterruptedException;
+    void start(ZepConfig config) throws InterruptedException;
 
     /**
      * Stops the event indexer (stops the background indexing thread).
      *
      * @throws InterruptedException If the indexer is running and is interrupted while stopping.
      */
-    public void stop() throws InterruptedException;
+    void stop() throws InterruptedException;
 
     /**
      * Shuts down the event indexer (any further calls to start() will fail).
      *
      * @throws InterruptedException If the indexer is interrupted while stopping.
      */
-    public void shutdown() throws InterruptedException;
+    void shutdown() throws InterruptedException;
 }

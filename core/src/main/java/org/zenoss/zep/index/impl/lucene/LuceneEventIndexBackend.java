@@ -50,7 +50,7 @@ import org.zenoss.zep.index.IndexedDetailsConfiguration;
 import org.zenoss.zep.index.SavedSearchProcessor;
 import org.zenoss.zep.index.impl.BaseEventIndexBackend;
 
-import javax.annotation.Resource;
+import jakarta.annotation.Resource;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -122,12 +122,11 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
     public void setBean( MetricRegistry metrics ) {
         this.metrics = metrics;
         String metricName = this.getMetricName("IndexResultsCount");
-        this.metrics.register(metricName, new Gauge<Integer>() {
-            @Override
-            public Integer getValue() {
-                return indexResultsCount;
-            }
-        });
+        try {
+            this.metrics.register(metricName, (Gauge<Integer>) () -> indexResultsCount);
+        } catch (IllegalArgumentException ex) {
+            // skipping if metrics already exists
+        }
     }
 
     public void init() {
@@ -394,7 +393,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         } finally {
             returnSearcher(searcher);
             if (query != null) {
-                logger.debug("Query {} finished in {} milliseconds", query.toString(), System.currentTimeMillis() - now);
+                logger.debug("Query {} finished in {} milliseconds", query, System.currentTimeMillis() - now);
             }
         }
     }
@@ -406,13 +405,13 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         TopDocs docs;
 
         Callable search_call = new Callable<TopDocs>() {
-            public TopDocs call() throws IOException, Exception {
+            public TopDocs call() throws Exception {
                 TopDocs tdocs;
                 if (sort != null) {
-                    logger.debug("Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[]{query, sort, offset, limit});
+                    logger.debug("Query: {}, Sort: {}, Offset: {}, Limit: {}", query, sort, offset, limit);
                     tdocs = searcher.search(query, null, numDocs, sort);
                 } else {
-                    logger.debug("Query: {}, Offset: {}, Limit: {}", new Object[]{query, offset, limit});
+                    logger.debug("Query: {}, Offset: {}, Limit: {}", query, offset, limit);
                     tdocs = searcher.search(query, null, numDocs);
                 }
                 return tdocs;
@@ -429,9 +428,9 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
         catch (UncheckedTimeoutException e) {
             String msg = "Lucene search exceeded time limit ( " + this.luceneSearchTimeout + " seconds.)";
             if (sort != null)
-                logger.warn(msg + "Query: {}, Sort: {}, Offset: {}, Limit: {}", new Object[]{query, sort, offset, limit});
+                logger.warn(msg + "Query: {}, Sort: {}, Offset: {}, Limit: {}", query, sort, offset, limit);
             else
-                logger.warn(msg + "Query: {}, Offset: {}, Limit: {}", new Object[]{query, offset, limit});
+                logger.warn(msg + "Query: {}, Offset: {}, Limit: {}", query, offset, limit);
             throw new ZepException(msg + e.getLocalizedMessage(), e);
         }
         catch (OutOfMemoryError oome) {
@@ -731,7 +730,7 @@ public class LuceneEventIndexBackend extends BaseEventIndexBackend<LuceneSavedSe
             bq.add(new MatchAllDocsQuery(), Occur.MUST);
             query = bq;
         }
-        logger.debug("Filter: {}, Exclusion filter: {}, Query: {}", new Object[]{filter, exclusionFilter, query});
+        logger.debug("Filter: {}, Exclusion filter: {}, Query: {}", filter, exclusionFilter, query);
         return query;
     }
 

@@ -13,7 +13,7 @@ package org.zenoss.zep.dao.impl;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.zenoss.protobufs.model.Model.ModelElementType;
@@ -40,10 +40,9 @@ import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.impl.EventPreCreateContextImpl;
 import org.zenoss.zep.plugins.EventPreCreateContext;
 
+import javax.sql.DataSource;
 import java.io.UnsupportedEncodingException;
 import java.security.NoSuchAlgorithmException;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -68,7 +67,8 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 @ContextConfiguration({ "classpath:zep-config.xml" })
 public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringContextTests {
 
-    private static Random random = new Random();
+    protected NamedParameterJdbcTemplate namedParameterJdbcTemplate;
+    private static final Random random = new Random();
 
     @Autowired
     public EventSummaryDao eventSummaryDao;
@@ -81,6 +81,12 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
 
     @Autowired
     public ConfigDao configDao;
+
+    @Autowired
+    public void setDataSource(DataSource dataSource) {
+        this.namedParameterJdbcTemplate = new NamedParameterJdbcTemplate(dataSource);
+    }
+
 
     private EventSummary createSummaryNew(Event event) throws ZepException {
         return createSummary(event, EventStatus.STATUS_NEW);
@@ -877,14 +883,10 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         byte[] clearHash = DaoUtils.sha1(clearHashString);
         Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID,
                 databaseCompatibility.getUUIDConverter().toDatabaseType(summary.getUuid()));
-        byte[] clearHashFromDb = this.simpleJdbcTemplate.query(
+        byte[] clearHashFromDb = this.namedParameterJdbcTemplate.query(
                 "SELECT clear_fingerprint_hash FROM event_summary WHERE uuid=:uuid",
-                new RowMapper<byte[]>() {
-                    @Override
-                    public byte[] mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return rs.getBytes("clear_fingerprint_hash");
-                    }
-                }, fields).get(0);
+                fields,
+                (rs, rowNum) -> rs.getBytes("clear_fingerprint_hash")).get(0);
         assertArrayEquals(clearHash, clearHashFromDb);
     }
 
@@ -921,14 +923,10 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         byte[] clearHash = DaoUtils.sha1(clearHashString);
         Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID,
                 databaseCompatibility.getUUIDConverter().toDatabaseType(summary.getUuid()));
-        byte[] clearHashFromDb = this.simpleJdbcTemplate.query(
+        byte[] clearHashFromDb = this.namedParameterJdbcTemplate.query(
                 "SELECT clear_fingerprint_hash FROM event_summary WHERE uuid=:uuid",
-                new RowMapper<byte[]>() {
-                    @Override
-                    public byte[] mapRow(ResultSet rs, int rowNum) throws SQLException {
-                        return rs.getBytes("clear_fingerprint_hash");
-                    }
-                }, fields).get(0);
+                fields,
+                (rs, rowNum) -> rs.getBytes("clear_fingerprint_hash")).get(0);
         assertArrayEquals(clearHash, clearHashFromDb);
     }
 
@@ -1323,7 +1321,7 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
         final Map<String, List<String>> createdDetails = detailsToMap(
                 invalidSummary.getOccurrence(0).getDetailsList());
         assertTrue("Created event should contain Zenoss details (production state).",
-                createdDetails.keySet().contains(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE));
+                createdDetails.containsKey(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE));
 
     }
 
@@ -1444,7 +1442,7 @@ public class EventSummaryDaoImplIT extends AbstractTransactionalJUnit4SpringCont
                 largeSummary.getOccurrence(0).getDetailsList());
         // ...and verify that our SPECIFIC detail was not somehow removed.
         assertTrue("Created event should contain Zenoss details (production state).",
-                createdDetails.keySet().contains(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE));
+                createdDetails.containsKey(ZepConstants.DETAIL_DEVICE_PRODUCTION_STATE));
 
 
 

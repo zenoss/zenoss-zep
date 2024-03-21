@@ -29,7 +29,7 @@ public interface EventTriggerDao {
      * @throws ZepException
      *             If an error occurs creating the trigger.
      */
-    public void create(EventTrigger trigger) throws ZepException;
+    void create(EventTrigger trigger) throws ZepException;
 
     /**
      * Deletes the trigger with the specified UUID.
@@ -40,7 +40,7 @@ public interface EventTriggerDao {
      * @throws ZepException
      *             If an error occurs deleting the trigger.
      */
-    public int delete(String uuid) throws ZepException;
+    int delete(String uuid) throws ZepException;
 
     /**
      * Finds the trigger with the specified UUID. Returns null if the trigger is
@@ -52,7 +52,7 @@ public interface EventTriggerDao {
      * @throws ZepException
      *             If an error occurs looking up the trigger.
      */
-    public EventTrigger findByUuid(String uuid) throws ZepException;
+    EventTrigger findByUuid(String uuid) throws ZepException;
 
     /**
      * Finds all triggers in the database.
@@ -61,7 +61,7 @@ public interface EventTriggerDao {
      * @throws ZepException
      *             If an error occurs looking up the triggers.
      */
-    public List<EventTrigger> findAll() throws ZepException;
+    List<EventTrigger> findAll() throws ZepException;
 
     /**
      * Finds all enabled triggers in the database.
@@ -70,7 +70,7 @@ public interface EventTriggerDao {
      * @throws ZepException
      *             If an error occurs looking up the triggers.
      */
-    public List<EventTrigger> findAllEnabled() throws ZepException;
+    List<EventTrigger> findAllEnabled() throws ZepException;
 
     /**
      * Modifies the specified trigger in the database. Event trigger
@@ -83,5 +83,5 @@ public interface EventTriggerDao {
      * @throws ZepException
      *             If an error occurs modifying the trigger.
      */
-    public int modify(EventTrigger trigger) throws ZepException;
+    int modify(EventTrigger trigger) throws ZepException;
 }

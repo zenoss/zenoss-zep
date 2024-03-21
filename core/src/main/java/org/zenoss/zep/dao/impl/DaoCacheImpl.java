@@ -272,18 +272,18 @@ public class DaoCacheImpl implements DaoCache {
         @Override
         public int insertOrSelect(final String name) {
             try {
-                return this.template.queryForInt(selectIdByNameSql, name);
+                return this.template.queryForObject(selectIdByNameSql, Integer.class, name);
             }catch (EmptyResultDataAccessException ere) {
                 try {
                     return this.nestedTransactionService.executeInNestedTransaction(new NestedTransactionCallback<Integer>() {
                         @Override
                         public Integer doInNestedTransaction(NestedTransactionContext context) throws DataAccessException {
-                            final Map<String, Object> args = Collections.singletonMap(COLUMN_NAME, (Object) name);
+                            final Map<String, Object> args = Collections.singletonMap(COLUMN_NAME, name);
                             return jdbcInsert.executeAndReturnKey(args).intValue();
                         }
                     });
                 }catch (DuplicateKeyException e) {
-                    return this.template.queryForInt(selectIdByNameSql, name);
+                    return this.template.queryForObject(selectIdByNameSql, Integer.class, name);
                 }
             }
         }

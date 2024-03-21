@@ -13,7 +13,7 @@ package org.zenoss.zep.dao.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.zenoss.zep.UUIDGenerator;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.annotations.TransactionalReadOnly;
@@ -24,6 +24,7 @@ import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
 import org.zenoss.zep.dao.impl.compat.TypeConverterUtils;
+import org.zenoss.zep.dao.impl.JdbcTemplateProxy;
 
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
@@ -64,17 +65,17 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     }
 
     @SuppressWarnings("unused")
-    private static Logger logger = LoggerFactory.getLogger(EventSignalSpoolDaoImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(EventSignalSpoolDaoImpl.class);
 
-    private final SimpleJdbcOperations template;
+    private final NamedParameterJdbcOperations template;
     private UUIDGenerator uuidGenerator;
     private DatabaseCompatibility databaseCompatibility;
     private TypeConverter<String> uuidConverter;
     private NestedTransactionService nestedTransactionService;
 
     public EventSignalSpoolDaoImpl(DataSource dataSource) {
-        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(),
-                new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
+        this.template = (NamedParameterJdbcOperations) Proxy.newProxyInstance(NamedParameterJdbcOperations.class.getClassLoader(),
+                new Class<?>[] {NamedParameterJdbcOperations.class}, new JdbcTemplateProxy(dataSource));
     }
 
     public void setUuidGenerator(UUIDGenerator uuidGenerator) {
@@ -193,7 +194,7 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     public EventSignalSpool findByUuid(String uuid) throws ZepException {
         Map<String,Object> fields = Collections.singletonMap(COLUMN_UUID, uuidConverter.toDatabaseType(uuid));
         final String sql = "SELECT * FROM event_trigger_signal_spool WHERE uuid=:uuid";
-        List<EventSignalSpool> spools = this.template.query(sql, new EventSignalSpoolMapper(), fields);
+        List<EventSignalSpool> spools = this.template.query(sql, fields, new EventSignalSpoolMapper());
         EventSignalSpool spool = null;
         if (!spools.isEmpty()) {
             spool = spools.get(0);
@@ -225,8 +226,8 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
         final String sql = "SELECT * FROM event_trigger_signal_spool WHERE " +
                 "event_trigger_subscription_uuid=:event_trigger_subscription_uuid AND " +
                 "event_summary_uuid=:event_summary_uuid";
-        final List<EventSignalSpool> spools = this.template.query(sql,
-                new EventSignalSpoolMapper(), fields);
+        final List<EventSignalSpool> spools = this.template.query(sql, fields,
+                new EventSignalSpoolMapper());
         return (!spools.isEmpty()) ? spools.get(0) : null;
     }
 
@@ -235,7 +236,7 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
     public List<EventSignalSpool> findAllDue() throws ZepException {
         Map<String,Long> fields = Collections.singletonMap(COLUMN_FLUSH_TIME,System.currentTimeMillis());
         final String sql = "SELECT * FROM event_trigger_signal_spool WHERE flush_time <= :flush_time";
-        return this.template.query(sql, new EventSignalSpoolMapper(), fields);
+        return this.template.query(sql, fields, new EventSignalSpoolMapper());
     }
 
     @Override
@@ -252,13 +253,19 @@ public class EventSignalSpoolDaoImpl implements EventSignalSpoolDao {
         final String sql = "SELECT * FROM event_trigger_signal_spool WHERE event_summary_uuid IN (:_uuids)";
         final Map<String,List<Object>> fields = Collections.singletonMap("_uuids",
                 TypeConverterUtils.batchToDatabaseType(uuidConverter, eventSummaryUuids));
-        return this.template.query(sql, new EventSignalSpoolMapper(), fields);
+        return this.template.query(sql, fields, new EventSignalSpoolMapper());
     }
 
     @Override
     @TransactionalReadOnly
     public long getNextFlushTime() throws ZepException {
         final String sql = "SELECT MIN(flush_time) FROM event_trigger_signal_spool";
-        return this.template.queryForLong(sql);
+        long flushTime;
+        try {
+            flushTime = this.template.getJdbcOperations().queryForObject(sql, Long.class);
+        } catch (NullPointerException ex) {
+            flushTime = 0L;
+        }
+        return flushTime;
     }
 }

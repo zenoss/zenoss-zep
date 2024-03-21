@@ -22,7 +22,7 @@ public interface Partitionable extends Purgable {
      * @throws ZepException
      *             If an exception occurs initializing partitions in the table.
      */
-    public void initializePartitions() throws ZepException;
+    void initializePartitions() throws ZepException;
 
     /**
      * Returns the partition interval in milliseconds. This is used in order to
@@ -30,5 +30,5 @@ public interface Partitionable extends Purgable {
      * 
      * @return The partition interval in milliseconds.
      */
-    public long getPartitionIntervalInMs();
+    long getPartitionIntervalInMs();
 }

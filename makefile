@@ -1,11 +1,23 @@
+.PHONY: build clean
 
-packages = java.base/java.util java.base/java.text java.desktop/java.awt.font
-add_opens = $(foreach pkg,$(packages),--add-opens $(pkg)=ALL-UNNAMED)
+build:
+	@docker run --rm \
+		-v ${PWD}:/mnt/build \
+		-v ${HOME}/.m2:/home/build/.m2 \
+		-w /mnt/build \
+		zenoss/maven:java21-2 \
+		-U clean install
 
-.PHONY: package clean
+deploy:
+	@docker run --rm \
+        -v ${PWD}:/mnt/build \
+        -v ${HOME}/.m2:/home/build/.m2 \
+        -w /mnt/build \
+        zenoss/maven:java21-2 \
+        -U -Drepo.login=${NEXUS_USER} -Drepo.pwd=${NEXUS_PASSWORD} clean deploy
 
-package:
-	@MAVEN_OPTS="$(add_opens)" mvn package
+build-test-img:
+	@docker build -t zenoss/zep-test-image -f Dockerfile_test_image.in .
 
 clean:
-	@mvn clean
+	@rm -rf core/target dist/target webapp/target

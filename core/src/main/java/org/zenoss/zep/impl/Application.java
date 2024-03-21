@@ -94,7 +94,7 @@ public class Application implements ApplicationEventPublisherAware, ApplicationC
     private ExecutorService queueExecutor;
     private ExecutorService migratedExecutor;
 
-    private List<String> queueListeners = new ArrayList<String>();
+    private final List<String> queueListeners = new ArrayList<String>();
     private ApplicationEventPublisher applicationEventPublisher;
 
     public void setEventStoreDao(EventStoreDao eventStoreDao) {

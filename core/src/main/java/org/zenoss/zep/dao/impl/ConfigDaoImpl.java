@@ -21,7 +21,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.zep.Zep.ZepConfig;
 import org.zenoss.protobufs.zep.Zep.ZepConfig.Builder;
@@ -31,11 +31,14 @@ import org.zenoss.zep.annotations.TransactionalReadOnly;
 import org.zenoss.zep.annotations.TransactionalRollbackAllExceptions;
 import org.zenoss.zep.dao.ConfigDao;
 import org.zenoss.zep.dao.impl.compat.NestedTransactionService;
+import org.zenoss.zep.dao.impl.JdbcTemplateProxy;
+
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -50,7 +53,7 @@ import static org.zenoss.zep.dao.impl.EventConstants.*;
 public class ConfigDaoImpl implements ConfigDao {
 
     private static final Logger logger = LoggerFactory.getLogger(ConfigDao.class);
-    private final SimpleJdbcOperations template;
+    private final NamedParameterJdbcOperations template;
     private Messages messages;
     private static final int MAX_PARTITIONS = 1000;
     private final int maxEventArchivePurgeIntervalDays;
@@ -63,8 +66,8 @@ public class ConfigDaoImpl implements ConfigDao {
     private static final String COLUMN_CONFIG_VALUE = "config_value";
 
     public ConfigDaoImpl(DataSource ds, PartitionConfig partitionConfig) {
-        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(),
-              new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(ds));
+        this.template = (NamedParameterJdbcOperations) Proxy.newProxyInstance(NamedParameterJdbcOperations.class.getClassLoader(),
+              new Class<?>[] {NamedParameterJdbcOperations.class}, new JdbcTemplateProxy(ds));
 
         this.maxEventArchivePurgeIntervalDays = calculateMaximumDays(partitionConfig.getConfig(TABLE_EVENT_ARCHIVE));
         logger.info("Maximum archive days: {}", maxEventArchivePurgeIntervalDays);
@@ -93,7 +96,7 @@ public class ConfigDaoImpl implements ConfigDao {
     @TransactionalReadOnly
     public ZepConfig getConfig() throws ZepException {
         final String sql = "SELECT * FROM config";
-        ZepConfig config = template.getJdbcOperations().query(sql, new ZepConfigExtractor());
+        ZepConfig config = template.query(sql, new ZepConfigExtractor());
         validateConfig(config);
         return config;
     }
@@ -227,7 +230,7 @@ public class ConfigDaoImpl implements ConfigDao {
             case BOOLEAN:
                 return Boolean.toString((Boolean)value);
             case BYTE_STRING:
-                return new String(Base64.encodeBase64(((ByteString)value).toByteArray()), Charset.forName("US-ASCII"));
+                return new String(Base64.encodeBase64(((ByteString)value).toByteArray()), StandardCharsets.US_ASCII);
             case DOUBLE:
                 return Double.toString((Double) value);
             case ENUM:
@@ -259,12 +262,7 @@ public class ConfigDaoImpl implements ConfigDao {
             case BOOLEAN:
                 return Boolean.valueOf(strValue);
             case BYTE_STRING:
-                try {
-                    return ByteString.copyFrom(Base64.decodeBase64(strValue.getBytes("US-ASCII")));
-                } catch (UnsupportedEncodingException e) {
-                    // This exception should never happen - US-ASCII always exists in JVM
-                    throw new RuntimeException(e.getLocalizedMessage(), e);
-                }
+                return ByteString.copyFrom(Base64.decodeBase64(strValue.getBytes(StandardCharsets.US_ASCII)));
             case DOUBLE:
                 return Double.valueOf(strValue);
             case ENUM:

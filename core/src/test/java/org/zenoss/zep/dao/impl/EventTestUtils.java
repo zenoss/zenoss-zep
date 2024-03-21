@@ -66,7 +66,7 @@ public class EventTestUtils {
         eventBuilder.setEventGroup("event group");
         eventBuilder.setEventKey("event key");
         eventBuilder.setFingerprint("my|dedupid|foo|"
-                + UUID.randomUUID().toString());
+                + UUID.randomUUID());
         eventBuilder.setMessage("my message");
         eventBuilder.setMonitor("monitor");
         eventBuilder.setNtEventCode(new Random().nextInt(50000));

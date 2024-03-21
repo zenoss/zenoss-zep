@@ -15,5 +15,5 @@ public interface ZepConfigService {
      * @throws ZepException Thrown when config cannot be loaded
      *          from the database.
      */
-    public ZepConfig getConfig() throws ZepException;
+    ZepConfig getConfig() throws ZepException;
 }

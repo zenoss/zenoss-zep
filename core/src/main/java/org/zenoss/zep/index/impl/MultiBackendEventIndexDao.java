@@ -486,7 +486,7 @@ public class MultiBackendEventIndexDao extends BaseEventIndexDaoImpl<MultiBacken
         } finally { backendsUse.unlock(); }
     }
 
-    public static enum BackendStatus { REGISTERED, WRITER, READER }
+    public enum BackendStatus { REGISTERED, WRITER, READER }
 
     /** Do not use this outside of a {@link #backendsUse} lock-block. */
     private EventIndexBackend getReader() {

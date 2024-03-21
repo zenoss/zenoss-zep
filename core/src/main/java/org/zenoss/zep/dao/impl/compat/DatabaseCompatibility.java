@@ -24,21 +24,21 @@ public interface DatabaseCompatibility {
      *
      * @return The database type.
      */
-    public DatabaseType getDatabaseType();
+    DatabaseType getDatabaseType();
 
     /**
      * Returns the timestamp conversion interface for the database.
      *
      * @return Timestamp converter.
      */
-    public TypeConverter<Long> getTimestampConverter();
+    TypeConverter<Long> getTimestampConverter();
 
     /**
      * Returns the UUID conversion interface for the database.
      *
      * @return UUID converter.
      */
-    public TypeConverter<String> getUUIDConverter();
+    TypeConverter<String> getUUIDConverter();
 
     /**
      * Returns a range partitioner for the specified database.
@@ -50,7 +50,7 @@ public interface DatabaseCompatibility {
      * @param unit Unit of time.
      * @return The RangePartitioner.
      */
-    public RangePartitioner getRangePartitioner(DataSource ds,
+    RangePartitioner getRangePartitioner(DataSource ds,
             String tableName, String columnName,
             long duration, TimeUnit unit);
 }

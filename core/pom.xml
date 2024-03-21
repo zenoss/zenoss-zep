@@ -13,7 +13,7 @@
     <parent>
         <groupId>org.zenoss.zep</groupId>
         <artifactId>zep-parent</artifactId>
-        <version>2.8.0</version>
+        <version>2.8.1</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -21,7 +21,7 @@
         <dependency>
            <groupId>com.google.protobuf</groupId>
            <artifactId>protobuf-java</artifactId>
-           <version>${protobuf.version}</version>
+           <version>${protobuf-java.version}</version>
            <type>jar</type>
            <scope>compile</scope>
        </dependency>
@@ -40,11 +40,16 @@
             <scope>compile</scope>
         </dependency>
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>servlet-api</artifactId>
-            <version>2.5</version>
+            <groupId>org.eclipse.jetty.toolchain</groupId>
+            <artifactId>jetty-jakarta-servlet-api</artifactId>
+            <version>${jetty-jakarta-servlet-api.version}</version>
             <type>jar</type>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${httpcomponents.version}</version>
         </dependency>
         <dependency>
             <groupId>org.apache.solr</groupId>
@@ -103,22 +108,22 @@
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
-            <artifactId>jcl-over-slf4j</artifactId>
-            <version>${version.slf4j}</version>
-            <type>jar</type>
-            <scope>runtime</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>${version.slf4j}</version>
+            <version>${slf4j.version}</version>
             <type>jar</type>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.codehaus.jackson</groupId>
-            <artifactId>jackson-core-asl</artifactId>
-            <version>${version.jackson}</version>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-reload4j</artifactId>
+            <version>${slf4j.version}</version>
+            <type>jar</type>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
@@ -128,82 +133,73 @@
             <version>${metric-consumer.version}</version>
         </dependency>
         <dependency>
-            <groupId>org.codehaus.jackson</groupId>
-            <artifactId>jackson-jaxrs</artifactId>
-            <version>${version.jackson}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.jackson</groupId>
-            <artifactId>jackson-xc</artifactId>
-            <version>${version.jackson}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.codehaus.jackson</groupId>
-            <artifactId>jackson-mapper-asl</artifactId>
-            <version>${version.jackson}</version>
-            <type>jar</type>
-            <scope>compile</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-jaxrs</artifactId>
-            <version>${version.resteasy}</version>
+            <groupId>com.fasterxml.jackson.jaxrs</groupId>
+            <artifactId>jackson-jaxrs-json-provider</artifactId>
+            <version>${jackson.version}</version>
             <type>jar</type>
             <scope>compile</scope>
             <exclusions>
-                <exclusion> 
-                    <groupId>org.apache.httpcomponents</groupId>
-                    <artifactId>httpclient</artifactId>
+                <exclusion>
+                    <groupId>jakarta.xml.bind</groupId>
+                    <artifactId>jakarta.xml.bind-api</artifactId>
                 </exclusion>
                 <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-simple</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>jcl-over-slf4j</artifactId>
+                    <artifactId>jakarta.activation-api</artifactId>
+                    <groupId>jakarta.activation</groupId>
                 </exclusion>
             </exclusions>
         </dependency>
         <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+            <type>jar</type>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
             <groupId>org.jboss.resteasy</groupId>
+            <artifactId>resteasy-client</artifactId>
+            <version>${resteasy.version}</version>
+            <type>jar</type>
+            <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>jakarta.validation</groupId>
+                    <artifactId>jakarta.validation-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.jboss.resteasy.spring</groupId>
             <artifactId>resteasy-spring</artifactId>
-            <version>${version.resteasy}</version>
+            <version>${resteasy-spring.version}</version>
             <type>jar</type>
             <scope>compile</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>com.sun.xml.bind</groupId>
-                    <artifactId>jaxb-impl</artifactId>
-                </exclusion>
-                <exclusion>
-                    <groupId>com.sun.xml.stream</groupId>
-                    <artifactId>sjsxp</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.jboss.resteasy</groupId>
-            <artifactId>resteasy-jackson-provider</artifactId>
-            <version>${version.resteasy}</version>
+            <artifactId>resteasy-jackson2-provider</artifactId>
+            <version>${resteasy.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.jboss.resteasy</groupId>
             <artifactId>resteasy-jaxb-provider</artifactId>
-            <version>${version.resteasy}</version>
+            <version>${resteasy.version}</version>
             <type>jar</type>
             <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.sun.activation</groupId>
+                    <artifactId>jakarta.activation</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-context</artifactId>
-            <version>${version.spring}</version>
+            <version>${spring.version}</version>
             <type>jar</type>
             <scope>compile</scope>
             <exclusions>
@@ -216,93 +212,107 @@
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-web</artifactId>
-            <version>${version.spring}</version>
+            <version>${spring.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-tx</artifactId>
-            <version>${version.spring}</version>
+            <version>${spring.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-test</artifactId>
-            <version>${version.spring}</version>
+            <version>${spring.version}</version>
             <type>jar</type>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>
             <artifactId>spring-jdbc</artifactId>
-            <version>${version.spring}</version>
+            <version>${spring.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.mariadb.jdbc</groupId>
             <artifactId>mariadb-java-client</artifactId>
-            <version>1.1.7</version>
+            <version>${mariadb-java-client.version}</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>postgresql</groupId>
             <artifactId>postgresql</artifactId>
-            <version>${version.postgresql}</version>
+            <version>${postgresql.version}</version>
             <type>jar</type>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.tomcat</groupId>
             <artifactId>tomcat-jdbc</artifactId>
-            <version>${version.tomcat-jdbc}</version>
+            <version>${tomcat-jdbc.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>cglib</groupId>
             <artifactId>cglib-nodep</artifactId>
-            <version>2.2</version>
+            <version>${cglib-nodep.version}</version>
             <type>jar</type>
             <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>org.python</groupId>
             <artifactId>jython-standalone</artifactId>
-            <version>2.7.3</version>
+            <version>${jython-standalone.version}</version>
             <type>jar</type>
             <scope>compile</scope>
         </dependency>
         <dependency>
         	<groupId>ch.qos.logback</groupId>
         	<artifactId>logback-core</artifactId>
-        	<version>${version.logback}</version>
+        	<version>${logback.version}</version>
         </dependency>
         <dependency>
         	<groupId>ch.qos.logback</groupId>
         	<artifactId>logback-classic</artifactId>
-        	<version>${version.logback}</version>
+        	<version>${logback.version}</version>
         </dependency>
         <dependency>
             <groupId>org.codehaus.janino</groupId>
             <artifactId>janino</artifactId>
-            <version>2.5.16</version>
+            <version>${janino.version}</version>
             <type>jar</type>
             <scope>runtime</scope>
         </dependency>
         <dependency>
-        	<groupId>org.slf4j</groupId>
-        	<artifactId>log4j-over-slf4j</artifactId>
-        	<version>${version.slf4j}</version>
-        	<type>jar</type>
-        	<scope>runtime</scope>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-server</artifactId>
+            <version>${jetty.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.eclipse.jetty.toolchain</groupId>
+                    <artifactId>jetty-jakarta-servlet-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-deploy</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-webapp</artifactId>
+            <version>${jetty.version}</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.uuid</groupId>
             <artifactId>java-uuid-generator</artifactId>
-            <version>3.1.2</version>
+            <version>${java-uuid-generator.version}</version>
             <type>jar</type>
             <scope>compile</scope>
             <exclusions>
@@ -315,44 +325,49 @@
         <dependency>
             <groupId>org.springframework.data</groupId>
             <artifactId>spring-data-redis</artifactId>
-            <version>1.4.0.RELEASE</version>
+            <version>${spring-data-redis.version}</version>
         </dependency>
         <dependency>
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
-            <version>2.5.2</version>
+            <version>${jedis.version}</version>
         </dependency>
         <dependency>
             <groupId>com.google.http-client</groupId>
             <artifactId>google-http-client</artifactId>
-            <version>1.19.0</version>
+            <version>${google-http-client.version}</version>
         </dependency>
         <!-- coda hale stuff -->
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
-            <artifactId>metrics-core</artifactId>
-            <version>${version.metrics}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.dropwizard.metrics</groupId>
             <artifactId>metrics-jersey2</artifactId>
-            <version>${version.metrics}</version>
+            <version>${metrics.version}</version>
             <exclusions>
                 <exclusion> 
                     <groupId>jakarta.ws.rs</groupId>
                     <artifactId>jakarta.ws.rs-api</artifactId>
                 </exclusion>
+                <exclusion>
+                    <artifactId>jakarta.annotation-api</artifactId>
+                    <groupId>jakarta.annotation</groupId>
+                </exclusion>
             </exclusions>
         </dependency>
         <dependency>
             <groupId>io.dropwizard.metrics</groupId>
-            <artifactId>metrics-servlets</artifactId>
-            <version>${version.metrics}</version>
+            <artifactId>metrics-jakarta-servlets</artifactId>
+            <version>${metrics.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.ryantenney.metrics</groupId>
-            <artifactId>metrics-spring</artifactId>
-            <version>3.1.3</version>
+            <groupId>io.dropwizard.metrics</groupId>
+            <artifactId>metrics-jetty11</artifactId>
+            <version>${metrics.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>jetty-jakarta-servlet-api</artifactId>
+                    <groupId>org.eclipse.jetty.toolchain</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- end of coda hale stuff -->
         <dependency>
@@ -369,29 +384,114 @@
             <groupId>org.zenoss.zing.proto</groupId>
             <artifactId>zing-proto</artifactId>
             <version>${zing-proto.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.api.grpc</groupId>
+                    <artifactId>googleapis-common-protos</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
             <plugin>
-                <groupId>org.mortbay.jetty</groupId>
+                <groupId>org.eclipse.jetty</groupId>
                 <artifactId>jetty-maven-plugin</artifactId>
-                <version>${version.jetty}</version>
+                <version>${jetty.version}</version>
                 <configuration>
-                    <webAppConfig>
+                    <jettyXmls>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-bytebufferpool.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-deploy.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-http.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-webapp.xml</jettyXml>
+                    </jettyXmls>
+                    <supportedPackagings>
+                        <supportedPackaging>jar</supportedPackaging>
+                    </supportedPackagings>
+                    <webApp>
                         <resourceBase>${project.basedir}/../webapp/src/main/webapp</resourceBase>
                         <contextPath>/zeneventserver</contextPath>
-                    </webAppConfig>
+                        <descriptor>src/main/webapp/WEB-INF/web.xml</descriptor>
+                        <defaultsDescriptor>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/webdefault.xml</defaultsDescriptor>
+                    </webApp>
+                    <scanTargetPatterns>
+                        <scanTargetPattern>
+                            <directory>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty</directory>
+                            <includes>
+                                <include>**/*.properties</include>
+                            </includes>
+                        </scanTargetPattern>
+                    </scanTargetPatterns>
                  <stopKey>STOP</stopKey>
                  <stopPort>9999</stopPort>
-                 <scanIntervalSeconds>5</scanIntervalSeconds>
+                 <scan>0</scan>
+                 <useTestScope>true</useTestScope>
                 </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-deploy</artifactId>
+                        <version>${jetty.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-start</artifactId>
+                        <version>${jetty.version}</version>
+                        <classifier>shaded</classifier>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-util-ajax</artifactId>
+                        <version>${jetty.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty.toolchain</groupId>
+                        <artifactId>jetty-jakarta-servlet-api</artifactId>
+                        <version>${jetty-jakarta-servlet-api.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-core</artifactId>
+                        <version>${logback.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>ch.qos.logback</groupId>
+                        <artifactId>logback-classic</artifactId>
+                        <version>${logback.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                        <version>${slf4j.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.codehaus.janino</groupId>
+                        <artifactId>janino</artifactId>
+                        <version>${janino.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-server</artifactId>
+                        <version>${jetty.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>io.dropwizard.metrics</groupId>
+                        <artifactId>metrics-jakarta-servlets</artifactId>
+                        <version>${metrics-core.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>io.dropwizard.metrics</groupId>
+                        <artifactId>metrics-jetty11</artifactId>
+                        <version>${metrics-core.version}</version>
+                    </dependency>
+                </dependencies>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
-                <version>2.4</version>
+                <version>${maven-jar-plugin.version}</version>
                 <executions>
                     <execution>
                         <goals>
@@ -403,6 +503,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-antrun-plugin</artifactId>
+                <version>${maven-antrun-plugin.version}</version>
                 <executions>
                     <execution>
                         <id>create-test-schema</id>
@@ -467,7 +568,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>2.17</version>
+                <version>${maven-failsafe-plugin.version}</version>
                 <executions>
                     <execution>
                         <goals>

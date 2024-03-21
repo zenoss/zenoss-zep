@@ -22,5 +22,5 @@ public interface HeartbeatProcessor {
      *
      * @throws ZepException If an error occurs.
      */
-    public void sendHeartbeatEvents() throws ZepException;
+    void sendHeartbeatEvents() throws ZepException;
 }

@@ -35,39 +35,26 @@ public class RedisKeyValueStore implements KeyValueStore {
 
     @Override
     public byte[] load(final byte[] key) throws IOException {
-        return pool.useJedis(new JedisUser<byte[]>() {
-            @Override
-            public byte[] use(Jedis jedis) throws RedisTransactionCollision {
-                return jedis.hget(storeKey, key);
-            }
-        });
+        return pool.useJedis(jedis -> jedis.hget(storeKey, key));
     }
 
     @Override
     public void checkAndSetAll(final Function<Map<byte[], byte[]>,Map<byte[], byte[]>> mapper) {
-        pool.useJedis(new JedisUser<Object>() {
-            @Override
-            public Object use(Jedis jedis) throws RedisTransactionCollision {
-                jedis.watch(storeKey);
-                Map<byte[],byte[]> data = mapper.apply(jedis.hgetAll(storeKey));
-                Transaction tx = jedis.multi();
-                tx.del(storeKey);
-                for (Entry<byte[], byte[]> entry : data.entrySet())
-                    tx.hset(storeKey, entry.getKey(), entry.getValue());
-                if (tx.exec() == null)
-                    throw new RedisTransactionCollision(new String(storeKey));
-                return null;
-            }
+        pool.useJedis(jedis -> {
+            jedis.watch(storeKey);
+            Map<byte[],byte[]> data = mapper.apply(jedis.hgetAll(storeKey));
+            Transaction tx = jedis.multi();
+            tx.del(storeKey);
+            for (Entry<byte[], byte[]> entry : data.entrySet())
+                tx.hset(storeKey, entry.getKey(), entry.getValue());
+            if (tx.exec() == null)
+                throw new RedisTransactionCollision(new String(storeKey));
+            return null;
         });
     }
 
     @Override
     public Map<byte[], byte[]> loadAll() throws IOException {
-        return pool.useJedis(new JedisUser<Map<byte[], byte[]>>() {
-            @Override
-            public Map<byte[], byte[]> use(Jedis jedis) throws RedisTransactionCollision {
-                return jedis.hgetAll(storeKey);
-            }
-        });
+        return pool.useJedis(jedis -> jedis.hgetAll(storeKey));
     }
 }

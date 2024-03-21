@@ -24,7 +24,7 @@ public interface EventIndexHandler {
      * @param events The events to be handled.
      * @throws Exception If an exception occurs.
      */
-    public void prepareToHandle(Collection<EventSummary> events) throws Exception;
+    void prepareToHandle(Collection<EventSummary> events) throws Exception;
 
     /**
      * Handler called for each event summary to be indexed.
@@ -32,7 +32,7 @@ public interface EventIndexHandler {
      * @param event The event to be indexed.
      * @throws Exception If an exception occurs.
      */
-    public void handle(EventSummary event) throws Exception;
+    void handle(EventSummary event) throws Exception;
 
     /**
      * Callback method for when an event summary is not found.
@@ -40,7 +40,7 @@ public interface EventIndexHandler {
      * @param uuid The UUID of the deleted event summary.
      * @throws Exception If an exception occurs.
      */
-    public void handleDeleted(String uuid) throws Exception;
+    void handleDeleted(String uuid) throws Exception;
 
     /**
      * Called when indexing is complete if rows were found in 
@@ -48,5 +48,5 @@ public interface EventIndexHandler {
      * 
      * @throws Exception If an exception occurs.
      */
-    public void handleComplete() throws Exception;
+    void handleComplete() throws Exception;
 }

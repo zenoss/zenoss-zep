@@ -10,7 +10,8 @@
 
 package org.zenoss.zep.impl;
 
-import com.codahale.metrics.annotation.Timed;
+import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import com.google.common.base.Splitter;
 import org.python.core.Py;
 import org.python.core.PyDictionary;
@@ -28,7 +29,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.Trigger;
-import org.springframework.scheduling.TriggerContext;
 import org.zenoss.amqp.AmqpConnectionManager;
 import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.ExchangeConfiguration;
@@ -55,6 +55,7 @@ import org.zenoss.zep.plugins.EventPostIndexContext;
 import org.zenoss.zep.plugins.EventPostIndexPlugin;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -77,6 +78,9 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
     private static final Logger logger = LoggerFactory.getLogger(TriggerPlugin.class);
 
+    @Autowired
+    private MetricRegistry metricRegistry;
+
     private EventTriggerDao triggerDao;
     private EventSignalSpoolDao signalSpoolDao;
     private EventStoreDao eventStoreDao;
@@ -85,7 +89,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
     private UUIDGenerator uuidGenerator;
 
     private AmqpConnectionManager connectionManager;
-    private ExchangeConfiguration destinationExchange;
+    private final ExchangeConfiguration destinationExchange;
 
     // The default value is specified in zep-config.xml.
     // Can be overridden by specifying plugin.TriggerPlugin.triggerRuleCacheSize
@@ -232,24 +236,21 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         if (spoolFuture != null) {
             spoolFuture.cancel(false);
         }
-        Trigger trigger = new Trigger() {
-            @Override
-            public Date nextExecutionTime(TriggerContext triggerContext) {
-                Date nextExecution = null;
-                try {
-                    long nextFlushTime = signalSpoolDao.getNextFlushTime();
-                    if (nextFlushTime > 0) {
-                        nextExecution = new Date(nextFlushTime);
-                        logger.debug("Next flush time: {}", nextExecution);
-                    }
-                } catch (Exception e) {
-                    logger.warn("Exception getting next flush time", e);
+        Trigger trigger = triggerContext -> {
+            Instant nextExecution = null;
+            try {
+                long nextFlushTime = signalSpoolDao.getNextFlushTime();
+                if (nextFlushTime > 0) {
+                    nextExecution = Instant.ofEpochMilli(nextFlushTime);
+                    logger.debug("Next flush time: {}", nextExecution);
                 }
-                if (nextExecution == null) {
-                    nextExecution = new Date(System.currentTimeMillis() + MAXIMUM_DELAY_MS);
-                }
-                return nextExecution;
+            } catch (Exception e) {
+                logger.warn("Exception getting next flush time", e);
             }
+            if (nextExecution == null) {
+                nextExecution = Instant.ofEpochMilli(System.currentTimeMillis() + MAXIMUM_DELAY_MS);
+            }
+            return nextExecution;
         };
         Runnable runnable = new ThreadRenamingRunnable(new Runnable() {
             @Override
@@ -554,9 +555,9 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
     private static class BatchIndexState {
         private List<EventTrigger> triggers;
-        private Map<String, List<EventTriggerSubscription>> triggerSubscriptions =
+        private final Map<String, List<EventTriggerSubscription>> triggerSubscriptions =
                 new HashMap<String, List<EventTriggerSubscription>>();
-        private Map<String, EventSummary> eventsToDeleteFromSpool = new HashMap<String, EventSummary>();
+        private final Map<String, EventSummary> eventsToDeleteFromSpool = new HashMap<String, EventSummary>();
     }
 
     private final ThreadLocal<BatchIndexState> batchState = new ThreadLocal<BatchIndexState>();
@@ -712,7 +713,7 @@ public class TriggerPlugin extends EventPostIndexPlugin {
 
                 if (eventSatisfiesRule) {
                     logger.debug("subscriber: {}, delay: {}, repeat: {}, existing spool: {}",
-                            new Object[] { subscription.getSubscriberUuid(), delaySeconds, repeatSeconds, spoolExists });
+                            subscription.getSubscriberUuid(), delaySeconds, repeatSeconds, spoolExists);
                 }
 
                 boolean onlySendInitial = subscription.getSendInitialOccurrence();
@@ -801,32 +802,33 @@ public class TriggerPlugin extends EventPostIndexPlugin {
         }
     }
 
-    @Timed(absolute=true, name="Trigger.publishSignal")
     protected void publishSignal(EventSummary eventSummary, EventTriggerSubscription subscription) throws ZepException {
-        Event occurrence = eventSummary.getOccurrence(0);
-        Signal.Builder signalBuilder = Signal.newBuilder();
-        signalBuilder.setUuid(uuidGenerator.generate().toString());
-        signalBuilder.setCreatedTime(System.currentTimeMillis());
-        signalBuilder.setEvent(eventSummary);
-        signalBuilder.setSubscriberUuid(subscription.getSubscriberUuid());
-        signalBuilder.setTriggerUuid(subscription.getTriggerUuid());
-        signalBuilder.setMessage(occurrence.getMessage());
-        signalBuilder.setClear(CLOSED_STATUSES.contains(eventSummary.getStatus()));
-        if (EventStatus.STATUS_CLEARED == eventSummary.getStatus()) {
-            // Look up event which cleared this one
-            EventSummary clearEventSummary = this.eventStoreDao.findByUuid(eventSummary.getClearedByEventUuid());
-            if (clearEventSummary != null) {
-                signalBuilder.setClearEvent(clearEventSummary);
-            } else {
-                logger.warn("Unable to look up clear event with UUID: {}", eventSummary.getClearedByEventUuid());
+        try (Timer.Context ignored = metricRegistry.timer("Trigger.publishSignal").time()) {
+            Event occurrence = eventSummary.getOccurrence(0);
+            Signal.Builder signalBuilder = Signal.newBuilder();
+            signalBuilder.setUuid(uuidGenerator.generate().toString());
+            signalBuilder.setCreatedTime(System.currentTimeMillis());
+            signalBuilder.setEvent(eventSummary);
+            signalBuilder.setSubscriberUuid(subscription.getSubscriberUuid());
+            signalBuilder.setTriggerUuid(subscription.getTriggerUuid());
+            signalBuilder.setMessage(occurrence.getMessage());
+            signalBuilder.setClear(CLOSED_STATUSES.contains(eventSummary.getStatus()));
+            if (EventStatus.STATUS_CLEARED == eventSummary.getStatus()) {
+                // Look up event which cleared this one
+                EventSummary clearEventSummary = this.eventStoreDao.findByUuid(eventSummary.getClearedByEventUuid());
+                if (clearEventSummary != null) {
+                    signalBuilder.setClearEvent(clearEventSummary);
+                } else {
+                    logger.warn("Unable to look up clear event with UUID: {}", eventSummary.getClearedByEventUuid());
+                }
             }
-        }
-        Signal signal = signalBuilder.build();
-        logger.debug("Publishing signal: {}", signal);
-        try {
-            this.connectionManager.publish(destinationExchange, "zenoss.signal", signal);
-        } catch (AmqpException e) {
-            throw new ZepException(e);
+            Signal signal = signalBuilder.build();
+            logger.debug("Publishing signal: {}", signal);
+            try {
+                this.connectionManager.publish(destinationExchange, "zenoss.signal", signal);
+            } catch (AmqpException e) {
+                throw new ZepException(e);
+            }
         }
     }
 

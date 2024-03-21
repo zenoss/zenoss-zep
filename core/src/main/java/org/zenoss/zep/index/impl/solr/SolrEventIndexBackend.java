@@ -55,7 +55,7 @@ import static org.zenoss.zep.index.impl.IndexConstants.FIELD_EVENT_GROUP;
 public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch> {
 
     public static final int MAX_RESULTS = 100;
-    private static Logger logger = LoggerFactory.getLogger(SolrEventIndexBackend.class);
+    private static final Logger logger = LoggerFactory.getLogger(SolrEventIndexBackend.class);
 
     private static final Map<Field, String> SORT_MAP;
     static {
@@ -138,7 +138,7 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
             if (!collections.contains(name)) {
                 response = CollectionAdminRequest.createCollection(name, shards, replicationFactor, maxShardsPerNode, null, "zenoss_events", "uuid", queryServer);
                 if (!response.isSuccess()) {
-                    logger.error("Failed to initialize Solr: " + response.toString());
+                    logger.error("Failed to initialize Solr: " + response);
                     return false;
                 }
             }
@@ -432,7 +432,7 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
     @Override
     public EventSummaryResult list(EventSummaryRequest request) throws ZepException {
         assertReady();
-        List<EventSort> sorts = request.getSortCount() == 0 ? Collections.<EventSort>emptyList() : request.getSortList();
+        List<EventSort> sorts = request.getSortCount() == 0 ? Collections.emptyList() : request.getSortList();
         SolrQuery solrQuery = buildSolrQuery(request.getEventFilter(),
                                              request.getExclusionFilter(),
                                              request.hasLimit() ? request.getLimit() : null,
@@ -445,7 +445,7 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
     @Override
     public EventSummaryResult listUuids(EventSummaryRequest request) throws ZepException {
         assertReady();
-        List<EventSort> sorts = request.getSortCount() == 0 ? Collections.<EventSort>emptyList() : request.getSortList();
+        List<EventSort> sorts = request.getSortCount() == 0 ? Collections.emptyList() : request.getSortList();
         SolrQuery solrQuery = buildSolrQuery(request.getEventFilter(),
                 request.getExclusionFilter(),
                 request.hasLimit() ? request.getLimit() : null,
@@ -578,7 +578,7 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
     @Override
     public SolrSavedSearch buildSavedSearch(String uuid, EventQuery query) throws ZepException {
         assertReady();
-        List<EventSort> sorts = query.getSortCount() == 0 ? Collections.<EventSort>emptyList() : query.getSortList();
+        List<EventSort> sorts = query.getSortCount() == 0 ? Collections.emptyList() : query.getSortList();
         SolrQuery solrQuery = buildSolrQuery(query.getEventFilter(),
                 query.getExclusionFilter(),
                 null, null, sorts, null);
@@ -657,7 +657,7 @@ public class SolrEventIndexBackend extends BaseEventIndexBackend<SolrSavedSearch
         }
 
         final String query = sb.toString();
-        logger.debug("Filter: {}, Exclusion filter: {}, Query: {}", new Object[]{filter, exclusionFilter, query});
+        logger.debug("Filter: {}, Exclusion filter: {}, Query: {}", filter, exclusionFilter, query);
         return query;
     }
 

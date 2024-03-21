@@ -99,13 +99,13 @@ public class ZingEventTest {
 
         assertTrue(protoEvent.containsDimensions(ZingConstants.SOURCE_KEY));
         Scalar scalarValue = protoEvent.getDimensionsOrDefault(ZingConstants.SOURCE_KEY, null);
-        assertEquals((String) ZingUtils.getObjectFromScalarValue(scalarValue), src);
+        assertEquals(ZingUtils.getObjectFromScalarValue(scalarValue), src);
         assertTrue(protoEvent.containsDimensions(ZingConstants.FINGERPRINT_KEY));
         scalarValue = protoEvent.getDimensionsOrDefault(ZingConstants.FINGERPRINT_KEY, null);
-        assertEquals((String) ZingUtils.getObjectFromScalarValue(scalarValue), fingerprint);
+        assertEquals(ZingUtils.getObjectFromScalarValue(scalarValue), fingerprint);
         assertTrue(protoEvent.containsDimensions(ZingConstants.UUID_KEY));
         scalarValue = protoEvent.getDimensionsOrDefault(ZingConstants.UUID_KEY, null);
-        assertEquals((String) ZingUtils.getObjectFromScalarValue(scalarValue), eventUUID);
+        assertEquals(ZingUtils.getObjectFromScalarValue(scalarValue), eventUUID);
 
         List<Object> mdValues;
         ScalarArray scalarArr;
@@ -121,20 +121,20 @@ public class ZingEventTest {
         scalarArr = protoEvent.getMetadataOrDefault(ZingConstants.CONTEXT_UUID_KEY, null);
         mdValues = ZingUtils.getListFromScalarArray(ZingConstants.CONTEXT_UUID_KEY, scalarArr);
         assertTrue(mdValues.size()==1);
-        assertEquals((String)mdValues.get(0), contextUUID);
+        assertEquals(mdValues.get(0), contextUUID);
         // parentContextUUID
         protoEvent.containsMetadata(ZingConstants.PARENT_CONTEXT_UUID_KEY);
         scalarArr = protoEvent.getMetadataOrDefault(ZingConstants.PARENT_CONTEXT_UUID_KEY, null);
         mdValues = ZingUtils.getListFromScalarArray(ZingConstants.PARENT_CONTEXT_UUID_KEY, scalarArr);
         assertTrue(mdValues.size()==1);
-        assertEquals((String)mdValues.get(0), parentContextUUID);
+        assertEquals(mdValues.get(0), parentContextUUID);
         // detail
         String mdDetailKey = ZingConstants.DETAILS_KEY_PREFIX + detailKey;
         protoEvent.containsMetadata(mdDetailKey);
         scalarArr = protoEvent.getMetadataOrDefault(mdDetailKey, null);
         mdValues = ZingUtils.getListFromScalarArray(mdDetailKey, scalarArr);
         assertTrue(mdValues.size()==1);
-        assertEquals((String)mdValues.get(0), detailValue);
+        assertEquals(mdValues.get(0), detailValue);
     }
 
     @Test

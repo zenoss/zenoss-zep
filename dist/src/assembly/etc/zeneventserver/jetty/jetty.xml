@@ -1,97 +1,123 @@
 <?xml version="1.0"?>
-<!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "http://www.eclipse.org/jetty/configure.dtd">
+<!DOCTYPE Configure PUBLIC "-//Jetty//Configure//EN" "https://www.eclipse.org/jetty/configure_10_0.dtd">
 
 <!-- =============================================================== -->
-<!-- Configure the Jetty Server                                      -->
-<!--                                                                 -->
 <!-- Documentation of this file format can be found at:              -->
-<!-- http://wiki.eclipse.org/Jetty/Reference/jetty.xml_syntax        -->
+<!-- https://www.eclipse.org/jetty/documentation/current/            -->
 <!--                                                                 -->
 <!-- Additional configuration files are available in $JETTY_HOME/etc -->
-<!-- and can be mixed in.  For example:                              -->
-<!--   java -jar start.jar etc/jetty.xml etc/jetty-ssl.xml           -->
+<!-- and can be mixed in. See start.ini file for the default         -->
+<!-- configuration files.                                            -->
 <!--                                                                 -->
-<!-- See start.ini file for the default configuraton files           -->
+<!-- For a description of the configuration mechanism, see the       -->
+<!-- output of:                                                      -->
+<!--   java -jar start.jar -?                                        -->
 <!-- =============================================================== -->
 
-
+<!-- =============================================================== -->
+<!-- Configure a Jetty Server instance with an ID "Server"           -->
+<!-- Other configuration files may also configure the "Server"       -->
+<!-- ID, in which case they are adding configuration to the same     -->
+<!-- instance.  If other configuration have a different ID, they     -->
+<!-- will create and configure another instance of Jetty.            -->
+<!-- Consult the javadoc of o.e.j.server.Server for all              -->
+<!-- configuration that may be set here.                             -->
+<!-- =============================================================== -->
 <Configure id="Server" class="org.eclipse.jetty.server.Server">
 
-    <Call class="com.codahale.metrics.SharedMetricRegistries" name="getOrCreate" id="metrics">
-        <!-- Uses this name in spring context -->
-        <Arg>zep</Arg>
-    </Call>
+    <Arg name="threadpool">
+        <New id="threadPool" class="io.dropwizard.metrics.jetty11.InstrumentedQueuedThreadPool">
+            <Arg name="registry">
+                <Call class="com.codahale.metrics.SharedMetricRegistries" name="getOrCreate" id="metrics">
+                    <Arg>zep</Arg>
+                </Call>
+            </Arg>
+            <Set name="minThreads">10</Set>
+            <Set name="maxThreads">200</Set>
+        </New>
+    </Arg>
 
     <!-- =========================================================== -->
-    <!-- Server Thread Pool                                          -->
+    <!-- Http Configuration.                                         -->
+    <!-- This is a common configuration instance used by all         -->
+    <!-- connectors that can carry HTTP semantics (HTTP, HTTPS, etc.)-->
+    <!-- It configures the non wire protocol aspects of the HTTP     -->
+    <!-- semantic.                                                   -->
+    <!--                                                             -->
+    <!-- This configuration is only defined here and is used by      -->
+    <!-- reference from other XML files such as jetty-http.xml,      -->
+    <!-- jetty-https.xml and other configuration files which         -->
+    <!-- instantiate the connectors.                                 -->
+    <!--                                                             -->
+    <!-- Consult the javadoc of o.e.j.server.HttpConfiguration       -->
+    <!-- for all configuration that may be set here.                 -->
     <!-- =========================================================== -->
-    <Set name="ThreadPool">
-      <!-- Default queued blocking threadpool -->
-      <New class="com.codahale.metrics.jetty8.InstrumentedQueuedThreadPool">
-        <Arg><Ref id="metrics"/></Arg>
-        <Set name="minThreads">10</Set>
-        <Set name="maxThreads">200</Set>
-      </New>
-    </Set>
+    <New id="httpConfig" class="org.eclipse.jetty.server.HttpConfiguration">
+        <Set name="secureScheme" property="jetty.httpConfig.secureScheme"/>
+        <Set name="securePort">8443</Set>
+        <Set name="outputBufferSize" property="jetty.httpConfig.outputBufferSize">32768</Set>
+        <Set name="outputAggregationSize" property="jetty.httpConfig.outputAggregationSize">8192</Set>
+        <Set name="requestHeaderSize" property="jetty.httpConfig.requestHeaderSize">8192</Set>
+        <Set name="responseHeaderSize" property="jetty.httpConfig.responseHeaderSize">8192</Set>
+        <Set name="sendServerVersion" property="jetty.httpConfig.sendServerVersion">true</Set>
+        <Set name="sendDateHeader"><Property name="jetty.httpConfig.sendDateHeader" default="false"/></Set>
+        <Set name="headerCacheSize" property="jetty.httpConfig.headerCacheSize">1024</Set>
+        <Set name="delayDispatchUntilContent" property="jetty.httpConfig.delayDispatchUntilContent">true</Set>
+        <Set name="maxErrorDispatches" property="jetty.httpConfig.maxErrorDispatches">10</Set>
+        <Set name="persistentConnectionsEnabled" property="jetty.httpConfig.persistentConnectionsEnabled">true</Set>
+        <Set name="httpCompliance"><Call class="org.eclipse.jetty.http.HttpCompliance" name="from"><Arg><Property name="jetty.httpConfig.compliance" deprecated="jetty.http.compliance" default="RFC7230"/></Arg></Call></Set>
+        <Set name="uriCompliance"><Call class="org.eclipse.jetty.http.UriCompliance" name="from"><Arg><Property name="jetty.httpConfig.uriCompliance" default="DEFAULT"/></Arg></Call></Set>
+        <Set name="requestCookieCompliance"><Call class="org.eclipse.jetty.http.CookieCompliance" name="from"><Arg><Property name="jetty.httpConfig.requestCookieCompliance" default="RFC6265"/></Arg></Call></Set>
+        <Set name="responseCookieCompliance"><Call class="org.eclipse.jetty.http.CookieCompliance" name="from"><Arg><Property name="jetty.httpConfig.responseCookieCompliance" default="RFC6265"/></Arg></Call></Set>
+        <Set name="relativeRedirectAllowed"><Property name="jetty.httpConfig.relativeRedirectAllowed" default="false"/></Set>
+        <Set name="useInputDirectByteBuffers" property="jetty.httpConfig.useInputDirectByteBuffers"/>
+        <Set name="useOutputDirectByteBuffers" property="jetty.httpConfig.useOutputDirectByteBuffers"/>
+    </New>
 
     <!-- =========================================================== -->
-    <!-- Set connectors                                              -->
-    <!-- =========================================================== -->
-
-    <Call name="addConnector">
-      <Arg>
-          <New class="org.eclipse.jetty.server.nio.SelectChannelConnector">
-            <Set name="host"><Property name="jetty.host" /></Set>
-            <Set name="port"><Property name="jetty.port" default="8084"/></Set>
-            <Set name="maxIdleTime">45000</Set>
-            <Set name="Acceptors">2</Set>
-            <Set name="statsOn">false</Set>
-            <Set name="confidentialPort">8443</Set>
-            <Set name="lowResourcesConnections">10000</Set>
-            <Set name="lowResourcesMaxIdleTime">5000</Set>
-            <Set name="requestHeaderSize">65536</Set>
-          </New>
-      </Arg>
-    </Call>
-
-    <!-- =========================================================== -->
-    <!-- Set handler Collection Structure                            -->
+    <!-- Set the default handler structure for the Server            -->
+    <!-- A handler collection is used to pass received requests to   -->
+    <!-- both the ContextHandlerCollection, which selects the next   -->
+    <!-- handler by context path and virtual host, and the           -->
+    <!-- DefaultHandler, which handles any requests not handled by   -->
+    <!-- the context handlers.                                       -->
+    <!-- Other handlers may be added to the "Handlers" collection,   -->
+    <!-- for example the jetty-requestlog.xml file adds the          -->
+    <!-- RequestLogHandler after the default handler                 -->
     <!-- =========================================================== -->
     <Set name="handler">
-      <New id="Handlers" class="org.eclipse.jetty.server.handler.HandlerCollection">
-        <Set name="handlers">
-         <Array type="org.eclipse.jetty.server.Handler">
-           <Item>
-             <New id="Contexts" class="org.eclipse.jetty.server.handler.ContextHandlerCollection"/>
-           </Item>
-           <Item>
-            <New id="instrumentedHandler" class="com.codahale.metrics.jetty8.InstrumentedHandler">
-              <Arg><Ref id="metrics"/></Arg>
-              <Arg>
-                <New id="DefaultHandler" class="org.eclipse.jetty.server.handler.DefaultHandler"/>
-              </Arg>
-            </New>
-           </Item>
-         </Array>
-        </Set>
-      </New>
+        <New id="Handlers" class="org.eclipse.jetty.server.handler.HandlerList">
+            <Set name="handlers">
+                <Array type="org.eclipse.jetty.server.Handler">
+                    <Item>
+                        <New id="Contexts" class="org.eclipse.jetty.server.handler.ContextHandlerCollection">
+                            <Set name="handlers">
+                                <Array type="org.eclipse.jetty.server.Handler">
+                                    <Item>
+                                        <New id="instrumentedHandler" class="io.dropwizard.metrics.jetty11.InstrumentedHandler">
+                                            <Arg><Ref refid="metrics"/></Arg>
+                                            <Set name="Handler">
+                                                <New id="DefaultHandler" class="org.eclipse.jetty.server.handler.DefaultHandler"/>
+                                            </Set>
+                                        </New>
+                                    </Item>
+                                </Array>
+                            </Set>
+                        </New>
+                    </Item>
+                    <Item>
+                        <Ref refid="DefaultHandler"/>
+                    </Item>
+                </Array>
+            </Set>
+        </New>
     </Set>
 
     <!-- =========================================================== -->
-    <!-- extra options                                               -->
+    <!-- extra server options                                        -->
     <!-- =========================================================== -->
-    <Set name="stopAtShutdown">true</Set>
-    <Set name="sendServerVersion">true</Set>
-    <Set name="sendDateHeader">true</Set>
-    <Set name="gracefulShutdown">1000</Set>
-
-    <!-- Uncomment the following section to enable debug logging on startup -->
-    <!--
-    <Get class="org.eclipse.jetty.util.log.Log" name="log">
-        <Call name="setDebugEnabled">
-            <Arg type="boolean">true</Arg>
-        </Call>
-    </Get>
-    -->
-
+    <Set name="stopAtShutdown"><Property name="jetty.server.stopAtShutdown" default="true"/></Set>
+    <Set name="stopTimeout"><Property name="jetty.server.stopTimeout" default="5000"/></Set>
+    <Set name="dumpAfterStart" property="jetty.server.dumpAfterStart"/>
+    <Set name="dumpBeforeStop" property="jetty.server.dumpBeforeStop"/>
 </Configure>

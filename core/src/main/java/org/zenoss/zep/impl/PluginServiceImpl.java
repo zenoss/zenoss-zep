@@ -253,9 +253,9 @@ public class PluginServiceImpl implements PluginService, ApplicationContextAware
     }
 
     private static class PluginRepository {
-        private Map<Class<? extends EventPlugin>, List<? extends EventPlugin>> plugins =
+        private final Map<Class<? extends EventPlugin>, List<? extends EventPlugin>> plugins =
                 new HashMap<Class<? extends EventPlugin>, List<? extends EventPlugin>>();
-        private Set<String> allPluginIds = new HashSet<String>();
+        private final Set<String> allPluginIds = new HashSet<String>();
         private final PluginConfig pluginConfig;
         private final Set<String> disabledPlugins;
 
@@ -378,7 +378,7 @@ public class PluginServiceImpl implements PluginService, ApplicationContextAware
         logger.info("Initialized plug-ins");
     }
 
-    private AtomicBoolean initializedPlugins = new AtomicBoolean();
+    private final AtomicBoolean initializedPlugins = new AtomicBoolean();
 
     public void initializePlugins() {
         if (!initializedPlugins.compareAndSet(false, true)) {

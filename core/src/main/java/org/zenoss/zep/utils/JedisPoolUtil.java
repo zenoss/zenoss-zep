@@ -12,7 +12,7 @@ import java.io.IOException;
 
 public final class JedisPoolUtil {
 
-    private static Logger logger = LoggerFactory.getLogger(JedisPoolUtil.class);
+    private static final Logger logger = LoggerFactory.getLogger(JedisPoolUtil.class);
 
     private final JedisPool pool;
     private volatile Boolean supportsEval;
@@ -32,15 +32,10 @@ public final class JedisPoolUtil {
         if(!this.ready) {
             synchronized (this) {
                 if(!this.ready) {
-                    Jedis jedis = null;
-                    try {
-                        jedis = this.pool.getResource();
+                    try (Jedis ignored = this.pool.getResource()) {
                         this.ready = true;
                     } catch (JedisConnectionException e) {
                         // Not connected
-                    } finally {
-                        if (jedis!=null)
-                            pool.returnResource(jedis);
                     }
                 }
             }
@@ -55,12 +50,7 @@ public final class JedisPoolUtil {
                 result = supportsEval;
                 if (result == null) {
                     try {
-                        useJedis(new JedisUser<Object>() {
-                            @Override
-                            public Object use(Jedis jedis) throws RedisTransactionCollision {
-                                return jedis.eval("do return end".getBytes());
-                            }
-                        });
+                        useJedis(jedis -> jedis.eval("do return end".getBytes()));
                         supportsEval = result = true;
                     } catch (JedisDataException e) {
                         if (e.getMessage().contains("unknown command")) {
@@ -124,19 +114,12 @@ public final class JedisPoolUtil {
 
     private <T> T useJedisOnce(JedisUser<T> user) throws RedisTransactionCollision {
         ExponentialBackOff backoffTracker = null;
-        Jedis jedis = null;
         int exceptions = 0;
         while (true) {
-            try {
-                if (jedis == null)
-                    jedis = pool.getResource();
-                T result = user.use(jedis);
-                pool.returnResource(jedis);
-                return result;
+            try (Jedis jedis = pool.getResource()) {
+                return user.use(jedis);
             } catch (JedisConnectionException e) {
                 exceptions++;
-                if (jedis != null)
-                    pool.returnBrokenResource(jedis);
                 if (backoffTracker == null) {
                     backoffTracker = new ExponentialBackOff.Builder().
                             setMaxElapsedTimeMillis(maxConnectionWaitMillis).
@@ -162,11 +145,8 @@ public final class JedisPoolUtil {
                     try {
                         Thread.sleep(backOff);
                     } catch (InterruptedException ie) { /* no biggie */ }
-                    jedis = pool.getResource();
                 }
             } catch (RuntimeException e) {
-                if (jedis != null)
-                    pool.returnResource(jedis);
                 throw e;
             }
         }

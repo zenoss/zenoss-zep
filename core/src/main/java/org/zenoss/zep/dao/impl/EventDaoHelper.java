@@ -18,7 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.zenoss.protobufs.JsonFormat;
 import org.zenoss.protobufs.model.Model.ModelElementType;
 import org.zenoss.protobufs.zep.Zep.Event;
@@ -548,7 +548,7 @@ public class EventDaoHelper {
         return actorBuilder.build();
     }
 
-    public int addNote(String tableName, String uuid, EventNote note, SimpleJdbcOperations template)
+    public int addNote(String tableName, String uuid, EventNote note, NamedParameterJdbcOperations template)
             throws ZepException {
         TypeConverter<Long> timestampConverter = databaseCompatibility.getTimestampConverter();
         EventNote.Builder builder = EventNote.newBuilder(note);
@@ -565,7 +565,7 @@ public class EventDaoHelper {
             final String querySql = "SELECT notes_json FROM " + tableName + " WHERE uuid=:uuid FOR UPDATE";
             final String currentNoteJson;
             try {
-                currentNoteJson = template.queryForObject(querySql, String.class, fields);
+                currentNoteJson = template.queryForObject(querySql, fields, String.class);
             } catch (EmptyResultDataAccessException e) {
                 // If the event doesn't exist, we return 0 as the number of affected rows
                 return 0;
@@ -597,7 +597,7 @@ public class EventDaoHelper {
         }
     }
 
-    public int updateDetails(String tableName, String uuid, List<EventDetail> details, SimpleJdbcOperations template)
+    public int updateDetails(String tableName, String uuid, List<EventDetail> details, NamedParameterJdbcOperations template)
             throws ZepException {
         Map<String, Object> fields = new HashMap<String, Object>();
 
@@ -605,7 +605,7 @@ public class EventDaoHelper {
         final String selectSql = "SELECT details_json FROM " + tableName + " WHERE uuid = :uuid FOR UPDATE";
         final List<EventDetail> existingDetailList;
         try {
-            String currentDetailsJson = template.queryForObject(selectSql, String.class, fields);
+            String currentDetailsJson = template.queryForObject(selectSql, fields, String.class);
             if (currentDetailsJson == null) {
                 existingDetailList = Collections.emptyList();
             }
@@ -644,7 +644,7 @@ public class EventDaoHelper {
     }
 
     @TransactionalReadOnly
-    private List<EventSummary> listBatch(SimpleJdbcOperations template, String tableName,
+    private List<EventSummary> listBatch(NamedParameterJdbcOperations template, String tableName,
                                         String startingUuid, long maxUpdateTime, int limit, EventSummaryRowMapper esrm)
             throws ZepException {
         final String sql;
@@ -659,13 +659,13 @@ public class EventDaoHelper {
             sql = "SELECT * FROM " + tableName + " WHERE uuid > :_starting_uuid AND update_time <= :_max_update_time " +
                     "ORDER BY uuid LIMIT :_limit";
         }
-        return template.query(sql, esrm, fields);
+        return template.query(sql, fields, esrm);
     }
 
     @TransactionalReadOnly
-    public EventBatch listBatch(SimpleJdbcOperations template, String tableName, RangePartitioner partitioner,
-                                        EventBatchParams batchParams, long maxUpdateTime, int limit,
-                                        EventSummaryRowMapper esrm)
+    public EventBatch listBatch(NamedParameterJdbcOperations template, String tableName, RangePartitioner partitioner,
+                                EventBatchParams batchParams, long maxUpdateTime, int limit,
+                                EventSummaryRowMapper esrm)
             throws ZepException {
         if (partitioner == null) {
             List<EventSummary> events = listBatch(template, tableName, batchParams == null ? null : batchParams.nextUuid, maxUpdateTime, limit, esrm);
@@ -709,7 +709,7 @@ public class EventDaoHelper {
     }
 
     @TransactionalReadOnly
-    private List<EventSummary> listBatchInPartition(SimpleJdbcOperations template, String tableName,
+    private List<EventSummary> listBatchInPartition(NamedParameterJdbcOperations template, String tableName,
                                                    Partition partition, String nextUuid, Object maxUpdateTime,
                                                    int limit, EventSummaryRowMapper esrm)
         throws ZepException {
@@ -737,7 +737,7 @@ public class EventDaoHelper {
 
         sql.append(" ORDER BY uuid LIMIT :_limit");
         fields.put("_limit", limit);
-        return template.query(sql.toString(), esrm, fields);
+        return template.query(sql.toString(), fields, esrm);
     }
 
 

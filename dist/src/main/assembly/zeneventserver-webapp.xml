@@ -18,8 +18,22 @@
             <includes>
                 <include>org.eclipse.jetty:jetty-deploy</include>
                 <include>org.eclipse.jetty:jetty-start</include>
+                <include>org.eclipse.jetty:jetty-xml</include>
+                <include>org.eclipse.jetty:jetty-util</include>
+                <include>org.eclipse.jetty:jetty-io</include>
                 <include>org.eclipse.jetty:jetty-server</include>
-                <include>javax.servlet:servlet-api</include>
+                <include>org.eclipse.jetty:jetty-http</include>
+                <include>org.eclipse.jetty:jetty-webapp</include>
+                <include>org.eclipse.jetty:jetty-servlet</include>
+                <include>org.eclipse.jetty:jetty-security</include>
+                <include>org.eclipse.jetty:jetty-util-ajax</include>
+                <include>org.eclipse.jetty.toolchain:jetty-jakarta-servlet-api</include>
+                <include>org.zenoss.zep:zep-core</include>
+                <include>org.slf4j:slf4j-api</include>
+                <include>org.slf4j:slf4j-reload4j</include>
+                <include>ch.qos.logback:logback-core</include>
+                <include>ch.qos.logback:logback-classic</include>
+                <include>org.codehaus.janino:janino</include>
             </includes>
         </dependencySet>
         <dependencySet>
@@ -30,8 +44,8 @@
             <useTransitiveFiltering>true</useTransitiveFiltering>
             <useStrictFiltering>true</useStrictFiltering>
             <includes>
-                <include>io.dropwizard.metrics:metrics-core</include>
-                <include>io.dropwizard.metrics:metrics-jetty8</include>
+                <include>io.dropwizard.metrics:metrics-jakarta-servlets</include>
+                <include>io.dropwizard.metrics:metrics-jetty11</include>
             </includes>
         </dependencySet>
     </dependencySets>
@@ -62,6 +76,13 @@
         <fileSet>
             <directory>src/assembly/etc</directory>
             <outputDirectory>etc/</outputDirectory>
+            <directoryMode>0755</directoryMode>
+            <fileMode>0600</fileMode>
+            <filtered>false</filtered>
+        </fileSet>
+        <fileSet>
+            <directory>src/assembly/modules</directory>
+            <outputDirectory>modules/</outputDirectory>
             <directoryMode>0755</directoryMode>
             <fileMode>0600</fileMode>
             <filtered>false</filtered>

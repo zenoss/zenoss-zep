@@ -53,7 +53,7 @@ public class TriggerPluginTest {
         this.triggerPlugin = new TriggerPlugin();
         triggerPlugin.setTriggerRuleCacheSize(10);
         this.spoolDaoMock = createMock(EventSignalSpoolDao.class);
-        expect(spoolDaoMock.findAllDue()).andReturn(Collections.<EventSignalSpool> emptyList()).anyTimes();
+        expect(spoolDaoMock.findAllDue()).andReturn(Collections.emptyList()).anyTimes();
         this.schedulerMock = createMock(TaskScheduler.class);
         this.futureMock = createNiceMock(ScheduledFuture.class);
         expect(schedulerMock.schedule(isA(Runnable.class), isA(Trigger.class))).andReturn(futureMock);

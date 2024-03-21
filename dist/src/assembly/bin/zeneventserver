@@ -93,9 +93,6 @@ JVM_ARGS="$JVM_ARGS -Djetty.logs=${JETTY_HOME}/log"
 JVM_ARGS="$JVM_ARGS -Dlogback.configurationFile=${JETTY_HOME}/etc/zeneventserver/logback.xml"
 ZENOSS_STARTUP_TIMEOUT=${ZENOSS_STARTUP_TIMEOUT:-"180"}
 
-JETTY_ARGS="--config=$JETTY_HOME/etc/zeneventserver/jetty/start.config"
-JETTY_ARGS="$JETTY_ARGS --ini=$JETTY_HOME/etc/zeneventserver/jetty/jetty.ini"
-
 VAR=${JETTY_HOME}/var
 mkdir -p ${VAR}/run
 
@@ -126,8 +123,8 @@ JAVAEXE="java"
 
 # Check for java
 JVERSION=`LC_ALL=C $JAVAEXE -version 2>&1 | grep "java version\|openjdk version" | awk '{print $3}' | cut -d'"' -f2`
-if echo "$JVERSION" | grep -Evq "(11\.[0-9]+\.[0-9]+|1\.[78]\.[0-9]+)"; then
-	echo "Java >= 1.7 is required."
+if echo "$JVERSION" | grep -Evq "(21\.[0-9]+\.[0-9]+)"; then
+	echo "Java >= 21 is required."
 	exit 1
 fi
 

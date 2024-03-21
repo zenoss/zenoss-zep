@@ -24,7 +24,7 @@ public interface ConfigDao {
      * @throws ZepException
      *             If an error occurs loading the configuration.
      */
-    public ZepConfig getConfig() throws ZepException;
+    ZepConfig getConfig() throws ZepException;
 
     /**
      * Removes the configuration value with the specified name from the
@@ -36,7 +36,7 @@ public interface ConfigDao {
      * @throws ZepException
      *             If an error occurs removing the configuration value.
      */
-    public int removeConfigValue(String name) throws ZepException;
+    int removeConfigValue(String name) throws ZepException;
 
     /**
      * Overwrites any existing configuration for ZEP with the specified
@@ -47,7 +47,7 @@ public interface ConfigDao {
      * @throws ZepException
      *             If an error occurs overwriting the configuration.
      */
-    public void setConfig(ZepConfig config) throws ZepException;
+    void setConfig(ZepConfig config) throws ZepException;
 
     /**
      * Adds or updates one configuration entry with the specified name.
@@ -59,5 +59,5 @@ public interface ConfigDao {
      * @throws ZepException
      *             If an error occurs modifying the configuration.
      */
-    public void setConfigValue(String name, ZepConfig config) throws ZepException;
+    void setConfigValue(String name, ZepConfig config) throws ZepException;
 }

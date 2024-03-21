@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.ResultSetExtractor;
-import org.springframework.jdbc.core.simple.SimpleJdbcOperations;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.zenoss.protobufs.zep.Zep.EventTrigger;
 import org.zenoss.protobufs.zep.Zep.EventTriggerSubscription;
 import org.zenoss.protobufs.zep.Zep.Rule;
@@ -26,6 +26,7 @@ import org.zenoss.zep.dao.EventSignalSpoolDao;
 import org.zenoss.zep.dao.EventTriggerDao;
 import org.zenoss.zep.dao.impl.compat.DatabaseCompatibility;
 import org.zenoss.zep.dao.impl.compat.TypeConverter;
+import org.zenoss.zep.dao.impl.JdbcTemplateProxy;
 
 import java.lang.reflect.Proxy;
 import javax.sql.DataSource;
@@ -49,14 +50,14 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
     private static final Logger logger = LoggerFactory
             .getLogger(EventTriggerDaoImpl.class);
 
-    private final SimpleJdbcOperations template;
+    private final NamedParameterJdbcOperations template;
 
     private EventSignalSpoolDao eventSignalSpoolDao;
     private TypeConverter<String> uuidConverter;
 
     public EventTriggerDaoImpl(DataSource dataSource) {
-        this.template = (SimpleJdbcOperations) Proxy.newProxyInstance(SimpleJdbcOperations.class.getClassLoader(),
-                new Class<?>[] {SimpleJdbcOperations.class}, new SimpleJdbcTemplateProxy(dataSource));
+        this.template = (NamedParameterJdbcOperations) Proxy.newProxyInstance(NamedParameterJdbcOperations.class.getClassLoader(),
+                new Class<?>[] {NamedParameterJdbcOperations.class}, new JdbcTemplateProxy(dataSource));
     }
 
     public void setEventSignalSpoolDao(EventSignalSpoolDao eventSignalSpoolDao) {
@@ -100,7 +101,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
                 + "sub.repeat_seconds,sub.send_initial_occurrence FROM event_trigger "
                 + "LEFT JOIN event_trigger_subscription AS sub ON event_trigger.uuid = sub.event_trigger_uuid "
                 + "WHERE event_trigger.uuid=:uuid";
-        List<EventTrigger> triggers = this.template.getNamedParameterJdbcOperations().query(
+        List<EventTrigger> triggers = this.template.query(
                 sql, fields, new EventTriggerExtractor());
         EventTrigger trigger = null;
         if (!triggers.isEmpty()) {
@@ -115,7 +116,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
         String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,"
                 + "sub.repeat_seconds,sub.send_initial_occurrence FROM event_trigger "
                 + "LEFT JOIN event_trigger_subscription AS sub ON event_trigger.uuid = sub.event_trigger_uuid";
-        return this.template.getJdbcOperations().query(sql, new EventTriggerExtractor());
+        return this.template.query(sql, new EventTriggerExtractor());
     }
 
     @Override
@@ -124,8 +125,8 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
         String sql = "SELECT event_trigger.*,sub.uuid AS event_sub_uuid,sub.subscriber_uuid,sub.delay_seconds,"
                 + "sub.repeat_seconds,sub.send_initial_occurrence FROM event_trigger "
                 + "LEFT JOIN event_trigger_subscription AS sub ON event_trigger.uuid = sub.event_trigger_uuid "
-                + "WHERE event_trigger.enabled <> ?";
-        return this.template.getJdbcOperations().query(sql, new EventTriggerExtractor(), Boolean.FALSE);
+                + "WHERE event_trigger.enabled <> :flag";
+        return this.template.query(sql,Collections.singletonMap("flag", Boolean.FALSE), new EventTriggerExtractor());
     }
 
     @Override
@@ -145,7 +146,7 @@ public class EventTriggerDaoImpl implements EventTriggerDao {
             logger.warn("No fields to modify in trigger: {}", trigger);
             return 0;
         }
-        String sql = String.format("UPDATE event_trigger SET %s WHERE uuid=:uuid", fieldsSql.toString());
+        String sql = String.format("UPDATE event_trigger SET %s WHERE uuid=:uuid", fieldsSql);
         int numRows = template.update(sql, fields);
 
         /* If trigger is now disabled, remove any spooled signals */

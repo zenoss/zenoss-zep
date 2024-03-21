@@ -10,6 +10,7 @@
 
 package org.zenoss.zep.impl;
 
+import com.codahale.metrics.MetricRegistry;
 import org.easymock.Capture;
 import org.junit.Test;
 import org.zenoss.amqp.AmqpException;
@@ -75,20 +76,20 @@ public class EventProcessorImplTest {
         Counters counters = createMock(Counters.class);
         SamplePostPlugin postPlugin = new SamplePostPlugin();
 
-        Capture<Event> transformedEvent = new Capture<Event>();
-        Capture<EventPreCreateContext> transformedContext = new Capture<EventPreCreateContext>();
+        Capture<Event> transformedEvent = Capture.newInstance();
+        Capture<EventPreCreateContext> transformedContext = Capture.newInstance();
 
         String uuid = UUID.randomUUID().toString();
         EventSummary summary = EventSummary.newBuilder().setUuid(UUID.randomUUID().toString()).build();
         expect(eventSummaryDao.create(capture(transformedEvent), capture(transformedContext))).andReturn(uuid);
         expect(pluginService.getPluginsByType(EventPreCreatePlugin.class))
                 .andReturn(
-                        Arrays.<EventPreCreatePlugin>asList(
+                        Arrays.asList(
                                 new SampleIdentifyPlugin(),
                                 new SampleTransformPlugin()));
         expectLastCall();
         expect(pluginService.getPluginsByType(EventPostCreatePlugin.class))
-                .andReturn(Arrays.<EventPostCreatePlugin> asList(postPlugin));
+                .andReturn(Arrays.asList(postPlugin));
         expectLastCall();
         expect(eventSummaryDao.findByUuid(uuid)).andReturn(summary);
         replay(pluginService, eventSummaryDao);
@@ -97,6 +98,7 @@ public class EventProcessorImplTest {
         eventProcessor.setPluginService(pluginService);
         eventProcessor.setEventSummaryDao(eventSummaryDao);
         eventProcessor.setCounters(counters);
+        eventProcessor.setMetricRegistry(new MetricRegistry());
 
         Event.Builder eventBuilder = Event.newBuilder();
         eventBuilder.setUuid(UUID.randomUUID().toString());
@@ -122,16 +124,16 @@ public class EventProcessorImplTest {
         EventSummaryDao eventSummaryDao = createMock(EventSummaryDao.class);
         Counters counters = createMock(Counters.class);
 
-        Capture<Event> transformedEvent = new Capture<Event>();
-        Capture<EventPreCreateContext> transformedContext = new Capture<EventPreCreateContext>();
+        Capture<Event> transformedEvent = Capture.newInstance();
+        Capture<EventPreCreateContext> transformedContext = Capture.newInstance();
 
         String uuid = UUID.randomUUID().toString();
         expect(eventSummaryDao.create(capture(transformedEvent), capture(transformedContext))).andReturn(uuid);
         expect(pluginService.getPluginsByType(EventPreCreatePlugin.class))
-                .andReturn(Collections.<EventPreCreatePlugin>emptyList());
+                .andReturn(Collections.emptyList());
         expectLastCall();
         expect(pluginService.getPluginsByType(EventPostCreatePlugin.class))
-                .andReturn(Collections.<EventPostCreatePlugin> emptyList());
+                .andReturn(Collections.emptyList());
         expectLastCall();
         replay(pluginService, eventSummaryDao);
 
@@ -139,6 +141,7 @@ public class EventProcessorImplTest {
         eventProcessor.setPluginService(pluginService);
         eventProcessor.setEventSummaryDao(eventSummaryDao);
         eventProcessor.setCounters(counters);
+        eventProcessor.setMetricRegistry(new MetricRegistry());
 
         Event.Builder eventBuilder = Event.newBuilder();
         eventBuilder.setUuid(UUID.randomUUID().toString());

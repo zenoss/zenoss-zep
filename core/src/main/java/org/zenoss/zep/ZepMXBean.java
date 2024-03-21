@@ -25,18 +25,18 @@ package org.zenoss.zep;
  *   relevant Lucene statistics. Size of indexes.
  */
 public interface ZepMXBean {
-    public long getProcessedEventCount();
-    public long getDedupedEventCount();
-    public long getDroppedEventCount();
-    public long getClearedEventCount();
-    public long getArchivedEventCount();
-    public long getAgedEventCount();
-    public long getArchiveEligibleEventCount();
-    public long getAgeEligibleEventCount();
-    public long getSummaryQueueLength();
-    public long getArchiveQueueLength();
-    public long getSummaryIndexSize();
-    public long getArchiveIndexSize();
-    public long getSummaryIndexDocCount();
-    public long getArchiveIndexDocCount();
+    long getProcessedEventCount();
+    long getDedupedEventCount();
+    long getDroppedEventCount();
+    long getClearedEventCount();
+    long getArchivedEventCount();
+    long getAgedEventCount();
+    long getArchiveEligibleEventCount();
+    long getAgeEligibleEventCount();
+    long getSummaryQueueLength();
+    long getArchiveQueueLength();
+    long getSummaryIndexSize();
+    long getArchiveIndexSize();
+    long getSummaryIndexDocCount();
+    long getArchiveIndexDocCount();
 }

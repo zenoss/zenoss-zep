@@ -74,14 +74,24 @@ To specify a system property from the Maven command-line, run:
 
 $ mvn -D<propname>=<propval> [...]
 
-To run the integration tests against PostgreSQL, run:
-
-$ mvn clean verify -Ddbtype=postgresql
-
 To run the integration tests against MySQL, run:
 
-$ mvn clean verify -Ddbtype=mysql
+`./mysql_integration_tests.sh`
 
 You can override any of the default settings for connecting to the database by
 specifying the property above either in a Maven profile in
 $HOME/.m2/settings.xml or on the command line with the -D option to mvn.
+
+For local testing zenventserver in production mode execute these steps:
+
+* `make build-test-img`
+* `./test_deploy.sh`
+* `zeneventserver-create-db --dbtype mysql --dbhost mysql --dbadminuser root --dbadminpass root`
+* `zeneventserver start or zeneventserver run`
+* `curl http://localhost:8084/zeneventserver/api/1.0/heartbeats/`
+* `curl http://localhost:8084/zeneventserver/api/1.0/config/`
+* `curl http://localhost:8084/zeneventserver/api/1.0/triggers/`
+* `curl http://localhost:8084/zeneventserver/api/1.0/stats/`
+* `curl http://localhost:8084/zeneventserver/api/1.0/diagnostics/threads/`
+* `curl http://localhost:8084/zeneventserver/api/1.0/events/`
+* `curl http://localhost:8084/zeneventserver/metrics/metrics?pretty=true`

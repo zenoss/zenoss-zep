@@ -97,7 +97,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
         eventArchiveLuceneIndexBackend.setReaderReopenInterval(0);
         eventSummaryDao.setTxSynchronizedQueue(false);
         this.workQueue.clearAll();
-        this.simpleJdbcTemplate.update("TRUNCATE TABLE event_archive_index_queue");
+        this.jdbcTemplate.update("TRUNCATE TABLE event_archive_index_queue");
     }
 
     private EventSummary create(EventSummaryBaseDao eventSummaryBaseDao, boolean archive) throws ZepException {
@@ -110,9 +110,9 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
     }
 
     private static class TestEventIndexHandler implements EventIndexHandler {
-        private List<EventSummary> indexed = new ArrayList<EventSummary>();
-        private List<String> deleted = new ArrayList<String>();
-        private AtomicBoolean completed = new AtomicBoolean(false);
+        private final List<EventSummary> indexed = new ArrayList<EventSummary>();
+        private final List<String> deleted = new ArrayList<String>();
+        private final AtomicBoolean completed = new AtomicBoolean(false);
 
         @Override
         public void prepareToHandle(Collection<EventSummary> events) throws Exception {
@@ -231,7 +231,7 @@ public class EventIndexQueueDaoImplIT extends AbstractTransactionalJUnit4SpringC
             int archived = eventSummaryDao.archive(Collections.singletonList(summary.getUuid()));
             assertEquals(1, archived);
         } else {
-            int numDeleted = this.simpleJdbcTemplate.update("DELETE FROM " + tableName + " WHERE uuid=?",
+            int numDeleted = this.jdbcTemplate.update("DELETE FROM " + tableName + " WHERE uuid=?",
                     uuidConverter.toDatabaseType(summary.getUuid()));
             assertEquals(1, numDeleted);
         }
