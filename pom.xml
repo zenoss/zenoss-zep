@@ -7,7 +7,7 @@
     <groupId>org.zenoss.zep</groupId>
     <artifactId>zep-parent</artifactId>
     <packaging>pom</packaging>
-    <version>2.8.1-SNAPSHOT</version>
+    <version>2.8.1</version>
     <name>Zenoss Event Processor Parent</name>
     <url>http://www.zenoss.com</url>
 
@@ -67,7 +67,7 @@
         <easymock.version>5.2.0</easymock.version>
         <junit.version>4.13.2</junit.version>
 
-        <metric-consumer.version>0.1.18-SNAPSHOT</metric-consumer.version>
+        <metric-consumer.version>0.1.19</metric-consumer.version>
 
         <!-- chosen based upon the version used in zing-proto -->
 <!--        <protobuf-java.version>2.5.0</protobuf-java.version>-->
@@ -77,8 +77,8 @@
         <gax-grpc.version>2.24.0</gax-grpc.version>
         <pubsub.version>1.115.2</pubsub.version>
         <pubsublite.version>1.12.3</pubsublite.version>
-        <zenoss-protocols.version>2.1.9-SNAPSHOT</zenoss-protocols.version>
-        <zenoss-utils.version>2.1.1-SNAPSHOT</zenoss-utils.version>
+        <zenoss-protocols.version>2.1.9</zenoss-protocols.version>
+        <zenoss-utils.version>2.1.1</zenoss-utils.version>
         <zing-proto.version>11.1.2</zing-proto.version>
 
         <maven-antrun-plugin.version>3.1.0</maven-antrun-plugin.version>
