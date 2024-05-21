@@ -11,6 +11,7 @@
 package org.zenoss.zep.impl;
 
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,7 @@ import org.zenoss.amqp.AmqpException;
 import org.zenoss.amqp.Consumer;
 import org.zenoss.amqp.Message;
 import org.zenoss.amqp.QueueListener;
+import org.zenoss.zep.ZepException;
 import org.zenoss.zep.ZepUtils;
 import org.zenoss.zep.dao.impl.DaoUtils;
 
@@ -66,53 +68,39 @@ public abstract class AbstractQueueListener extends QueueListener {
     @Override
     protected void receive(final Message<com.google.protobuf.Message> message,
             final Consumer<com.google.protobuf.Message> consumer) throws Exception {
-        metricRegistry.timer(receiveMessageTimerName).time(new Callable<Object>() {
-            @Override
-            public Object call() throws Exception {
-                AbstractQueueListener.this.executorService.submit(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            DaoUtils.deadlockRetry(new Callable<Object>() {
-                                @Override
-                                public Object call() throws Exception {
-                                    metricRegistry.timer(handleMessageTimerName).time(new Callable<Object>() {
-                                        @Override
-                                        public Object call() throws Exception {
-                                            handle(message.getBody());
-                                            return null;
-                                        }
-                                    });
-                                    return null;
-                                }
-                            });
-                            metricRegistry.timer(ackMessageTimerName).time(new Callable<Object>() {
-                                @Override
-                                public Object call() throws Exception {
-                                    consumer.ackMessage(message);
-                                    return null;
-                                }
-                            });
-                        } catch (Exception e) {
-                            if (ZepUtils.isExceptionOfType(e, TransientDataAccessException.class)) {
-                        /* Re-queue the message if we get a temporary database failure */
-                                logger.debug("Transient database exception", e);
-                                logger.debug("Re-queueing message due to transient failure: {}", message);
-                                rejectMessage(consumer, message, true);
-                            } else if (!message.getEnvelope().isRedeliver()) {
-                        /* Attempt one redelivery of the message */
-                                logger.debug("First failure processing message: " + message, e);
-                                rejectMessage(consumer, message, true);
-                            } else {
-                        /* TODO: Dead letter queue or other safety net? */
-                                logger.debug("Failed processing message: " + message, e);
-                                rejectMessage(consumer, message, false);
-                            }
+
+        try (Timer.Context ignored = metricRegistry.timer(receiveMessageTimerName).time()){
+            AbstractQueueListener.this.executorService.submit(() -> {
+                try {
+                    DaoUtils.deadlockRetry(() -> {
+                        try (Timer.Context ignored1 = metricRegistry.timer(handleMessageTimerName).time()){
+                            handle(message.getBody());
                         }
+                        return null;
+                    });
+
+                    try (Timer.Context ignored1 = metricRegistry.timer(ackMessageTimerName).time()){
+                        logger.debug("Trying to ackMessage");
+                        consumer.ackMessage(message);
+                        logger.debug("Message {} acknowledge", message);
                     }
-                });
-                return null;
-            }
-        });
+                } catch (Exception e) {
+                    if (ZepUtils.isExceptionOfType(e, TransientDataAccessException.class)) {
+                        /* Re-queue the message if we get a temporary database failure */
+                        logger.debug("Transient database exception", e);
+                        logger.debug("Re-queueing message due to transient failure: {}", message);
+                        rejectMessage(consumer, message, true);
+                    } else if (!message.getEnvelope().isRedeliver()) {
+                        /* Attempt one redelivery of the message */
+                        logger.debug("First failure processing message: " + message, e);
+                        rejectMessage(consumer, message, true);
+                    } else {
+                        /* TODO: Dead letter queue or other safety net? */
+                        logger.debug("Failed processing message: " + message, e);
+                        rejectMessage(consumer, message, false);
+                    }
+                }
+            });
+        }
     }
 }

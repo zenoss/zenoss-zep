@@ -240,7 +240,9 @@ public class TriggerPlugin extends EventPostIndexPlugin {
             Instant nextExecution = null;
             try {
                 long nextFlushTime = signalSpoolDao.getNextFlushTime();
-                if (nextFlushTime > 0) {
+                if (nextFlushTime == Long.MAX_VALUE) {
+                    nextExecution = Instant.now().plusSeconds(31536000); // 10 years
+                } else if (nextFlushTime > 0) {
                     nextExecution = Instant.ofEpochMilli(nextFlushTime);
                     logger.debug("Next flush time: {}", nextExecution);
                 }
