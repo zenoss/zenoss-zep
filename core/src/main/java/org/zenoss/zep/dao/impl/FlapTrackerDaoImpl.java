@@ -12,11 +12,11 @@ package org.zenoss.zep.dao.impl;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.RedisConnectionFailureException;
-import org.springframework.data.redis.core.StringRedisTemplate;
 import org.zenoss.zep.ZepException;
 import org.zenoss.zep.dao.FlapTrackerDao;
 import org.zenoss.zep.impl.FlapTracker;
+import org.zenoss.zep.utils.JedisPoolUtil;
+import redis.clients.jedis.params.SetParams;
 
 import java.util.concurrent.TimeUnit;
 
@@ -27,7 +27,7 @@ public class FlapTrackerDaoImpl implements FlapTrackerDao{
     private final String REDIS_FLAP_KEY = "zenoss_event_flapping";
 
     @Autowired
-    private StringRedisTemplate template = null;
+    private JedisPoolUtil pool = null;
 
 
     private String createKey(String clearFingerPrintHash) {
@@ -35,12 +35,7 @@ public class FlapTrackerDaoImpl implements FlapTrackerDao{
     }
     @Override
     public FlapTracker getFlapTrackerByClearFingerprintHash(String clearFingerPrintHash) throws ZepException {
-        String result;
-        try {
-            result = template.opsForValue().get(createKey(clearFingerPrintHash));
-        } catch (RedisConnectionFailureException e) {
-            throw new ZepException(e);
-        }
+        String result = pool.useJedis(jedis -> jedis.get(createKey(clearFingerPrintHash)));
         if (result != null) {
             // return existing flap tracker
             logger.debug("String gotten back from redis " + result);
@@ -54,10 +49,11 @@ public class FlapTrackerDaoImpl implements FlapTrackerDao{
     @Override
     public void persistTracker(String clearFingerprintHash, FlapTracker tracker, long timeToKeep) throws ZepException {
         logger.debug("Setting string key {}  value {}", createKey(clearFingerprintHash), tracker.convertToString());
-        try {
-            template.opsForValue().set(createKey(clearFingerprintHash), tracker.convertToString(), timeToKeep, TimeUnit.SECONDS);
-        }catch (RedisConnectionFailureException e) {
-            throw new ZepException(e);
-        }
+        SetParams params = new SetParams();
+        params.ex(timeToKeep);
+        pool.useJedis(jedis -> {
+            jedis.set(createKey(clearFingerprintHash), tracker.convertToString(), params);
+            return null;
+        });
     }
 }
