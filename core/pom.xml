@@ -306,6 +306,11 @@
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-jmx</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-webapp</artifactId>
             <version>${jetty.version}</version>
         </dependency>
@@ -401,7 +406,13 @@
                         <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-deploy.xml</jettyXml>
                         <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-http.xml</jettyXml>
                         <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-webapp.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-jmx.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-jmx-remote.xml</jettyXml>
                     </jettyXmls>
+                    <modules>
+                        <module>${project.basedir}/../dist/src/assembly/modules/jmx.mod</module>
+                        <module>${project.basedir}/../dist/src/assembly/modules/jmx-remote.mod</module>
+                    </modules>
                     <supportedPackagings>
                         <supportedPackaging>jar</supportedPackaging>
                     </supportedPackagings>
@@ -439,6 +450,11 @@
                     <dependency>
                         <groupId>org.eclipse.jetty</groupId>
                         <artifactId>jetty-util-ajax</artifactId>
+                        <version>${jetty.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-jmx</artifactId>
                         <version>${jetty.version}</version>
                     </dependency>
                     <dependency>
