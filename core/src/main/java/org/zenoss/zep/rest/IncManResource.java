@@ -3,6 +3,7 @@ package org.zenoss.zep.rest;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.annotations.GZIP;
@@ -63,7 +64,7 @@ public class IncManResource {
 
     @POST
     @Path("trigger_spool")
-    @Consumes({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
+    @Produces({ MediaType.APPLICATION_JSON, ProtobufConstants.CONTENT_TYPE_PROTOBUF })
     @GZIP
     public Response insertTriggerSpool(EventDetailSet update) throws ZepException {
         EventSignalSpool spool;
