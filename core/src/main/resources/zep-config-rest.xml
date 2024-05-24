@@ -40,6 +40,9 @@
     </bean>
     <bean id="diagnosticsResource" class="org.zenoss.zep.rest.DiagnosticsResource">
     </bean>
-    
+    <bean id="incManResource" class="org.zenoss.zep.rest.IncManResource">
+        <property name="eventTriggerSubscriptionDao" ref="eventTriggerSubscriptionDao" />
+        <property name="eventSignalSpoolDao" ref="eventSignalSpoolDao" />
+    </bean>
 
 </beans>
