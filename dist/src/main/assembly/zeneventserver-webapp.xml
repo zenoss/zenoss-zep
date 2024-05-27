@@ -27,6 +27,7 @@
                 <include>org.eclipse.jetty:jetty-servlet</include>
                 <include>org.eclipse.jetty:jetty-security</include>
                 <include>org.eclipse.jetty:jetty-util-ajax</include>
+                <include>org.eclipse.jetty:jetty-jmx</include>
                 <include>org.eclipse.jetty.toolchain:jetty-jakarta-servlet-api</include>
                 <include>org.zenoss.zep:zep-core</include>
                 <include>org.slf4j:slf4j-api</include>

@@ -13,7 +13,7 @@
     <parent>
         <groupId>org.zenoss.zep</groupId>
         <artifactId>zep-parent</artifactId>
-        <version>2.8.1</version>
+        <version>2.8.2</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -306,6 +306,11 @@
         </dependency>
         <dependency>
             <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-jmx</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
             <artifactId>jetty-webapp</artifactId>
             <version>${jetty.version}</version>
         </dependency>
@@ -321,11 +326,6 @@
                     <artifactId>log4j</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.data</groupId>
-            <artifactId>spring-data-redis</artifactId>
-            <version>${spring-data-redis.version}</version>
         </dependency>
         <dependency>
             <groupId>redis.clients</groupId>
@@ -406,7 +406,13 @@
                         <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-deploy.xml</jettyXml>
                         <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-http.xml</jettyXml>
                         <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-webapp.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-jmx.xml</jettyXml>
+                        <jettyXml>${project.basedir}/../dist/src/assembly/etc/zeneventserver/jetty/jetty-jmx-remote.xml</jettyXml>
                     </jettyXmls>
+                    <modules>
+                        <module>${project.basedir}/../dist/src/assembly/modules/jmx.mod</module>
+                        <module>${project.basedir}/../dist/src/assembly/modules/jmx-remote.mod</module>
+                    </modules>
                     <supportedPackagings>
                         <supportedPackaging>jar</supportedPackaging>
                     </supportedPackagings>
@@ -444,6 +450,11 @@
                     <dependency>
                         <groupId>org.eclipse.jetty</groupId>
                         <artifactId>jetty-util-ajax</artifactId>
+                        <version>${jetty.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-jmx</artifactId>
                         <version>${jetty.version}</version>
                     </dependency>
                     <dependency>

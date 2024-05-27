@@ -14,6 +14,11 @@ JETTYSTART_JAR=`ls -1 ${JETTY_HOME}/lib/jetty-start*.jar`
 JETTY_ARGS="--module=centralized-webapp-logging,http,ext"
 PS="ps"
 
+[ -n "$JETTY_MODULES" ] && {
+  JETTY_ARGS="$JETTY_ARGS,$JETTY_MODULES";
+  echo "Additional modules added for jetty startup: $JETTY_ARGS";
+  }
+
 # Add --add-opens args to open modules to pre-module code.
 OPEN_PACKAGES="java.base/java.lang java.base/java.nio java.base/java.io"
 for pkg in ${OPEN_PACKAGES}; do
@@ -306,6 +311,8 @@ Usage: $0 {start|stop|restart|status|run|run_quiet|threads} [options]
               logging will be suppressed)
 
     threads   - display thread status to stdout
+
+    for running jetty with additional modules export JETTY_MODULES variable, eg JETTY_MODULES="jmx,jmx-remote"
 
 HELP
             exit 1

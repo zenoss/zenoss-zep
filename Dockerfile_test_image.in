@@ -31,7 +31,7 @@ update-alternatives --install /usr/bin/python python /usr/bin/python2 2
 mkdir -p /opt/zenoss
 EOT
 
-ADD dist/target/zep-dist-2.8.1.tar.gz /opt/zenoss
+ADD dist/target/zep-dist-2.8.2.tar.gz /opt/zenoss
 
 ENV TERM=xterm ZENHOME=/opt/zenoss PATH="/opt/zenoss/bin:${PATH}"
 

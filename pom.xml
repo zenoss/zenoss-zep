@@ -7,7 +7,7 @@
     <groupId>org.zenoss.zep</groupId>
     <artifactId>zep-parent</artifactId>
     <packaging>pom</packaging>
-    <version>2.8.1</version>
+    <version>2.8.2</version>
     <name>Zenoss Event Processor Parent</name>
     <url>http://www.zenoss.com</url>
 
@@ -47,7 +47,6 @@
 
         <metrics.version>4.2.23</metrics.version>
         <jedis.version>3.7.1</jedis.version>
-        <spring-data-redis.version>3.2.1</spring-data-redis.version>
         <mysql.version>5.1.15</mysql.version>
         <mariadb-java-client.version>1.1.7</mariadb-java-client.version>
         <postgresql.version>9.0-801.jdbc4</postgresql.version>
