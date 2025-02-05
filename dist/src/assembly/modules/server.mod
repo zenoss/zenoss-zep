@@ -12,7 +12,7 @@ logging
 bytebufferpool
 
 [ini]
-zenoss-zep-core.version?=2.8.2-SNAPSHOT
+zenoss-zep-core.version?=2.8.2
 
 [lib]
 lib/jetty-http-${jetty.version}.jar
