@@ -46,6 +46,8 @@
         <property name="amqpConnectionManager" ref="amqpConnectionManager"/>
     </bean>
 
+    <bean id="eventTimePlugin" class="org.zenoss.zep.impl.EventTimePlugin" />
+
     <bean id="eventProcessor" class="org.zenoss.zep.impl.EventProcessorImpl">
         <property name="pluginService" ref="pluginService"/>
         <property name="eventSummaryDao" ref="eventSummaryDao"/>

@@ -77,6 +77,7 @@
         <pubsub.version>1.115.2</pubsub.version>
         <pubsublite.version>1.12.3</pubsublite.version>
         <zenoss-protocols.version>2.1.9</zenoss-protocols.version>
+        <javacsv.version>2.0</javacsv.version>
         <zenoss-utils.version>2.1.1</zenoss-utils.version>
         <zing-proto.version>11.1.2</zing-proto.version>
 
