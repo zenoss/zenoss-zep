@@ -111,7 +111,7 @@
             <artifactId>javacsv</artifactId>
             <version>${javacsv.version}</version>
             <type>jar</type>
-            <scope>provided</scope>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
