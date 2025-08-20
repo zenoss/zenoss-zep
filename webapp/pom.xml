@@ -30,6 +30,11 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>net.sourceforge.javacsv</groupId>
+            <artifactId>javacsv</artifactId>
+            <version>${javacsv.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.zenoss.zep</groupId>
             <artifactId>zep-core</artifactId>
             <version>${project.version}</version>
@@ -226,6 +231,11 @@
                         <groupId>org.codehaus.janino</groupId>
                         <artifactId>janino</artifactId>
                         <version>${janino.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>net.sourceforge.javacsv</groupId>
+                        <artifactId>javacsv</artifactId>
+                        <version>${javacsv.version}</version>
                     </dependency>
                     <dependency>
                         <groupId>org.eclipse.jetty</groupId>

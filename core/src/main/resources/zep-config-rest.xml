@@ -45,4 +45,6 @@
         <property name="eventSignalSpoolDao" ref="eventSignalSpoolDao" />
     </bean>
 
+    <bean id="etlResource" class="org.zenoss.zep.rest.EtlResource"/>
+
 </beans>
