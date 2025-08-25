@@ -13,7 +13,7 @@
     <parent>
         <groupId>org.zenoss.zep</groupId>
         <artifactId>zep-parent</artifactId>
-        <version>2.8.2</version>
+        <version>2.8.3</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -134,6 +134,12 @@
                     <groupId>org.eclipse.jetty.toolchain</groupId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>net.sourceforge.javacsv</groupId>
+            <artifactId>javacsv</artifactId>
+            <version>${javacsv.version}</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 
