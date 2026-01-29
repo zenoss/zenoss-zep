@@ -619,18 +619,16 @@
     </build>
 
     <repositories>
-        <repository>
-            <id>Central</id>
-            <url>http://nexus.zenoss.eng:8081/nexus/content/repositories/central/</url>
-        </repository>
-        <repository>
-            <id>Snapshots</id>
-            <url>http://nexus.zenoss.eng:8081/nexus/content/repositories/snapshots/</url>
-        </repository>
-        <repository>
-            <id>Releases</id>
-            <url>http://nexus.zenoss.eng:8081/nexus/content/repositories/releases/</url>
-        </repository>
-    </repositories>
+		<repository>
+			<id>virtana-zing</id>
+			<url>artifactregistry://us-maven.pkg.dev/zing-registry-188222/virtana-zing</url>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
 
 </project>
