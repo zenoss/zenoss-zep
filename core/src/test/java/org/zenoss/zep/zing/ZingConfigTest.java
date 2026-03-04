@@ -28,11 +28,14 @@ public class ZingConfigTest {
         boolean enabled = true;
         boolean useEmulator = true;
         boolean usePubsubLite = true;
+        boolean useKafka = false;
         long pubsubLiteProjectNumber = 123456;
         String pubsubLiteLocation = "australia-southeast1-a";
+        String kafkaBootstrapServers = "";
+        String kafkaProducerPropertiesPath = "";
 
 
-        ZingConfig cfg = new ZingConfig(enabled, useEmulator, usePubsubLite, tnt, src, prj, topic, pubsubLiteProjectNumber, pubsubLiteLocation, emulator, credsPath, minSev, maxPubsubMessSize, maxEventFieldLength);
+        ZingConfig cfg = new ZingConfig(enabled, useEmulator, usePubsubLite, tnt, src, prj, topic, pubsubLiteProjectNumber, pubsubLiteLocation, useKafka, kafkaBootstrapServers, kafkaProducerPropertiesPath, emulator, credsPath, minSev, maxPubsubMessSize, maxEventFieldLength);
 
         // config without tenant, source, project or topic is invalid
         assertTrue(cfg.validate());
@@ -68,6 +71,14 @@ public class ZingConfigTest {
         assertFalse(cfg.validate());
         cfg.setPubsubLiteLocation("australia-southweat1-a");
 
+        // Test Kafka options
+        cfg.setUseKafka(true);
+        // Should fail because bootstrap servers is empty
+        assertFalse(cfg.validate());
+        cfg.setKafkaBootstrapServers("localhost:9092");
+        assertTrue(cfg.validate());
+        cfg.setUseKafka(false);
+
         // If a creds path exists, it must point to a readable file
         cfg.setCredentialsPath("/a/b/c");
         assertFalse(cfg.validate());
@@ -87,10 +98,13 @@ public class ZingConfigTest {
         boolean enabled = true;
         boolean useEmulator = false;
         boolean usePubsubLite = false;
+        boolean useKafka = false;
         long pubsubLiteProjectNumber = 0;
         String pubsubLiteLocation = "";
+        String kafkaBootstrapServers = "";
+        String kafkaProducerPropertiesPath = "";
 
-        ZingConfig cfg = new ZingConfig(enabled, useEmulator, usePubsubLite, tnt, src, prj, topic, pubsubLiteProjectNumber, pubsubLiteLocation, emulator, credsPath, minSev, maxPubsubMessSize, maxEventFieldLength);
+        ZingConfig cfg = new ZingConfig(enabled, useEmulator, usePubsubLite, tnt, src, prj, topic, pubsubLiteProjectNumber, pubsubLiteLocation, useKafka, kafkaBootstrapServers, kafkaProducerPropertiesPath, emulator, credsPath, minSev, maxPubsubMessSize, maxEventFieldLength);
 
         assertTrue(cfg.validate());
 

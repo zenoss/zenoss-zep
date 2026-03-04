@@ -119,8 +119,10 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
                 this.publisher = new ZingEmulatorPublisherImpl(this.metricRegistry, this.config);
             } else if (this.config.usePubsubLite) {
                 this.publisher = new ZingPubSubLitePublisherImpl(this.metricRegistry, this.config);
+            } else if (this.config.useKafka) {
+                this.publisher = new ZingKafkaPublisherImpl(this.metricRegistry, this.config);
             } else {
-                this.publisher = new ZingPublisherImpl(this.metricRegistry, this.config);
+                this.publisher = new ZingPubSubPublisherImpl(this.metricRegistry, this.config);
             }
         }
         if(this.publisher==null) {

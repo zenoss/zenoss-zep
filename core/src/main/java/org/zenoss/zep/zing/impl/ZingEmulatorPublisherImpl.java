@@ -44,7 +44,11 @@ public class ZingEmulatorPublisherImpl extends ZingPublisher {
 
     public ZingEmulatorPublisherImpl(MetricRegistry metrics, ZingConfig config) {
         super(metrics, config);
-        logger.info("Creating Publisher to PubSub emulator");
+        logger.info(
+            "creating publisher to Pub/Sub emulator: topic={} address={}",
+            config.topic,
+            config.emulatorHostAndPort);
+
         this.everConnected = new AtomicBoolean(false);
         this.setPublisher(this.buildPublisher(config));
     }
