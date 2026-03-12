@@ -76,6 +76,9 @@
         <gax-grpc.version>2.24.0</gax-grpc.version>
         <pubsub.version>1.115.2</pubsub.version>
         <pubsublite.version>1.12.3</pubsublite.version>
+        <kafka-clients.version>3.7.0</kafka-clients.version>
+        <managed-kafka-auth-login-handler.version>1.0.6</managed-kafka-auth-login-handler.version>
+        <google-cloud-managedkafka.version>0.39.0</google-cloud-managedkafka.version>
         <zenoss-protocols.version>2.1.9</zenoss-protocols.version>
         <javacsv.version>2.0</javacsv.version>
         <zenoss-utils.version>2.1.1</zenoss-utils.version>

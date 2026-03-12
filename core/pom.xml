@@ -388,6 +388,21 @@
             <version>${pubsublite.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>${kafka-clients.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.cloud.hosted.kafka</groupId>
+            <artifactId>managed-kafka-auth-login-handler</artifactId>
+            <version>${managed-kafka-auth-login-handler.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-managedkafka</artifactId>
+            <version>${google-cloud-managedkafka.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.zenoss.zing.proto</groupId>
             <artifactId>zing-proto</artifactId>
             <version>${zing-proto.version}</version>
