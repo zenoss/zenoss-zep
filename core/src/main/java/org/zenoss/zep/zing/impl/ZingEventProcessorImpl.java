@@ -217,6 +217,10 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         if (summary.hasClearedByEventUuid()) builder.setClearedByUUID(summary.getClearedByEventUuid());
         for (EventDetail d : event.getDetailsList()) {
             List<String> valueList = d.getValueList();
+            // This should never happen
+            if (detail.getValueCount() == 0) {
+                continue;
+            }
             String detailString = valueList.get(0);
             Integer detailStringSize = detailString.getBytes().length;
             if (detailStringSize > this.maxEventFieldLength) {
