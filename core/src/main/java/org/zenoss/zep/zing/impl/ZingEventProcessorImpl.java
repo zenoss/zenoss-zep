@@ -218,7 +218,7 @@ public class ZingEventProcessorImpl implements ZingEventProcessor {
         for (EventDetail d : event.getDetailsList()) {
             List<String> valueList = d.getValueList();
             // This should never happen
-            if (detail.getValueCount() == 0) {
+            if (d.getValueCount() == 0) {
                 continue;
             }
             String detailString = valueList.get(0);
