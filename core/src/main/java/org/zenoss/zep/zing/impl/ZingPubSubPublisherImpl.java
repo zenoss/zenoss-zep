@@ -9,8 +9,6 @@
 
 package org.zenoss.zep.zing.impl;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 
 import org.slf4j.Logger;
@@ -20,20 +18,21 @@ import org.zenoss.zep.zing.ZingPublisher;
 
 import com.codahale.metrics.MetricRegistry;
 import com.google.api.gax.core.CredentialsProvider;
-import com.google.api.gax.core.FixedCredentialsProvider;
-import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.cloud.pubsub.v1.PublisherInterface;
 
-public class ZingPublisherImpl extends ZingPublisher {
+public class ZingPubSubPublisherImpl extends ZingPublisher {
 
-    private static final Logger logger = LoggerFactory.getLogger(ZingPublisherImpl.class);
+    private static final Logger logger = LoggerFactory.getLogger(ZingPubSubPublisherImpl.class);
 
     private Publisher publisher = null;
 
-    public ZingPublisherImpl(MetricRegistry metrics, ZingConfig config) {
+    public ZingPubSubPublisherImpl(MetricRegistry metrics, ZingConfig config) {
         super(metrics, config);
-        logger.info("Creating Publisher to GCP PubSub");
+        logger.info(
+            "creating publisher to Pub/Sub: topic={}",
+            config.topic);
+
         this.setPublisher(this.buildPublisher(config));
     }
 

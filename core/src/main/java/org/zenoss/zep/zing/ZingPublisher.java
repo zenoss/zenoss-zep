@@ -93,6 +93,10 @@ public abstract class ZingPublisher {
         this.failedEventsCounter.inc();
     }
 
+    protected void incBytesSent(long bytes) {
+        this.bytesSentCounter.inc(bytes);
+    }
+
     public PubsubMessage getPubSubMessage(ZingEvent event) {
         final Event zingEvent = event.toZingEventProto();
         final ByteString bytes = zingEvent.toByteString();

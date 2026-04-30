@@ -25,6 +25,8 @@ public class ZingConfig {
 
     public boolean usePubsubLite = false;
 
+    public boolean useKafka = false;
+
     public String tenant = "";
 
     public String source = "";
@@ -36,6 +38,10 @@ public class ZingConfig {
     public long pubsubLiteProjectNumber = 0;
 
     public String pubsubLiteLocation = "";
+
+    public String kafkaBootstrapServers = "";
+
+    public String kafkaProducerPropertiesPath = "";
 
     public String emulatorHostAndPort = "";
 
@@ -52,17 +58,21 @@ public class ZingConfig {
     public ZingConfig(boolean enabled, boolean useEmulator, boolean usePubsubLite,
                       String tenant, String source, String project, String topic,
                       long pubsubLiteProjectNumber, String pubsubLiteLocation,
+                      boolean useKafka, String kafkaBootstrapServers, String kafkaProducerPropertiesPath,
                       String emulatorHostAndPort, String credentialsPath, String minimumSeverity,
                       Integer maxPubsubMessageSize, Integer maxEventFieldLength) {
         this.enabled = enabled;
         this.useEmulator = useEmulator;
         this.usePubsubLite = usePubsubLite;
+        this.useKafka = useKafka;
         this.tenant = tenant;
         this.source = source;
         this.project = project;
         this.topic = topic;
         this.pubsubLiteProjectNumber = pubsubLiteProjectNumber;
         this.pubsubLiteLocation = pubsubLiteLocation;
+        this.kafkaBootstrapServers = kafkaBootstrapServers;
+        this.kafkaProducerPropertiesPath = kafkaProducerPropertiesPath;
         this.emulatorHostAndPort = emulatorHostAndPort;
         this.credentialsPath = credentialsPath;
         this.minimumSeverity = minimumSeverity;
@@ -77,9 +87,7 @@ public class ZingConfig {
         if (this.pubsubLiteProjectNumber == 0) {
             switch (this.project) {
                 case "zing-dev-197522":     this.pubsubLiteProjectNumber = 303933868810L; break;
-                case "zing-testing-200615": this.pubsubLiteProjectNumber = 744199835707L; break;
                 case "zing-preview":        this.pubsubLiteProjectNumber = 282430405229L; break;
-                case "zing-perf":           this.pubsubLiteProjectNumber = 1091318775822L; break;
                 case "zcloud-emea":         this.pubsubLiteProjectNumber = 135493714097L; break;
                 case "zcloud-prod":         this.pubsubLiteProjectNumber = 29121105001L; break;
                 case "zcloud-prod2":        this.pubsubLiteProjectNumber = 204978327501L; break;
@@ -90,13 +98,30 @@ public class ZingConfig {
         if (Strings.isNullOrEmpty(this.pubsubLiteLocation)) {
             switch (this.project) {
                 case "zing-dev-197522":     this.pubsubLiteLocation = "us-central1-c"; break;
-                case "zing-testing-200615": this.pubsubLiteLocation = "us-central1-c"; break;
                 case "zing-preview":        this.pubsubLiteLocation = "us-central1-c"; break;
-                case "zing-perf":           this.pubsubLiteLocation = "us-central1-c"; break;
                 case "zcloud-emea":         this.pubsubLiteLocation = "europe-west3-a"; break;
                 case "zcloud-prod":         this.pubsubLiteLocation = "us-central1-c"; break;
                 case "zcloud-prod2":        this.pubsubLiteLocation = "us-west4-a"; break;
                 case "zcloud-prod3":        this.pubsubLiteLocation = "australia-southeast1-a"; break;
+            }
+        }
+
+        if (Strings.isNullOrEmpty(this.kafkaBootstrapServers)) {
+            switch (this.project) {
+                case "zing-dev-197522":     this.kafkaBootstrapServers = "bootstrap.shared.us-central1.managedkafka.zing-dev-197522.cloud.goog:9092"; break;
+                case "zing-preview":        this.kafkaBootstrapServers = "bootstrap.shared.us-central1.managedkafka.zing-preview.cloud.goog:9092"; break;
+                case "zcloud-emea":         this.kafkaBootstrapServers = "bootstrap.shared.europe-west3.managedkafka.zcloud-emea.cloud.goog:9092"; break;
+                case "zcloud-prod":         this.kafkaBootstrapServers = "bootstrap.shared.us-central1.managedkafka.zcloud-prod.cloud.goog:9092"; break;
+                case "zcloud-prod2":        this.kafkaBootstrapServers = "bootstrap.shared.us-west4.managedkafka.zcloud-prod2.cloud.goog:9092"; break;
+                case "zcloud-prod3":        this.kafkaBootstrapServers = "bootstrap.shared.australia-southeast1.managedkafka.zcloud-prod3.cloud.goog:9092"; break;
+            }
+        }
+
+        if (Strings.isNullOrEmpty(this.topic)) {
+            if (this.useKafka) {
+                this.topic = "zing-event-in";
+            } else {
+                this.topic = "event-in";
             }
         }
     }
@@ -115,6 +140,10 @@ public class ZingConfig {
 
     public void setUsePubsubLite(boolean usePubsubLite) {
         this.usePubsubLite = usePubsubLite;
+    }
+
+    public void setUseKafka(boolean useKafka) {
+        this.useKafka = useKafka;
     }
 
     public void setTenant(String tnt) {
@@ -141,6 +170,14 @@ public class ZingConfig {
         this.pubsubLiteLocation = pubsubLiteLocation;
     }
 
+    public void setKafkaBootstrapServers(String kafkaBootstrapServers) {
+        this.kafkaBootstrapServers = kafkaBootstrapServers;
+    }
+
+    public void setKafkaProducerPropertiesPath(String kafkaProducerPropertiesPath) {
+        this.kafkaProducerPropertiesPath = kafkaProducerPropertiesPath;
+    }
+
     public void setEmulatorHostAndPort(String hostAndPort) {
         this.emulatorHostAndPort = hostAndPort;
     }
@@ -164,6 +201,7 @@ public class ZingConfig {
         strBuf.append(" / enabled = ").append(this.enabled);
         strBuf.append(" / useEmulator = ").append(this.useEmulator);
         strBuf.append(" / usePubsubLite = ").append(this.usePubsubLite);
+        strBuf.append(" / useKafka = ").append(this.useKafka);
         strBuf.append(" / emulatorUrl = ").append(this.emulatorHostAndPort);
         strBuf.append(" / tenant = ").append(this.tenant);
         strBuf.append(" / source = ").append(this.source);
@@ -171,6 +209,8 @@ public class ZingConfig {
         strBuf.append(" / topic = ").append(this.topic);
         strBuf.append(" / pubsubLiteProjectNumber = ").append(this.pubsubLiteProjectNumber);
         strBuf.append(" / pubsubLiteLocation = ").append(this.pubsubLiteLocation);
+        strBuf.append(" / kafkaBootstrapServers = ").append(this.kafkaBootstrapServers);
+        strBuf.append(" / kafkaProducerPropertiesPath = ").append(this.kafkaProducerPropertiesPath);
         strBuf.append(" / credentials path = ").append(this.credentialsPath);
         strBuf.append(" / min severity = ").append(this.minimumSeverity);
         strBuf.append(" / max pubsub message size = ").append(this.maxPubsubMessageSize);
@@ -186,6 +226,9 @@ public class ZingConfig {
         }
         if (valid && this.usePubsubLite &&
             (this.pubsubLiteProjectNumber == 0 || this.pubsubLiteLocation.isEmpty()) ){
+            valid = false;
+        }
+        if (valid && this.useKafka && this.kafkaBootstrapServers.isEmpty()) {
             valid = false;
         }
         if (valid && !this.credentialsPath.isEmpty()) {

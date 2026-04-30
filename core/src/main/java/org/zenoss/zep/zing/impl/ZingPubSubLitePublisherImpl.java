@@ -34,7 +34,11 @@ public class ZingPubSubLitePublisherImpl extends ZingPublisher {
 
     public ZingPubSubLitePublisherImpl(MetricRegistry metrics, ZingConfig config) {
         super(metrics, config);
-        logger.info("Creating Publisher to PubSubLite");
+        logger.info(
+            "creating publisher to Pub/Sub Lite: topic={}, location={}",
+            config.topic,
+            config.pubsubLiteLocation);
+
         this.setPublisher(this.buildPublisher(config));
     }
 

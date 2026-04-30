@@ -13,7 +13,7 @@
     <parent>
         <groupId>org.zenoss.zep</groupId>
         <artifactId>zep-parent</artifactId>
-        <version>2.8.3</version>
+        <version>2.8.4</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -388,6 +388,21 @@
             <version>${pubsublite.version}</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+            <version>${kafka-clients.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.cloud.hosted.kafka</groupId>
+            <artifactId>managed-kafka-auth-login-handler</artifactId>
+            <version>${managed-kafka-auth-login-handler.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.cloud</groupId>
+            <artifactId>google-cloud-managedkafka</artifactId>
+            <version>${google-cloud-managedkafka.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.zenoss.zing.proto</groupId>
             <artifactId>zing-proto</artifactId>
             <version>${zing-proto.version}</version>
@@ -619,18 +634,16 @@
     </build>
 
     <repositories>
-        <repository>
-            <id>Central</id>
-            <url>http://nexus.zenoss.eng:8081/nexus/content/repositories/central/</url>
-        </repository>
-        <repository>
-            <id>Snapshots</id>
-            <url>http://nexus.zenoss.eng:8081/nexus/content/repositories/snapshots/</url>
-        </repository>
-        <repository>
-            <id>Releases</id>
-            <url>http://nexus.zenoss.eng:8081/nexus/content/repositories/releases/</url>
-        </repository>
-    </repositories>
+		<repository>
+			<id>virtana-zing</id>
+			<url>artifactregistry://us-maven.pkg.dev/zing-registry-188222/virtana-zing</url>
+			<releases>
+				<enabled>true</enabled>
+			</releases>
+			<snapshots>
+				<enabled>true</enabled>
+			</snapshots>
+		</repository>
+	</repositories>
 
 </project>
